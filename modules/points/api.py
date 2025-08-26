@@ -1,5 +1,6 @@
 import csv
 from flask import Flask, jsonify, request, Blueprint, session
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from modules.auth.decoraters import auth_required
 from modules.utils.db import DBConnect
@@ -709,20 +710,24 @@ def get_org_leaderboard(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
         
         leaderboard = (
-            db.query(
-                User.name,
-                User.email,  # Include both email and UUID in the query
-                User.uuid,
-                func.coalesce(func.sum(Points.points), 0).label("total_points"),
-            )
-            .outerjoin(Points)
-            .filter(Points.organization_id == organization.id)  # Filter by organization
-            .group_by(User.email, User.uuid, User.name)  # Group by email and UUID for uniqueness
-            .order_by(
-                func.sum(Points.points).desc(), User.name.asc()
-            )
-            .all()
-        )
+                        db.query(
+                            User.name,
+                            User.email,
+                            User.uuid,
+                            func.coalesce(func.sum(Points.points), 0).label("total_points"),
+                        )
+                        .select_from(User)
+                        .outerjoin(
+                            Points,
+                            and_(
+                                Points.user_id == User.id,
+                                Points.organization_id == organization.id
+                            )
+                        )
+                        .group_by(User.email, User.uuid, User.name)
+                        .order_by(func.sum(Points.points).desc(), User.name.asc())
+                        .all()
+                    )
         
         # Return the result based on whether the token is valid or not
         return jsonify([
