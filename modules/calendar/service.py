@@ -300,6 +300,8 @@ class MultiOrgCalendarService:
             finally:
                 if transaction:
                     transaction.finish()
+                if 'db' in locals():
+                    db.close()
     
     def parse_notion_events(self, notion_events_raw: List[Dict]) -> List[CalendarEventDTO]:
         """Parse raw Notion events into CalendarEventDTO objects."""
@@ -402,6 +404,8 @@ class MultiOrgCalendarService:
             finally:
                 if transaction:
                     transaction.finish()
+                if 'db' in locals():
+                    db.close()
 
 # Legacy CalendarService for backward compatibility (deprecated)
 class CalendarService:

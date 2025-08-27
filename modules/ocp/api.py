@@ -33,27 +33,32 @@ def sync_from_notion(org_prefix):
     from modules.organizations.models import Organization
     from shared import db_connect
     db = next(db_connect.get_db())
-    org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active == True).first()
-    if not org or not org.notion_database_id:
-        return jsonify({"status": "error", "message": "Organization or Notion database ID not found."}), 404
-    transaction = start_transaction(op="webhook", name="ocp_notion_sync")
-    route_error_handler.transaction = transaction
-    route_error_handler.operation_name = "ocp_notion_sync"
     try:
-        sync_result = ocp_service.sync_notion_to_ocp(org.notion_database_id, org.id, transaction)
-        if sync_result.get("status") == "error":
-            return jsonify(sync_result), 500
-        elif sync_result.get("status") == "warning":
-            return jsonify(sync_result), 207
-        else:
-            return jsonify(sync_result), 200
+        org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active == True).first()
+        if not org or not org.notion_database_id:
+            return jsonify({"status": "error", "message": "Organization or Notion database ID not found."}), 404
+        transaction = start_transaction(op="webhook", name="ocp_notion_sync")
+        route_error_handler.transaction = transaction
+        route_error_handler.operation_name = "ocp_notion_sync"
+        try:
+            sync_result = ocp_service.sync_notion_to_ocp(org.notion_database_id, org.id, transaction)
+            if sync_result.get("status") == "error":
+                return jsonify(sync_result), 500
+            elif sync_result.get("status") == "warning":
+                return jsonify(sync_result), 207
+            else:
+                return jsonify(sync_result), 200
+        except Exception as e:
+            route_error_handler.handle_generic_error(e)
+            return jsonify({"status": "error", "message": "An unexpected error occurred processing the webhook."}), 500
+        finally:
+            route_error_handler.transaction = None
+            if transaction:
+                transaction.finish()
     except Exception as e:
-        route_error_handler.handle_generic_error(e)
-        return jsonify({"status": "error", "message": "An unexpected error occurred processing the webhook."}), 500
+        return jsonify({"status": "error", "message": "An unexpected error occurred."}), 500
     finally:
-        route_error_handler.transaction = None
-        if transaction:
-            transaction.finish()
+        db.close()
 
 @ocp_blueprint.route("/debug-sync-from-notion", methods=["POST"])
 def debug_sync_from_notion():
@@ -272,31 +277,36 @@ def add_contribution(org_prefix):
     from modules.organizations.models import Organization
     from shared import db_connect
     db = next(db_connect.get_db())
-    org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active == True).first()
-    if not org:
-        return jsonify({"status": "error", "message": "Organization not found."}), 404
-    transaction = start_transaction(op="api", name="add_contribution")
-    route_error_handler.transaction = transaction
-    route_error_handler.operation_name = "add_contribution"
-    logger.info(f"Received POST request on /ocp/{org_prefix}/add-contribution")
-    set_tag("request_type", "POST")
     try:
-        data = request.json
-        if not data:
-            return jsonify({"status": "error", "message": "Request body must be JSON"}), 400
-        # Pass organization_id to the service
-        result = ocp_service.add_officer_points(data, organization_id=org.id)
-        if result.get("status") == "error":
-            return jsonify(result), 400
-        else:
-            return jsonify(result), 201
+        org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active == True).first()
+        if not org:
+            return jsonify({"status": "error", "message": "Organization not found."}), 404
+        transaction = start_transaction(op="api", name="add_contribution")
+        route_error_handler.transaction = transaction
+        route_error_handler.operation_name = "add_contribution"
+        logger.info(f"Received POST request on /ocp/{org_prefix}/add-contribution")
+        set_tag("request_type", "POST")
+        try:
+            data = request.json
+            if not data:
+                return jsonify({"status": "error", "message": "Request body must be JSON"}), 400
+            # Pass organization_id to the service
+            result = ocp_service.add_officer_points(data, organization_id=org.id)
+            if result.get("status") == "error":
+                return jsonify(result), 400
+            else:
+                return jsonify(result), 201
+        except Exception as e:
+            route_error_handler.handle_generic_error(e)
+            return jsonify({"status": "error", "message": "An unexpected error occurred adding contribution."}), 500
+        finally:
+            route_error_handler.transaction = None
+            if transaction:
+                transaction.finish()
     except Exception as e:
-        route_error_handler.handle_generic_error(e)
-        return jsonify({"status": "error", "message": "An unexpected error occurred adding contribution."}), 500
+        return jsonify({"status": "error", "message": "An unexpected error occurred."}), 500
     finally:
-        route_error_handler.transaction = None
-        if transaction:
-            transaction.finish()
+        db.close()
 
 @ocp_blueprint.route("/contribution/<int:point_id>", methods=["PUT"])
 @auth_required
@@ -368,32 +378,20 @@ def get_officer_details(officer_id):
     set_tag("request_type", "GET")
     set_tag("officer_id", officer_id)
     
-    start_date_str = request.args.get('start_date') # Expected format: YYYY-MM
-    end_date_str = request.args.get('end_date')     # Expected format: YYYY-MM
-
-    start_datetime: Optional[datetime] = None
-    end_datetime: Optional[datetime] = None
-
     try:
-        if start_date_str:
-            start_datetime = datetime.strptime(start_date_str + "-01", "%Y-%m-%d")
-        if end_date_str:
-            year, month = map(int, end_date_str.split('-'))
-            if month == 12:
-                end_datetime = datetime(year, month, 31, 23, 59, 59)
-            else:
-                end_datetime = datetime(year, month + 1, 1, 23, 59, 59) - timedelta(days=1)
-
-        officer_details = ocp_service.get_officer_details(officer_id, start_date=start_datetime, end_date=end_datetime)
-        if not officer_details:
-            return jsonify({"status": "warning", "message": f"No officer found with identifier {officer_id}"}), 404
-        return jsonify({"status": "success", "officer": officer_details}), 200
-    except ValueError as e:
-        logger.warning(f"Invalid date format provided for officer details: {e}")
-        return jsonify({"status": "error", "message": f"Invalid date format. Please use YYYY-MM. Error: {str(e)}"}), 400
+        # Get request data
+        data = request.args.to_dict()
+        
+        # Get officer details through service
+        result = ocp_service.get_officer_details(officer_id, data)
+        
+        if result.get("status") == "error":
+            return jsonify(result), 404 if "not found" in result.get("message", "") else 400
+        else:
+            return jsonify(result), 200
     except Exception as e:
         route_error_handler.handle_generic_error(e)
-        return jsonify({"status": "error", "message": "An unexpected error occurred fetching officer details."}), 500
+        return jsonify({"status": "error", "message": "An unexpected error occurred getting officer details."}), 500
     finally:
         route_error_handler.transaction = None
         if transaction:

@@ -27,6 +27,7 @@ class NotionOCPSyncService:
         if own_transaction:
             transaction = start_transaction(op="sync", name=op_name)
         result = {"status": "success", "message": "", "details": {}}
+        db = None
         try:
             from modules.organizations.models import Organization
             from shared import db_connect
