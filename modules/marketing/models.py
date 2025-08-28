@@ -1,5 +1,4 @@
 from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Boolean
-from sqlalchemy.orm import relationship
 from datetime import datetime
 from modules.points.models import Base
 
