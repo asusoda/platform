@@ -50,12 +50,7 @@ up:
 # Stop services
 down:
 	@echo -e "$(GREEN)[INFO]$(NC) Stopping services..."
-	@if $(CONTAINER_CMD) ps --format "{{.Names}}" | grep -q "soda-.*-dev"; then \
-		echo -e "$(YELLOW)[INFO]$(NC) Development containers detected, stopping them..."; \
-		$(COMPOSE_CMD) -f docker-compose.dev.yml down; \
-	else \
-		$(COMPOSE_CMD) down; \
-	fi
+	@$(COMPOSE_CMD) down
 
 # View logs (batch-friendly, last 50 lines)
 logs:

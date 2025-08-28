@@ -1,14 +1,17 @@
 # Build stage
 FROM node:18-alpine AS builder
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Set working directory
 WORKDIR /app
 
 # Copy package files for better caching
-COPY web/package.json web/package-lock.json ./
+COPY web/package.json web/pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY web/ ./
@@ -18,13 +21,15 @@ ENV REACT_APP_API_URL=https://api.thesoda.io
 ENV NODE_ENV=production
 
 # Build the application
-RUN npm run build
+RUN pnpm run build
 
 # Production stage
 FROM node:18-alpine
 
-# Install serve globally
-RUN npm install -g serve
+# Install pnpm and serve globally
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@latest --activate && mkdir -p $PNPM_HOME && pnpm add -g serve
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs
