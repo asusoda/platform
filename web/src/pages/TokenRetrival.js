@@ -11,17 +11,6 @@ const TokenRetrival = () => {
   const { setToken, setRefreshToken, setUser, setOrganizations, setIsSuperAdmin } = useAuth();
   const [status, setStatus] = useState('Processing login...');
 
-  // Add defensive check for config with fallback
-  const apiBaseUrl = config?.apiUrl || process.env.REACT_APP_API_URL || 'https://api.thesoda.io/';
-  
-  // Debug logging to help identify config issues in production
-  console.log('TokenRetrival: Config loaded', { 
-    config, 
-    configExists: !!config, 
-    apiUrl: config?.apiUrl,
-    processEnv: process.env.REACT_APP_API_URL,
-    finalApiBaseUrl: apiBaseUrl 
-  });
 
   useEffect(() => {
     const handleTokenRetrival = async () => {
@@ -54,7 +43,7 @@ const TokenRetrival = () => {
           setStatus('Validating authentication...');
           
           // Validate token and get user info
-          const userResponse = await axios.get(`${apiBaseUrl}/api/auth/name`, {
+          const userResponse = await axios.get(`${config.apiUrl}/api/auth/name`, {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
           
@@ -66,7 +55,7 @@ const TokenRetrival = () => {
           setStatus('Fetching organizations...');
           
           // Get organizations
-          const orgsResponse = await axios.get(`${apiBaseUrl}/api/organizations/`, {
+          const orgsResponse = await axios.get(`${config.apiUrl}/api/organizations/`, {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
           
@@ -76,7 +65,7 @@ const TokenRetrival = () => {
           
           // Check superadmin status
           try {
-            const superAdminResponse = await axios.get(`${apiBaseUrl}/api/superadmin/check`, {
+            const superAdminResponse = await axios.get(`${config.apiUrl}/api/superadmin/check`, {
               headers: { Authorization: `Bearer ${accessToken}` }
             });
             setIsSuperAdmin(superAdminResponse.data.is_superadmin);
@@ -106,7 +95,7 @@ const TokenRetrival = () => {
     };
 
     handleTokenRetrival();
-  }, [location, navigate, setToken, setRefreshToken, setUser, setOrganizations, setIsSuperAdmin, apiBaseUrl]);
+  }, [location, navigate, setToken, setRefreshToken, setUser, setOrganizations, setIsSuperAdmin, config.apiUrl]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">

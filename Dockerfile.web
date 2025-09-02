@@ -16,9 +16,8 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY web/ ./
 
-# Set environment variables
-ENV REACT_APP_API_URL=https://api.thesoda.io
-ENV NODE_ENV=production
+# Accept build arguments
+ARG REACT_APP_API_URL
 
 # Build the application
 RUN pnpm run build

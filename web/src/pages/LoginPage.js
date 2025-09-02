@@ -4,13 +4,14 @@ import Orb from "../components/ui/Orb"; // Import the Orb component
 import StarBorder from "../components/ui/StarBorder"; // Import the StarBorder component
 import Logo from "../assets/logo-dark.svg"; // Updated import path for the logo
 import { FaDiscord, FaRocket, FaUsers, FaCog } from "react-icons/fa"; // Import icons
+import config from "../config";
 
 const LoginPage = () => {
   const navigate = useNavigate();
 
   // Function to handle login
   const handleLogin = () => {
-    window.location.href = "https://api.thesoda.io/api/auth/login"; // Redirect to your Flask backend login route
+    window.location.href = `${config.apiUrl}/api/auth/login`; // Redirect to your Flask backend login route
   };
 
   // Function to handle bot invitation

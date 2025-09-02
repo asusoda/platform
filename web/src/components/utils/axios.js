@@ -1,13 +1,9 @@
 import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
-
-// Get API base URL from environment or default to localhost for development
-const getApiBaseUrl = () => {
-  return process.env.REACT_APP_API_URL || "https://api.thesoda.io";
-};
+import config from "../../config";
 
 const apiClient = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: config.apiUrl,
 });
 
 // Attach token to all requests
@@ -51,7 +47,7 @@ apiClient.interceptors.response.use(
 
         // Try to refresh the access token
         const response = await axios.post(
-          `${getApiBaseUrl()}/api/auth/refresh`,
+          `${config.apiUrl}/api/auth/refresh`,
           {
             refresh_token: refreshToken,
           }

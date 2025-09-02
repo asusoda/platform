@@ -29,23 +29,12 @@ export const AuthProvider = ({ children }) => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const navigate = useNavigate();
 
-  // Add defensive check for config with fallback and debug logging
-  const apiBaseUrl = config?.apiUrl || process.env.REACT_APP_API_URL || 'https://api.thesoda.io/';
-  
-  // Debug logging to help identify config issues in production
-  console.log('AuthProvider: Config loaded', { 
-    config, 
-    configExists: !!config, 
-    apiUrl: config?.apiUrl,
-    processEnv: process.env.REACT_APP_API_URL,
-    finalApiBaseUrl: apiBaseUrl 
-  });
 
   // Function to validate token
   const validateToken = async () => {
     if (!token) return false;
     try {
-      const response = await axios.get(`${apiBaseUrl}/api/auth/validToken`, {
+      const response = await axios.get(`${config.apiUrl}/api/auth/validToken`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data.valid;
@@ -59,7 +48,7 @@ export const AuthProvider = ({ children }) => {
   const refreshAccessToken = async () => {
     if (!refreshToken) return false;
     try {
-      const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
+      const response = await axios.post(`${config.apiUrl}/api/auth/refresh`, {
         refresh_token: refreshToken
       });
       
@@ -82,7 +71,7 @@ export const AuthProvider = ({ children }) => {
   const getUserInfo = async () => {
     if (!token) return null;
     try {
-      const response = await axios.get(`${apiBaseUrl}/api/auth/name`, {
+      const response = await axios.get(`${config.apiUrl}/api/auth/name`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
@@ -96,7 +85,7 @@ export const AuthProvider = ({ children }) => {
   const fetchOrganizations = async () => {
     if (!token) return [];
     try {
-      const response = await axios.get(`${apiBaseUrl}/api/organizations/`, {
+      const response = await axios.get(`${config.apiUrl}/api/organizations/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
@@ -112,7 +101,7 @@ export const AuthProvider = ({ children }) => {
       return false;
     }
     try {
-      const response = await axios.get(`${apiBaseUrl}/api/superadmin/check`, {
+      const response = await axios.get(`${config.apiUrl}/api/superadmin/check`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data.is_superadmin;
@@ -161,7 +150,7 @@ export const AuthProvider = ({ children }) => {
     try {
       // Revoke refresh token if available
       if (refreshToken) {
-        await axios.post(`${apiBaseUrl}/api/auth/logout`, {
+        await axios.post(`${config.apiUrl}/api/auth/logout`, {
           refresh_token: refreshToken
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -187,7 +176,7 @@ export const AuthProvider = ({ children }) => {
 
   const getApiClient = () => {
     const client = axios.create({
-      baseURL: apiBaseUrl,
+      baseURL: config.apiUrl,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -279,7 +268,7 @@ export const AuthProvider = ({ children }) => {
     organizations,
     loading,
     isSuperAdmin,
-    login: () => window.location.href = `${apiBaseUrl}/api/auth/login`,
+    login: () => window.location.href = `${config.apiUrl}/api/auth/login`,
     logout,
     selectOrganization,
     getApiClient,
