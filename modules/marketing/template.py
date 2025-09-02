@@ -1,4 +1,4 @@
-# get's html and css 
+# gets html and css 
 # content from a generic
 # template string
 # "<html> css{} "
