@@ -227,3 +227,6 @@ user_data
 .vscode
 google-secret.json
 **/.claude/settings.local.json
+
+# mount
+data
