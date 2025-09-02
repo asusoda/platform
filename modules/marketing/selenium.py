@@ -113,7 +113,7 @@ def create_social_media_post(driver, image_data, caption, target_accounts=None):
                     time.sleep(0.5)  # Small delay between clicks
                 logger.info(f"Selected account: {username}")
             except NoSuchElementException:
-                logger.info(f"Account {username} not found or not available for posting")
+                logger.info("An account in the target_accounts list was not found or not available for posting")
         
         # Upload image
         # First, we need to save the image data to a temporary file
