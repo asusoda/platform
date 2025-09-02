@@ -1,6 +1,4 @@
-# pushes the code to the 
-# grapejs server and forces 
-# rerender
+# re-render
 # { success 200 }
 # filepath: /home/ash/student_orgs/SoDA/soda-marketing-bot/get_editable_link.py
 import requests
