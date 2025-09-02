@@ -1,6 +1,4 @@
-# send's the editable link and description 
-# to discord tagging officers using discord py
-# "hi! @officers, heres the ..."
+# "hi! @officers, here's the ..."
 
 # filepath: /home/ash/student_orgs/SoDA/soda-marketing-bot/send_message.py
 import requests
