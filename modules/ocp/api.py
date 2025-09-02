@@ -80,13 +80,10 @@ def debug_sync_from_notion():
     
     try:
         # Display informational message
-        print("\n=========================================================")
-        print("BEGINNING NOTION SYNC DEBUG - RAW EVENT DATA WILL FOLLOW")
-        print("=========================================================\n")
         
         # Special debug function to look at the raw people data in properties
         try:
-            print("FETCHING EVENTS FROM NOTION FOR SPECIAL DEBUG ANALYSIS...")
+
             notion_events = ocp_service.notion_client.fetch_events(config.NOTION_DATABASE_ID)
             
             # Look for the examples with mismatched counts
@@ -96,31 +93,17 @@ def debug_sync_from_notion():
                     if 'people' in prop_value:
                         people = prop_value.get('people', [])
                         if len(people) > 0:
-                            print(f"\n=========== EXAMINING '{prop_name}' PROPERTY ===========")
-                            print(f"Event: {extract_property(props, 'Name', 'title')}")
-                            print(f"Property: {prop_name}")
-                            print(f"People count: {len(people)}")
-                            print(f"All people names in this property:")
+                            # Detailed examination of person object
                             for i, person in enumerate(people):
-                                print(f"  {i+1}. {person.get('name', 'Unnamed')}")
-                                
-                                # Detailed examination of person object
-                                print(f"     ID: {person.get('id', 'No ID')}")
-                                print(f"     Keys in person object: {list(person.keys())}")
                                 if 'person' in person:
                                     person_obj = person.get('person', {})
-                                    print(f"     Person sub-object keys: {list(person_obj.keys())}")
-                            print("=======================================================")
         except Exception as e:
-            print(f"Error in special debug analysis: {str(e)}")
+            logger.error(f"Error in special debug analysis: {str(e)}")
         
         # Delegate sync to the OCP service
         sync_result = ocp_service.sync_notion_to_ocp(config.NOTION_DATABASE_ID, transaction)
         
-        # Print completion message
-        print("\n=========================================================")
-        print("NOTION SYNC DEBUG COMPLETE")
-        print("=========================================================\n")
+        # Debug sync completed
         
         # Return response based on service result
         if sync_result.get("status") == "error":
