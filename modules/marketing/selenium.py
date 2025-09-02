@@ -111,6 +111,7 @@ def create_social_media_post(driver, image_data, caption, target_accounts=None):
                 if not account_checkbox.is_selected():
                     account_checkbox.click()
                     time.sleep(0.5)  # Small delay between clicks
+            except (NoSuchElementException, TimeoutException):
                 logger.info(f"Account '{username}' was not found or not available for posting")
         
         # Upload image

@@ -14,7 +14,7 @@ from modules.marketing.selenium import post_to_social_media
 # ==================================================================================================
 
 # Create a Flask Blueprint for the marketing module
-marketing_blueprint = Blueprint('marketing', __name__, template_folder='templates', static_folder='static')
+marketing_blueprint = Blueprint('marketing', __name__, template_folder='data/templates', static_folder='static')
 
 # Global array to store multiple events and their generated content, will be populated by the event monitoring process
 managed_events = []
@@ -601,13 +601,13 @@ def process_events_now():
 
 # Other helper functions
 
-os.makedirs('templates', exist_ok=True)
+os.makedirs('data/templates', exist_ok=True)
 
 def ensure_template_files():
     """Ensure template files exist in the templates directory"""
-    editor_html_path = os.path.join('templates', 'editor.html')
+    editor_html_path = os.path.join('data/templates', 'editor.html')
     editor_template_html = get_editor_html_css()
-    view_html_path = os.path.join('templates', 'view.html')
+    view_html_path = os.path.join('data/templates', 'view.html')
     view_template_html = get_view_html_css()
     
     # Create editor.html if it doesn't exist
