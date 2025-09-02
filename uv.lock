@@ -909,6 +909,25 @@ wheels = [
 ]
 
 [[package]]
+name = "openai"
+version = "1.102.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/55/da5598ed5c6bdd9939633854049cddc5cbac0da938dfcfcb3c6b119c16c0/openai-1.102.0.tar.gz", hash = "sha256:2e0153bcd64a6523071e90211cbfca1f2bbc5ceedd0993ba932a5869f93b7fc9", size = 519027, upload-time = "2025-08-26T20:50:29.397Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/0d/c9e7016d82c53c5b5e23e2bad36daebb8921ed44f69c0a985c6529a35106/openai-1.102.0-py3-none-any.whl", hash = "sha256:d751a7e95e222b5325306362ad02a7aa96e1fab3ed05b5888ce1c7ca63451345", size = 812015, upload-time = "2025-08-26T20:50:27.219Z" },
+]
+
+[[package]]
 name = "outcome"
 version = "1.3.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1408,6 +1427,7 @@ dependencies = [
     { name = "notion-client" },
     { name = "oauth2client" },
     { name = "oauthlib" },
+    { name = "openai" },
     { name = "psycopg2-binary" },
     { name = "py-cord" },
     { name = "pycord" },
@@ -1487,6 +1507,7 @@ requires-dist = [
     { name = "notion-client", specifier = ">=2.3.0" },
     { name = "oauth2client", specifier = ">=4.1.3" },
     { name = "oauthlib", specifier = "==3.3.1" },
+    { name = "openai", specifier = ">=1.102.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "py-cord", specifier = ">=2.6.1" },
     { name = "pycord", specifier = ">=0.1.1" },
