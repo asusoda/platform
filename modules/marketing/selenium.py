@@ -72,7 +72,7 @@ def login_to_oneup(driver, email, password):
         
         return True
     except (TimeoutException, NoSuchElementException) as e:
-        logger.info(f"Login error: {str(e)}")
+        logger.info(f"Failed to login to OneUp platform: {str(e)}")
         return False
 
 def create_social_media_post(driver, image_data, caption, target_accounts=None):
