@@ -230,3 +230,6 @@ google-secret.json
 
 # mount
 data
+
+# I DONT WANNA SEE PACKAGE LOCK WE ARE A PNPM FAMILY HERE
+**/package-lock.json
