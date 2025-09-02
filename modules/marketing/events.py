@@ -1,5 +1,4 @@
-# gets latest events 
-# from internal api 
+# from internal API 
 # and considers which 
 # one to take 
 # [ latest events ]
