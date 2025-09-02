@@ -29,7 +29,17 @@ export const AuthProvider = ({ children }) => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const navigate = useNavigate();
 
-  const apiBaseUrl = config.apiUrl;
+  // Add defensive check for config with fallback and debug logging
+  const apiBaseUrl = config?.apiUrl || process.env.REACT_APP_API_URL || 'https://api.thesoda.io/';
+  
+  // Debug logging to help identify config issues in production
+  console.log('AuthProvider: Config loaded', { 
+    config, 
+    configExists: !!config, 
+    apiUrl: config?.apiUrl,
+    processEnv: process.env.REACT_APP_API_URL,
+    finalApiBaseUrl: apiBaseUrl 
+  });
 
   // Function to validate token
   const validateToken = async () => {

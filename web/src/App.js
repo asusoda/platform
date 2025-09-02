@@ -30,12 +30,14 @@ import MemberLoginPage from "./pages/MemberLoginPage";
 import MetricsPage from "./pages/MetricsPage";
 import { AuthProvider } from "./components/auth/AuthContext";
 import PrivateRoute from "./components/auth/PrivateRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
           {/* Public routes */}
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -216,10 +218,11 @@ function App() {
             element={<Navigate to="/select-organization" />}
           />
           <Route path="/ocp" element={<Navigate to="/select-organization" />} />
-        </Routes>
-        <ToastContainer />
-      </AuthProvider>
-    </BrowserRouter>
+          </Routes>
+          <ToastContainer />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
