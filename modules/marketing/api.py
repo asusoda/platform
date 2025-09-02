@@ -199,7 +199,7 @@ def dashboard():
         event_cards.append(event_card)
     
     # Join all event cards
-    events_html = "\\n".join(event_cards) if event_cards else '<p>No events found. Use "Process Events Now" to check for new events.</p>'
+    events_html = "\n".join(event_cards) if event_cards else '<p>No events found. Use "Process Events Now" to check for new events.</p>'
     
     return f'''
     <!DOCTYPE html>
