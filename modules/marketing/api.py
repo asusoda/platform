@@ -521,9 +521,12 @@ def post_event_to_discord(event_id):
             })
             
     except Exception as e:
+        import traceback
         marketing_service = get_marketing_service()
+        # Log the full stack trace for debugging
+        logger.error(f"Exception in post_event_to_discord for event {event_id}: {traceback.format_exc()}")
         marketing_service.log_activity(event_id, 'post_discord', 'failed', 'discord', str(e))
-        return jsonify({"success": False, "message": str(e)})
+        return jsonify({"success": False, "message": "An internal error has occurred."})
 
 @marketing_blueprint.route('/events/<event_id>/post-to-socials', methods=['POST'])
 def post_event_to_socials(event_id):
