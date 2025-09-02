@@ -586,7 +586,8 @@ def post_event_to_socials(event_id):
     except Exception as e:
         marketing_service = get_marketing_service()
         marketing_service.log_activity(event_id, 'post_social', 'failed', 'instagram,linkedin', str(e))
-        return jsonify({"success": False, "message": f"Error posting to social media: {str(e)}"})
+        logger.error("Error in post_event_to_socials: %s", e, exc_info=True)
+        return jsonify({"success": False, "message": "An error occurred while posting to social media."})
 
 @marketing_blueprint.route('/process-events-now', methods=['POST'])
 def process_events_now():
