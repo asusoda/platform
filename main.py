@@ -2,6 +2,7 @@ from flask import Flask, current_app, jsonify # Import current_app
 from shared import app, logger, config, create_summarizer_bot, create_auth_bot
 from modules.utils.sync_utility import UnifiedSyncService
 from modules.calendar.service import MultiOrgCalendarService
+from modules.marketing.service import MarketingService
 
 from modules.public.api import public_blueprint
 from modules.points.api import points_blueprint
@@ -15,7 +16,7 @@ from modules.bot.api import game_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.organizations.api import organizations_blueprint
 from modules.superadmin.api import superadmin_blueprint
-from modules.merch.api import merch_blueprint
+from modules.marketing.api import marketing_blueprint
 # Removed all view blueprint imports - keeping only API blueprints
 
 from shared import config # logger is imported above, calendar_service removed
@@ -42,6 +43,11 @@ app.unified_sync_service = unified_sync_service
 def health():
     return jsonify({'status': 'healthy', 'service': 'soda-internal-api'}), 200
 
+# Instantiate and attach MarketingService
+marketing_service = MarketingService(logger)
+app.marketing_service = marketing_service
+
+
 # Register Blueprints
 app.register_blueprint(public_blueprint, url_prefix="/api/public")
 app.register_blueprint(points_blueprint, url_prefix="/api/points")
@@ -54,6 +60,7 @@ app.register_blueprint(ocp_blueprint, url_prefix="/api/ocp")
 app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
 app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
 app.register_blueprint(merch_blueprint, url_prefix="/api/merch")
+app.register_blueprint(marketing_blueprint, url_prefix="/api/marketing")
 # # Configure static file serving
 # @app.route('/', defaults={'path': ''})
 # @app.route('/<path:path>')
