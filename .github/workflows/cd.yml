@@ -30,35 +30,20 @@ jobs:
           
           cd "$PROJECT_DIR"
           
-          # Check for docker-compose
-          if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-            echo "Error: docker-compose is not installed"
-            exit 1
-          fi
-          
           # Run deployment using make
           echo "Starting deployment..."
-          make deploy PROJECT_DIR="$PROJECT_DIR" || {
+          make deploy || {
             echo "Deployment failed!"
-            # Show recent logs for debugging
-            make logs | tail -50
+            make logs
             exit 1
           }
           
           # Verify deployment health
           echo "Verifying deployment health..."
-          sleep 10  # Give container time to fully start
-          
-          # Check container status
-          if docker compose ps | grep -q "healthy\|running"; then
-            echo "✅ Deployment completed successfully!"
-            echo "Container status:"
-            docker compose ps
-          else
-            echo "❌ Deployment verification failed!"
-            echo "Container status:"
-            docker compose ps
-            echo "Recent logs:"
-            docker compose logs --tail=50
+          make health || {
+            echo "Health check failed!"
+            make status
             exit 1
-          fi
+          }
+          
+          echo "✅ Deployment completed successfully!"

@@ -17,7 +17,6 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
-    user: "1000:1000"
     logging:
       driver: json-file
       options:
