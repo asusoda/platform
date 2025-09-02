@@ -190,9 +190,12 @@ def post_to_social_media(image_data, caption, email, password, target_accounts=N
             "message": "Successfully posted to social media"
         }
     except Exception as e:
+        # Log the full exception details internally, but do NOT expose them to the user
+        import traceback
+        logger.error("Error posting to social media:\n%s", traceback.format_exc())
         return {
             "success": False,
-            "message": f"Error posting to social media: {str(e)}"
+            "message": "An error occurred while posting to social media."
         }
     finally:
         if driver:
