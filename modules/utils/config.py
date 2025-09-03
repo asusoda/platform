@@ -37,6 +37,7 @@ class Config:
                 
                 self.NOTION_API_KEY = os.environ.get("NOTION_API_KEY", "test-notion-key")
                 self.NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "test-db-id")
+                self.NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "test-notion-token")
                 self.GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "test@calendar.google.com")
                 self.GOOGLE_USER_EMAIL = os.environ.get("GOOGLE_USER_EMAIL", "test@example.com")
                 self.SERVER_PORT = 5000
@@ -46,6 +47,9 @@ class Config:
                 # Optional configs
                 self.SENTRY_DSN = None
                 self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "test-gemini-key")
+
+                # Superadmin config
+                self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN", "test-superadmin-id")
             else:
                 # Core Application Config
                 self.SECRET_KEY = os.environ["SECRET_KEY"]
@@ -54,7 +58,7 @@ class Config:
                 self.REDIRECT_URI = os.environ["REDIRECT_URI"]
                 self.CLIENT_URL = os.environ["CLIENT_URL"]
                 self.TNAY_API_URL = os.environ["TNAY_API_URL"]
-                self.ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+                self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ["OPEN_ROUTER_CLAUDE_API_KEY"]
                 self.DISCORD_OFFICER_WEBHOOK_URL = os.environ["DISCORD_OFFICER_WEBHOOK_URL"]
                 self.DISCORD_POST_WEBHOOK_URL = os.environ["DISCORD_POST_WEBHOOK_URL"]
                 self.ONEUP_PASSWORD = os.environ["ONEUP_PASSWORD"]
@@ -87,8 +91,12 @@ class Config:
                             "private_key": "[REDACTED]"
                         } if self.GOOGLE_SERVICE_ACCOUNT else None
                         print("Google service account credentials loaded")
+                except FileNotFoundError:
+                    print("Warning: google-secret.json not found. Google Calendar features will be disabled.")
+                    self.GOOGLE_SERVICE_ACCOUNT = None
                 except Exception as e:
-                    raise RuntimeError(f"Google service account credentials file not found. Please create 'google-secret.json'. {e}")
+                    print(f"Warning: Error loading Google credentials: {e}. Google Calendar features will be disabled.")
+                    self.GOOGLE_SERVICE_ACCOUNT = None
                     
                 self.NOTION_API_KEY = os.environ["NOTION_API_KEY"]
                 self.NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
@@ -99,10 +107,14 @@ class Config:
                 self.TIMEZONE = os.environ.get("TIMEZONE", "America/Phoenix")
 
                 # Monitoring Configuration (Optional)
-                self.SENTRY_DSN = os.environ.get("SENTRY_DSN") # Optional: Used for Sentry error/performance monitoring
-
+                self.SENTRY_DSN = os.environ.get("SENTRY_DSN")
+                self.SYS_ADMIN = os.environ.get("ADMIN_USER_ID")
                 # AI Service Keys
-                self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") # Google Gemini API key
+                self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+                self.NOTION_TOKEN = os.environ.get("NOTION_TOKEN")
+
+                # Superadmin config
+                self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
 
         except (KeyError, json.JSONDecodeError) as e:
             raise RuntimeError(f"Configuration error: {str(e)}") from e

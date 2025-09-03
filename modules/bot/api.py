@@ -2,6 +2,7 @@ from flask import jsonify, request, Blueprint, current_app
 from modules.utils.logging_config import get_logger
 from shared import db_connect as db
 import json
+import os
 
 # Get module logger
 logger = get_logger("bot.api")
@@ -69,7 +70,21 @@ def get_game_data():
     file_name = request.args.get("file_name")
     logger.info(f"Getting game data for file: {file_name}")
     try:
-        with open(f"./data/{file_name}.json") as f:
+        if not file_name or not isinstance(file_name, str):
+            raise Exception("Missing or invalid file_name parameter")
+
+        # Only allow safe filenames: alphanumeric, dash, underscore
+        import re
+        SAFE_FILENAME_RE = r'^[\w\-]+$'
+        if not re.match(SAFE_FILENAME_RE, file_name):
+            raise Exception("Invalid file name")
+
+        base_dir = os.path.abspath("./data")
+        requested_path = os.path.abspath(os.path.join(base_dir, f"{file_name}.json"))
+        if not requested_path.startswith(base_dir + os.sep):
+            raise Exception("Attempted path traversal or invalid path")
+
+        with open(requested_path) as f:
             game_data = json.load(f)
         return jsonify(game_data)
     except Exception as e:

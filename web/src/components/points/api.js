@@ -1,10 +1,10 @@
 import axios from 'axios';
+import config from '../../config';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 export const getName = async() => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/auth/name`,{
+    const response = await axios.get(`${config.apiUrl}/auth/name`,{
       headers: {
         'Authorization': `${localStorage.getItem('token')}`
       }
@@ -18,7 +18,7 @@ export const getName = async() => {
 
 export const getLeaderboard = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/points/leaderboard`);
+    const response = await axios.get(`${config.apiUrl}/points/leaderboard`);
     return response.data;
   } catch (error) {
     console.error("Error fetching leaderboard", error);
@@ -28,7 +28,7 @@ export const getLeaderboard = async () => {
 
 export const addPoints = async (userId, eventName, points) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/add-points`, {
+    const response = await axios.post(`${config.apiUrl}/add-points`, {
       user_id: userId,
       event: eventName,
       points: points
@@ -42,7 +42,7 @@ export const addPoints = async (userId, eventName, points) => {
 
 export const removePoints = async (userId, points) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/remove-points`, {
+    const response = await axios.post(`${config.apiUrl}/remove-points`, {
       user_id: userId,
       points: points
     });

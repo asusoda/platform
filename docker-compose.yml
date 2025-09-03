@@ -17,7 +17,6 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
-    user: "1000:1000"
     logging:
       driver: json-file
       options:
@@ -38,6 +37,8 @@ services:
       dockerfile: Dockerfile.web
       cache_from:
         - soda-web:latest
+      args:
+        - REACT_APP_API_URL=${REACT_APP_API_URL}
     image: soda-web:latest
     container_name: soda-web
     restart: unless-stopped
@@ -46,8 +47,7 @@ services:
     depends_on:
       - api
     environment:
-      - REACT_APP_API_URL=http://api:8000
-      - NODE_ENV=production
+      - IS_PROD=true
     logging:
       driver: json-file
       options:

@@ -1,205 +1,374 @@
-import React, { useState} from 'react';
-import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/SideBar';  // Re-add the Sidebar
-import apiClient from '../components/utils/axios';
-import useAuthToken from '../hooks/userAuth';
+import React, { useState } from "react";
+import useAuthToken from "../hooks/userAuth";
+import useOrgNavigation from "../hooks/useOrgNavigation";
+import { useAuth } from "../components/auth/AuthContext";
+import OrganizationNavbar from "../components/shared/OrganizationNavbar";
+import {
+  FaUsers,
+  FaChartLine,
+  FaPlus,
+  FaClipboardList,
+  FaCogs,
+  FaGamepad,
+  FaPlay,
+  FaTrophy,
+  FaSignOutAlt,
+  FaTachometerAlt,
+  FaCalendarAlt,
+  FaUserPlus,
+  FaFileUpload,
+  FaRobot,
+  FaStore,
+  FaChevronDown,
+  FaChevronUp,
+} from "react-icons/fa";
 
 const HomePage = () => {
   useAuthToken();
-  const [eventFile, setEventFile] = useState(null);
-  const [eventName, setEventName] = useState('');
-  const [eventPoints, setEventPoints] = useState('');
-  const [userIdentifier, setUserIdentifier] = useState('');
-  const [userPoints, setUserPoints] = useState('');
-  const [event, setEvent] = useState('');
-  const [awardedByOfficer, setAwardedByOfficer] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const navigate = useNavigate();
+  const { currentOrg } = useAuth();
+  const {
+    goToUsers,
+    goToLeaderboard,
+    goToAddPoints,
+    goToOCP,
+    goToPanel,
+    goToJeopardy,
+    goToGamePanel,
+    goToActiveGame,
+    goToMerchProducts,
+    goToAddProducts,
+    goToOrders,
+  } = useOrgNavigation();
 
-  // Handle file upload form submission
-  const handleFileUpload = async (e) => {
-    e.preventDefault();
-  
-    if (!eventFile || !eventName || !eventPoints) {
-      alert('Please fill all fields');
-      return;
-    }
-  
-    const formData = new FormData();
-    formData.append('file', eventFile);
-    formData.append('event_name', eventName);
-    formData.append('event_points', eventPoints);
-  
-    try {
-      const response = await apiClient.post('points/uploadEventCSV', formData);
-      if (response.data) {
-        alert(response.data.message);  // Handle success case
-      }
-    } catch (error) {
-      // Handle error case
-      if (error.response && error.response.data && error.response.data.error) {
-        alert(`Error: ${error.response.data.error}`);  // Error message from backend
-      } else {
-        alert('An error occurred while uploading the file.');
-      }
-    }
+  // State for managing dropdown visibility
+  const [expandedCategories, setExpandedCategories] = useState({
+    userManagement: true,
+    storeFront: true,
+    ocp: true,
+    discordBots: true,
+    calendar: true,
+  });
+
+  // Toggle dropdown visibility
+  const toggleCategory = (category) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
   };
-  
 
- 
-  
+  // Dashboard categories with their features
+  const dashboardCategories = [
+    {
+      id: "userManagement",
+      title: "User Management",
+      icon: FaUsers,
+      color: "from-blue-500 to-blue-600",
+      description: "Manage users, points, and community engagement",
+      features: [
+        {
+          title: "User Management",
+          description: "Manage users, view profiles, and handle user data",
+          icon: FaUsers,
+          color: "from-blue-500 to-blue-600",
+          action: goToUsers,
+        },
+        {
+          title: "Leaderboard",
+          description: "View points rankings and user statistics",
+          icon: FaChartLine,
+          color: "from-green-500 to-green-600",
+          action: goToLeaderboard,
+        },
+        {
+          title: "Add Points",
+          description: "Award points to users for events and activities",
+          icon: FaPlus,
+          color: "from-purple-500 to-purple-600",
+          action: goToAddPoints,
+        },
+      ],
+    },
+    {
+      id: "storeFront",
+      title: "Store Front",
+      icon: FaStore,
+      color: "from-orange-500 to-orange-600",
+      description: "Manage merchandise and store operations",
+      features: [
+        {
+          title: "Admin Dashboard",
+          description: "Comprehensive merchandise management dashboard",
+          icon: FaTachometerAlt,
+          color: "from-orange-500 to-orange-600",
+          action: () => window.location.href = `/${currentOrg?.prefix}/merch/dashboard`,
+        },
+        {
+          title: "Store & Orders",
+          description: "Browse merchandise, shop, and track orders",
+          icon: FaStore,
+          color: "from-blue-500 to-blue-600",
+          action: () => window.open(`/store/${currentOrg?.prefix}`, '_blank'),
+        },
+        {
+          title: "Add Products",
+          description: "Add new merchandise products (Admin)",
+          icon: FaPlus,
+          color: "from-pink-500 to-pink-600",
+          action: goToAddProducts,
+        },
+        {
+          title: "Manage Orders",
+          description: "View and manage all orders (Admin)",
+          icon: FaSignOutAlt,
+          color: "from-gray-500 to-gray-600",
+          action: goToOrders,
+        },
+      ],
+    },
+    {
+      id: "ocp",
+      title: "OCP System",
+      icon: FaClipboardList,
+      color: "from-indigo-500 to-indigo-600",
+      description: "Officer Contribution Points tracking and management",
+      features: [
+        {
+          title: "OCP Details",
+          description: "Officer Contribution Points tracking and management",
+          icon: FaClipboardList,
+          color: "from-indigo-500 to-indigo-600",
+          action: goToOCP,
+        },
+      ],
+    },
+    {
+      id: "calendar",
+      title: "Calendar System",
+      icon: FaCalendarAlt,
+      color: "from-red-500 to-red-600",
+      description: "Manage events and calendar synchronization",
+      features: [
+        {
+          title: "Calendar View",
+          description: "View and manage organization events",
+          icon: FaCalendarAlt,
+          color: "from-red-500 to-red-600",
+          action: () => window.location.href = `/${currentOrg?.prefix}/calendar`,
+        },
+        {
+          title: "Sync Settings",
+          description: "Configure Notion and Google Calendar sync",
+          icon: FaCogs,
+          color: "from-yellow-500 to-yellow-600",
+          action: () => window.location.href = `/${currentOrg?.prefix}/calendar/settings`,
+        },
+      ],
+    },
+    {
+      id: "discordBots",
+      title: "Discord Bots",
+      icon: FaRobot,
+      color: "from-purple-500 to-purple-600",
+      description: "Manage Discord bot settings and game systems",
+      features: [
+        {
+          title: "Bot Control Panel",
+          description: "Manage Discord bot settings and configurations",
+          icon: FaRobot,
+          color: "from-purple-500 to-purple-600",
+          action: goToPanel,
+        },
+        {
+          title: "Jeopardy Game",
+          description: "Host and manage Jeopardy game sessions",
+          icon: FaTrophy,
+          color: "from-yellow-500 to-yellow-600",
+          action: goToJeopardy,
+        },
+        {
+          title: "Game Panel",
+          description: "Manage game settings and configurations",
+          icon: FaGamepad,
+          color: "from-pink-500 to-pink-600",
+          action: goToGamePanel,
+        },
+        {
+          title: "Active Game",
+          description: "View and control currently running games",
+          icon: FaPlay,
+          color: "from-teal-500 to-teal-600",
+          action: goToActiveGame,
+        },
+      ],
+    },
+  ];
 
-
-  // Handle manual points assignment form submission
-  const handleAssignPoints = async (e) => {
-    e.preventDefault();
-  
-    if (!userIdentifier || !userPoints || !event || !awardedByOfficer) {
-      alert('Please fill all fields');
-      return;
-    }
-  
-    const data = {
-      user_identifier: userIdentifier,
-      points: userPoints,
-      event,
-      awarded_by_officer: awardedByOfficer,
-    };
-  
-    try {
-      const response = await apiClient.post('points/assignPoints', data);
-  
-      // Ensure we have a response before accessing response.data
-      if (response && response.data) {
-        alert(response.data.message); // Handle success case
-      } else {
-        alert('Unexpected response from the server.');
-      }
-    } catch (error) {
-      // Handle error case
-      if (error.response && error.response.data && error.response.data.error) {
-        alert(`Error: ${error.response.data.error}`); // Backend error message
-      } else {
-        alert('An error occurred while assigning points.');
-      }
-    }
-  };
-  
   return (
-    <div className="min-h-screen flex bg-gray-900 text-white">
-      {/* Sidebar */}
-      
-
-      {/* Main Content */}
-      <div className={`flex-1 p-8 ${isSidebarOpen ? 'ml-60' : 'ml-16'}`}>
-        <h1 className="text-4xl font-bold mb-8 text-center" style={{ color: '#ba3554' }}>SoDA Home</h1>
-
-        {/* Upload Event CSV Form */}
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg mx-auto mb-8">
-          <h2 className="text-2xl font-bold mb-4">Upload Event CSV</h2>
-          <form onSubmit={handleFileUpload}>
-            <div className="mb-4">
-              <label className="block text-white mb-2">Event Name</label>
-              <input
-                type="text"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-white mb-2">Event Points</label>
-              <input
-                type="number"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                value={eventPoints}
-                onChange={(e) => setEventPoints(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-white mb-2">Upload CSV File</label>
-              <input
-                type="file"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                accept=".csv"
-                onChange={(e) => setEventFile(e.target.files[0])}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-semibold"
-            >
-              Upload CSV
-            </button>
-          </form>
+    <OrganizationNavbar>
+      <div className="max-w-7xl mx-auto">
+        {/* Welcome Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4 text-white">
+            Hey there <span className="text-blue-500">{currentOrg?.name || "Your Organization"} </span> !!
+          </h1>
+          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+            Welcome to SoDA's Internal Toolset. Here you can manage your organization. 
+          </p>
         </div>
 
-        {/* Assign Points Form */}
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg mx-auto">
-          <h2 className="text-2xl font-bold mb-4">Assign Points</h2>
-          <form onSubmit={handleAssignPoints}>
-            <div className="mb-4">
-              <label className="block text-white mb-2">User Identifier (Email/UUID)</label>
-              <input
-                type="text"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                value={userIdentifier}
-                onChange={(e) => setUserIdentifier(e.target.value)}
-                required
-              />
-            </div>
+        {/* Categories Grid */}
+        <div className="space-y-10">
+          {dashboardCategories.map((category) => {
+            const CategoryIcon = category.icon;
+            const isExpanded = expandedCategories[category.id];
+            
+            return (
+              <div
+                key={category.id}
+                className="border border-gray-700/50 backdrop-blur-lg rounded-xl overflow-hidden"
+              >
+                {/* Category Header */}
+                <div
+                  className="p-6 cursor-pointer transition-colors"
+                  onClick={() => toggleCategory(category.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div
+                        className={`p-3 rounded-lg text-white`}
+                      >
+                        <CategoryIcon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-semibold text-white">
+                          {category.title}
+                        </h2>
+                        <p className="text-gray-400 text-sm">
+                          {category.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-400">
+                        {category.features.length} features
+                      </span>
+                      {isExpanded ? (
+                        <FaChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <FaChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-            <div className="mb-4">
-              <label className="block text-white mb-2">Points</label>
-              <input
-                type="number"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                value={userPoints}
-                onChange={(e) => setUserPoints(e.target.value)}
-                required
-              />
-            </div>
+                {/* Category Content */}
+                {isExpanded && (
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {category.features.map((feature, index) => {
+                        const FeatureIcon = feature.icon;
+                        return (
+                          <div
+                            key={index}
+                            onClick={feature.action}
+                            className="group relative overflow-hidden rounded-lg bg-black/50 border border-gray-700/50 hover:border-gray-500 transition-all duration-300 cursor-pointer transform hover:scale-105"
+                          >
+                            {/* Gradient Background */}
+                            <div
+                              className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
+                            />
 
-            <div className="mb-4">
-              <label className="block text-white mb-2">Event</label>
-              <input
-                type="text"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                value={event}
-                onChange={(e) => setEvent(e.target.value)}
-                required
-              />
-            </div>
+                            {/* Card Content */}
+                            <div className="relative p-4">
+                              <div className="flex items-center mb-3">
+                                <div
+                                  className={`p-2 rounded-lg bg-gradient-to-br ${feature.color} text-white`}
+                                >
+                                  <FeatureIcon className="w-5 h-5" />
+                                </div>
+                              </div>
 
-            <div className="mb-4">
-              <label className="block text-white mb-2">Awarded by Officer</label>
-              <input
-                type="text"
-                className="w-full p-2 rounded-md bg-gray-700 text-white"
-                value={awardedByOfficer}
-                onChange={(e) => setAwardedByOfficer(e.target.value)}
-                required
-              />
-            </div>
+                              <h3 className="text-base font-semibold mb-2 group-hover:text-white transition-colors">
+                                {feature.title}
+                              </h3>
 
-            <button
-              type="submit"
-              className="w-full py-2 px-4"
-              style={{ backgroundColor: '#4462dc' }}
-            >
-              Assign Points
-            </button>
-          </form>
+                              <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">
+                                {feature.description}
+                              </p>
+
+                              {/* Arrow indicator */}
+                              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <svg
+                                  className="w-4 h-4 text-gray-400"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 5l7 7-7 7"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Quick Stats Section */}
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <FaUsers className="w-8 h-8 text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2 text-white">User Management</h3>
+            <p className="text-gray-400 text-sm">Manage your community</p>
+          </div>
+
+          <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <FaStore className="w-8 h-8 text-orange-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2 text-white">Store Front</h3>
+            <p className="text-gray-400 text-sm">Manage merchandise</p>
+          </div>
+
+          <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <FaClipboardList className="w-8 h-8 text-indigo-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2 text-white">OCP System</h3>
+            <p className="text-gray-400 text-sm">Track officer contributions</p>
+          </div>
+
+          <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <FaCalendarAlt className="w-8 h-8 text-red-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2 text-white">Calendar</h3>
+            <p className="text-gray-400 text-sm">Manage events</p>
+          </div>
+
+          <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">
+            <div className="flex items-center justify-center mb-2">
+              <FaRobot className="w-8 h-8 text-purple-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2 text-white">Discord Bots</h3>
+            <p className="text-gray-400 text-sm">Manage bot systems</p>
+          </div>
         </div>
       </div>
-      <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-    </div>
+    </OrganizationNavbar>
   );
 };
 
