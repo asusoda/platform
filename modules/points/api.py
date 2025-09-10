@@ -216,22 +216,16 @@ def link_or_create_user(organization_id, user_data, discord_id=None):
 def process_csv_in_background(file_content, event_name, event_points, org_prefix):
     """Process CSV in background for a specific organization"""
     csv_file = StringIO(file_content)
-
-    # Skip the first 5 lines and read the content from the 6th line
-    for _ in range(5):
-        next(csv_file)
-
-    # Now read the CSV starting from the 6th row which contains the headers
     csv_reader = csv.DictReader(csv_file)
 
     db = next(db_connect.get_db())
     success_count = 0
     errors = []
+    processed_emails = set()
 
     try:
         from modules.organizations.models import Organization
         
-        # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
@@ -242,24 +236,28 @@ def process_csv_in_background(file_content, event_name, event_points, org_prefix
             return
         
         for row in csv_reader:
-            email = row.get('Campus Email')
-            name = row.get('First Name') + ' ' + row.get('Last Name')
-            asu_id = 'N/A'
-            marked_by = row.get('Marked By')
+            if row.get('Registration Status') != 'COMPLETE':
+                continue
 
-            if not email or not name or not marked_by:
-                errors.append(f"Missing required fields in row: {row}")
-                continue  # Skip this row if any field is missing
+            email = row.get('Email')
+            first_name = row.get('First Name', '')
+            last_name = row.get('Last Name', '')
+            name = f"{first_name} {last_name}".strip()
 
-            # Check if user exists
+            if not email or not name:
+                errors.append(f"Missing required fields (Email, Name) in row: {row}")
+                continue
+
+            if email in processed_emails:
+                continue  # Skip to the next row to prevent duplicate points.
+
             user = db.query(User).filter_by(email=email).first()
 
             if not user:
-                # Create user if doesn't exist using the unified function
                 user_data = {
                     'email': email,
                     'name': name,
-                    'asu_id': asu_id if asu_id and asu_id != 'N/A' else None,  # Set to None instead of 'N/A'
+                    'asu_id': None,
                     'academic_standing': "N/A",
                     'major': "N/A"
                 }
@@ -270,25 +268,27 @@ def process_csv_in_background(file_content, event_name, event_points, org_prefix
                     errors.append(f"Failed to create user {email}: {message}")
                     continue
 
-            # Add points for the event
             point = Points(
                 points=event_points,
                 event=event_name,
-                awarded_by_officer=marked_by,
+                awarded_by_officer="CSV Upload",
                 user_id=user.id,
                 organization_id=organization.id
             )
             db.add(point)
             db.commit()
+            
+            processed_emails.add(email)
             success_count += 1
 
     except Exception as e:
-        errors.append(str(e))
+        errors.append(f"An unexpected error occurred: {str(e)}")
     finally:
         db.close()
 
-    # Log the result of the processing (optional: you can store this to a DB or file)
-    print(f"Processed {success_count} users for org {org_prefix}. Errors: {errors}")
+    print(f"CSV processing finished for org '{org_prefix}'. Awarded points to {success_count} users. Errors: {len(errors)}")
+    if errors:
+        print("Errors encountered:", errors)
 
 # API Routes
 @points_blueprint.route("/", methods=["GET"])
