@@ -236,7 +236,7 @@ def process_csv_in_background(file_content, event_name, event_points, org_prefix
             return
         
         for row in csv_reader:
-            if row.get('Registration Status') != 'COMPLETE':
+            if not row.get('Checked-In Date'):
                 continue
 
             email = row.get('Email')
