@@ -1,6 +1,6 @@
 import csv
 from flask import Flask, jsonify, request, Blueprint, session
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from modules.auth.decoraters import auth_required
 from modules.utils.db import DBConnect
@@ -699,6 +699,7 @@ def get_org_leaderboard(org_prefix):
     db = next(db_connect.get_db())
     try:
         from modules.organizations.models import Organization
+        from modules.points.models import UserOrganizationMembership
         
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
@@ -709,35 +710,77 @@ def get_org_leaderboard(org_prefix):
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
         
-        leaderboard = (
-                        db.query(
-                            User.name,
-                            User.email,
-                            User.uuid,
-                            func.coalesce(func.sum(Points.points), 0).label("total_points"),
-                        )
-                        .select_from(User)
-                        .outerjoin(
-                            Points,
-                            and_(
-                                Points.user_id == User.id,
-                                Points.organization_id == organization.id
-                            )
-                        )
-                        .group_by(User.email, User.uuid, User.name)
-                        .order_by(func.sum(Points.points).desc(), User.name.asc())
-                        .all()
-                    )
-        
-        # Return the result based on whether the token is valid or not
-        return jsonify([
+        leaderboard_rows = (
+            db.query(
+                User.id.label("user_id"),
+                User.name,
+                User.email,
+                User.uuid,
+                func.coalesce(func.sum(Points.points), 0).label("total_points"),
+            )
+            .select_from(User)
+            .outerjoin(
+                Points,
+                and_(
+                    Points.user_id == User.id,
+                    Points.organization_id == organization.id,
+                ),
+            )
+            .outerjoin(
+                UserOrganizationMembership,
+                and_(
+                    UserOrganizationMembership.user_id == User.id,
+                    UserOrganizationMembership.organization_id == organization.id,
+                    UserOrganizationMembership.is_active == True,
+                ),
+            )
+            .filter(or_(Points.id.isnot(None), UserOrganizationMembership.id.isnot(None)))
+            .group_by(User.id, User.name, User.email, User.uuid)
+            .order_by(func.coalesce(func.sum(Points.points), 0).desc(), User.name.asc())
+            .all()
+        )
+
+        user_ids = [row.user_id for row in leaderboard_rows]
+        points_details_map = {user_id: [] for user_id in user_ids}
+
+        if user_ids:
+            details = (
+                db.query(
+                    Points.user_id,
+                    Points.event,
+                    Points.points,
+                    Points.timestamp,
+                    Points.awarded_by_officer,
+                )
+                .filter(
+                    Points.organization_id == organization.id,
+                    Points.user_id.in_(user_ids),
+                )
+                .order_by(Points.user_id, Points.timestamp.desc())
+                .all()
+            )
+
+            for user_id, event, points, timestamp, awarded_by in details:
+                points_details_map.setdefault(user_id, []).append(
+                    {
+                        "event": event,
+                        "points": float(points) if points is not None else 0,
+                        "timestamp": timestamp.isoformat() if timestamp else None,
+                        "awarded_by": awarded_by,
+                    }
+                )
+
+        response_payload = [
             {
-                "name": name,
-                "identifier": email if show_email else uuid,  # Show email if token is valid, else UUID
-                "points": total_points
+                "name": row.name,
+                "identifier": row.email if (show_email and row.email) else row.uuid,
+                "total_points": float(row.total_points) if row.total_points is not None else 0,
+                "points_details": points_details_map.get(row.user_id, []),
             }
-            for name, email, uuid, total_points in leaderboard
-        ]), 200
+            for row in leaderboard_rows
+        ]
+
+        return jsonify(response_payload), 200
         
     except Exception as e:
         return jsonify({"error": str(e)}), 400
