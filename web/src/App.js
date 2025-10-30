@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import ServerError from "./pages/ServerError";
 import AddPoints from "./pages/AddPoints";
 import OCPDetails from "./pages/OCPDetails";
+import OCPOfficerDetails from "./pages/OCPOfficerDetails";
 import OrganizationSelector from "./pages/OrganizationSelector";
 import SuperAdmin from "./pages/SuperAdmin";
 import Calendar from "./pages/Calendar";
@@ -180,6 +181,14 @@ function App() {
             element={
               <PrivateRoute>
                 <OCPDetails />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/:orgPrefix/ocp/officer/:officerUuid"
+            element={
+              <PrivateRoute>
+                <OCPOfficerDetails />
               </PrivateRoute>
             }
           />

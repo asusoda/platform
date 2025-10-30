@@ -251,6 +251,50 @@ def get_officer_contributions(officer_identifier):
         if transaction:
             transaction.finish()
 
+@ocp_blueprint.route("/officer-points", methods=["GET"])
+@auth_required
+def get_officer_points_overview():
+    """Get contribution details for officers, optionally filtered by officer and date range."""
+    transaction = start_transaction(op="api", name="get_officer_points_overview")
+    route_error_handler.transaction = transaction
+    route_error_handler.operation_name = "get_officer_points_overview"
+    logger.info("Received GET request on /ocp/officer-points")
+    set_tag("request_type", "GET")
+
+    officer_uuid = request.args.get("officer_uuid")
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+
+    start_datetime: Optional[datetime] = None
+    end_datetime: Optional[datetime] = None
+
+    try:
+        if start_date_str:
+            start_datetime = datetime.strptime(start_date_str + "-01", "%Y-%m-%d")
+        if end_date_str:
+            year, month = map(int, end_date_str.split('-'))
+            if month == 12:
+                end_datetime = datetime(year, month, 31, 23, 59, 59)
+            else:
+                end_datetime = datetime(year, month + 1, 1, 23, 59, 59) - timedelta(days=1)
+
+        points_overview = ocp_service.get_officer_points_overview(
+            officer_uuid=officer_uuid,
+            start_date=start_datetime,
+            end_date=end_datetime
+        )
+        return jsonify(points_overview), 200
+    except ValueError as e:
+        logger.warning(f"Invalid date format provided for officer points overview: {e}")
+        return jsonify({"status": "error", "message": f"Invalid date format. Please use YYYY-MM. Error: {str(e)}"}), 400
+    except Exception as e:
+        route_error_handler.handle_generic_error(e)
+        return jsonify({"status": "error", "message": "An unexpected error occurred fetching officer points overview."}), 500
+    finally:
+        route_error_handler.transaction = None
+        if transaction:
+            transaction.finish()
+
 @ocp_blueprint.route("/<org_prefix>/add-contribution", methods=["POST"])
 @auth_required
 def add_contribution(org_prefix):

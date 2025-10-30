@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef, useReducer } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../components/utils/axios';
 import useAuthToken from '../hooks/userAuth';
 import { useAuth } from '../components/auth/AuthContext';
 import { FaUsers, FaSignOutAlt, FaTachometerAlt, FaClipboardList, FaCogs, FaRedo, FaSearchDollar, FaWrench, FaExclamationTriangle, FaSync, FaFlask, FaPlusCircle, FaTimes } from 'react-icons/fa';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import OrganizationNavbar from '../components/shared/OrganizationNavbar';
 import StarBorder from '../components/ui/StarBorder';
@@ -40,6 +41,12 @@ const getEventTypeColor = (eventType) => {
   }
 };
 
+const formatDecimal = (value, digits = 2) => {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) return '0.00';
+  return numeric.toFixed(digits);
+};
+
 // --- Child Components ---
 
 /**
@@ -59,6 +66,7 @@ const AddContributionModal = ({ isOpen, onClose, onAdd }) => {
   const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [weight, setWeight] = useState('1');
 
   const modalRef = useRef(null);
   
@@ -72,6 +80,7 @@ const AddContributionModal = ({ isOpen, onClose, onAdd }) => {
     setEventType('Other');
     setEventDate(new Date().toISOString().split('T')[0]);
     setFormError('');
+    setWeight('1');
   }, []);
 
   // Fetch available officers when the modal is opened
@@ -136,6 +145,14 @@ const AddContributionModal = ({ isOpen, onClose, onAdd }) => {
     setIsSubmitting(true);
     setFormError('');
 
+    const parsedWeight = weight === '' ? 1 : parseFloat(weight);
+    if (Number.isNaN(parsedWeight) || parsedWeight < 0) {
+      setFormError('Weight must be a non-negative number with up to two decimal places.');
+      setIsSubmitting(false);
+      return;
+    }
+    const normalizedWeight = Math.round(parsedWeight * 100) / 100;
+
     const contributionData = {
       names: selectedOfficers.map(officer => officer.name),
       event: eventDescription,
@@ -143,6 +160,7 @@ const AddContributionModal = ({ isOpen, onClose, onAdd }) => {
       role: role || undefined,
       event_type: eventType || undefined,
       timestamp: eventDate ? new Date(eventDate).toISOString() : undefined,
+      weight: normalizedWeight,
     };
     
     const success = await onAdd(contributionData);
@@ -223,10 +241,22 @@ const AddContributionModal = ({ isOpen, onClose, onAdd }) => {
             <label htmlFor="eventDescription" className="block text-sm font-medium text-soda-white/90 mb-1">Event Description <span className="text-soda-red">*</span></label>
             <input type="text" id="eventDescription" value={eventDescription} onChange={e => setEventDescription(e.target.value)} required className="w-full p-2.5 rounded-md bg-soda-black/50 border border-soda-white/20" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label htmlFor="points" className="block text-sm font-medium text-soda-white/90 mb-1">Points</label>
               <input type="number" id="points" value={points} onChange={e => setPoints(Math.max(0, parseInt(e.target.value, 10) || 0))} className="w-full p-2.5 rounded-md bg-soda-black/50 border border-soda-white/20" />
+            </div>
+            <div>
+              <label htmlFor="weight" className="block text-sm font-medium text-soda-white/90 mb-1">Weight</label>
+              <input
+                type="number"
+                id="weight"
+                step="0.01"
+                min="0"
+                value={weight}
+                onChange={e => setWeight(e.target.value)}
+                className="w-full p-2.5 rounded-md bg-soda-black/50 border border-soda-white/20"
+              />
             </div>
             <div>
               <label htmlFor="eventType" className="block text-sm font-medium text-soda-white/90 mb-1">Event Type</label>
@@ -284,7 +314,9 @@ const EventParticipantsModal = ({ isOpen, onClose, eventData }) => {
                   <tr>
                     <th className="px-3 py-2 text-left">Officer</th>
                     <th className="px-3 py-2 text-left">Role</th>
-                    <th className="px-3 py-2 text-left">Points</th>
+                    <th className="px-3 py-2 text-left">Base Points</th>
+                    <th className="px-3 py-2 text-left">Weight</th>
+                    <th className="px-3 py-2 text-left">Weighted Points</th>
                     <th className="px-3 py-2 text-left">Department</th>
                   </tr>
                 </thead>
@@ -293,7 +325,9 @@ const EventParticipantsModal = ({ isOpen, onClose, eventData }) => {
                     <tr key={p.participantId || index} className="hover:bg-soda-black/20">
                       <td className="px-3 py-2 whitespace-nowrap">{p.officerName}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{p.role || 'N/A'}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{p.points}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{formatDecimal(p.points, 2)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{formatDecimal(p.weight, 2)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{formatDecimal(p.weightedPoints, 2)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{p.officerDepartment || 'N/A'}</td>
                     </tr>
                   ))}
@@ -324,7 +358,6 @@ const OCPDetails = () => {
   const [eventsError, setEventsError] = useState(null);
 
   const [groupedEvents, setGroupedEvents] = useState([]);
-  const [expandedOfficer, setExpandedOfficer] = useState(null);
 
   // Filters and Modals
   const [startDate, setStartDate] = useState('');
@@ -336,6 +369,9 @@ const OCPDetails = () => {
   // Syncing and Notifications
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncNotification, setSyncNotification] = useState({ open: false, message: '', type: 'info' });
+  const { currentOrg } = useAuth();
+  const { orgPrefix } = useParams();
+  const effectiveOrgPrefix = currentOrg?.prefix || orgPrefix;
 
   // --- Data Fetching ---
 
@@ -411,6 +447,8 @@ const OCPDetails = () => {
         officerDepartment: event.officer?.department || 'Unknown',
         role: event.role,
         points: event.points,
+        weight: event.weight ?? 1,
+        weightedPoints: event.weighted_points ?? event.points,
         participantId: event.officer?.uuid || event.officer_name,
       });
       return acc;
@@ -418,64 +456,34 @@ const OCPDetails = () => {
     setGroupedEvents(Object.values(groups).sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate)));
   }, [allEvents]);
 
-  const fetchOfficerContributions = useCallback(async (officerUuid) => {
-    const params = new URLSearchParams();
-    if (startDate) params.append('start_date', startDate);
-    if (endDate) params.append('end_date', endDate);
-
-    try {
-      const url = `/api/ocp/officer/${officerUuid}/contributions?${params.toString()}`;
-      const response = await apiClient.get(url);
-      if (response.data.status === 'success') {
-        setLeaderboard(prev =>
-          prev.map(officer =>
-            officer.uuid === officerUuid
-              ? { ...officer, contributions: response.data.contributions }
-              : officer
-          )
-        );
-      } else {
-         throw new Error(response.data.message || 'Failed to fetch contributions.');
-      }
-    } catch (err) {
-      console.error('Error fetching contributions:', err);
-      setSyncNotification({ open: true, message: `Could not load contributions for officer. ${err.message}`, type: 'error' });
-    }
-  }, [startDate, endDate]);
-
-
   // --- Event Handlers ---
 
+  const navigate = useNavigate();
+
   const handleOfficerClick = useCallback((officer) => {
-    const newExpandedOfficer = expandedOfficer === officer.uuid ? null : officer.uuid;
-    setExpandedOfficer(newExpandedOfficer);
-    // Fetch contributions if expanding and they aren't loaded yet
-    if (newExpandedOfficer && !officer.contributions) {
-      fetchOfficerContributions(officer.uuid);
-    }
-  }, [expandedOfficer, fetchOfficerContributions]);
+    const query = new URLSearchParams();
+    if (startDate) query.append('start_date', startDate);
+    if (endDate) query.append('end_date', endDate);
+    const targetPrefix = effectiveOrgPrefix || '';
+    const pathPrefixSegment = targetPrefix ? `/${targetPrefix}` : '';
+    navigate({
+      pathname: `${pathPrefixSegment}/ocp/officer/${officer.uuid}`,
+      search: query.toString(),
+    });
+  }, [navigate, effectiveOrgPrefix, startDate, endDate]);
 
   const handleFilterApply = useCallback(() => {
     fetchLeaderboard(startDate, endDate);
-    // If an officer is expanded, their contributions need to be refetched with the new date range
-    if (expandedOfficer) {
-      fetchOfficerContributions(expandedOfficer);
-    }
-  }, [startDate, endDate, expandedOfficer, fetchLeaderboard, fetchOfficerContributions]);
+  }, [startDate, endDate, fetchLeaderboard]);
   
   const handleFilterClear = useCallback(() => {
     setStartDate('');
     setEndDate('');
     fetchLeaderboard('', ''); // Fetch with cleared filters
-    if (expandedOfficer) {
-      fetchOfficerContributions(expandedOfficer);
-    }
-  }, [expandedOfficer, fetchLeaderboard, fetchOfficerContributions]);
+  }, [fetchLeaderboard]);
   
-  const { currentOrg } = useAuth(); // Add this at the top level of the component
-
   const handleAddContribution = useCallback(async (contributionData) => {
-    if (!currentOrg?.prefix) {
+    if (!effectiveOrgPrefix) {
       setSyncNotification({
         open: true,
         message: 'No organization selected.',
@@ -485,7 +493,7 @@ const OCPDetails = () => {
     }
 
     try {
-      const response = await apiClient.post(`/api/ocp/${currentOrg.prefix}/add-contribution`, contributionData);
+      const response = await apiClient.post(`/api/ocp/${effectiveOrgPrefix}/add-contribution`, contributionData);
       const result = response.data;
 
       if (response.status >= 200 && response.status < 300 && result.status !== 'error') {
@@ -507,10 +515,10 @@ const OCPDetails = () => {
       });
       return false; // Signal failure to modal
     }
-  }, [fetchInitialData, currentOrg?.prefix]);
+  }, [fetchInitialData, effectiveOrgPrefix]);
 
   const handleSyncWithNotion = useCallback(async () => {
-    if (!currentOrg?.prefix) {
+    if (!effectiveOrgPrefix) {
       setSyncNotification({
         open: true,
         message: 'No organization selected.',
@@ -521,7 +529,7 @@ const OCPDetails = () => {
 
     setIsSyncing(true);
     try {
-        const response = await apiClient.post(`/api/ocp/${currentOrg.prefix}/sync-from-notion`);
+        const response = await apiClient.post(`/api/ocp/${effectiveOrgPrefix}/sync-from-notion`);
         const data = response.data;
         if (data.status === 'success') {
             setSyncNotification({
@@ -538,7 +546,7 @@ const OCPDetails = () => {
     } finally {
         setIsSyncing(false);
     }
-  }, [fetchInitialData, currentOrg?.prefix]);
+  }, [fetchInitialData, effectiveOrgPrefix]);
 
 
   // --- Render Logic ---
@@ -618,49 +626,27 @@ const OCPDetails = () => {
                   </thead>
                   <tbody className="divide-y divide-soda-white/10">
                     {leaderboard.map((officer) => (
-                      <React.Fragment key={officer.uuid}>
-                        <tr className="hover:bg-soda-black/20">
-                          <td className="px-4 py-3 whitespace-nowrap">{officer.name}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{officer.title || 'N/A'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{officer.department || 'N/A'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap font-semibold">{officer.total_points}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <button onClick={() => handleOfficerClick(officer)} className="text-soda-blue hover:text-soda-red transition-colors text-sm py-1 px-2 rounded-md border border-soda-blue hover:border-soda-red">
-                              {expandedOfficer === officer.uuid ? 'Hide' : 'Show'} Events
-                            </button>
-                          </td>
-                        </tr>
-                        {expandedOfficer === officer.uuid && (
-                          <tr>
-                            <td colSpan={5} className="p-0 bg-soda-black/10">
-                              <div className="p-4">
-                                {officer.contributions ? (
-                                  officer.contributions.length > 0 ? (
-                                    <table className="min-w-full text-xs">
-                                      <thead className="bg-soda-gray/50">
-                                        <tr>
-                                          {['Event', 'Type', 'Role', 'Points', 'Date'].map(th => <th key={th} className="px-3 py-2 text-left">{th}</th>)}
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-soda-white/5">
-                                        {officer.contributions.map(c => (
-                                          <tr key={c.id}>
-                                            <td className="px-3 py-2">{c.event}</td>
-                                            <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full ${getEventTypeColor(c.event_type)}`}>{c.event_type || 'Other'}</span></td>
-                                            <td className="px-3 py-2">{c.role || 'N/A'}</td>
-                                            <td className="px-3 py-2">{c.points}</td>
-                                            <td className="px-3 py-2">{formatDate(c.timestamp)}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  ) : (<p className="text-soda-white/60 text-center py-3">No contributions found in this period.</p>)
-                                ) : (<p className="text-soda-white/60 text-center py-3">Loading contributions...</p>)}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
+                      <tr key={officer.uuid} className="hover:bg-soda-black/20">
+                        <td className="px-4 py-3 whitespace-nowrap">{officer.name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{officer.title || 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{officer.department || 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold">
+                          <div>{formatDecimal(officer.total_points, 2)}</div>
+                          {typeof officer.total_base_points !== 'undefined' && (
+                            <div className="text-xs font-normal text-soda-white/60">
+                              Base {formatDecimal(officer.total_base_points, 2)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <button
+                            onClick={() => handleOfficerClick(officer)}
+                            className="text-soda-blue hover:text-soda-red transition-colors text-sm py-1 px-2 rounded-md border border-soda-blue hover:border-soda-red"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>

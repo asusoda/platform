@@ -1,4 +1,5 @@
 import csv
+import time
 from flask import Flask, jsonify, request, Blueprint, session
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
@@ -14,6 +15,9 @@ import uuid
 points_blueprint = Blueprint(
     "points", __name__, template_folder=None, static_folder=None
 )
+
+LEADERBOARD_CACHE_TTL = 300  # 5 minutes in seconds
+leaderboard_cache = {}
 
 def update_user_field(db, user, field_name, field_value, organization_id=None):
     """
@@ -696,6 +700,12 @@ def get_org_leaderboard(org_prefix):
         except Exception as e:
             return jsonify({"message": str(e)}), 401  # Token is invalid or some error occurred
 
+    cache_key = (org_prefix, show_email)
+    cache_entry = leaderboard_cache.get(cache_key)
+    current_time = time.time()
+    if cache_entry and current_time - cache_entry["timestamp"] < LEADERBOARD_CACHE_TTL:
+        return jsonify(cache_entry["data"]), 200
+
     db = next(db_connect.get_db())
     try:
         from modules.organizations.models import Organization
@@ -750,7 +760,6 @@ def get_org_leaderboard(org_prefix):
                     Points.event,
                     Points.points,
                     Points.timestamp,
-                    Points.awarded_by_officer,
                 )
                 .filter(
                     Points.organization_id == organization.id,
@@ -760,13 +769,12 @@ def get_org_leaderboard(org_prefix):
                 .all()
             )
 
-            for user_id, event, points, timestamp, awarded_by in details:
+            for user_id, event, points, timestamp in details:
                 points_details_map.setdefault(user_id, []).append(
                     {
                         "event": event,
                         "points": float(points) if points is not None else 0,
                         "timestamp": timestamp.isoformat() if timestamp else None,
-                        "awarded_by": awarded_by,
                     }
                 )
 
@@ -779,6 +787,11 @@ def get_org_leaderboard(org_prefix):
             }
             for row in leaderboard_rows
         ]
+
+        leaderboard_cache[cache_key] = {
+            "timestamp": time.time(),
+            "data": response_payload,
+        }
 
         return jsonify(response_payload), 200
         

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, JSON, UniqueConstraint
+from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, JSON, UniqueConstraint, Numeric
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
@@ -37,7 +37,8 @@ class OfficerPoints(Base):
     officer_uuid = Column(String, ForeignKey("ocp_officers.uuid"), nullable=False)  # Updated foreign key
     notion_page_id = Column(String, nullable=True)  # To link with the Notion event
     event_metadata = Column(JSON, nullable=True)  # Store additional event metadata if needed
+    weight = Column(Numeric(10, 2), nullable=False, default=1.00)
     organization = relationship("Organization", backref="ocp_officer_points")
 
     def __repr__(self):
-        return f"<OfficerPoints(points={self.points}, event={self.event}, org_id={self.organization_id})>" 
+        return f"<OfficerPoints(points={self.points}, weight={self.weight}, event={self.event}, org_id={self.organization_id})>" 

@@ -1,7 +1,10 @@
 import logging
 from typing import List, Dict, Optional, Any
 from datetime import datetime
-from sentry_sdk import capture_exception, set_context, start_transaction
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from sentry_sdk import capture_exception, start_transaction
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import NoSuchTableError
 
 from .models import Officer, OfficerPoints
 import shared
@@ -36,6 +39,45 @@ class OCPService:
             logger.error("OCP service initialized with no database manager")
         else:
             logger.info("OCP service initialized with database manager")
+            self._ensure_weight_column()
+
+    def _ensure_weight_column(self) -> None:
+        """Ensure the weight column exists on the officer points table."""
+        try:
+            if not hasattr(self.db, "engine") or self.db.engine is None:
+                logger.warning("Database engine unavailable; skipping weight column check")
+                return
+
+            inspector = inspect(self.db.engine)
+            try:
+                columns = {column["name"] for column in inspector.get_columns("ocp_officer_points")}
+            except NoSuchTableError:
+                logger.info("ocp_officer_points table not found when ensuring weight column; skipping column check")
+                return
+            if "weight" not in columns:
+                logger.info("Adding missing weight column to ocp_officer_points table")
+                with self.db.engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE ocp_officer_points ADD COLUMN weight NUMERIC(10, 2) DEFAULT 1.0"))
+                logger.info("Successfully added weight column to ocp_officer_points")
+        except Exception as exc:
+            logger.error(f"Failed to ensure weight column exists: {exc}", exc_info=True)
+
+    @staticmethod
+    def _normalize_weight(weight_value: Any) -> float:
+        """Normalize the weight value, enforcing two decimal precision and non-negative constraint."""
+        if weight_value is None or weight_value == "":
+            return 1.0
+
+        try:
+            decimal_value = Decimal(str(weight_value))
+        except (InvalidOperation, TypeError):
+            raise ValueError("Weight must be a valid number")
+
+        if decimal_value < 0:
+            raise ValueError("Weight must be zero or positive")
+
+        normalized = decimal_value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return float(normalized)
     
     def sync_notion_to_ocp(self, database_id: str, organization_id: int, transaction=None) -> Dict[str, Any]:
         """
@@ -125,7 +167,8 @@ class OCPService:
                                 timestamp=officer_data.get('event_date', datetime.utcnow()),
                                 officer_uuid=officer.uuid,
                                 notion_page_id=officer_data.get('notion_page_id'),
-                                event_metadata={"source": "notion_sync"}
+                                event_metadata={"source": "notion_sync"},
+                                weight=self._normalize_weight(officer_data.get('weight', 1.0))
                             )
                             
                             created_points = self.db.create_officer_points(db_session, points_record, organization_id)
@@ -167,6 +210,7 @@ class OCPService:
     
     def get_officer_contributions(self, officer_id: str, start_date=None, end_date=None) -> List[Dict]:
         """Get all contributions for a specific officer by ID (can be email or UUID), with optional date filtering."""
+        db_session = None
         try:
             db_session = next(self.db.get_db())
             officer = None
@@ -184,7 +228,6 @@ class OCPService:
             
             if not officer:
                 logger.warning(f"No officer found with identifier {officer_id}")
-                db_session.close()
                 return []
                 
             # Build query with optional date filtering
@@ -200,9 +243,13 @@ class OCPService:
             
             result = []
             for point in points:
+                weight_value = float(point.weight) if point.weight is not None else 1.0
+                normalized_weight = float(Decimal(str(weight_value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
                 result.append({
                     "id": point.id,
                     "points": point.points,
+                    "weight": normalized_weight,
+                    "weighted_points": round(point.points * normalized_weight, 2),
                     "event": point.event,
                     "role": point.role,
                     "event_type": point.event_type,
@@ -210,16 +257,19 @@ class OCPService:
                     "notion_page_id": point.notion_page_id
                 })
                 
-            db_session.close()
             return result
             
         except Exception as e:
             logger.error(f"Error getting officer contributions: {str(e)}")
             capture_exception(e)
             return []
+        finally:
+            if db_session:
+                db_session.close()
     
     def get_all_officers(self, start_date=None, end_date=None) -> List[Dict]:
         """Get all officers with their total points for the leaderboard, with optional date filtering."""
+        db_session = None
         try:
             db_session = next(self.db.get_db())
             officers = db_session.query(Officer).all()
@@ -236,7 +286,12 @@ class OCPService:
                     points_query = points_query.filter(OfficerPoints.timestamp <= end_date)
                 
                 points = points_query.all()
-                total_points = sum(point.points for point in points)
+                total_base_points = sum(point.points for point in points)
+                total_weighted_points = 0.0
+                for point in points:
+                    weight_value = float(point.weight) if point.weight is not None else 1.0
+                    normalized_weight = float(Decimal(str(weight_value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                    total_weighted_points += point.points * normalized_weight
                 
                 # Count contributions by type
                 contribution_counts = {
@@ -260,19 +315,99 @@ class OCPService:
                     "name": officer.name,
                     "title": officer.title,
                     "department": officer.department,
-                    "total_points": total_points,
+                    "total_points": round(total_weighted_points, 2),
+                    "total_base_points": total_base_points,
                     "contribution_counts": contribution_counts
                 })
                 
             # Sort by total points descending (for leaderboard)
             result.sort(key=lambda x: x["total_points"], reverse=True)
             
-            db_session.close()
             return result
             
         except Exception as e:
             logger.error(f"Error getting all officers: {str(e)}")
             capture_exception(e)
+            return []
+        finally:
+            if db_session:
+                db_session.close()
+
+    def get_officer_points_overview(
+        self,
+        officer_uuid: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all points grouped by officer, including contribution details and totals.
+        """
+        try:
+            db_session = next(self.db.get_db())
+
+            officers_query = db_session.query(Officer)
+            if officer_uuid:
+                officers_query = officers_query.filter(Officer.uuid == officer_uuid)
+
+            officers = officers_query.all()
+
+            results: List[Dict[str, Any]] = []
+            for officer in officers:
+                points_query = (
+                    db_session.query(OfficerPoints)
+                    .filter(OfficerPoints.officer_uuid == officer.uuid)
+                    .order_by(OfficerPoints.timestamp.desc())
+                )
+
+                if start_date:
+                    points_query = points_query.filter(OfficerPoints.timestamp >= start_date)
+                if end_date:
+                    points_query = points_query.filter(OfficerPoints.timestamp <= end_date)
+
+                points = points_query.all()
+
+                total_base_points = 0
+                total_weighted_points = 0.0
+                contributions: List[Dict[str, Any]] = []
+
+                for point in points:
+                    weight_value = float(point.weight) if point.weight is not None else 1.0
+                    normalized_weight = float(Decimal(str(weight_value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                    weighted_points = point.points * normalized_weight
+
+                    total_base_points += point.points
+                    total_weighted_points += weighted_points
+
+                    contributions.append({
+                        "id": point.id,
+                        "points": point.points,
+                        "weight": normalized_weight,
+                        "weighted_points": round(weighted_points, 2),
+                        "event": point.event,
+                        "role": point.role,
+                        "event_type": point.event_type,
+                        "timestamp": point.timestamp.isoformat() if point.timestamp else None,
+                        "notion_page_id": point.notion_page_id
+                    })
+
+                results.append({
+                    "officer_uuid": officer.uuid,
+                    "officer_name": officer.name,
+                    "officer_title": officer.title,
+                    "officer_department": officer.department,
+                    "total_base_points": total_base_points,
+                    "total_points": round(total_weighted_points, 2),
+                    "contributions": contributions
+                })
+
+            if db_session:
+                db_session.close()
+            return results
+        except Exception as exc:
+            logger.error(f"Error gathering officer points overview: {exc}")
+            capture_exception(exc)
+            if db_session:
+                db_session.close()
             return []
     
     def add_officer_points(self, data: Dict, organization_id=None) -> Dict[str, Any]:
@@ -307,6 +442,12 @@ class OCPService:
                 db_session.close()
                 return {"status": "error", "message": "Event name/description is required"}
             
+            try:
+                weight_value = self._normalize_weight(data.get("weight"))
+            except ValueError as exc:
+                db_session.close()
+                return {"status": "error", "message": str(exc)}
+
             created_records = []
             created_officers = []
             
@@ -374,7 +515,8 @@ class OCPService:
                     timestamp=timestamp,
                     officer_uuid=officer.uuid,
                     notion_page_id=data.get("notion_page_id"),
-                    event_metadata={"source": "manual_entry"}
+                    event_metadata={"source": "manual_entry"},
+                    weight=weight_value
                 )
                 
                 record = self.db.create_officer_points(db_session, points_record, organization_id)
@@ -444,6 +586,13 @@ class OCPService:
                     record.event_metadata.update(data["event_metadata"])
                 else:
                     record.event_metadata = data["event_metadata"]
+            if "weight" in data:
+                try:
+                    record.weight = self._normalize_weight(data["weight"])
+                except ValueError as exc:
+                    db_session.rollback()
+                    db_session.close()
+                    return {"status": "error", "message": str(exc)}
             
             db_session.commit()
             db_session.close()
@@ -541,24 +690,36 @@ class OCPService:
             points = points_query.all()
             
             # Calculate total points and organize by event type
-            total_points = sum(point.points for point in points)
+            total_base_points = sum(point.points for point in points)
+            total_weighted_points = 0.0
             points_by_type = {}
             for point in points:
                 event_type = point.event_type or "Other"
                 if event_type not in points_by_type:
                     points_by_type[event_type] = {
-                        "total_points": 0,
+                        "total_weighted_points": 0.0,
+                        "total_base_points": 0,
                         "events": []
                     }
-                points_by_type[event_type]["total_points"] += point.points
+                weight_value = float(point.weight) if point.weight is not None else 1.0
+                normalized_weight = float(Decimal(str(weight_value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                weighted_points = point.points * normalized_weight
+                points_by_type[event_type]["total_weighted_points"] += weighted_points
+                points_by_type[event_type]["total_base_points"] += point.points
+                total_weighted_points += weighted_points
                 points_by_type[event_type]["events"].append({
                     "id": point.id,
                     "points": point.points,
+                    "weight": normalized_weight,
+                    "weighted_points": round(weighted_points, 2),
                     "event": point.event,
                     "role": point.role,
                     "timestamp": point.timestamp.isoformat() if point.timestamp else None,
                     "notion_page_id": point.notion_page_id
                 })
+
+            for event_type in points_by_type:
+                points_by_type[event_type]["total_weighted_points"] = round(points_by_type[event_type]["total_weighted_points"], 2)
             
             # Prepare the response
             result = {
@@ -567,11 +728,14 @@ class OCPService:
                 "name": officer.name,
                 "title": officer.title,
                 "department": officer.department,
-                "total_points": total_points,
+                "total_points": round(total_weighted_points, 2),
+                "total_base_points": total_base_points,
                 "points_by_type": points_by_type,
                 "all_events": [{
                     "id": point.id,
                     "points": point.points,
+                    "weight": float(Decimal(str(float(point.weight) if point.weight is not None else 1.0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+                    "weighted_points": round(point.points * (float(point.weight) if point.weight is not None else 1.0), 2),
                     "event": point.event,
                     "role": point.role,
                     "event_type": point.event_type,
@@ -619,9 +783,13 @@ class OCPService:
                             db_session.commit()
                             logger.info(f"Updated event {event.id} with correct officer UUID {officer.uuid}")
                 
+                weight_value = float(event.weight) if event.weight is not None else 1.0
+                normalized_weight = float(Decimal(str(weight_value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
                 event_data = {
                     "id": event.id,
                     "points": event.points,
+                    "weight": normalized_weight,
+                    "weighted_points": round(event.points * normalized_weight, 2),
                     "event": event.event,
                     "role": event.role,
                     "event_type": event.event_type,
