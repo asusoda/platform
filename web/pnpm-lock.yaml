@@ -2519,6 +2519,7 @@ packages:
 
   discord-oauth2@2.12.1:
     resolution: {integrity: sha512-/Um39bRxVjcGHUu1YaTLangZvZveXjsX4BNsa1Iyd6OQG0jL972IBQGKD0mYqQswxC3bT+hqWSouabfI2RdaZA==}
+    deprecated: This package is deprecated and no longer maintained due to better, more secure solutions being available. Users should migrate to a proper, full-featured Node.js web framework (such as Express.js, Fastify, or NestJS) to handle OAuth2 authorizations.
 
   dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
