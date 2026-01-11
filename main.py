@@ -71,7 +71,12 @@ app.register_blueprint(marketing_blueprint, url_prefix="/api/marketing")
 #         return send_from_directory('web/dist', path)
 
 # --- Scheduler Setup ---
-scheduler = BackgroundScheduler(daemon=True)
+# Use max_instances=1 to prevent concurrent sync jobs (which can cause connection issues)
+scheduler = BackgroundScheduler(daemon=True, job_defaults={
+    'max_instances': 1,
+    'coalesce': True,  # If multiple runs are missed, only run once
+    'misfire_grace_time': 300  # Allow 5 minutes grace for misfired jobs
+})
 
 def unified_sync_job():
     """Job function to sync Notion to both Google Calendar and OCP database."""

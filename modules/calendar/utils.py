@@ -4,9 +4,16 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, List, Any, Tuple
 import pytz
+import os
 
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sentry_sdk import capture_exception, set_context
 from shared import config, logger # Assuming logger and config are available in shared
+
+# Configurable batch size - reduced from 900 to prevent timeout issues
+# Can be overridden via environment variable for production tuning
+DEFAULT_BATCH_SIZE = int(os.environ.get('GCAL_BATCH_SIZE', '50'))
+BATCH_MAX_RETRIES = int(os.environ.get('GCAL_BATCH_MAX_RETRIES', '3'))
 
 # If logger is not in shared, initialize it here:
 # logger = logging.getLogger(__name__)
@@ -37,8 +44,34 @@ def operation_span(transaction, op, description, logger=None):
             span.finish()
         except Exception as finish_err:
             current_logger.error(f"Failed to finish span {description}: {finish_err}")
-def batch_operation(service: Any, operation_fn: Any, items: List[Any], calendar_id: str, batch_size: int = 900, description: str = "batch_operation", parent_transaction=None) -> Tuple[int, int]: # Added parent_transaction
-    """Generic batch operation handler for Google API calls.
+def _execute_batch_with_retry(batch, chunk_info: str, max_retries: int = BATCH_MAX_RETRIES):
+    """Execute a batch request with exponential backoff retry logic.
+    
+    Args:
+        batch: The Google API batch request object.
+        chunk_info: Description string for logging.
+        max_retries: Maximum number of retry attempts.
+        
+    Raises:
+        Exception: If all retries are exhausted.
+    """
+    @retry(
+        stop=stop_after_attempt(max_retries),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        reraise=True,
+        before_sleep=lambda retry_state: logger.warning(
+            f"Batch {chunk_info} failed, retrying in {retry_state.next_action.sleep}s... "
+            f"(attempt {retry_state.attempt_number}/{max_retries})"
+        )
+    )
+    def _execute():
+        return batch.execute()
+    
+    return _execute()
+
+
+def batch_operation(service: Any, operation_fn: Any, items: List[Any], calendar_id: str, batch_size: int = None, description: str = "batch_operation", parent_transaction=None) -> Tuple[int, int]: # Added parent_transaction
+    """Generic batch operation handler for Google API calls with retry logic.
 
     Args:
         service: Google API service object.
@@ -46,20 +79,26 @@ def batch_operation(service: Any, operation_fn: Any, items: List[Any], calendar_
                       (e.g., lambda s: s.events().delete).
         items: List of items (e.g., event IDs) to process.
         calendar_id: The ID of the calendar for the operation.
-        batch_size: Maximum batch size (stay under API limits).
+        batch_size: Maximum batch size (defaults to DEFAULT_BATCH_SIZE=50).
         description: Description for logging and Sentry context.
         parent_transaction: Optional parent Sentry transaction (used for context).
-        description: Description for logging and Sentry context.
 
     Returns:
         Tuple of (successful_count, failed_count).
     """
+    # Use configurable default batch size (reduced from 900 to prevent timeouts)
+    if batch_size is None:
+        batch_size = DEFAULT_BATCH_SIZE
+    
     if not items:
         logger.info(f"No items to process in batch {description}.")
         return 0, 0
 
     successful = 0
     failed = 0
+    total_chunks = (len(items) + batch_size - 1) // batch_size
+    
+    logger.info(f"Starting batch {description}: {len(items)} items in {total_chunks} chunks (batch_size={batch_size})")
 
     # Define the callback function locally
     def callback(request_id, response, exception):
@@ -85,8 +124,9 @@ def batch_operation(service: Any, operation_fn: Any, items: List[Any], calendar_
         if not chunk:
             continue
 
+        chunk_num = i // batch_size + 1
         batch = service.new_batch_http_request(callback=callback)
-        logger.info(f"Preparing batch {description} for {len(chunk)} items (chunk {i // batch_size + 1})...")
+        logger.info(f"Preparing batch {description} chunk {chunk_num}/{total_chunks} ({len(chunk)} items)...")
 
         # Add requests to the batch based on the operation type
         # This assumes the operation needs calendarId and an item identifier (e.g., eventId)
@@ -96,20 +136,21 @@ def batch_operation(service: Any, operation_fn: Any, items: List[Any], calendar_
              request = api_method(calendarId=calendar_id, eventId=item_id)
              batch.add(request)
 
-
         try:
-            logger.info(f"Executing batch {description} for chunk {i // batch_size + 1} ({len(chunk)} items).")
-            batch.execute()
-            logger.info(f"Batch chunk {i // batch_size + 1} executed for {description}.")
+            chunk_info = f"{description} chunk {chunk_num}/{total_chunks}"
+            logger.info(f"Executing batch {chunk_info} ({len(chunk)} items)...")
+            _execute_batch_with_retry(batch, chunk_info)
+            logger.info(f"Batch {chunk_info} executed successfully.")
         except Exception as e:
             capture_exception(e)
-            logger.error(f"Error executing batch {description} chunk {i // batch_size + 1}: {str(e)}")
-            # If the whole batch execution fails, assume all items in the chunk failed
+            logger.error(f"Error executing batch {description} chunk {chunk_num}/{total_chunks} after retries: {str(e)}")
+            # If the whole batch execution fails after retries, assume all items in the chunk failed
             failed += len(chunk)
             set_context(f"batch_{description}_execution_error", {
-                "chunk_index": i // batch_size + 1,
+                "chunk_index": chunk_num,
                 "chunk_size": len(chunk),
-                "error": str(e)
+                "error": str(e),
+                "retries_exhausted": True
             })
 
     logger.info(f"Batch {description} complete: {successful} successful, {failed} failed")

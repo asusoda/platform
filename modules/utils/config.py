@@ -1,6 +1,26 @@
 import os
 import json
+from urllib.parse import urlparse
 from dotenv import load_dotenv
+
+
+def _is_truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _is_localhost_url(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        parsed = urlparse(value)
+    except Exception:
+        return False
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    host = (parsed.hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "0.0.0.0"}
 
 class Config:
     """Centralized configuration management for the application"""
@@ -51,19 +71,53 @@ class Config:
                 # Superadmin config
                 self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN", "test-superadmin-id")
             else:
+                # Environment mode detection
+                # Requirement: if IS_PROD is false OR debug/dev, force localhost redirects.
+                is_prod_env = os.environ.get("IS_PROD")
+                flask_env = os.environ.get("FLASK_ENV", "").lower()
+                flask_debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+
+                # If IS_PROD is explicitly set, it wins.
+                # Otherwise, infer production from FLASK_ENV and FLASK_DEBUG.
+                self.PROD = _is_truthy(is_prod_env) if is_prod_env is not None else (flask_env == "production" and not flask_debug)
+
+                def _require_env(name: str) -> str:
+                    value = os.environ.get(name)
+                    if value is None or value == "":
+                        raise KeyError(name)
+                    return value
+
                 # Core Application Config
-                self.SECRET_KEY = os.environ["SECRET_KEY"]
-                self.CLIENT_ID = os.environ["CLIENT_ID"]
-                self.CLIENT_SECRET = os.environ["CLIENT_SECRET"]
-                self.REDIRECT_URI = os.environ["REDIRECT_URI"]
-                self.CLIENT_URL = os.environ["CLIENT_URL"]
-                self.TNAY_API_URL = os.environ["TNAY_API_URL"]
-                self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ["OPEN_ROUTER_CLAUDE_API_KEY"]
-                self.DISCORD_OFFICER_WEBHOOK_URL = os.environ["DISCORD_OFFICER_WEBHOOK_URL"]
-                self.DISCORD_POST_WEBHOOK_URL = os.environ["DISCORD_POST_WEBHOOK_URL"]
-                self.ONEUP_PASSWORD = os.environ["ONEUP_PASSWORD"]
-                self.ONEUP_EMAIL = os.environ["ONEUP_EMAIL"]
-                self.PROD = os.environ.get("PROD", "false").lower() == "true"
+                # In production we keep strict requirements. In dev, we allow sensible defaults.
+                self.SECRET_KEY = _require_env("SECRET_KEY") if self.PROD else os.environ.get("SECRET_KEY", "dev-secret-key")
+                self.CLIENT_ID = _require_env("CLIENT_ID") if self.PROD else os.environ.get("CLIENT_ID", "")
+                self.CLIENT_SECRET = _require_env("CLIENT_SECRET") if self.PROD else os.environ.get("CLIENT_SECRET", "")
+
+                # Redirect + UI URLs
+                dev_client_url = os.environ.get("DEV_CLIENT_URL")
+                dev_redirect_uri = os.environ.get("DEV_REDIRECT_URI")
+                env_client_url = os.environ.get("CLIENT_URL")
+                env_redirect_uri = os.environ.get("REDIRECT_URI")
+
+                if self.PROD:
+                    self.CLIENT_URL = _require_env("CLIENT_URL")
+                    self.REDIRECT_URI = _require_env("REDIRECT_URI")
+                else:
+                    # Force localhost redirects in dev/debug (even if .env contains production domains)
+                    self.CLIENT_URL = dev_client_url or env_client_url or "http://localhost:5000"
+                    self.REDIRECT_URI = dev_redirect_uri or env_redirect_uri or "http://localhost:8000/api/auth/callback"
+                    if not _is_localhost_url(self.CLIENT_URL):
+                        self.CLIENT_URL = "http://localhost:5000"
+                    if not _is_localhost_url(self.REDIRECT_URI):
+                        self.REDIRECT_URI = "http://localhost:8000/api/auth/callback"
+
+                # Misc URLs / keys (required in prod, optional in dev)
+                self.TNAY_API_URL = _require_env("TNAY_API_URL") if self.PROD else os.environ.get("TNAY_API_URL", "")
+                self.OPEN_ROUTER_CLAUDE_API_KEY = _require_env("OPEN_ROUTER_CLAUDE_API_KEY") if self.PROD else os.environ.get("OPEN_ROUTER_CLAUDE_API_KEY", "")
+                self.DISCORD_OFFICER_WEBHOOK_URL = _require_env("DISCORD_OFFICER_WEBHOOK_URL") if self.PROD else os.environ.get("DISCORD_OFFICER_WEBHOOK_URL", "")
+                self.DISCORD_POST_WEBHOOK_URL = _require_env("DISCORD_POST_WEBHOOK_URL") if self.PROD else os.environ.get("DISCORD_POST_WEBHOOK_URL", "")
+                self.ONEUP_PASSWORD = _require_env("ONEUP_PASSWORD") if self.PROD else os.environ.get("ONEUP_PASSWORD", "")
+                self.ONEUP_EMAIL = _require_env("ONEUP_EMAIL") if self.PROD else os.environ.get("ONEUP_EMAIL", "")
 
                 # Service Tokens
                 self.BOT_TOKEN = os.environ.get("BOT_TOKEN")  # Legacy token
@@ -71,13 +125,13 @@ class Config:
                 self.AUTH_BOT_TOKEN = os.environ.get("AUTH_BOT_TOKEN")  # Auth bot token
                 
                 # Database Configuration
-                self.DB_TYPE = os.environ["DB_TYPE"]
-                self.DB_URI = os.environ["DB_URI"]
-                self.DB_NAME = os.environ["DB_NAME"]
-                self.DB_USER = os.environ["DB_USER"]
-                self.DB_PASSWORD = os.environ["DB_PASSWORD"]
-                self.DB_HOST = os.environ["DB_HOST"]
-                self.DB_PORT = os.environ["DB_PORT"]
+                self.DB_TYPE = _require_env("DB_TYPE") if self.PROD else os.environ.get("DB_TYPE", "sqlite")
+                self.DB_URI = _require_env("DB_URI") if self.PROD else os.environ.get("DB_URI", "sqlite:///./data/user.db")
+                self.DB_NAME = _require_env("DB_NAME") if self.PROD else os.environ.get("DB_NAME", "dev")
+                self.DB_USER = _require_env("DB_USER") if self.PROD else os.environ.get("DB_USER", "")
+                self.DB_PASSWORD = _require_env("DB_PASSWORD") if self.PROD else os.environ.get("DB_PASSWORD", "")
+                self.DB_HOST = _require_env("DB_HOST") if self.PROD else os.environ.get("DB_HOST", "localhost")
+                self.DB_PORT = _require_env("DB_PORT") if self.PROD else os.environ.get("DB_PORT", "5432")
                 # Calendar Integration
 
                 try:
@@ -98,10 +152,10 @@ class Config:
                     print(f"Warning: Error loading Google credentials: {e}. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None
                     
-                self.NOTION_API_KEY = os.environ["NOTION_API_KEY"]
-                self.NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
-                self.GOOGLE_CALENDAR_ID = os.environ["GOOGLE_CALENDAR_ID"]
-                self.GOOGLE_USER_EMAIL = os.environ["GOOGLE_USER_EMAIL"]
+                self.NOTION_API_KEY = _require_env("NOTION_API_KEY") if self.PROD else os.environ.get("NOTION_API_KEY", "")
+                self.NOTION_DATABASE_ID = _require_env("NOTION_DATABASE_ID") if self.PROD else os.environ.get("NOTION_DATABASE_ID", "")
+                self.GOOGLE_CALENDAR_ID = _require_env("GOOGLE_CALENDAR_ID") if self.PROD else os.environ.get("GOOGLE_CALENDAR_ID", "")
+                self.GOOGLE_USER_EMAIL = _require_env("GOOGLE_USER_EMAIL") if self.PROD else os.environ.get("GOOGLE_USER_EMAIL", "")
                 self.SERVER_PORT = int(os.environ.get("SERVER_PORT", "5000"))
                 self.SERVER_DEBUG = os.environ.get("SERVER_DEBUG", "false").lower() == "true"
                 self.TIMEZONE = os.environ.get("TIMEZONE", "America/Phoenix")

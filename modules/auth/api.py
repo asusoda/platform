@@ -5,18 +5,17 @@ import requests
 from modules.utils.logging_config import logger, get_logger
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)
-CLIENT_ID = config.CLIENT_ID
-CLIENT_SECRET = config.CLIENT_SECRET
-REDIRECT_URI = config.REDIRECT_URI
 GUILD_ID = 762811961238618122
 
-logger.info(f"Auth API using CLIENT_ID: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
+logger.info(f"Auth API using CLIENT_ID: {config.CLIENT_ID} and REDIRECT_URI: {config.REDIRECT_URI}")
 
 @auth_blueprint.route("/login", methods=["GET"])
 def login():
-    logger.info(f"Redirecting to Discord OAuth login for client_id: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
+    client_id = config.CLIENT_ID
+    redirect_uri = config.REDIRECT_URI
+    logger.info(f"Redirecting to Discord OAuth login for client_id: {client_id} and REDIRECT_URI: {redirect_uri}")
     return redirect(
-        f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=identify%20guilds"
+        f"https://discord.com/oauth2/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=identify%20guilds"
     )
 
 @auth_blueprint.route("/validToken", methods=["GET"])
@@ -47,11 +46,11 @@ def callback():
     token_response = requests.post(
         "https://discord.com/api/v10/oauth2/token",
         data={
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
+            "client_id": config.CLIENT_ID,
+            "client_secret": config.CLIENT_SECRET,
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": REDIRECT_URI,
+            "redirect_uri": config.REDIRECT_URI,
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
@@ -98,6 +97,31 @@ def callback():
     else:
         logger.error(f"Failed to retrieve access token from Discord: {token_response_data}")
         return jsonify({"error": "Failed to retrieve access token"}), 400
+
+
+@auth_blueprint.route("/dev-token", methods=["GET"])
+def dev_token():
+    """
+    Development-only endpoint to generate a test token.
+    Only available when FLASK_DEBUG=1 or FLASK_ENV=development.
+    """
+    import os
+    if not (os.environ.get('FLASK_DEBUG') == '1' or os.environ.get('FLASK_ENV') == 'development'):
+        return jsonify({"error": "This endpoint is only available in development mode"}), 403
+    
+    access_token, refresh_token = tokenManger.generate_token_pair(
+        username='dev_test_user',
+        discord_id='000000000000000000',
+        access_exp_minutes=60
+    )
+    
+    return jsonify({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "note": "Development token - do not use in production"
+    }), 200
 
 
 @auth_blueprint.route("/refresh", methods=["POST"])

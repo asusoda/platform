@@ -17,6 +17,7 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
+      - IS_PROD=false
     logging:
       driver: json-file
       options:
@@ -47,7 +48,7 @@ services:
     depends_on:
       - api
     environment:
-      - IS_PROD=true
+      - IS_PROD=false
     logging:
       driver: json-file
       options:

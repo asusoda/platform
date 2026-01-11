@@ -1,8 +1,10 @@
 # modules/calendar/clients.py
 import logging
+import httplib2
 from typing import List, Dict, Optional, Any, Tuple
 
 from google.oauth2 import service_account
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build, Resource # Added Resource type hint
 from googleapiclient.errors import HttpError
 from notion_client import Client as NotionClient # Alias to avoid confusion
@@ -24,11 +26,22 @@ class GoogleCalendarClient:
     """Client for Google Calendar API operations."""
 
     SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events']
+    HTTP_TIMEOUT = 30  # Timeout in seconds for HTTP requests to prevent stale connections
 
     def __init__(self, logger_instance=None):
         self.logger = logger_instance or logger # Use shared logger by default
         self._service: Optional[Resource] = None # Type hint for service
+        self._credentials = None  # Cache credentials for service reset
         self.error_handler = APIErrorHandler(self.logger, "GoogleCalendarClient")
+
+    def reset_service(self):
+        """Reset the cached service to force a fresh connection.
+        
+        Call this before batch operations to prevent TLS/SSL connection pool corruption
+        that can cause HTTP 400 'Bad Request Version' errors.
+        """
+        self._service = None
+        self.logger.debug("Google Calendar service reset - will create fresh connection on next use.")
 
     def get_service(self, parent_transaction=None) -> Optional[Resource]: # Accept parent transaction
         """Get authenticated Google Calendar service with error handling."""
@@ -55,16 +68,24 @@ class GoogleCalendarClient:
                     raise ValueError("Google Service Account configuration is missing.")
 
                 with operation_span(transaction, op="auth", description="create_credentials", logger=self.logger) as span:
-                    credentials = service_account.Credentials.from_service_account_info(
+                    self._credentials = service_account.Credentials.from_service_account_info(
                         config.GOOGLE_SERVICE_ACCOUNT, # Assuming this is the parsed dict
                         scopes=self.SCOPES
                     )
-                    span.set_data("credentials_created", bool(credentials))
+                    span.set_data("credentials_created", bool(self._credentials))
 
                 with operation_span(transaction, op="build", description="build_service", logger=self.logger) as span:
-                    self._service = build('calendar', 'v3', credentials=credentials, cache_discovery=False) # Added cache_discovery=False
+                    # Create HTTP client with explicit timeout to prevent stale connection issues
+                    http = httplib2.Http(timeout=self.HTTP_TIMEOUT)
+                    authorized_http = AuthorizedHttp(self._credentials, http=http)
+                    self._service = build(
+                        'calendar', 'v3',
+                        http=authorized_http,
+                        cache_discovery=False
+                    )
                     span.set_data("service_created", bool(self._service))
-                    self.logger.info("Google Calendar service initialized successfully.")
+                    span.set_data("http_timeout", self.HTTP_TIMEOUT)
+                    self.logger.info(f"Google Calendar service initialized with {self.HTTP_TIMEOUT}s timeout.")
                     return self._service
 
             except ValueError as ve: # Catch specific config errors
@@ -251,6 +272,10 @@ class GoogleCalendarClient:
 
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
 
+        # Reset service to get a fresh connection for batch operations
+        # This prevents TLS/SSL connection pool corruption that can cause HTTP 400 errors
+        self.reset_service()
+        
         service = self.get_service(parent_transaction=current_transaction) # Pass transaction down
         if not service:
             self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
