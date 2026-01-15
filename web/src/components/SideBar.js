@@ -22,7 +22,6 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
     goToUsers,
     goToLeaderboard,
     goToAddPoints,
-    goToOCP,
     currentOrg,
   } = useOrgNavigation();
 
@@ -83,10 +82,6 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
         <button onClick={() => navigate("/transactions")}>
           <FaExchangeAlt className="icon" />
           {isSidebarOpen && <span>Transactions</span>}
-        </button>
-        <button onClick={goToOCP}>
-          <FaClipboardList className="icon" />
-          {isSidebarOpen && <span>OCP Details</span>}
         </button>
 
         {/* Organization info when collapsed */}

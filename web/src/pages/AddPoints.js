@@ -25,7 +25,6 @@ const AddPoints = () => {
     goToDashboard,
     goToUsers, 
     goToLeaderboard,
-    goToOCP,
     goToPanel,
     goToJeopardy 
   } = useOrgNavigation();

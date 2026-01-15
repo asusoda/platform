@@ -57,7 +57,6 @@ class DBConnect:
                 logger.info(f"Database file does not exist at {db_path}. Creating tables...")
                 # Import all models to register them with Base
                 from modules.points.models import User, Points
-                from modules.ocp.models import Officer, OfficerPoints
                 from modules.calendar.models import CalendarEventLink
                 from modules.bot.models import JeopardyGame, ActiveGame
                 from modules.merch.models import Product, Order, OrderItem
@@ -89,98 +88,6 @@ class DBConnect:
         db.commit()
         db.refresh(point)
         return point
-
-    # OCP-related methods moved from OCPDBManager
-    def create_officer(self, db, officer, organization_id):
-        """Create a new officer record for a specific organization"""
-        try:
-            officer.organization_id = organization_id
-            db.add(officer)
-            db.commit()
-            db.refresh(officer)
-            return officer
-        except Exception as e:
-            logger.error(f"Error creating officer: {str(e)}")
-            db.rollback()
-            raise
-
-    def create_officer_points(self, db, points, organization_id):
-        """Create a new officer points record for a specific organization"""
-        try:
-            points.organization_id = organization_id
-            db.add(points)
-            db.commit()
-            db.refresh(points)
-            return points
-        except Exception as e:
-            logger.error(f"Error creating officer points: {str(e)}")
-            db.rollback()
-            # Check if this is a unique constraint violation
-            if "UNIQUE constraint failed" in str(e) or "uq_officer_event_role" in str(e):
-                logger.warning(f"Duplicate points record detected for officer {points.officer_uuid}, event {points.event}, role {points.role}. Skipping creation.")
-                return None
-            raise
-        
-    def get_officer_by_email(self, db, email, organization_id):
-        try:
-            from modules.ocp.models import Officer
-            if not email:
-                return None
-            return db.query(Officer).filter(Officer.email == email, Officer.organization_id == organization_id).first()
-        except Exception as e:
-            logger.error(f"Error getting officer by email: {str(e)}")
-            return None
-    
-    def get_officer_by_name(self, db, name, organization_id):
-        try:
-            from modules.ocp.models import Officer
-            if not name:
-                return None
-            return db.query(Officer).filter(Officer.name == name, Officer.organization_id == organization_id).first()
-        except Exception as e:
-            logger.error(f"Error getting officer by name: {str(e)}")
-            return None
-        
-    def get_officer_points(self, db, officer_uuid, organization_id):
-        try:
-            from modules.ocp.models import OfficerPoints
-            return db.query(OfficerPoints).filter(OfficerPoints.officer_uuid == officer_uuid, OfficerPoints.organization_id == organization_id).all()
-        except Exception as e:
-            logger.error(f"Error getting officer points: {str(e)}")
-            return []
-    
-    def get_all_officers(self, db, organization_id):
-        try:
-            from modules.ocp.models import Officer
-            return db.query(Officer).filter(Officer.organization_id == organization_id).all()
-        except Exception as e:
-            logger.error(f"Error getting all officers: {str(e)}")
-            return []
-        
-    def get_points_by_event(self, db, notion_page_id, organization_id):
-        try:
-            from modules.ocp.models import OfficerPoints
-            return db.query(OfficerPoints).filter(OfficerPoints.notion_page_id == notion_page_id, OfficerPoints.organization_id == organization_id).all()
-        except Exception as e:
-            logger.error(f"Error getting points by event: {str(e)}")
-            return []
-    
-    def delete_officer_points(self, db, point_id):
-        """Delete an officer points record"""
-        try:
-            from modules.ocp.models import OfficerPoints
-            point = db.query(OfficerPoints).filter(OfficerPoints.id == point_id).first()
-            if point:
-                db.delete(point)
-                db.commit()
-                logger.info(f"Deleted points record: {point_id}")
-                return True
-            logger.warning(f"Points record not found: {point_id}")
-            return False
-        except Exception as e:
-            logger.error(f"Error deleting officer points: {str(e)}")
-            db.rollback()
-            return False
 
     # Merchandise-related methods
     def create_merch_product(self, db, product, organization_id):

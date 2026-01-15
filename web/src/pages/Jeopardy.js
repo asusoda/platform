@@ -14,7 +14,6 @@ const Jeopardy = () => {
     goToUsers, 
     goToLeaderboard,
     goToAddPoints,
-    goToOCP,
     goToPanel 
   } = useOrgNavigation();
 

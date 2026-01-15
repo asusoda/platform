@@ -30,7 +30,6 @@ const HomePage = () => {
     goToUsers,
     goToLeaderboard,
     goToAddPoints,
-    goToOCP,
     goToPanel,
     goToJeopardy,
     goToGamePanel,
@@ -44,9 +43,8 @@ const HomePage = () => {
   const [expandedCategories, setExpandedCategories] = useState({
     userManagement: true,
     storeFront: true,
-    ocp: true,
-    discordBots: true,
     calendar: true,
+    discordBots: true,
   });
 
   // Toggle dropdown visibility
@@ -123,22 +121,6 @@ const HomePage = () => {
           icon: FaSignOutAlt,
           color: "from-gray-500 to-gray-600",
           action: goToOrders,
-        },
-      ],
-    },
-    {
-      id: "ocp",
-      title: "OCP System",
-      icon: FaClipboardList,
-      color: "from-indigo-500 to-indigo-600",
-      description: "Officer Contribution Points tracking and management",
-      features: [
-        {
-          title: "OCP Details",
-          description: "Officer Contribution Points tracking and management",
-          icon: FaClipboardList,
-          color: "from-indigo-500 to-indigo-600",
-          action: goToOCP,
         },
       ],
     },
@@ -341,14 +323,6 @@ const HomePage = () => {
             </div>
             <h3 className="text-lg font-semibold mb-2 text-white">Store Front</h3>
             <p className="text-gray-400 text-sm">Manage merchandise</p>
-          </div>
-
-          <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">
-            <div className="flex items-center justify-center mb-2">
-              <FaClipboardList className="w-8 h-8 text-indigo-400" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2 text-white">OCP System</h3>
-            <p className="text-gray-400 text-sm">Track officer contributions</p>
           </div>
 
           <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">

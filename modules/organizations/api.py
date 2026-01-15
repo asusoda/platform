@@ -209,22 +209,3 @@ def get_organization_roles(org_id):
         return jsonify(roles)
     except Exception as e:
         return jsonify({"error": str(e)}), 500 
-
-@organizations_blueprint.route("/<int:org_id>/ocp-sync", methods=["PUT"])
-@auth_required
-def update_organization_ocp_sync(org_id):
-    """Update OCP sync enabled status for an organization."""
-    try:
-        data = request.get_json()
-        db = next(db_connect.get_db())
-        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-        if 'ocp_sync_enabled' in data:
-            org.ocp_sync_enabled = bool(data['ocp_sync_enabled'])
-        db.commit()
-        return jsonify({"message": "OCP sync setting updated successfully", "ocp_sync_enabled": org.ocp_sync_enabled})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db.close() 

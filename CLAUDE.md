@@ -69,7 +69,7 @@ All core functionality is organized in `/modules/` with consistent structure:
 - `models.py` - SQLAlchemy database models  
 - `README.md` - Module documentation
 
-Active modules: auth, bot, calendar, merch, ocp, organizations, points, public, summarizer, superadmin, users, utils
+Active modules: auth, bot, calendar, merch, organizations, points, public, superadmin, users, utils
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
@@ -79,12 +79,11 @@ Active modules: auth, bot, calendar, merch, ocp, organizations, points, public, 
 
 #### Discord Integration
 - **Auth Bot**: BotFork instance with HelperCog and GameCog for server management
-- **Summarizer Bot**: Standard discord.Bot for content summarization features
-- Both run in separate asyncio event loops in daemon threads
-- Bot tokens managed via environment variables (`BOT_TOKEN`, `AVERY_BOT_TOKEN`)
+- Bot runs in separate asyncio event loop in daemon thread
+- Bot token managed via environment variable (`BOT_TOKEN`)
 
 #### Background Services
-- **Unified Sync Service**: Syncs Notion data to Google Calendar and OCP database (runs every 60 minutes)
+- **Calendar Sync Service**: Syncs Notion data to Google Calendar (runs every 120 minutes)
 - **Token Cleanup**: Automatic cleanup of expired refresh tokens (runs hourly)
 - **Multi-org Calendar Service**: Handles calendar operations across organizations
 
@@ -104,7 +103,7 @@ Active modules: auth, bot, calendar, merch, ocp, organizations, points, public, 
 
 ### Environment Setup
 - Copy `.env.template` to `.env` and configure before running
-- Requires Discord bot tokens, Google API credentials, Notion API key
+- Requires Discord bot token, Google API credentials, Notion API key
 - Database file created automatically in `./data/` directory
 
 ### Testing Environment
