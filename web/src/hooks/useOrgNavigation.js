@@ -31,6 +31,7 @@ const useOrgNavigation = () => {
   const goToLeaderboard = () => navigateToOrg("leaderboard");
   const goToAddPoints = () => navigateToOrg("addpoints");
   const goToPanel = () => navigateToOrg("panel");
+  const goToJeopardy = () => navigateToOrg("jeopardy");
   const goToGamePanel = () => navigateToOrg("gamepanel");
   const goToActiveGame = () => navigateToOrg("activegame");
   const goToMerchProducts = () => navigateToOrg("merch/products");
