@@ -14,7 +14,6 @@ const GamePanel = () => {
     goToUsers, 
     goToLeaderboard,
     goToAddPoints,
-    goToOCP,
     goToJeopardy 
   } = useOrgNavigation();
 

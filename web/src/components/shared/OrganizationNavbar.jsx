@@ -30,7 +30,6 @@ const OrganizationNavbar = ({ children }) => {
   const goToUsers = () => navigate(`/${currentOrg?.prefix}/users`);
   const goToLeaderboard = () => navigate(`/${currentOrg?.prefix}/leaderboard`);
   const goToAddPoints = () => navigate(`/${currentOrg?.prefix}/addpoints`);
-  const goToOCP = () => navigate(`/${currentOrg?.prefix}/ocp`);
   const goToPanel = () => navigate(`/${currentOrg?.prefix}/panel`);
   const goToJeopardy = () => navigate(`/${currentOrg?.prefix}/jeopardy`);
   const goToGamePanel = () => navigate(`/${currentOrg?.prefix}/gamepanel`);
@@ -128,21 +127,6 @@ const OrganizationNavbar = ({ children }) => {
                     <li>
                       <HoveredLink onClick={goToTransactions} className="block p-2 rounded hover:bg-green-400/20 hover:text-green-300 transition-all duration-200 text-sm text-gray-300">
                         • Manage Orders (Admin)
-                      </HoveredLink>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* OCP System Category */}
-                <div>
-                  <div className="text-sm font-semibold text-purple-400 mb-4 flex items-center">
-                    <FaClipboardList className="mr-2 text-purple-400" />
-                    OCP System
-                  </div>
-                  <ul className="space-y-2">
-                    <li>
-                      <HoveredLink onClick={goToOCP} className="block p-2 rounded hover:bg-purple-400/20 hover:text-purple-300 transition-all duration-200 text-sm text-gray-300">
-                        • OCP Details
                       </HoveredLink>
                     </li>
                   </ul>

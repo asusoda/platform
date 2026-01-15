@@ -31,7 +31,6 @@ const useOrgNavigation = () => {
   const goToLeaderboard = () => navigateToOrg("leaderboard");
   const goToAddPoints = () => navigateToOrg("addpoints");
   const goToPanel = () => navigateToOrg("panel");
-  const goToOCP = () => navigateToOrg("ocp");
   const goToJeopardy = () => navigateToOrg("jeopardy");
   const goToGamePanel = () => navigateToOrg("gamepanel");
   const goToActiveGame = () => navigateToOrg("activegame");
@@ -49,7 +48,6 @@ const useOrgNavigation = () => {
     goToLeaderboard,
     goToAddPoints,
     goToPanel,
-    goToOCP,
     goToJeopardy,
     goToGamePanel,
     goToActiveGame,

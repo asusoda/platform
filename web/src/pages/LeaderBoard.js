@@ -14,7 +14,6 @@ const LeaderboardPage = () => {
     goToDashboard,
     goToUsers, 
     goToAddPoints,
-    goToOCP,
     goToPanel,
     goToJeopardy 
   } = useOrgNavigation();

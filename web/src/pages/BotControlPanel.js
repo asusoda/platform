@@ -14,7 +14,6 @@ const BotControlPanel = () => {
     goToUsers, 
     goToLeaderboard,
     goToAddPoints,
-    goToOCP,
     goToJeopardy 
   } = useOrgNavigation();
 

@@ -8,8 +8,6 @@ import ActiveGame from "./pages/ActiveGame";
 import LoginPage from "./pages/LoginPage";
 import ServerError from "./pages/ServerError";
 import AddPoints from "./pages/AddPoints";
-import OCPDetails from "./pages/OCPDetails";
-import OCPOfficerDetails from "./pages/OCPOfficerDetails";
 import OrganizationSelector from "./pages/OrganizationSelector";
 import SuperAdmin from "./pages/SuperAdmin";
 import Calendar from "./pages/Calendar";
@@ -176,22 +174,6 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/:orgPrefix/ocp"
-            element={
-              <PrivateRoute>
-                <OCPDetails />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/:orgPrefix/ocp/officer/:officerUuid"
-            element={
-              <PrivateRoute>
-                <OCPOfficerDetails />
-              </PrivateRoute>
-            }
-          />
 
           {/* Legacy routes (for backward compatibility) - redirect to select-organization */}
           <Route
@@ -226,7 +208,6 @@ function App() {
             path="/leaderboard"
             element={<Navigate to="/select-organization" />}
           />
-          <Route path="/ocp" element={<Navigate to="/select-organization" />} />
           </Routes>
           <ToastContainer />
         </AuthProvider>
