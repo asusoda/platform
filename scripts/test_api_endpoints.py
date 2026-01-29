@@ -21,7 +21,7 @@ NO_AUTH_HEADERS = {
 passed_tests = 0
 failed_tests = 0
 failed_test_details = [] # Stores info about failed tests
-created_users_for_points = [] # Helper to pass created user email between tests
+created_users_for_points = [] # Helper to pass created user emails between tests
 
 # --- Helper Function ---
 def make_request(method, endpoint, headers=None, params=None, data=None, description=""):
