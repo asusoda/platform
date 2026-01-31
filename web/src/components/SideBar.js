@@ -10,7 +10,6 @@ import {
   FaTshirt,
   FaExchangeAlt,
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 import useOrgNavigation from "../hooks/useOrgNavigation";
 import OrganizationSwitcher from "./OrganizationSwitcher";
 import { debounce } from "../utils/resizeObserverFix";
@@ -22,10 +21,11 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
     goToUsers,
     goToLeaderboard,
     goToAddPoints,
+    goToStorefrontProducts,
+    goToAddProducts,
+    goToOrders,
     currentOrg,
   } = useOrgNavigation();
-
-  const navigate = useNavigate();
 
   // Debounce the sidebar toggle to prevent rapid state changes
   const debouncedToggle = useCallback(
@@ -71,15 +71,15 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
           <FaPlus className="icon" />
           {isSidebarOpen && <span>Add Points</span>}
         </button>
-        <button onClick={() => navigate("/storefront/products")}>
+        <button onClick={goToStorefrontProducts}>
           <FaTshirt className="icon" />
           {isSidebarOpen && <span>Storefront</span>}
         </button>
-        <button onClick={() => navigate("/storefront/products/add")}>
+        <button onClick={goToAddProducts}>
           <FaPlus className="icon" />
           {isSidebarOpen && <span>Add Product</span>}
         </button>
-        <button onClick={() => navigate("/transactions")}>
+        <button onClick={goToOrders}>
           <FaExchangeAlt className="icon" />
           {isSidebarOpen && <span>Transactions</span>}
         </button>
