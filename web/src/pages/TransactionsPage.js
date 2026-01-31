@@ -38,7 +38,7 @@ const TransactionsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get(`/api/merch/${prefixToUse}/orders`);
+      const response = await apiClient.get(`/api/storefront/${prefixToUse}/orders`);
       setTransactions(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       const errorMessage = `Failed to fetch transactions. ${
@@ -121,7 +121,7 @@ const TransactionsPage = () => {
     };
 
     try {
-      await apiClient.post(`/api/merch/${prefixToUse}/orders`, payload);
+      await apiClient.post(`/api/storefront/${prefixToUse}/orders`, payload);
       toast.success("Transaction added successfully!");
       setShowAddForm(false);
       setNewOrderData({
@@ -156,7 +156,7 @@ const TransactionsPage = () => {
 
     setMessageLoading(true);
     try {
-      await apiClient.put(`/api/merch/${prefixToUse}/orders/${transactionId}`, {
+      await apiClient.put(`/api/storefront/${prefixToUse}/orders/${transactionId}`, {
         message: messageText
       });
       toast.success("Message updated successfully!");
@@ -194,7 +194,7 @@ const TransactionsPage = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Transactions</h1>
           <p className="text-gray-400">
-            Manage all merchandise orders and transactions for {(currentOrg || {name: 'the organization'}).name}
+            Manage all storefront orders and transactions for {currentOrg?.name || 'the organization'}
           </p>
         </div>
 

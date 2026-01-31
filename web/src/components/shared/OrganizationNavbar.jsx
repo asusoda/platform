@@ -34,8 +34,8 @@ const OrganizationNavbar = ({ children }) => {
   const goToJeopardy = () => navigate(`/${currentOrg?.prefix}/jeopardy`);
   const goToGamePanel = () => navigate(`/${currentOrg?.prefix}/gamepanel`);
   const goToActiveGame = () => navigate(`/${currentOrg?.prefix}/activegame`);
-  const goToMerchDashboard = () => navigate(`/${currentOrg?.prefix}/merch/dashboard`);
-  const goToAddMerch = () => navigate(`/${currentOrg?.prefix}/add-merchandise`);
+  const goToStorefrontDashboard = () => navigate(`/${currentOrg?.prefix}/storefront/dashboard`);
+  const goToAddStorefrontProduct = () => navigate(`/${currentOrg?.prefix}/add-storefront-product`);
   const goToTransactions = () => navigate(`/${currentOrg?.prefix}/transactions`);
   const goToMemberStore = () => window.open(`/store/${currentOrg?.prefix}`, '_blank');
   const goToCalendar = () => navigate(`/${currentOrg?.prefix}/calendar`);
@@ -110,7 +110,7 @@ const OrganizationNavbar = ({ children }) => {
                   </div>
                   <ul className="space-y-2">
                     <li>
-                      <HoveredLink onClick={goToMerchDashboard} className="block p-2 rounded hover:bg-green-400/20 hover:text-green-300 transition-all duration-200 text-sm text-gray-300">
+                      <HoveredLink onClick={goToStorefrontDashboard} className="block p-2 rounded hover:bg-green-400/20 hover:text-green-300 transition-all duration-200 text-sm text-gray-300">
                         • Admin Dashboard
                       </HoveredLink>
                     </li>
@@ -120,7 +120,7 @@ const OrganizationNavbar = ({ children }) => {
                       </HoveredLink>
                     </li>
                     <li>
-                      <HoveredLink onClick={goToAddMerch} className="block p-2 rounded hover:bg-green-400/20 hover:text-green-300 transition-all duration-200 text-sm text-gray-300">
+                      <HoveredLink onClick={goToAddStorefrontProduct} className="block p-2 rounded hover:bg-green-400/20 hover:text-green-300 transition-all duration-200 text-sm text-gray-300">
                         • Add Products (Admin)
                       </HoveredLink>
                     </li>

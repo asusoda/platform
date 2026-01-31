@@ -7,7 +7,7 @@ from modules.points.api import points_blueprint
 from modules.users.api import users_blueprint
 from modules.utils.db import DBConnect
 from modules.auth.api import auth_blueprint
-from modules.merch.api import merch_blueprint
+from modules.storefront.api import storefront_blueprint
 from modules.bot.api import game_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.organizations.api import organizations_blueprint
@@ -42,7 +42,7 @@ app.register_blueprint(calendar_blueprint, url_prefix="/api/calendar")
 app.register_blueprint(game_blueprint, url_prefix="/api/bot")
 app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
 app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
-app.register_blueprint(merch_blueprint, url_prefix="/api/merch")
+app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
 # # Configure static file serving
 # @app.route('/', defaults={'path': ''})
 # @app.route('/<path:path>')

@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
-from modules.merch.models import Product, Order, OrderItem
+from modules.storefront.models import Product, Order, OrderItem
 
-merch_blueprint = Blueprint("merch", __name__)
+storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
 
 # Helper function to get organization by prefix
@@ -15,7 +15,7 @@ def get_organization_by_prefix(db, org_prefix):
     return org
 
 # PRODUCT ENDPOINTS
-@merch_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
 @error_handler
 def get_products(org_prefix):
     """Get all products for an organization"""
@@ -25,7 +25,7 @@ def get_products(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        products = db_connect.get_merch_products(db, org.id)
+        products = db_connect.get_storefront_products(db, org.id)
         return jsonify([{
             'id': p.id,
             'name': p.name,
@@ -40,7 +40,7 @@ def get_products(org_prefix):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["GET"])
 @error_handler
 def get_product(org_prefix, product_id):
     """Get a specific product by ID for an organization"""
@@ -50,7 +50,7 @@ def get_product(org_prefix, product_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        product = db_connect.get_merch_product(db, product_id, org.id)
+        product = db_connect.get_storefront_product(db, product_id, org.id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
             
@@ -68,7 +68,7 @@ def get_product(org_prefix, product_id):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
+@storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
 @auth_required
 @error_handler
 def create_product(org_prefix):
@@ -97,7 +97,7 @@ def create_product(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        created_product = db_connect.create_merch_product(db, new_product, org.id)
+        created_product = db_connect.create_storefront_product(db, new_product, org.id)
         return jsonify({
             'message': 'Product created successfully', 
             'id': created_product.id,
@@ -114,7 +114,7 @@ def create_product(org_prefix):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
+@storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
 @auth_required
 @error_handler
 def update_product(org_prefix, product_id):
@@ -125,7 +125,7 @@ def update_product(org_prefix, product_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        product = db_connect.get_merch_product(db, product_id, org.id)
+        product = db_connect.get_storefront_product(db, product_id, org.id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
             
@@ -159,7 +159,7 @@ def update_product(org_prefix, product_id):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
+@storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
 @auth_required
 @error_handler
 def delete_product(org_prefix, product_id):
@@ -170,7 +170,7 @@ def delete_product(org_prefix, product_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        success = db_connect.delete_merch_product(db, product_id, org.id)
+        success = db_connect.delete_storefront_product(db, product_id, org.id)
         if not success:
             return jsonify({"error": "Product not found"}), 404
             
@@ -179,7 +179,7 @@ def delete_product(org_prefix, product_id):
         db.close()
 
 # ORDER ENDPOINTS
-@merch_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
 @auth_required
 @error_handler
 def get_orders(org_prefix):
@@ -190,7 +190,7 @@ def get_orders(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        orders = db_connect.get_merch_orders(db, org.id)
+        orders = db_connect.get_storefront_orders(db, org.id)
         return jsonify([{
             'id': o.id,
             'user_id': o.user_id,
@@ -211,7 +211,7 @@ def get_orders(org_prefix):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
 @auth_required
 @error_handler
 def get_order(org_prefix, order_id):
@@ -222,7 +222,7 @@ def get_order(org_prefix, order_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        order = db_connect.get_merch_order(db, order_id, org.id)
+        order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
             
@@ -244,7 +244,7 @@ def get_order(org_prefix, order_id):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
+@storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
 @error_handler
 def create_order(org_prefix):
     """Create a new order for an organization (public endpoint for customer purchases)"""
@@ -283,7 +283,7 @@ def create_order(org_prefix):
             
         # Validate that all products exist and have sufficient stock
         for item in order_items:
-            product = db_connect.get_merch_product(db, item.product_id, org.id)
+            product = db_connect.get_storefront_product(db, item.product_id, org.id)
             if not product:
                 return jsonify({"error": f"Product {item.product_id} not found"}), 404
             if product.stock < item.quantity:
@@ -292,7 +292,7 @@ def create_order(org_prefix):
             # Update stock
             product.stock -= item.quantity
             
-        created_order = db_connect.create_merch_order(db, new_order, order_items, org.id)
+        created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
         return jsonify({
             'message': 'Order created successfully', 
             'id': created_order.id,
@@ -307,7 +307,7 @@ def create_order(org_prefix):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
 @auth_required
 @error_handler
 def update_order_status(org_prefix, order_id):
@@ -318,7 +318,7 @@ def update_order_status(org_prefix, order_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        order = db_connect.get_merch_order(db, order_id, org.id)
+        order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
             
@@ -350,7 +350,7 @@ def update_order_status(org_prefix, order_id):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
 @auth_required
 @error_handler
 def delete_order(org_prefix, order_id):
@@ -361,14 +361,14 @@ def delete_order(org_prefix, order_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        order = db_connect.get_merch_order(db, order_id, org.id)
+        order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
             
         # Restore stock for cancelled orders
         if order.status not in ['cancelled', 'delivered']:
             for item in order.items:
-                product = db_connect.get_merch_product(db, item.product_id, org.id)
+                product = db_connect.get_storefront_product(db, item.product_id, org.id)
                 if product:
                     product.stock += item.quantity
             
@@ -379,7 +379,7 @@ def delete_order(org_prefix, order_id):
         db.close()
 
 # STORE FRONT ENDPOINTS (Public access for customers)
-@merch_blueprint.route("/<string:org_prefix>/store", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/store", methods=["GET"])
 @error_handler
 def get_store_products(org_prefix):
     """Get all available products for public store front"""
@@ -389,7 +389,7 @@ def get_store_products(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
             
-        products = db_connect.get_merch_products(db, org.id)
+        products = db_connect.get_storefront_products(db, org.id)
         # Only return products with stock > 0 for the store front
         available_products = [p for p in products if p.stock > 0]
         
@@ -411,14 +411,14 @@ def get_store_products(org_prefix):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
+@storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
 @error_handler
 def purchase_products(org_prefix):
     """Public endpoint for customers to purchase products"""
     return create_order(org_prefix)  # Reuse the create_order function
 
 # MEMBER-SPECIFIC ENDPOINTS (Requires organization membership)
-@merch_blueprint.route("/<string:org_prefix>/members/store", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/members/store", methods=["GET"])
 @member_required
 @error_handler
 def get_member_store(org_prefix, **kwargs):
@@ -432,7 +432,7 @@ def get_member_store(org_prefix, **kwargs):
     
     db = next(db_connect.get_db())
     try:
-        products = db_connect.get_merch_products(db, organization.id)
+        products = db_connect.get_storefront_products(db, organization.id)
         # Only return products with stock > 0 for the store front
         available_products = [p for p in products if p.stock > 0]
         
@@ -461,7 +461,7 @@ def get_member_store(org_prefix, **kwargs):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/members/orders", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/members/orders", methods=["GET"])
 @member_required
 @error_handler
 def get_member_orders(org_prefix, **kwargs):
@@ -479,7 +479,7 @@ def get_member_orders(org_prefix, **kwargs):
     db = next(db_connect.get_db())
     try:
         # Get orders for this specific user in this organization
-        from modules.merch.models import Order
+        from modules.storefront.models import Order
         orders = db.query(Order).filter(
             Order.organization_id == organization.id,
             Order.user_id == user.id
@@ -503,7 +503,7 @@ def get_member_orders(org_prefix, **kwargs):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/members/orders", methods=["POST"])
+@storefront_blueprint.route("/<string:org_prefix>/members/orders", methods=["POST"])
 @member_required
 @error_handler
 def create_member_order(org_prefix, **kwargs):
@@ -548,7 +548,7 @@ def create_member_order(org_prefix, **kwargs):
     try:
         # Validate that all products exist and have sufficient stock
         for item in order_items:
-            product = db_connect.get_merch_product(db, item.product_id, organization.id)
+            product = db_connect.get_storefront_product(db, item.product_id, organization.id)
             if not product:
                 return jsonify({"error": f"Product {item.product_id} not found"}), 404
             if product.stock < item.quantity:
@@ -557,7 +557,7 @@ def create_member_order(org_prefix, **kwargs):
             # Update stock
             product.stock -= item.quantity
             
-        created_order = db_connect.create_merch_order(db, new_order, order_items, organization.id)
+        created_order = db_connect.create_storefront_order(db, new_order, order_items, organization.id)
         return jsonify({
             'message': 'Order created successfully', 
             'id': created_order.id,
@@ -572,7 +572,7 @@ def create_member_order(org_prefix, **kwargs):
     finally:
         db.close()
 
-@merch_blueprint.route("/<string:org_prefix>/members/orders/<int:order_id>", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/members/orders/<int:order_id>", methods=["GET"])
 @member_required
 @error_handler
 def get_member_order(org_prefix, order_id, **kwargs):
@@ -583,7 +583,7 @@ def get_member_order(org_prefix, order_id, **kwargs):
     db = next(db_connect.get_db())
     try:
         # Get order for this specific user in this organization
-        from modules.merch.models import Order
+        from modules.storefront.models import Order
         order = db.query(Order).filter(
             Order.id == order_id,
             Order.organization_id == organization.id,

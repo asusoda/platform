@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../components/auth/AuthContext";
 
-const MerchListPage = () => {
+const StorefrontListPage = () => {
   const { currentOrg } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ const MerchListPage = () => {
 
     try {
       setLoading(true);
-      const response = await apiClient.get(`/api/merch/${currentOrg.prefix}/products`);
+      const response = await apiClient.get(`/api/storefront/${currentOrg.prefix}/products`);
       setProducts(response.data || []);
       setError(null);
     } catch (err) {
@@ -53,7 +53,7 @@ const MerchListPage = () => {
       return;
 
     try {
-      await apiClient.delete(`/api/merch/${currentOrg.prefix}/products/${productId}`);
+      await apiClient.delete(`/api/storefront/${currentOrg.prefix}/products/${productId}`);
       setProducts(products.filter((product) => product.id !== productId));
       toast.success("Product deleted successfully");
     } catch (err) {
@@ -77,7 +77,7 @@ const MerchListPage = () => {
   };
 
   const handleAddNewProduct = () => {
-    navigate("/merch/products/add");
+    navigate("/storefront/products/add");
   };
 
   if (!currentOrg) {
@@ -94,9 +94,9 @@ const MerchListPage = () => {
     <OrganizationNavbar>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Merchandise List</h1>
+          <h1 className="text-3xl font-bold mb-2">Product Catalog</h1>
           <p className="text-gray-400">
-            View, edit, and delete merchandise products for {currentOrg.name}
+            View, edit, and delete storefront products for {currentOrg.name}
           </p>
         </div>
 
@@ -196,4 +196,4 @@ const MerchListPage = () => {
   );
 };
 
-export default MerchListPage;
+export default StorefrontListPage;

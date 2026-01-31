@@ -45,7 +45,7 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
     setLoading(true);
     setError(null);
     try {
-      await apiClient.put(`/api/merch/${organizationPrefix}/products/${product.id}`, formData);
+      await apiClient.put(`/api/storefront/${organizationPrefix}/products/${product.id}`, formData);
       toast.success("Product updated successfully!");
       onProductUpdated(); // Notify parent component to refresh products
       onClose(); // Close the modal

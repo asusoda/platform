@@ -6,7 +6,7 @@ import { FaBox, FaPlus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useAuth } from "../components/auth/AuthContext";
 
-const AddMerchandisePage = () => {
+const AddStorefrontProductPage = () => {
   const { orgPrefix } = useParams();
   const { currentOrg } = useAuth();
   const [imageUrl, setImageUrl] = useState("");
@@ -34,7 +34,7 @@ const AddMerchandisePage = () => {
 
     try {
       // Updated API endpoint to include organization prefix
-      const response = await apiClient.post(`/api/merch/${prefixToUse}/products`, productData);
+      const response = await apiClient.post(`/api/storefront/${prefixToUse}/products`, productData);
       toast.success("Product added successfully!");
       // Reset form
       setImageUrl("");
@@ -67,7 +67,7 @@ const AddMerchandisePage = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Add New Product</h1>
           <p className="text-gray-400">
-            Add a new item to {(currentOrg || {name: 'the organization'}).name}'s merchandise store
+            Add a new item to {(currentOrg || {name: 'the organization'}).name}'s storefront
           </p>
         </div>
 
@@ -171,4 +171,4 @@ const AddMerchandisePage = () => {
   );
 };
 
-export default AddMerchandisePage;
+export default AddStorefrontProductPage;

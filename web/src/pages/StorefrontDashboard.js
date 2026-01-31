@@ -18,7 +18,7 @@ import { toast } from "react-toastify";
 import { useAuth } from "../components/auth/AuthContext";
 import { Link } from "react-router-dom";
 
-const MerchandiseDashboard = () => {
+const StorefrontDashboard = () => {
   const { orgPrefix } = useParams();
   const { currentOrg } = useAuth();
   const [products, setProducts] = useState([]);
@@ -47,8 +47,8 @@ const MerchandiseDashboard = () => {
     try {
       // Fetch products and orders in parallel
       const [productsResponse, ordersResponse] = await Promise.all([
-        apiClient.get(`/api/merch/${prefixToUse}/products`),
-        apiClient.get(`/api/merch/${prefixToUse}/orders`)
+        apiClient.get(`/api/storefront/${prefixToUse}/products`),
+        apiClient.get(`/api/storefront/${prefixToUse}/orders`)
       ]);
 
       const productsData = Array.isArray(productsResponse.data) ? productsResponse.data : [];
@@ -96,7 +96,7 @@ const MerchandiseDashboard = () => {
 
     const prefixToUse = orgPrefix || currentOrg?.prefix;
     try {
-      await apiClient.delete(`/api/merch/${prefixToUse}/products/${productId}`);
+      await apiClient.delete(`/api/storefront/${prefixToUse}/products/${productId}`);
       toast.success("Product deleted successfully!");
       fetchData(); // Refresh data
     } catch (err) {
@@ -111,7 +111,7 @@ const MerchandiseDashboard = () => {
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     const prefixToUse = orgPrefix || currentOrg?.prefix;
     try {
-      await apiClient.put(`/api/merch/${prefixToUse}/orders/${orderId}`, {
+      await apiClient.put(`/api/storefront/${prefixToUse}/orders/${orderId}`, {
         status: newStatus
       });
       toast.success("Order status updated successfully!");
@@ -151,13 +151,13 @@ const MerchandiseDashboard = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Merchandise Dashboard</h1>
+          <h1 className="text-3xl font-bold mb-2">Storefront Dashboard</h1>
           <p className="text-gray-400">
             Manage products, orders, and view analytics for {(currentOrg || {name: 'the organization'}).name}
           </p>
           <div className="mt-4 flex justify-center space-x-4">
             <Link
-              to={`/${orgPrefix || currentOrg?.prefix}/add-merchandise`}
+              to={`/${orgPrefix || currentOrg?.prefix}/add-storefront`}
               className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md transition-colors flex items-center"
             >
               <FaPlus className="mr-2" /> Add Product
@@ -239,7 +239,7 @@ const MerchandiseDashboard = () => {
 
               {products.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  No products found. <Link to={`/${orgPrefix || currentOrg?.prefix}/add-merchandise`} className="text-blue-400 hover:underline">Add your first product</Link>
+                  No products found. <Link to={`/${orgPrefix || currentOrg?.prefix}/add-storefront`} className="text-blue-400 hover:underline">Add your first product</Link>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -381,4 +381,4 @@ const MerchandiseDashboard = () => {
   );
 };
 
-export default MerchandiseDashboard;
+export default StorefrontDashboard;

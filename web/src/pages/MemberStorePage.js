@@ -48,7 +48,7 @@ const MemberStorePage = () => {
       try {
         // If member session exists, try to get orders using member API
         const memberUser = JSON.parse(localStorage.getItem('memberUser'));
-        const response = await apiClient.post(`/api/merch/${orgPrefix}/members/orders`, {}, {
+        const response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, {}, {
           headers: {
             'X-Member-User-Id': memberUser.id
           }
@@ -63,7 +63,7 @@ const MemberStorePage = () => {
     
     try {
       // Try Discord auth for members
-      const response = await apiClient.get(`/api/merch/${orgPrefix}/members/orders`);
+      const response = await apiClient.get(`/api/storefront/${orgPrefix}/members/orders`);
       setIsAuthenticated(true);
       setOrders(Array.isArray(response.data) ? response.data : []);
       fetchUserPoints();
@@ -86,11 +86,11 @@ const MemberStorePage = () => {
       // Try member store first, fallback to public store
       let response;
       try {
-        response = await apiClient.get(`/api/merch/${orgPrefix}/members/store`);
+        response = await apiClient.get(`/api/storefront/${orgPrefix}/members/store`);
         setUserInfo(response.data.user_info);
       } catch (memberErr) {
         // Fallback to public store data
-        response = await apiClient.get(`/api/merch/${orgPrefix}/store`);
+        response = await apiClient.get(`/api/storefront/${orgPrefix}/store`);
       }
       
       setOrganization(response.data.organization);
@@ -233,17 +233,16 @@ const MemberStorePage = () => {
 
       // Check if using member session
       const memberUser = localStorage.getItem('memberUser');
-      let response;
       
       if (memberUser) {
         const user = JSON.parse(memberUser);
-        response = await apiClient.post(`/api/merch/${orgPrefix}/members/orders`, orderData, {
+        await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData, {
           headers: {
             'X-Member-User-Id': user.id
           }
         });
       } else {
-        response = await apiClient.post(`/api/merch/${orgPrefix}/members/orders`, orderData);
+        await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData);
       }
       
       toast.success("Order placed successfully!");

@@ -5,7 +5,6 @@ from datetime import datetime
 from modules.utils.base import Base
 
 # Updated User model to support multiple organizations
-# Updated User model to support multiple organizations
 class User(Base):
     __tablename__ = "users"
 
