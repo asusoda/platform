@@ -21,6 +21,7 @@ NO_AUTH_HEADERS = {
 passed_tests = 0
 failed_tests = 0
 failed_test_details = [] # Stores info about failed tests
+created_users_for_points = [] # Helper to pass created user emails between tests
 
 # --- Helper Function ---
 def make_request(method, endpoint, headers=None, params=None, data=None, description=""):
@@ -257,8 +258,6 @@ if __name__ == "__main__":
         print("!!! WARNING: TEST_TOKEN is not set. Authenticated endpoints will likely fail. !!!")
         print("!!! Please replace 'YOUR_VALID_TEST_TOKEN' in the script with a valid token.  !!!")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
-
-    created_users_for_points = [] # Helper to pass created user email
 
     # Example of how to store created user info if needed by other tests
     # This is a simplified way; a proper test setup might use fixtures or a shared context.
