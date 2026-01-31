@@ -563,6 +563,16 @@ const SuperAdmin = () => {
                   className="w-full bg-gray-700/50 border border-gray-600/50 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    onChange={e => updateOcpSync(e.target.checked)}
+                    className="rounded border-gray-600/50 bg-gray-700/50 text-green-500 focus:ring-green-500"
+                  />
+                  <span className="text-sm font-medium text-gray-300">Enable OCP Sync (Officer Points)</span>
+                </label>
+              </div>
             </div>
             
             <div className="flex space-x-3 mt-6">

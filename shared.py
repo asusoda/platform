@@ -25,7 +25,7 @@ app = Flask("SoDA internal API",
 )
 CORS(app, 
      resources={r"/*": {
-         "origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://thesoda.io", "https://admin.thesoda.io", "https://thesoda.io"],
+         "origins": ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "https://thesoda.io", "https://admin.thesoda.io"],
          "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
          "allow_headers": ["Content-Type", "Authorization", "X-Organization-ID", "X-Organization-Prefix"],
          "supports_credentials": True

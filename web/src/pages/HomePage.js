@@ -34,6 +34,7 @@ const HomePage = () => {
     goToJeopardy,
     goToGamePanel,
     goToActiveGame,
+    goToStorefrontProducts,
     goToAddProducts,
     goToOrders,
   } = useOrgNavigation();
