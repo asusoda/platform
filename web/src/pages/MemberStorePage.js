@@ -233,7 +233,6 @@ const MemberStorePage = () => {
 
       // Check if using member session
       const memberUser = localStorage.getItem('memberUser');
-      let response;
       
       if (memberUser) {
         const user = JSON.parse(memberUser);
