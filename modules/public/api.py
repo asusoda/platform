@@ -239,11 +239,11 @@ def get_organization_stats(org_prefix):
         total_points = db.query(func.sum(Points.points)).filter(Points.organization_id == org.id).scalar() or 0
         
         # Get product count
-        from modules.merch.models import Product
+        from modules.storefront.models import Product
         product_count = db.query(Product).filter(Product.organization_id == org.id).count()
         
         # Get order count
-        from modules.merch.models import Order
+        from modules.storefront.models import Order
         order_count = db.query(Order).filter(Order.organization_id == org.id).count()
         
         return jsonify({

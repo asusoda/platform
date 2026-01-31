@@ -20,10 +20,10 @@ import TokenRetrival from "./pages/TokenRetrival";
 import HomePage from "./pages/HomePage";
 import UserPage from "./pages/UserPage";
 import LeaderBoard from "./pages/LeaderBoard";
-import MerchandiseListPage from "./pages/MerchandiseListPage";
-import AddMerchandisePage from "./pages/AddMerchandisePage";
+import StorefrontListPage from "./pages/StorefrontListPage";
+import AddStorefrontProductPage from "./pages/AddStorefrontProductPage";
 import TransactionsPage from "./pages/TransactionsPage";
-import MerchandiseDashboard from "./pages/MerchandiseDashboard";
+import StorefrontDashboard from "./pages/StorefrontDashboard";
 import MemberStorePage from "./pages/MemberStorePage";
 import MemberLoginPage from "./pages/MemberLoginPage";
 import MetricsPage from "./pages/MetricsPage";
@@ -47,28 +47,28 @@ function App() {
           <Route path="/store/:orgPrefix" element={<MemberStorePage />} />
           <Route path="/store/:orgPrefix/login" element={<MemberLoginPage />} />
           
-          {/* Private merchandise management routes */}
+          {/* Private storefront management routes */}
           <Route
-            path="/:orgPrefix/merch/dashboard"
+            path="/:orgPrefix/storefront/dashboard"
             element={
               <PrivateRoute>
-                <MerchandiseDashboard />
+                <StorefrontDashboard />
               </PrivateRoute>
             }
           />
           <Route
-            path="/:orgPrefix/merch/products"
+            path="/:orgPrefix/storefront/products"
             element={
               <PrivateRoute>
-                <MerchandiseListPage />
+                <StorefrontListPage />
               </PrivateRoute>
             }
           />
           <Route
-            path="/:orgPrefix/add-merchandise"
+            path="/:orgPrefix/add-storefront-product"
             element={
               <PrivateRoute>
-                <AddMerchandisePage />
+                <AddStorefrontProductPage />
               </PrivateRoute>
             }
           />

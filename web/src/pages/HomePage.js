@@ -34,7 +34,7 @@ const HomePage = () => {
     goToJeopardy,
     goToGamePanel,
     goToActiveGame,
-    goToMerchProducts,
+    goToStorefrontProducts,
     goToAddProducts,
     goToOrders,
   } = useOrgNavigation();
@@ -92,25 +92,25 @@ const HomePage = () => {
       title: "Store Front",
       icon: FaStore,
       color: "from-orange-500 to-orange-600",
-      description: "Manage merchandise and store operations",
+      description: "Manage storefront and store operations",
       features: [
         {
           title: "Admin Dashboard",
-          description: "Comprehensive merchandise management dashboard",
+          description: "Comprehensive storefront management dashboard",
           icon: FaTachometerAlt,
           color: "from-orange-500 to-orange-600",
-          action: () => window.location.href = `/${currentOrg?.prefix}/merch/dashboard`,
+          action: () => window.location.href = `/${currentOrg?.prefix}/storefront/dashboard`,
         },
         {
           title: "Store & Orders",
-          description: "Browse merchandise, shop, and track orders",
+          description: "Browse products, shop, and track orders",
           icon: FaStore,
           color: "from-blue-500 to-blue-600",
           action: () => window.open(`/store/${currentOrg?.prefix}`, '_blank'),
         },
         {
           title: "Add Products",
-          description: "Add new merchandise products (Admin)",
+          description: "Add new products to storefront (Admin)",
           icon: FaPlus,
           color: "from-pink-500 to-pink-600",
           action: goToAddProducts,
@@ -322,7 +322,7 @@ const HomePage = () => {
               <FaStore className="w-8 h-8 text-orange-400" />
             </div>
             <h3 className="text-lg font-semibold mb-2 text-white">Store Front</h3>
-            <p className="text-gray-400 text-sm">Manage merchandise</p>
+            <p className="text-gray-400 text-sm">Manage storefront</p>
           </div>
 
           <div className="bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700 p-6 text-center">

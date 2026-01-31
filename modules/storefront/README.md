@@ -1,6 +1,6 @@
-# Merch Store Module
+# Storefront Module
 
-This module handles the merchandise store functionality, including product management and order processing.
+This module handles the storefront functionality, including product management and order processing.
 
 ## Database Structure
 

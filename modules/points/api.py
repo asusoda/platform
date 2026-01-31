@@ -1227,3 +1227,5 @@ def get_user_points_in_org_by_identifier(org_prefix, user_identifier):
         return jsonify({"error": str(e)}), 500
     finally:
         db.close()
+
+
