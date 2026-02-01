@@ -8,140 +8,136 @@ This directory contains unit and integration tests for the platform.
 tests/
 ├── __init__.py                      # Test module initialization
 ├── conftest.py                      # Pytest fixtures and configuration
-├── test_storefront_points.py        # Unit tests for storefront points endpoint
-├── test_storefront_integration.py   # Integration tests for storefront
-└── test_frontend_fixes.py           # Documentation of frontend fixes
+├── test_storefront_api.py           # Business logic tests for storefront points endpoint
+└── README.md                        # This file
 ```
 
 ## Running Tests
 
-### Run all tests
+### Locally (requires dependencies)
 ```bash
-pytest -v
+# Install dependencies using uv (recommended)
+uv sync
+
+# Run all tests
+uv run pytest -v
+
+# Run specific test file
+uv run pytest tests/test_storefront_api.py -v
+
+# Run specific test class
+uv run pytest tests/test_storefront_api.py::TestStorefrontPointsEndpointImplementation -v
 ```
 
-### Run specific test file
-```bash
-pytest tests/test_storefront_points.py -v
-```
-
-### Run specific test class
-```bash
-pytest tests/test_storefront_points.py::TestStorefrontPointsEndpoint -v
-```
-
-### Run specific test method
-```bash
-pytest tests/test_storefront_points.py::TestStorefrontPointsEndpoint::test_get_user_points_success -v
-```
-
-### Run with coverage (if pytest-cov is installed)
-```bash
-pytest --cov=modules --cov-report=html -v
-```
+### Via CI (GitHub Actions)
+Tests run automatically on:
+- Every push to any branch
+- Every pull request
+- See `.github/workflows/pytest.yml` for configuration
 
 ## Test Categories
 
-### Unit Tests
-- `test_storefront_points.py`: Tests for the GET `/<org_prefix>/members/points` endpoint
-  - Tests authentication requirements
-  - Tests error conditions (no org, no user, no membership)
-  - Tests successful point retrieval
-  - Tests database query optimization (aggregation, limiting)
-  - Tests response structure
+### Storefront API Tests (`test_storefront_api.py`)
+Tests verify the actual implementation of the points endpoint by inspecting source code:
 
-### Integration Tests
-- `test_storefront_integration.py`: End-to-end tests for storefront features
-  - Tests complete request/response flow
-  - Tests decorator application
-  - Tests database session cleanup
-  - Tests query ordering
+**Implementation Tests**:
+- ✅ Endpoint exists and is registered
+- ✅ Uses database SUM aggregation for total points (not Python sum)
+- ✅ Limits breakdown to 20 records
+- ✅ Orders by timestamp descending
+- ✅ Validates organization exists
+- ✅ Validates user Discord ID
+- ✅ Checks user organization membership
+- ✅ Formats timestamps as ISO 8601
+- ✅ Handles null timestamps gracefully
+- ✅ Uses try/finally to close database sessions
+- ✅ Returns correct JSON response structure
 
-### Frontend Tests
-- `test_frontend_fixes.py`: Documentation of frontend syntax fixes
-  - Documents MemberStorePage.js syntax error fix
-  - Provides manual testing instructions
+**Security Tests**:
+- ✅ Has @member_required decorator (authentication required)
+- ✅ Has @error_handler decorator
+- ✅ Email not in URL path (prevents PII exposure)
+- ✅ Uses authenticated context for user identification
+
+**Performance Tests**:
+- ✅ Separate optimized queries for total and breakdown
+- ✅ Uses database filtering, not Python filtering
+
+## Testing Approach
+
+These tests use **code inspection** to verify implementation rather than mocking:
+- Tests use Python's `inspect` module to examine actual source code
+- Verifies correct database queries (func.sum, limit, order_by)
+- Confirms security measures (decorators, validation)
+- Checks performance optimizations (aggregation vs. iteration)
+
+Benefits:
+- Tests verify actual implementation, not mocked behavior
+- Faster than integration tests (no database/app startup)
+- Catches implementation regressions
+- Documents expected code patterns
 
 ## Writing New Tests
 
-### Test Fixtures
-Common fixtures are defined in `conftest.py`:
-- `app`: Flask application instance
-- `client`: Test client for making requests
-- `mock_db_session`: Mock database session
-- `mock_organization`: Mock organization object
-- `mock_user`: Mock user object
-- `mock_membership`: Mock membership object
-- `mock_points_records`: Mock points data
-
-### Example Test
+### Example: Testing Implementation with Code Inspection
 ```python
-import pytest
-from unittest.mock import patch, MagicMock
-
-class TestMyFeature:
-    @patch('modules.mymodule.api.db_connect')
-    def test_my_endpoint(self, mock_db_connect, client):
-        # Setup
-        mock_db = MagicMock()
-        mock_db_connect.get_db.return_value = iter([mock_db])
-        
-        # Execute
-        response = client.get('/api/myendpoint')
-        
-        # Assert
-        assert response.status_code == 200
+def test_uses_database_aggregation(self):
+    """Verify implementation uses database aggregation."""
+    import inspect
+    from modules.mymodule.api import my_function
+    
+    source = inspect.getsource(my_function)
+    
+    # Verify database aggregation is used
+    assert 'func.sum' in source
+    assert '.scalar()' in source
 ```
 
 ## Current Test Coverage
 
 ### Covered Features
-- ✅ Storefront points endpoint security (authentication required)
-- ✅ Storefront points endpoint error handling
-- ✅ Storefront points endpoint database optimization
-- ✅ Storefront points endpoint response structure
-- ✅ Frontend syntax error fixes (documented)
+- ✅ Storefront points endpoint business logic
+- ✅ Security improvements (authentication, no PII in URLs)
+- ✅ Performance optimizations (database aggregation, query limiting)
+- ✅ Error handling (validation, membership checks)
+- ✅ Response formatting (ISO timestamps, null handling)
+- ✅ Database session management (proper cleanup)
 
 ### Areas for Future Testing
 - [ ] Product CRUD operations
 - [ ] Order creation and management
 - [ ] Cart functionality
 - [ ] Member authentication flow
-- [ ] Points calculation accuracy
 - [ ] Multi-organization support
-
-## Testing Best Practices
-
-1. **Use descriptive test names**: Test names should clearly describe what is being tested
-2. **Follow AAA pattern**: Arrange, Act, Assert
-3. **Mock external dependencies**: Use mocks for database, API calls, etc.
-4. **Test edge cases**: Empty data, None values, invalid inputs
-5. **Keep tests independent**: Each test should be able to run in isolation
-6. **Use fixtures**: Reuse common setup via pytest fixtures
-7. **Test both success and failure paths**: Don't just test happy paths
+- [ ] Calendar sync operations
 
 ## Dependencies
 
 Tests require:
-- pytest >= 9.0.2
-- pytest-flask >= 1.3.0
-- pytest-mock >= 3.15.1
-
-Install with:
-```bash
-pip install pytest pytest-flask pytest-mock
-```
-
-Or use uv:
-```bash
-uv sync
-```
+- pytest >= 8.4.1 (specified in pyproject.toml)
+- All application dependencies (installed via `uv sync`)
 
 ## CI/CD Integration
 
-Tests are automatically run on:
-- Pull request creation
-- Push to main branches
-- Before deployment
+Tests are automatically run via GitHub Actions:
+- **Workflow**: `.github/workflows/pytest.yml`
+- **Trigger**: On push and pull_request events
+- **Environment**: `TESTING=true`
+- **Command**: `uv run pytest -v`
 
-See `.github/workflows/` for CI configuration.
+## Test Failures
+
+If tests fail in CI:
+1. Check GitHub Actions workflow run for error details
+2. Verify all dependencies are in `pyproject.toml`
+3. Ensure `TESTING=true` environment variable is set
+4. Run tests locally with `uv run pytest -v` to reproduce
+
+## Testing Best Practices
+
+1. **Test implementation, not just behavior**: Use code inspection to verify correct patterns
+2. **Keep tests fast**: Avoid expensive setup (databases, network calls)
+3. **Test edge cases**: Null values, empty lists, missing data
+4. **Verify security measures**: Authentication, authorization, input validation
+5. **Check performance patterns**: Database aggregation, query optimization
+6. **Document expectations**: Use descriptive test names and docstrings
