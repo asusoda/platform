@@ -194,7 +194,7 @@ const TransactionsPage = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Transactions</h1>
           <p className="text-gray-400">
-            Manage all storefront orders and transactions for {(currentOrg || {name: 'the organization'}).name}
+            Manage all storefront orders and transactions for {currentOrg?.name || 'the organization'}
           </p>
         </div>
 
