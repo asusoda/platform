@@ -48,7 +48,7 @@ const MemberStorePage = () => {
       try {
         // If member session exists, try to get orders using member API
         const memberUser = JSON.parse(localStorage.getItem('memberUser'));
-        const response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, {}, {
+        const await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, {}, {
           headers: {
             'X-Member-User-Id': memberUser.id
           }
@@ -236,13 +236,13 @@ const MemberStorePage = () => {
       
       if (memberUser) {
         const user = JSON.parse(memberUser);
-        response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData, {
+        await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData, {
           headers: {
             'X-Member-User-Id': user.id
           }
         });
       } else {
-        response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData);
+        await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData);
       }
       
       toast.success("Order placed successfully!");
