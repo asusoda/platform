@@ -85,8 +85,7 @@ const SuperAdmin = () => {
     setCalendarSettings({
       notion_database_id: org.notion_database_id || '',
       calendar_sync_enabled: org.calendar_sync_enabled || false,
-      google_calendar_id: org.google_calendar_id || '',
-      ocp_sync_enabled: org.ocp_sync_enabled || false
+      google_calendar_id: org.google_calendar_id || ''
     });
     setShowCalendarModal(true);
   };
@@ -568,8 +567,7 @@ const SuperAdmin = () => {
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={calendarSettings.ocp_sync_enabled || false}
-                    onChange={e => setCalendarSettings(prev => ({ ...prev, ocp_sync_enabled: e.target.checked }))}
+                    onChange={e => updateOcpSync(e.target.checked)}
                     className="rounded border-gray-600/50 bg-gray-700/50 text-green-500 focus:ring-green-500"
                   />
                   <span className="text-sm font-medium text-gray-300">Enable OCP Sync (Officer Points)</span>
