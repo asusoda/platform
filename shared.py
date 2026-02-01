@@ -23,9 +23,18 @@ app = Flask("SoDA internal API",
     static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
     template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
 )
+
+# CORS configuration - allow localhost in development only
+cors_origins = ["https://thesoda.io", "https://admin.thesoda.io"]
+if os.getenv("FLASK_ENV") == "development" or os.getenv("TESTING") == "true":
+    cors_origins.extend([
+        "http://localhost:3000", "http://127.0.0.1:3000",
+        "http://localhost:5173", "http://127.0.0.1:5173"
+    ])
+
 CORS(app, 
      resources={r"/*": {
-         "origins": ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "https://thesoda.io", "https://admin.thesoda.io"],
+         "origins": cors_origins,
          "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
          "allow_headers": ["Content-Type", "Authorization", "X-Organization-ID", "X-Organization-Prefix"],
          "supports_credentials": True
