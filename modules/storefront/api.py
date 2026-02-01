@@ -609,3 +609,55 @@ def get_member_order(org_prefix, order_id, **kwargs):
         }), 200
     finally:
         db.close() 
+
+# PUBLIC USER POINTS ENDPOINT (for storefront)
+@storefront_blueprint.route("/<string:org_prefix>/users/<string:email>/points", methods=["GET"])
+@error_handler
+def get_user_points_public(org_prefix, email):
+    """Get user's points balance (public endpoint for storefront)"""
+    db = next(db_connect.get_db())
+    try:
+        from modules.organizations.models import Organization
+        from modules.points.models import User, Points, UserOrganizationMembership
+        
+        # Get organization
+        org = db.query(Organization).filter_by(prefix=org_prefix, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        
+        # Find user by email
+        user = db.query(User).filter_by(email=email).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Check membership
+        membership = db.query(UserOrganizationMembership).filter_by(
+            user_id=user.id,
+            organization_id=org.id,
+            is_active=True
+        ).first()
+        
+        if not membership:
+            return jsonify({"error": "User is not a member of this organization"}), 403
+        
+        # Get points
+        points_records = db.query(Points).filter_by(
+            user_email=email,
+            organization_id=org.id
+        ).order_by(Points.timestamp.desc()).all()
+        
+        # Calculate total
+        total_points = sum(p.points for p in points_records)
+        
+        return jsonify({
+            "email": email,
+            "total_points": total_points,
+            "points_breakdown": [{
+                "points": p.points,
+                "event": p.event,
+                "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+                "awarded_by": p.awarded_by_officer
+            } for p in points_records[:20]]  # Last 20 records
+        }), 200
+    finally:
+        db.close()
