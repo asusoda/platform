@@ -26,7 +26,7 @@ app = Flask("SoDA internal API",
 
 # CORS configuration - allow localhost in development only
 cors_origins = ["https://thesoda.io", "https://admin.thesoda.io"]
-if os.getenv("PROD") == "false":
+if os.getenv("IS_PROD") == "false":
     cors_origins.extend([
         "http://localhost:3000", "http://127.0.0.1:3000",
         "http://localhost:5173", "http://127.0.0.1:5173"
