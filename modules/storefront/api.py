@@ -641,8 +641,9 @@ def get_user_points_public(org_prefix, email):
             return jsonify({"error": "User is not a member of this organization"}), 403
         
         # Get points
+        # Get points
         points_records = db.query(Points).filter_by(
-            user_email=email,
+            user_id=user.id,
             organization_id=org.id
         ).order_by(Points.timestamp.desc()).all()
         
