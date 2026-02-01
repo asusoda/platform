@@ -48,7 +48,7 @@ const MemberStorePage = () => {
       try {
         // If member session exists, try to get orders using member API
         const memberUser = JSON.parse(localStorage.getItem('memberUser'));
-        const await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, {}, {
+        const response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, {}, {
           headers: {
             'X-Member-User-Id': memberUser.id
           }
