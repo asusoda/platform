@@ -236,13 +236,13 @@ const MemberStorePage = () => {
       
       if (memberUser) {
         const user = JSON.parse(memberUser);
-        response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData, {
+        await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData, {
           headers: {
             'X-Member-User-Id': user.id
           }
         });
       } else {
-        response = await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData);
+        await apiClient.post(`/api/storefront/${orgPrefix}/members/orders`, orderData);
       }
       
       toast.success("Order placed successfully!");

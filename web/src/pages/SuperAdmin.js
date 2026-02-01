@@ -567,7 +567,8 @@ const SuperAdmin = () => {
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    onChange={e => updateOcpSync(e.target.checked)}
+                    checked={calendarSettings.ocp_sync_enabled || false}
+                    onChange={e => setCalendarSettings({...calendarSettings, ocp_sync_enabled: e.target.checked})}
                     className="rounded border-gray-600/50 bg-gray-700/50 text-green-500 focus:ring-green-500"
                   />
                   <span className="text-sm font-medium text-gray-300">Enable OCP Sync (Officer Points)</span>
