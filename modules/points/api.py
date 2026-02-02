@@ -726,7 +726,14 @@ def get_org_leaderboard(org_prefix):
                 User.name,
                 User.email,
                 User.uuid,
-                func.coalesce(func.sum(Points.points), 0).label("total_points"),
+                func.coalesce(
+                    func.sum(
+                        func.case(
+                            (Points.points > 0, Points.points),
+                            else_=0
+                        )
+                    ), 0
+                ).label("total_points"),
             )
             .select_from(User)
             .outerjoin(
@@ -746,7 +753,17 @@ def get_org_leaderboard(org_prefix):
             )
             .filter(or_(Points.id.isnot(None), UserOrganizationMembership.id.isnot(None)))
             .group_by(User.id, User.name, User.email, User.uuid)
-            .order_by(func.coalesce(func.sum(Points.points), 0).desc(), User.name.asc())
+            .order_by(
+                func.coalesce(
+                    func.sum(
+                        func.case(
+                            (Points.points > 0, Points.points),
+                            else_=0
+                        )
+                    ), 0
+                ).desc(),
+                User.name.asc()
+            )
             .all()
         )
 
