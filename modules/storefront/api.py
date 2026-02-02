@@ -71,7 +71,7 @@ def get_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def create_product(org_prefix):
     """Create a new product for an organization"""
@@ -117,7 +117,7 @@ def create_product(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def update_product(org_prefix, product_id):
     """Update a product for an organization"""
@@ -162,7 +162,7 @@ def update_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def delete_product(org_prefix, product_id):
     """Delete a product for an organization"""
@@ -182,7 +182,7 @@ def delete_product(org_prefix, product_id):
 
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def get_orders(org_prefix):
     """Get all orders for an organization"""
@@ -214,7 +214,7 @@ def get_orders(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def get_order(org_prefix, order_id):
     """Get a specific order by ID for an organization"""
@@ -352,7 +352,7 @@ def create_order(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def update_order_status(org_prefix, order_id):
     """Update order status for an organization"""
@@ -395,7 +395,7 @@ def update_order_status(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
-@auth_required
+@require_clerk_auth
 @error_handler
 def delete_order(org_prefix, order_id):
     """Delete an order for an organization"""
@@ -502,6 +502,52 @@ def get_member_store(org_prefix, **kwargs):
                 'updated_at': p.updated_at.isoformat() if p.updated_at else None
             } for p in available_products]
         }), 200
+    finally:
+        db.close()
+
+@storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
+@error_handler
+def get_user_orders_clerk(org_prefix, user_email, **kwargs):
+    """Get orders for the authenticated user (Clerk auth)"""
+    organization = kwargs.get('organization')
+    
+    # Get user by email
+    from modules.utils.models import User
+    db = next(db_connect.get_db())
+    try:
+        user = db.query(User).filter(
+            User.email == user_email,
+            User.organization_id == organization.id
+        ).first()
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Get orders for this user
+        from modules.storefront.models import Order
+        orders = db.query(Order).filter(
+            Order.organization_id == organization.id,
+            Order.user_id == user.id
+        ).order_by(Order.created_at.desc()).all()
+        
+        return jsonify([{
+            'id': o.id,
+            'total_amount': o.total_amount,
+            'status': o.status,
+            'message': o.message,
+            'created_at': o.created_at.isoformat(),
+            'updated_at': o.updated_at.isoformat() if o.updated_at else None,
+            'items': [{
+                'id': item.id,
+                'product_id': item.product_id,
+                'quantity': item.quantity,
+                'price_at_time': item.price_at_time,
+                'product': {
+                    'id': item.product.id,
+                    'name': item.product.name
+                } if item.product else None
+            } for item in o.items]
+        } for o in orders]), 200
     finally:
         db.close()
 
