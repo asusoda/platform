@@ -17,7 +17,7 @@ def get_clerk_frontend_api():
         if len(parts) >= 3:
             domain_part = parts[2].rstrip('$')
             return f"https://{domain_part}"
-    except:
+    except (IndexError, AttributeError):
         pass
     return "https://lenient-slug-40.clerk.accounts.dev"
 
