@@ -1,12 +1,31 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
 from modules.utils.clerk_auth import require_clerk_auth
 from sqlalchemy import func
+from functools import wraps
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
+
+# Flexible auth decorator that accepts either Clerk token OR session auth
+def flexible_auth(f):
+    """Accept either Clerk JWT token or session-based auth"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if user has session auth (admin dashboard)
+        if 'user_email' in session:
+            request.user_email = session.get('user_email')
+            return f(*args, **kwargs)
+        
+        # Otherwise try Clerk auth (website)
+        try:
+            return require_clerk_auth(f)(*args, **kwargs)
+        except Exception as e:
+            return jsonify({"error": "Authentication required"}), 401
+    
+    return decorated_function
 
 # Helper function to get organization by prefix
 def get_organization_by_prefix(db, org_prefix):
@@ -71,7 +90,7 @@ def get_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def create_product(org_prefix):
     """Create a new product for an organization"""
@@ -117,7 +136,7 @@ def create_product(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def update_product(org_prefix, product_id):
     """Update a product for an organization"""
@@ -162,7 +181,7 @@ def update_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def delete_product(org_prefix, product_id):
     """Delete a product for an organization"""
@@ -182,7 +201,7 @@ def delete_product(org_prefix, product_id):
 
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def get_orders(org_prefix):
     """Get all orders for an organization"""
@@ -214,7 +233,7 @@ def get_orders(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def get_order(org_prefix, order_id):
     """Get a specific order by ID for an organization"""
@@ -247,7 +266,7 @@ def get_order(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def create_order(org_prefix):
     """Create a new order for an organization with Clerk authentication"""
@@ -352,7 +371,7 @@ def create_order(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def update_order_status(org_prefix, order_id):
     """Update order status for an organization"""
@@ -395,7 +414,7 @@ def update_order_status(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def delete_order(org_prefix, order_id):
     """Delete an order for an organization"""
@@ -760,7 +779,7 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def get_user_wallet_clerk(org_prefix, user_email):
     """Get user wallet/points using Clerk authentication"""
@@ -805,7 +824,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/checkout", methods=["POST"])
-@require_clerk_auth
+@flexible_auth
 @error_handler
 def clerk_checkout(org_prefix):
     """Checkout endpoint using Clerk authentication"""
@@ -896,5 +915,41 @@ def clerk_checkout(org_prefix):
                 'created_at': created_order.created_at.isoformat()
             }
         }), 201
+    finally:
+        db.close()
+
+# Admin-only endpoints (use Discord auth)
+@storefront_blueprint.route('/<string:org_prefix>/admin/orders', methods=['GET'])
+@auth_required
+@error_handler
+def get_admin_orders(org_prefix):
+    """Get all orders for an organization - Admin dashboard only"""
+    db = next(db_connect.get_db())
+    try:
+        org = get_organization_by_prefix(db, org_prefix)
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+            
+        orders = db_connect.get_storefront_orders(db, org.id)
+        return jsonify([{
+            'id': o.id,
+            'user_id': o.user_id,
+            'total_amount': o.total_amount,
+            'status': o.status,
+            'message': o.message,
+            'created_at': o.created_at.isoformat(),
+            'updated_at': o.updated_at.isoformat() if o.updated_at else None,
+            'organization_id': o.organization_id,
+            'user_name': o.user.name if o.user else 'Unknown User',
+            'items': [{
+                'id': item.id,
+                'order_id': item.order_id,
+                'product_id': item.product_id,
+                'quantity': item.quantity,
+                'price_at_time': item.price_at_time,
+                'product_name': item.product.name if item.product else None,
+                'created_at': item.created_at.isoformat()
+            } for item in o.items]
+        } for o in orders]), 200
     finally:
         db.close()
