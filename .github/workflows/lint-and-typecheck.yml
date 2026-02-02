@@ -7,10 +7,13 @@ on:
 jobs:
   check:
     permissions:
-      contents: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Install uv
       uses: astral-sh/setup-uv@v4
@@ -23,11 +26,24 @@ jobs:
     - name: Install dependencies
       run: uv sync
     
-    - name: Run ruff linting
-      run: uv run ruff check .
+    - name: Run ruff linting with auto-fix
+      run: uv run ruff check --fix .
     
-    - name: Run ruff format check
-      run: uv run ruff format --check .
+    - name: Run ruff formatting
+      run: uv run ruff format .
+    
+    - name: Commit and push fixes
+      if: github.event_name == 'pull_request'
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add -A
+        if ! git diff --staged --quiet; then
+          git commit -m "style: auto-fix linting and formatting issues"
+          git push
+        else
+          echo "No changes to commit"
+        fi
     
     - name: Run ty type checking
       run: uv run ty check .
