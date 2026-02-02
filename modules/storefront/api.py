@@ -267,8 +267,7 @@ def create_order(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
         
         # Find user by email
-        from modules.users.models import User
-        from modules.points.models import UserOrganizationMembership
+        from modules.points.models import User, UserOrganizationMembership
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
