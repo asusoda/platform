@@ -17,10 +17,12 @@ game_blueprint = Blueprint("game", __name__, template_folder=None, static_folder
 
 logger.info("Bot API module initialized (game_blueprint)")
 
+
 @game_blueprint.route("/", methods=["GET"])
 def game_index():
     logger.debug("Game API index endpoint called")
     return jsonify({"message": "game api for auth_bot"}), 200
+
 
 # Routes like /startbot, /stopbot, /botstatus are problematic as the bot runs in a separate thread.
 # comment them out for now as direct control from API is complex with new setup.
@@ -44,6 +46,7 @@ def game_index():
 #     # Bot is stopped when main application process ends.
 #     logger.warning("Attempted to call /stopbot, which is deprecated.")
 #     return jsonify({"message": "Bot is managed by the main application process.", "status": "managed"}), 403
+
 
 @game_blueprint.route("/getavailablegames", methods=["GET"])
 def get_available_games():
@@ -77,7 +80,8 @@ def get_game_data():
 
         # Only allow safe filenames: alphanumeric, dash, underscore
         import re
-        SAFE_FILENAME_RE = r'^[\w\-]+$'
+
+        SAFE_FILENAME_RE = r"^[\w\-]+$"
         if not re.match(SAFE_FILENAME_RE, file_name):
             raise Exception("Invalid file name")
 
@@ -99,7 +103,7 @@ def start_game():
     game_name = request.form["name"]
     logger.info(f"Starting game: {game_name}")
     try:
-        game_data = db.get_game(game_name)
+        db.get_game(game_name)
         # Implement game start logic here
         return jsonify({"message": f"Game {game_name} started", "status": "success"}), 200
     except Exception as e:
@@ -123,11 +127,17 @@ def is_valid_game_json(data):
         return False
     game_info = data["game"]
     required_game_keys = {
-        "name", "description", "players", "categories", "per_category", "teams", "uuid",
+        "name",
+        "description",
+        "players",
+        "categories",
+        "per_category",
+        "teams",
+        "uuid",
     }
     if not all(key in game_info for key in required_game_keys):
         return False
-    for category, questions in data["questions"].items():
+    for _category, questions in data["questions"].items():
         for question in questions:
             required_question_keys = {"question", "answer", "value", "uuid"}
             if not all(key in question for key in required_question_keys):
@@ -172,7 +182,7 @@ def get_game():
     try:
         games = db.get_all_games()
         data = {}
-        for game_doc in games: # renamed to avoid conflict with blueprint name
+        for game_doc in games:  # renamed to avoid conflict with blueprint name
             if game_doc["game"]["name"] == name:
                 data["info"] = game_doc["game"]
                 data["questions"] = game_doc["questions"]
@@ -186,7 +196,7 @@ def get_game():
 
 @game_blueprint.route("/setactivegame", methods=["POST"])
 async def set_active_game():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /setactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -223,7 +233,7 @@ async def set_active_game():
 
 @game_blueprint.route("/getactivegame", methods=["GET"])
 async def get_active_game():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /getactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -248,7 +258,7 @@ async def get_active_game():
 
 @game_blueprint.route("/cleanactivegame", methods=["POST"])
 async def clean_active_game():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /cleanactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -260,14 +270,14 @@ async def clean_active_game():
         # For now, assuming it's a method on a cog or bot that `execute` can handle if it were there.
         # Let's assume it is on GameCog for consistency
         cog = bot.get_cog("GameCog")
-        if cog and hasattr(cog, 'clear_game'): # clear_game seems more appropriate based on GameCog.py
+        if cog and hasattr(cog, "clear_game"):  # clear_game seems more appropriate based on GameCog.py
             await cog.clear_game()
             logger.info("Active game cleaned successfully via GameCog")
             return jsonify({"message": "Active game cleaned successfully"}), 200
-        elif hasattr(bot, 'clean_game'): # Fallback if it was a direct bot method
-             await bot.clean_game() # This method does not exist on discord.Bot by default
-             logger.info("Active game cleaned successfully via bot.clean_game()")
-             return jsonify({"message": "Active game cleaned successfully"}), 200
+        elif hasattr(bot, "clean_game"):  # Fallback if it was a direct bot method
+            await bot.clean_game()  # This method does not exist on discord.Bot by default
+            logger.info("Active game cleaned successfully via bot.clean_game()")
+            return jsonify({"message": "Active game cleaned successfully"}), 200
         else:
             logger.error("clean_game method or GameCog not found on auth_bot")
             return jsonify({"error": "Functionality not found"}), 500
@@ -278,7 +288,7 @@ async def clean_active_game():
 
 @game_blueprint.route("/getactivegamestate", methods=["GET"])
 def get_active_game_state():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /getactivegamestate")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -288,12 +298,12 @@ def get_active_game_state():
         # Accessing bot.active_game directly is not safe if it's not a public/stable API of your BotFork or GameCog
         # Prefer using a method from the cog if possible
         cog = bot.get_cog("GameCog")
-        if cog and hasattr(cog, 'game') and cog.game is not None and hasattr(cog.game, 'get_state'):
+        if cog and hasattr(cog, "game") and cog.game is not None and hasattr(cog.game, "get_state"):
             state = cog.game.get_state()
             return jsonify(state), 200
         # Fallback for direct access if `active_game` was a custom attribute on your bot instance
-        elif hasattr(bot, 'active_game') and bot.active_game not in [None, ""]:
-             return jsonify(bot.active_game.get_state()), 200
+        elif hasattr(bot, "active_game") and bot.active_game not in [None, ""]:
+            return jsonify(bot.active_game.get_state()), 200
         else:
             logger.info("No active game or state found in GameCog or bot")
             return jsonify({"error": "No active game set or state unavailable"}), 404
@@ -304,7 +314,7 @@ def get_active_game_state():
 
 @game_blueprint.route("/startactivegame", methods=["POST"])
 async def start_active_game():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /startactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -325,8 +335,8 @@ async def start_active_game():
 
 
 @game_blueprint.route("/endactivegame", methods=["POST"])
-async def end_active_game(): # Changed to async to align with potential async cog methods
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+async def end_active_game():  # Changed to async to align with potential async cog methods
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /endactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -334,7 +344,7 @@ async def end_active_game(): # Changed to async to align with potential async co
     logger.info("Ending active game via auth_bot")
     try:
         cog = bot.get_cog("GameCog")
-        if cog and hasattr(cog, 'end_game'): # end_game is in GameCog.py
+        if cog and hasattr(cog, "end_game"):  # end_game is in GameCog.py
             await cog.end_game()
             logger.info("Active game ended successfully via GameCog")
             return jsonify({"message": "Active game ended successfully"}), 200
@@ -347,8 +357,8 @@ async def end_active_game(): # Changed to async to align with potential async co
 
 
 @game_blueprint.route("/revealquestion", methods=["POST"])
-async def reveal_question(): # Changed to async
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+async def reveal_question():  # Changed to async
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /revealquestion")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -358,7 +368,7 @@ async def reveal_question(): # Changed to async
     try:
         cog = bot.get_cog("GameCog")
         if cog:
-            await cog.show_question(uuid) # show_question is async in GameCog
+            await cog.show_question(uuid)  # show_question is async in GameCog
             logger.info(f"Question {uuid} revealed successfully via GameCog")
             return jsonify({"message": "Question revealed successfully"}), 200
         else:
@@ -371,7 +381,7 @@ async def reveal_question(): # Changed to async
 
 @game_blueprint.route("/revealanswer", methods=["POST"])
 async def reveal_answer():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /revealanswer")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -394,7 +404,7 @@ async def reveal_answer():
 
 @game_blueprint.route("/awardpoints", methods=["POST"])
 async def award_points():
-    bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /awardpoints")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -405,7 +415,7 @@ async def award_points():
     try:
         cog = bot.get_cog("GameCog")
         if cog:
-            await cog.award_points(team, points) # award_points is async in GameCog
+            await cog.award_points(team, points)  # award_points is async in GameCog
             logger.info(f"Awarded {points} to team {team} successfully via GameCog")
             return jsonify({"message": "Points awarded successfully"}), 200
         else:

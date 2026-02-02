@@ -1,4 +1,3 @@
-
 import discord
 
 from modules.bot.discord_modules.cogs import GameCog
@@ -32,18 +31,12 @@ class QuestionPost(discord.ui.View):
         self.question_uuid = question_uuid
 
     @discord.ui.button(label="Buzz In", style=discord.ButtonStyle.blurple)
-    async def button_callback(
-        self, button: discord.ui.Button, interaction: discord.Interaction
-    ):
+    async def button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         member_role = self.cog.get_member_role(interaction.user)
         if member_role in self.avoid:
-            await interaction.response.send_message(
-                "You are not allowed to buzz in!", ephemeral=True
-            )
+            await interaction.response.send_message("You are not allowed to buzz in!", ephemeral=True)
         else:
-            self.cog.question_post[self.question_uuid]["rolesAnswered"].append(
-                member_role
-            )
+            self.cog.question_post[self.question_uuid]["rolesAnswered"].append(member_role)
             button.disabled = True
             user = interaction.user
             button.label = f"{user.name} buzzed in!"
@@ -64,14 +57,10 @@ class AnsweredQuestion(discord.ui.View):
         super().__init__(timeout=None)
         self.question = question
         self.answer = answer
-        self.add_item(
-            discord.ui.Button(label="Reveal Answer", style=discord.ButtonStyle.blurple)
-        )
+        self.add_item(discord.ui.Button(label="Reveal Answer", style=discord.ButtonStyle.blurple))
 
     @discord.ui.button(label="Reveal Answer", style=discord.ButtonStyle.blurple)
-    async def reveal_answer(
-        self, button: discord.ui.Button, interaction: discord.Interaction
-    ):
+    async def reveal_answer(self, button: discord.ui.Button, interaction: discord.Interaction):
         button.disabled = True
         await interaction.response.edit_message(view=self)
         await interaction.followup.send(f"The answer is: {self.answer}", ephemeral=True)

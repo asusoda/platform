@@ -21,17 +21,20 @@ def get_db_path():
         return None
     return db_path
 
+
 def get_table_info(cursor):
     """Get information about all tables in the database."""
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [row[0] for row in cursor.fetchall()]
     return tables
 
+
 def get_table_schema(cursor, table_name):
     """Get the schema for a specific table."""
     cursor.execute(f"PRAGMA table_info({table_name});")
     columns = cursor.fetchall()
     return columns
+
 
 def get_table_data(cursor, table_name, limit=10):
     """Get sample data from a table."""
@@ -46,6 +49,7 @@ def get_table_data(cursor, table_name, limit=10):
         return columns, rows
     except sqlite3.Error:
         return [], []
+
 
 def format_table_data(columns, rows):
     """Format table data for display."""
@@ -66,6 +70,7 @@ def format_table_data(columns, rows):
         formatted_rows.append(formatted_row)
 
     return tabulate(formatted_rows, headers=columns, tablefmt="grid")
+
 
 def show_database_overview():
     """Show an overview of the database."""
@@ -105,12 +110,14 @@ def show_database_overview():
             print("Schema:")
             schema_data = []
             for col in schema:
-                schema_data.append([
-                    col[1],  # name
-                    col[2],  # type
-                    "NOT NULL" if col[3] else "NULL",
-                    "PRIMARY KEY" if col[5] else ""
-                ])
+                schema_data.append(
+                    [
+                        col[1],  # name
+                        col[2],  # type
+                        "NOT NULL" if col[3] else "NULL",
+                        "PRIMARY KEY" if col[5] else "",
+                    ]
+                )
             print(tabulate(schema_data, headers=["Column", "Type", "Null", "Key"], tablefmt="simple"))
             print()
 
@@ -134,6 +141,7 @@ def show_database_overview():
 
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
+
 
 def show_table_details(table_name):
     """Show detailed information about a specific table."""
@@ -159,13 +167,15 @@ def show_table_details(table_name):
         print("Schema:")
         schema_data = []
         for col in schema:
-            schema_data.append([
-                col[1],  # name
-                col[2],  # type
-                "NOT NULL" if col[3] else "NULL",
-                "PRIMARY KEY" if col[5] else "",
-                col[4] if col[4] else ""  # default value
-            ])
+            schema_data.append(
+                [
+                    col[1],  # name
+                    col[2],  # type
+                    "NOT NULL" if col[3] else "NULL",
+                    "PRIMARY KEY" if col[5] else "",
+                    col[4] if col[4] else "",  # default value
+                ]
+            )
         print(tabulate(schema_data, headers=["Column", "Type", "Null", "Key", "Default"], tablefmt="grid"))
         print()
 
@@ -201,6 +211,7 @@ def show_table_details(table_name):
 
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
+
 
 def show_database_stats():
     """Show database statistics."""
@@ -238,12 +249,13 @@ def show_database_stats():
 
         # File size
         file_size = os.path.getsize(db_path)
-        print(f"💾 Database file size: {file_size:,} bytes ({file_size/1024:.1f} KB)")
+        print(f"💾 Database file size: {file_size:,} bytes ({file_size / 1024:.1f} KB)")
 
         conn.close()
 
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
+
 
 def main():
     """Main function to run the visualization tool."""
@@ -265,6 +277,7 @@ def main():
     else:
         # Default: show overview
         show_database_overview()
+
 
 if __name__ == "__main__":
     main()

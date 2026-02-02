@@ -14,20 +14,21 @@ def auth_required(f):
     A decorator for Flask endpoints to ensure the user is authenticated.
     Checks both session cookies and Authorization headers.
     """
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         # Check session cookie first
-        if session.get('token'):
+        if session.get("token"):
             try:
-                if not tokenManger.is_token_valid(session['token']):
-                    session.pop('token', None)
+                if not tokenManger.is_token_valid(session["token"]):
+                    session.pop("token", None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManger.is_token_expired(session['token']):
-                    session.pop('token', None)
+                elif tokenManger.is_token_expired(session["token"]):
+                    session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
                 return f(*args, **kwargs)
             except Exception:
-                session.pop('token', None)
+                session.pop("token", None)
                 return jsonify({"message": "Session authentication failed!"}), 401
 
         # If no session, check Authorization header (for API calls)
@@ -57,6 +58,7 @@ def superadmin_required(f):
     A decorator for API endpoints to ensure the user is a superadmin.
     Checks authentication and superadmin role.
     """
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         print(f"🔍 [DEBUG] superadmin_required called for function: {f.__name__}")
@@ -68,8 +70,8 @@ def superadmin_required(f):
 
         # Check session cookie first
         print("🔍 [DEBUG] Checking session token...")
-        if session.get('token'):
-            token = session.get('token')
+        if session.get("token"):
+            token = session.get("token")
             print(f"🔍 [DEBUG] Found session token: {token[:20]}...")
             try:
                 print("🔍 [DEBUG] Validating session token...")
@@ -81,11 +83,11 @@ def superadmin_required(f):
                     return jsonify({"message": "Token is expired!"}), 403
 
                 print("🔍 [DEBUG] Session token is valid, checking role...")
-                user_role = session.get('user', {}).get('role')
+                user_role = session.get("user", {}).get("role")
                 print(f"🔍 [DEBUG] User role from session: {user_role}")
 
                 # Check superadmin role from session
-                if user_role != 'admin':
+                if user_role != "admin":
                     print(f"❌ [DEBUG] User role '{user_role}' is not admin!")
                     return jsonify({"message": "Superadmin access required!"}), 403
 
@@ -130,14 +132,14 @@ def superadmin_required(f):
             print(f"🔍 [DEBUG] Token data: {token_data}")
 
             # Try to get discord_id directly from token (more secure)
-            discord_id = token_data.get('discord_id')
+            discord_id = token_data.get("discord_id")
             if discord_id:
                 print(f"🔍 [DEBUG] Found discord_id in token: {discord_id}")
                 # Direct lookup using discord_id (secure and efficient)
                 try:
                     # Get the auth bot from Flask app context
                     print("🔍 [DEBUG] Getting auth bot from Flask app context...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot:
                         print("❌ [DEBUG] Auth bot not found in Flask app context!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -159,12 +161,13 @@ def superadmin_required(f):
                 except Exception as e:
                     print(f"❌ [DEBUG] Error verifying superadmin status: {e}")
                     import traceback
+
                     traceback.print_exc()
                     return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
             else:
                 print("🔍 [DEBUG] No discord_id in token, trying username lookup...")
                 # Fallback to username lookup for older tokens (less secure)
-                username = token_data.get('username')
+                username = token_data.get("username")
                 if not username:
                     print("❌ [DEBUG] Token missing both discord_id and username!")
                     return jsonify({"message": "Token missing user identification!"}), 401
@@ -176,7 +179,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     print("🔍 [DEBUG] Getting auth bot for username lookup...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot or not auth_bot.is_ready():
                         print("❌ [DEBUG] Auth bot not available for username lookup!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -210,6 +213,7 @@ def superadmin_required(f):
                 except Exception as e:
                     print(f"❌ [DEBUG] Error in username lookup: {e}")
                     import traceback
+
                     traceback.print_exc()
                     return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
 
@@ -218,6 +222,7 @@ def superadmin_required(f):
         except Exception as e:
             print(f"❌ [DEBUG] General error in superadmin_required: {e}")
             import traceback
+
             traceback.print_exc()
             return jsonify({"message": str(e)}), 401
 
@@ -236,7 +241,7 @@ def member_required(f):
             print(f"🔍 [DEBUG] member_required decorator called for function: {f.__name__}")
 
             # Get the org_prefix from the URL parameters
-            org_prefix = kwargs.get('org_prefix') or (args[0] if args else None)
+            org_prefix = kwargs.get("org_prefix") or (args[0] if args else None)
             if not org_prefix:
                 print("❌ [DEBUG] No org_prefix found in request")
                 return jsonify({"message": "Organization prefix is required"}), 400
@@ -244,7 +249,7 @@ def member_required(f):
             print(f"🏢 [DEBUG] Organization prefix: {org_prefix}")
 
             # Get Discord ID from session (same as auth_required)
-            user_discord_id = session.get('discord_id')
+            user_discord_id = session.get("discord_id")
             if not user_discord_id:
                 print("❌ [DEBUG] No discord_id in session")
                 return jsonify({"message": "Discord authentication required"}), 401
@@ -260,10 +265,9 @@ def member_required(f):
                 db = next(db_connect.get_db())
 
                 print(f"🏢 [DEBUG] Looking up organization with prefix: {org_prefix}")
-                organization = db.query(Organization).filter(
-                    Organization.prefix == org_prefix,
-                    Organization.is_active == True
-                ).first()
+                organization = (
+                    db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+                )
 
                 if not organization:
                     print(f"❌ [DEBUG] Organization not found for prefix: {org_prefix}")
@@ -275,7 +279,7 @@ def member_required(f):
 
             except Exception as e:
                 print(f"❌ [DEBUG] Database error: {e}")
-                if 'db' in locals():
+                if "db" in locals():
                     db.close()
                 return jsonify({"message": f"Database error: {str(e)}"}), 500
 
@@ -293,13 +297,15 @@ def member_required(f):
                 is_member = auth_bot.check_user_membership(int(user_discord_id), int(organization.guild_id))
                 if not is_member:
                     print(f"❌ [DEBUG] User is not a member of guild: {organization.guild_id}")
-                    return jsonify({"message": "You must be a member of this organization to access this resource"}), 403
+                    return jsonify(
+                        {"message": "You must be a member of this organization to access this resource"}
+                    ), 403
 
                 print(f"✅ [DEBUG] User is a member of {organization.name}")
 
                 # Add user info and organization to kwargs for the wrapped function
-                kwargs['user_discord_id'] = user_discord_id
-                kwargs['organization'] = organization
+                kwargs["user_discord_id"] = user_discord_id
+                kwargs["organization"] = organization
 
                 print("✅ [DEBUG] Member authentication successful!")
                 return f(*args, **kwargs)
@@ -307,12 +313,14 @@ def member_required(f):
             except Exception as e:
                 print(f"❌ [DEBUG] Error checking guild membership: {e}")
                 import traceback
+
                 traceback.print_exc()
                 return jsonify({"message": f"Error verifying membership: {str(e)}"}), 500
 
         except Exception as e:
             print(f"❌ [DEBUG] General error in member_required: {e}")
             import traceback
+
             traceback.print_exc()
             return jsonify({"message": str(e)}), 500
 

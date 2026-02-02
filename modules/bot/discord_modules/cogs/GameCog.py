@@ -90,12 +90,8 @@ class GameCog(commands.Cog):
             await self.bot.execute("HelperCog", "delete_voice_channel", channel)
 
         await self.bot.execute("HelperCog", "delete_category", self.game_category)
-        await self.bot.execute(
-            "HelperCog", "delete_text_channel", self.announcement_channel
-        )
-        await self.bot.execute(
-            "HelperCog", "delete_text_channel", self.scoreboard_channel
-        )
+        await self.bot.execute("HelperCog", "delete_text_channel", self.announcement_channel)
+        await self.bot.execute("HelperCog", "delete_text_channel", self.scoreboard_channel)
 
         # Resetting attributes
         self.roles = []
@@ -140,9 +136,7 @@ class GameCog(commands.Cog):
         Asynchronously starts the game.
         """
         self.game.start()
-        self.scoreboard_channel = await self.guild.create_text_channel(
-            "scoreboard", category=self.game_category
-        )
+        self.scoreboard_channel = await self.guild.create_text_channel("scoreboard", category=self.game_category)
         self.game.attach_roles(self.roles)
         self.balance_teams()
         await self.assign_roles()
@@ -155,9 +149,7 @@ class GameCog(commands.Cog):
         Balances the teams in the game.
         """
         members = self.game.get_members()
-        random.shuffle(
-            members
-        )  # Shuffle the members list to randomize team assignments
+        random.shuffle(members)  # Shuffle the members list to randomize team assignments
 
         player_count = len(members)
         team_count = len(self.game.teams)
@@ -165,7 +157,7 @@ class GameCog(commands.Cog):
         if team_count == 0:
             raise ValueError("No teams are set up in the game.")
 
-        team_size = player_count // team_count
+        player_count // team_count
 
         # Clear current members from each team
         for team in self.game.teams:
@@ -199,29 +191,19 @@ class GameCog(commands.Cog):
         category = await self.guild.create_category("Jeopardy")
         await category.edit(position=0)
         self.game_category = category
-        self.stage = await self.guild.create_stage_channel(
-            name="Game Stage", topic=self.game.name, category=category
-        )
+        self.stage = await self.guild.create_stage_channel(name="Game Stage", topic=self.game.name, category=category)
         for team in self.game.teams:
             role = await self.guild.create_role(name=team.get_name())
             self.roles.append(role)
 
             overwrites = {
-                self.guild.default_role: discord.PermissionOverwrite(
-                    view_channel=True, connect=False, speak=False
-                ),
-                role: discord.PermissionOverwrite(
-                    view_channel=True, connect=True, speak=True
-                ),
+                self.guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=False, speak=False),
+                role: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True),
             }
-            channel = await self.guild.create_voice_channel(
-                team.get_name(), overwrites=overwrites, category=category
-            )
+            channel = await self.guild.create_voice_channel(team.get_name(), overwrites=overwrites, category=category)
             self.voice_channels.append(channel)
 
-        self.announcement_channel = await self.guild.create_text_channel(
-            "announcements", category=category
-        )
+        self.announcement_channel = await self.guild.create_text_channel("announcements", category=category)
         self.game.is_announced = True
         embed = discord.Embed(
             title="🌟 JEOPARDY GAME NIGHT ANNOUNCEMENT 🌟",
@@ -262,9 +244,7 @@ class GameCog(commands.Cog):
                 avoid=self.question_post[uuid]["rolesAnswered"],
                 question_uuid=uuid,
             )
-            await self.question_post[uuid]["message_id"].edit(
-                embed=embed, view=question
-            )
+            await self.question_post[uuid]["message_id"].edit(embed=embed, view=question)
         else:
             question_data = self.game.get_question_by_uuid(uuid)
             embed = discord.Embed(
@@ -283,9 +263,7 @@ class GameCog(commands.Cog):
                 avoid=[],
             )
             self.question_post[uuid] = {
-                "message_id": await self.announcement_channel.send(
-                    embed=embed, view=question
-                ),
+                "message_id": await self.announcement_channel.send(embed=embed, view=question),
                 "rolesAnswered": [],
             }
             await self.update_gameboard()
@@ -363,9 +341,7 @@ class GameCog(commands.Cog):
                 )
                 for category in data.keys():
                     question_data = data[category]
-                    embed.add_field(
-                        name=category, value=str(question_data), inline=False
-                    )
+                    embed.add_field(name=category, value=str(question_data), inline=False)
                 self.gameboard = await self.announcement_channel.send(embed=embed)
 
             else:
@@ -378,9 +354,7 @@ class GameCog(commands.Cog):
                 for category in data.keys():
                     question_data = data[category]
 
-                    embed.add_field(
-                        name=category, value=str(question_data), inline=False
-                    )
+                    embed.add_field(name=category, value=str(question_data), inline=False)
                 await self.gameboard.edit(embed=embed)
 
     async def end_game(self):

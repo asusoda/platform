@@ -7,6 +7,7 @@ from shared import config, db_connect, tokenManger
 
 superadmin_blueprint = Blueprint("superadmin", __name__)
 
+
 @superadmin_blueprint.route("/check", methods=["GET"])
 @superadmin_required
 def check_superadmin():
@@ -35,7 +36,7 @@ def check_superadmin():
         print(f"🔍 [DEBUG] Token data: {token_data}")
 
         # Get Discord ID from token
-        user_discord_id = token_data.get('discord_id')
+        user_discord_id = token_data.get("discord_id")
         if not user_discord_id:
             print("❌ [DEBUG] Token missing Discord ID")
             return jsonify({"error": "Token missing Discord ID"}), 401
@@ -57,8 +58,10 @@ def check_superadmin():
     except Exception as e:
         print(f"❌ [DEBUG] Error in check_superadmin: {e}")
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": f"Error checking superadmin status: {str(e)}"}), 500
+
 
 @superadmin_blueprint.route("/dashboard", methods=["GET"])
 @superadmin_required
@@ -69,7 +72,7 @@ def get_dashboard():
 
         # Get the auth bot from Flask app context
         print("🔍 [DEBUG] Getting auth bot from Flask app context...")
-        auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
         if not auth_bot:
             print("❌ [DEBUG] Auth bot not found in Flask app context!")
             return jsonify({"error": "Bot not available"}), 503
@@ -97,20 +100,20 @@ def get_dashboard():
         available_guilds = []
         for guild in guilds:
             if str(guild.id) not in existing_guild_ids:
-                available_guilds.append({
-                    "id": str(guild.id),
-                    "name": guild.name,
-                    "icon": {
-                        "url": str(guild.icon.url) if guild.icon else None
+                available_guilds.append(
+                    {
+                        "id": str(guild.id),
+                        "name": guild.name,
+                        "icon": {"url": str(guild.icon.url) if guild.icon else None},
                     }
-                })
+                )
 
         print(f"🔍 [DEBUG] Found {len(available_guilds)} available guilds")
 
         # Get officer's organizations - check which orgs the current user is an officer of
         print("🔍 [DEBUG] Getting officer organizations...")
         officer_orgs = []
-        officer_id = session.get('user', {}).get('discord_id')
+        officer_id = session.get("user", {}).get("discord_id")
         print(f"🔍 [DEBUG] Officer ID from session: {officer_id}")
 
         if officer_id:
@@ -130,7 +133,7 @@ def get_dashboard():
         response_data = {
             "available_guilds": available_guilds,
             "existing_orgs": [org.to_dict() for org in existing_orgs],
-            "officer_orgs": [org.to_dict() for org in officer_orgs]
+            "officer_orgs": [org.to_dict() for org in officer_orgs],
         }
 
         print("✅ [DEBUG] Dashboard data prepared successfully")
@@ -138,11 +141,13 @@ def get_dashboard():
     except Exception as e:
         print(f"❌ [DEBUG] Error in get_dashboard: {e}")
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
-        if 'db' in locals():
+        if "db" in locals():
             db.close()
+
 
 @superadmin_blueprint.route("/guild_roles/<guild_id>", methods=["GET"])
 @superadmin_required
@@ -153,7 +158,7 @@ def get_guild_roles(guild_id):
 
         # Get the auth bot from Flask app context
         print("🔍 [DEBUG] Getting auth bot from Flask app context...")
-        auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
         if not auth_bot:
             print("❌ [DEBUG] Auth bot not found in Flask app context!")
             return jsonify({"error": "Bot not available"}), 503
@@ -187,13 +192,15 @@ def get_guild_roles(guild_id):
         for role in guild.roles:
             # Skip @everyone role and bot roles
             if role.name != "@everyone" and not role.managed:
-                roles.append({
-                    "id": str(role.id),
-                    "name": role.name,
-                    "color": str(role.color),
-                    "position": role.position,
-                    "permissions": role.permissions.value
-                })
+                roles.append(
+                    {
+                        "id": str(role.id),
+                        "name": role.name,
+                        "color": str(role.color),
+                        "position": role.position,
+                        "permissions": role.permissions.value,
+                    }
+                )
                 print(f"🔍 [DEBUG] Added role: {role.name} (ID: {role.id})")
 
         # Sort roles by position (highest first)
@@ -204,8 +211,10 @@ def get_guild_roles(guild_id):
     except Exception as e:
         print(f"❌ [DEBUG] Error in get_guild_roles: {e}")
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
 
 @superadmin_blueprint.route("/update_officer_role/<int:org_id>", methods=["PUT"])
 @superadmin_required
@@ -218,16 +227,16 @@ def update_officer_role(org_id):
         data = request.get_json()
         print(f"🔍 [DEBUG] Request data: {data}")
 
-        if not data or 'officer_role_id' not in data:
+        if not data or "officer_role_id" not in data:
             print("❌ [DEBUG] Missing officer_role_id in request data")
             return jsonify({"error": "officer_role_id is required"}), 400
 
-        officer_role_id = data['officer_role_id']
+        officer_role_id = data["officer_role_id"]
         print(f"🔍 [DEBUG] Officer role ID: {officer_role_id}")
 
         # Get the auth bot from Flask app context
         print("🔍 [DEBUG] Getting auth bot from Flask app context...")
-        auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
         if not auth_bot:
             print("❌ [DEBUG] Auth bot not found in Flask app context!")
             return jsonify({"error": "Bot not available"}), 503
@@ -282,18 +291,17 @@ def update_officer_role(org_id):
 
         print("✅ [DEBUG] Officer role updated successfully")
 
-        return jsonify({
-            "message": f"Officer role updated successfully for {org.name}",
-            "organization": org.to_dict()
-        })
+        return jsonify({"message": f"Officer role updated successfully for {org.name}", "organization": org.to_dict()})
     except Exception as e:
         print(f"❌ [DEBUG] Error in update_officer_role: {e}")
         import traceback
+
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
-        if 'db' in locals():
+        if "db" in locals():
             db.close()
+
 
 @superadmin_blueprint.route("/add_org/<guild_id>", methods=["POST"])
 @superadmin_required
@@ -301,7 +309,7 @@ def add_organization(guild_id):
     """Add a new organization to the system"""
     try:
         # Get the auth bot from Flask app context
-        auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
         if not auth_bot or not auth_bot.is_ready():
             return jsonify({"error": "Bot not available"}), 503
 
@@ -317,7 +325,7 @@ def add_organization(guild_id):
             return jsonify({"error": "Guild not found"}), 404
 
         # Create prefix from guild name
-        prefix = guild.name.lower().replace(' ', '_').replace('-', '_')
+        prefix = guild.name.lower().replace(" ", "_").replace("-", "_")
 
         # Create new organization with default settings
         settings = OrganizationSettings()
@@ -327,7 +335,7 @@ def add_organization(guild_id):
             prefix=prefix,
             description=f"Discord server: {guild.name}",
             icon_url=str(guild.icon.url) if guild.icon else None,
-            config=settings.to_dict()
+            config=settings.to_dict(),
         )
 
         # Save to database
@@ -340,6 +348,7 @@ def add_organization(guild_id):
         return jsonify({"error": str(e)}), 500
     finally:
         db.close()
+
 
 @superadmin_blueprint.route("/remove_org/<int:org_id>", methods=["DELETE"])
 @superadmin_required

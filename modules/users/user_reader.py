@@ -12,6 +12,7 @@ from modules.utils.logging_config import get_logger
 # Get module logger
 logger = get_logger("users.reader")
 
+
 def check_gForm_for_distinguished_members():
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
     SAMPLE_SPREADSHEET_ID = "1gfrify0x3EUf-acZc1b-Ib0dRkMWUGd_rbUqTRF-dFM"
@@ -36,11 +37,7 @@ def check_gForm_for_distinguished_members():
     try:
         service = build("sheets", "v4", credentials=creds)
         sheet = service.spreadsheets()
-        result = (
-            sheet.values()
-            .get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME)
-            .execute()
-        )
+        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
         values = result.get("values", [])
         logger.info(f"Retrieved {len(values)} rows from Google Sheets")
 
@@ -51,9 +48,7 @@ def check_gForm_for_distinguished_members():
         db_connect = DBConnect("sqlite:///user.db")  # Use the existing database
         logger.debug("Connected to the database")
 
-        for i, row in enumerate(
-            values[1:], start=2
-        ):  # Skip header row and enumerate for easier debugging
+        for i, row in enumerate(values[1:], start=2):  # Skip header row and enumerate for easier debugging
             logger.debug(f"Processing row {i}: {row}")
             timestamp, asu_id, name, email, year, major, distinguished_member, *_ = row
             if distinguished_member.lower() == "yes":

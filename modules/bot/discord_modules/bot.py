@@ -33,8 +33,8 @@ class BotFork(commands.Bot):
 
     async def on_ready(self):
         """Event that fires when the bot is ready."""
-        print(f'Logged in as {self.user} (ID: {self.user.id})')
-        print('------')
+        print(f"Logged in as {self.user} (ID: {self.user.id})")
+        print("------")
 
         # For py-cord, commands should sync automatically
         print("Discord connection established. Commands should be registered automatically.")
@@ -47,9 +47,6 @@ class BotFork(commands.Bot):
             token (str): Discord bot token.
         """
         self.token = token
-
-
-
 
     def run(self, token=None):
         """
@@ -133,7 +130,7 @@ class BotFork(commands.Bot):
             print(f"�� [DEBUG] Found {len(organizations)} active organizations")
 
             for i, org in enumerate(organizations):
-                print(f"\n�� [DEBUG] Processing organization {i+1}/{len(organizations)}: {org.name}")
+                print(f"\n�� [DEBUG] Processing organization {i + 1}/{len(organizations)}: {org.name}")
                 print("   📊 [DEBUG] Organization details:")
                 print(f"      - Guild ID: {org.guild_id}")
                 print(f"      - Officer Role ID: {org.officer_role_id}")
@@ -192,10 +189,11 @@ class BotFork(commands.Bot):
             print(f"❌ [DEBUG] Error in check_officer: {e}")
             print(f"�� [DEBUG] Error type: {type(e).__name__}")
             import traceback
+
             print("�� [DEBUG] Full traceback:")
             traceback.print_exc()
         finally:
-            if 'db' in locals():
+            if "db" in locals():
                 print("🔒 [DEBUG] Closing database connection...")
                 db.close()
                 print("✅ [DEBUG] Database connection closed")
@@ -214,16 +212,16 @@ class BotFork(commands.Bot):
         else:
             return None
 
-    def get_guild_roles(self, guild_id : int):
+    def get_guild_roles(self, guild_id: int):
         guild = super().get_guild(guild_id)
         return guild.roles
 
-    def check_role(self, guild_id : int, role_id : int, user_id : int):
+    def check_role(self, guild_id: int, role_id: int, user_id: int):
         guild = super().get_guild(guild_id)
         member = guild.get_member(user_id)
         return role_id in [role.id for role in member.roles]
 
-    def check_user_officer_status(self, user_id : int, guild_id : int, role_id : int):
+    def check_user_officer_status(self, user_id: int, guild_id: int, role_id: int):
         guild = super().get_guild(guild_id)
         member = guild.get_member(user_id)
         return role_id in [role.id for role in member.roles]
@@ -252,6 +250,7 @@ class BotFork(commands.Bot):
         except Exception as e:
             print(f"❌ [DEBUG] Error checking membership: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 

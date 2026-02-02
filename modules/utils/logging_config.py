@@ -8,15 +8,15 @@ def setup_logger():
     """Configure and return the root logger with color formatting"""
     handler = colorlog.StreamHandler()
     formatter = colorlog.ColoredFormatter(
-        fmt='%(log_color)s[%(asctime)s] %(levelname)-8s %(name)-20s %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
+        fmt="%(log_color)s[%(asctime)s] %(levelname)-8s %(name)-20s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
         log_colors={
-            'DEBUG': 'cyan',
-            'INFO': 'green',
-            'WARNING': 'yellow',
-            'ERROR': 'red',
-            'CRITICAL': 'red,bg_white',
-        }
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red,bg_white",
+        },
     )
     handler.setFormatter(formatter)
 
@@ -30,8 +30,10 @@ def setup_logger():
     root_logger.addHandler(handler)
     return root_logger
 
+
 # Initialize root logger
 logger = setup_logger()
+
 
 def get_logger(name):
     """Get a logger for a specific module with proper formatting"""

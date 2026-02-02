@@ -13,6 +13,7 @@ GUILD_ID = 762811961238618122
 
 logger.info(f"Auth API using CLIENT_ID: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
 
+
 @auth_blueprint.route("/login", methods=["GET"])
 def login():
     logger.info(f"Redirecting to Discord OAuth login for client_id: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
@@ -20,21 +21,21 @@ def login():
         f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=identify%20guilds"
     )
 
+
 @auth_blueprint.route("/validToken", methods=["GET"])
 @auth_required
 def validToken():
-    token = request.headers.get("Authorization").split(" ")[
-        1
-    ]
+    token = request.headers.get("Authorization").split(" ")[1]
     if tokenManger.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
         return jsonify({"status": "error", "valid": False}), 401
 
+
 @auth_blueprint.route("/callback", methods=["GET"])
 def callback():
     # Get the auth bot from Flask app context (the one actually running in thread)
-    auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not auth_bot or not auth_bot.is_ready():
         logger.error("Auth bot is not available or not ready for /callback")
         return jsonify({"error": "Authentication service temporarily unavailable. Bot not ready."}), 503
@@ -65,9 +66,7 @@ def callback():
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         }
-        user_response = requests.get(
-            "https://discord.com/api/v10/users/@me", headers=headers
-        )
+        user_response = requests.get("https://discord.com/api/v10/users/@me", headers=headers)
         user_info = user_response.json()
         user_id = user_info["id"]
         officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)
@@ -76,20 +75,17 @@ def callback():
             name = auth_bot.get_name(user_id)
             # Generate token pair with both access and refresh tokens
             access_token, refresh_token = tokenManger.generate_token_pair(
-                username=name,
-                discord_id=user_id,
-                access_exp_minutes=30,
-                refresh_exp_days=7
+                username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
             )
             # Store user info in session with officer guilds
-            session['user'] = {
-                'username': name,
-                'discord_id': user_id,
-                'role': 'officer',
-                'officer_guilds': officer_guilds  # Store the list of guild IDs where user is officer
+            session["user"] = {
+                "username": name,
+                "discord_id": user_id,
+                "role": "officer",
+                "officer_guilds": officer_guilds,  # Store the list of guild IDs where user is officer
             }
-            session['token'] = access_token
-            session['refresh_token'] = refresh_token
+            session["token"] = access_token
+            session["refresh_token"] = refresh_token
             # Redirect to React frontend with both tokens
             frontend_url = f"{config.CLIENT_URL}/auth/?access_token={access_token}&refresh_token={refresh_token}"
             return redirect(frontend_url)
@@ -108,20 +104,22 @@ def refresh_token():
     """
     try:
         data = request.get_json()
-        if not data or 'refresh_token' not in data:
+        if not data or "refresh_token" not in data:
             return jsonify({"error": "Refresh token required"}), 400
 
-        refresh_token = data['refresh_token']
+        refresh_token = data["refresh_token"]
 
         # Generate new access token
         new_access_token = tokenManger.refresh_access_token(refresh_token)
 
         if new_access_token:
-            return jsonify({
-                "access_token": new_access_token,
-                "token_type": "Bearer",
-                "expires_in": 1800  # 30 minutes in seconds
-            }), 200
+            return jsonify(
+                {
+                    "access_token": new_access_token,
+                    "token_type": "Bearer",
+                    "expires_in": 1800,  # 30 minutes in seconds
+                }
+            ), 200
         else:
             return jsonify({"error": "Invalid or expired refresh token"}), 401
 
@@ -137,10 +135,10 @@ def revoke_token():
     """
     try:
         data = request.get_json()
-        if not data or 'refresh_token' not in data:
+        if not data or "refresh_token" not in data:
             return jsonify({"error": "Refresh token required"}), 400
 
-        refresh_token = data['refresh_token']
+        refresh_token = data["refresh_token"]
 
         # Revoke the refresh token
         if tokenManger.revoke_refresh_token(refresh_token):
@@ -158,25 +156,17 @@ def revoke_token():
 
 @auth_blueprint.route("/validateToken", methods=["GET"])
 def valid_token():
-    token = request.headers.get("Authorization").split(" ")[
-        1
-    ]
+    token = request.headers.get("Authorization").split(" ")[1]
     if tokenManger.is_token_valid(token):
         if tokenManger.is_token_expired(token):
             logger.info("Token is valid but expired.")
-            return jsonify(
-                {"status": "success", "valid": True, "expired": True}
-            ), 200
+            return jsonify({"status": "success", "valid": True, "expired": True}), 200
         else:
             logger.info("Token is valid and not expired.")
-            return jsonify(
-                {"status": "success", "valid": True, "expired": False}
-            ), 200
+            return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
         logger.warning("Token validation failed (invalid).")
-        return jsonify(
-            {"status": "error", "valid": False, "message": "Token is invalid"}
-        ), 401
+        return jsonify({"status": "error", "valid": False, "message": "Token is invalid"}), 401
 
 
 @auth_blueprint.route("/appToken", methods=["GET"])
@@ -190,7 +180,7 @@ def get_app_token():
 
     username = tokenManger.retrieve_username(token)
     if not username:
-         return jsonify({"error": "Invalid user token"}), 401
+        return jsonify({"error": "Invalid user token"}), 401
 
     logger.info(f"Generating app token for user {username}, app: {appname}")
     app_token_value = tokenManger.genreate_app_token(username, appname)
@@ -212,9 +202,9 @@ def logout():
     """
     try:
         data = request.get_json()
-        if data and 'refresh_token' in data:
+        if data and "refresh_token" in data:
             # Revoke refresh token
-            tokenManger.revoke_refresh_token(data['refresh_token'])
+            tokenManger.revoke_refresh_token(data["refresh_token"])
 
         # Also blacklist current access token if provided
         if "Authorization" in request.headers:

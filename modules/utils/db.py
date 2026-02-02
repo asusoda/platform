@@ -4,11 +4,11 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Set up logger
-logger = logging.getLogger(__name__)
-
 # Create a centralized Base for all models
 from .base import Base
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 class DBConnect:
@@ -18,17 +18,13 @@ class DBConnect:
         # Ensure the database directory exists
         self._ensure_db_directory()
 
-        self.engine = create_engine(
-            self.SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-        )
-        self.SessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=self.engine
-        )
+        self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         self.check_and_create_tables()
 
     def _ensure_db_directory(self):
         """Extract the database file path and ensure its directory exists"""
-        if self.SQLALCHEMY_DATABASE_URL.startswith('sqlite:///'):
+        if self.SQLALCHEMY_DATABASE_URL.startswith("sqlite:///"):
             # Remove sqlite:/// prefix to get the file path
             db_path = self.SQLALCHEMY_DATABASE_URL[10:]
 
@@ -51,10 +47,10 @@ class DBConnect:
         """Check if database file exists and create tables if needed"""
         try:
             # Ensure data directory exists
-            os.makedirs(os.path.dirname(self.SQLALCHEMY_DATABASE_URL.replace('sqlite:///', '')), exist_ok=True)
+            os.makedirs(os.path.dirname(self.SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")), exist_ok=True)
 
             # Check if the database file exists
-            db_path = self.SQLALCHEMY_DATABASE_URL.replace('sqlite:///', '')
+            db_path = self.SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
             if not os.path.exists(db_path):
                 logger.info(f"Database file does not exist at {db_path}. Creating tables...")
                 # Import all models to register them with Base
@@ -126,6 +122,7 @@ class DBConnect:
         """Get all storefront products for a specific organization"""
         try:
             from modules.storefront.models import Product
+
             return db.query(Product).filter(Product.organization_id == organization_id).all()
         except Exception as e:
             logger.error(f"Error getting storefront products: {str(e)}")
@@ -135,10 +132,10 @@ class DBConnect:
         """Get a storefront product by ID for a specific organization"""
         try:
             from modules.storefront.models import Product
-            return db.query(Product).filter(
-                Product.id == product_id,
-                Product.organization_id == organization_id
-            ).first()
+
+            return (
+                db.query(Product).filter(Product.id == product_id, Product.organization_id == organization_id).first()
+            )
         except Exception as e:
             logger.error(f"Error getting storefront product: {str(e)}")
             return None
@@ -147,6 +144,7 @@ class DBConnect:
         """Get all storefront orders for a specific organization"""
         try:
             from modules.storefront.models import Order
+
             return db.query(Order).filter(Order.organization_id == organization_id).all()
         except Exception as e:
             logger.error(f"Error getting storefront orders: {str(e)}")
@@ -156,10 +154,8 @@ class DBConnect:
         """Get a storefront order by ID for a specific organization"""
         try:
             from modules.storefront.models import Order
-            return db.query(Order).filter(
-                Order.id == order_id,
-                Order.organization_id == organization_id
-            ).first()
+
+            return db.query(Order).filter(Order.id == order_id, Order.organization_id == organization_id).first()
         except Exception as e:
             logger.error(f"Error getting storefront order: {str(e)}")
             return None

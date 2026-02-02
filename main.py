@@ -19,16 +19,17 @@ from modules.users.api import users_blueprint
 from shared import app, config, create_auth_bot, logger
 
 # Set a secret key for session management
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key')
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
 # Initialize multi-organization calendar service
 multi_org_calendar_service = MultiOrgCalendarService(logger)
 app.multi_org_calendar_service = multi_org_calendar_service
 
+
 # Health endpoint
-@app.route('/health')
+@app.route("/health")
 def health():
-    return jsonify({'status': 'healthy', 'service': 'soda-internal-api'}), 200
+    return jsonify({"status": "healthy", "service": "soda-internal-api"}), 200
 
 
 # Register Blueprints
@@ -53,6 +54,7 @@ app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
 # --- Scheduler Setup ---
 scheduler = BackgroundScheduler(daemon=True)
 
+
 def calendar_sync_job():
     """Job function to sync Notion to Google Calendar."""
     with app.app_context():
@@ -66,6 +68,7 @@ def calendar_sync_job():
                 logger.error(f"Scheduled calendar sync failed: {sync_result.get('message')}")
         except Exception as e:
             logger.error(f"Error during scheduled calendar sync: {e}", exc_info=True)
+
 
 # --- Bot Thread Functions ---
 def run_auth_bot_in_thread():
@@ -97,21 +100,21 @@ def run_auth_bot_in_thread():
 
 # --- App Initialization ---
 def initialize_app():
-
     auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
     auth_thread.daemon = True
     auth_thread.start()
     logger.info("Auth bot thread initiated")
 
     # Run sync job every 120 minutes
-    scheduler.add_job(calendar_sync_job, 'interval', minutes=120, id='calendar_sync_job')
+    scheduler.add_job(calendar_sync_job, "interval", minutes=120, id="calendar_sync_job")
     scheduler.start()
     logger.info("APScheduler started for Notion-Google Calendar sync.")
 
     # Start Flask app
     # Enable debug and reloader based on IS_PROD environment variable
-    is_prod = os.environ.get('IS_PROD', '').lower() == 'true'
-    app.run(host='0.0.0.0', port=8000, debug=not is_prod, use_reloader=not is_prod)
+    is_prod = os.environ.get("IS_PROD", "").lower() == "true"
+    app.run(host="0.0.0.0", port=8000, debug=not is_prod, use_reloader=not is_prod)
+
 
 if __name__ == "__main__":
     initialize_app()

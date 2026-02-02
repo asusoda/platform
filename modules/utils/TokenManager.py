@@ -39,13 +39,13 @@ class TokenManager:
     def generate_token_pair(self, username, discord_id=None, access_exp_minutes=30, refresh_exp_days=7):
         """
         Generate both access token and refresh token.
-        
+
         Args:
             username (str): The user's display name
             discord_id (str): The user's Discord ID (recommended for security)
             access_exp_minutes (int): Access token expiration time in minutes
             refresh_exp_days (int): Refresh token expiration time in days
-            
+
         Returns:
             tuple: (access_token, refresh_token)
         """
@@ -60,19 +60,19 @@ class TokenManager:
     def generate_token(self, username, discord_id=None, exp_minutes=60):
         """
         Generate a JWT token with username and optional discord_id.
-        
+
         Args:
             username (str): The user's display name
             discord_id (str): The user's Discord ID (recommended for security)
             exp_minutes (int): Token expiration time in minutes
-            
+
         Returns:
             str: JWT token
         """
         payload = {
             "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=exp_minutes),
             "username": username,
-            "type": "access"  # Token type for security
+            "type": "access",  # Token type for security
         }
 
         # Add discord_id to payload if provided (more secure)
@@ -84,12 +84,12 @@ class TokenManager:
     def generate_refresh_token(self, username, discord_id=None, exp_days=7):
         """
         Generate a refresh token and store it securely.
-        
+
         Args:
             username (str): The user's display name
             discord_id (str): The user's Discord ID
             exp_days (int): Refresh token expiration time in days
-            
+
         Returns:
             str: Refresh token
         """
@@ -102,7 +102,7 @@ class TokenManager:
             "username": username,
             "discord_id": str(discord_id) if discord_id else None,
             "expires_at": expires_at,
-            "created_at": datetime.datetime.utcnow()
+            "created_at": datetime.datetime.utcnow(),
         }
 
         return refresh_token
@@ -110,10 +110,10 @@ class TokenManager:
     def refresh_access_token(self, refresh_token):
         """
         Generate a new access token using a valid refresh token.
-        
+
         Args:
             refresh_token (str): The refresh token
-            
+
         Returns:
             str: New access token, or None if refresh token is invalid
         """
@@ -133,7 +133,7 @@ class TokenManager:
         new_access_token = self.generate_token(
             username=token_data["username"],
             discord_id=token_data["discord_id"],
-            exp_minutes=30  # Short-lived access token
+            exp_minutes=30,  # Short-lived access token
         )
 
         return new_access_token
@@ -141,10 +141,10 @@ class TokenManager:
     def revoke_refresh_token(self, refresh_token):
         """
         Revoke a refresh token.
-        
+
         Args:
             refresh_token (str): The refresh token to revoke
-            
+
         Returns:
             bool: True if token was revoked, False if not found
         """
@@ -158,10 +158,7 @@ class TokenManager:
         Remove expired refresh tokens from storage.
         """
         current_time = datetime.datetime.utcnow()
-        expired_tokens = [
-            token for token, data in self.refresh_tokens.items()
-            if current_time > data["expires_at"]
-        ]
+        expired_tokens = [token for token, data in self.refresh_tokens.items() if current_time > data["expires_at"]]
 
         for token in expired_tokens:
             del self.refresh_tokens[token]
@@ -185,10 +182,10 @@ class TokenManager:
     def retrieve_discord_id(self, token):
         """
         Retrieve discord_id from JWT token.
-        
+
         Args:
             token (str): JWT token
-            
+
         Returns:
             str: Discord ID if present in token, None otherwise
         """

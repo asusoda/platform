@@ -8,6 +8,7 @@ from modules.utils.base import Base
 
 class Organization(Base):
     """Model representing a Discord organization/guild."""
+
     __tablename__ = "organizations"
 
     id = Column(Integer, primary_key=True)
@@ -53,11 +54,13 @@ class Organization(Base):
             "google_calendar_id": self.google_calendar_id,
             "notion_database_id": self.notion_database_id,
             "calendar_sync_enabled": self.calendar_sync_enabled,
-            "last_sync_at": self.last_sync_at.isoformat() if self.last_sync_at else None
+            "last_sync_at": self.last_sync_at.isoformat() if self.last_sync_at else None,
         }
+
 
 class OrganizationConfig(Base):
     """Model for organization-specific configurations."""
+
     __tablename__ = "organization_configs"
 
     id = Column(Integer, primary_key=True)
@@ -81,11 +84,13 @@ class OrganizationConfig(Base):
             "key": self.key,
             "value": self.value,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
 
 class Officer(Base):
     """Model for organization officers."""
+
     __tablename__ = "officers"
 
     id = Column(Integer, primary_key=True)

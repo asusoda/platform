@@ -48,7 +48,9 @@ class Config:
 
                 self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
 
-                self.CLERK_AUTHORIZED_PARTIES = os.environ.get("CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173")
+                self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
+                    "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
+                )
 
                 # Optional configs
                 self.SENTRY_DSN = None
@@ -78,8 +80,9 @@ class Config:
 
                 self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
 
-                self.CLERK_AUTHORIZED_PARTIES = os.environ.get("CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173")
-
+                self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
+                    "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
+                )
 
                 # Database Configuration
                 self.DB_TYPE = os.environ["DB_TYPE"]
@@ -97,10 +100,6 @@ class Config:
                         self.GOOGLE_SERVICE_ACCOUNT = json.load(file)
                         print("Google service account credentials loaded successfully")
                         # Redact sensitive information
-                        masked_credentials = {
-                            **self.GOOGLE_SERVICE_ACCOUNT,
-                            "private_key": "[REDACTED]"
-                        } if self.GOOGLE_SERVICE_ACCOUNT else None
                         print("Google service account credentials loaded")
                 except FileNotFoundError:
                     print("Warning: google-secret.json not found. Google Calendar features will be disabled.")
@@ -136,5 +135,5 @@ class Config:
         return {
             "service_account": self.GOOGLE_SERVICE_ACCOUNT,
             "calendar_id": self.GOOGLE_CALENDAR_ID,
-            "user_email": self.GOOGLE_USER_EMAIL
+            "user_email": self.GOOGLE_USER_EMAIL,
         }

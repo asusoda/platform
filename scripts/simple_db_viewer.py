@@ -19,9 +19,11 @@ def get_db_path():
         return None
     return db_path
 
+
 def print_separator(char="=", length=60):
     """Print a separator line."""
     print(char * length)
+
 
 def format_value(value, max_length=30):
     """Format a value for display."""
@@ -29,10 +31,11 @@ def format_value(value, max_length=30):
         return "NULL"
     elif isinstance(value, str):
         if len(value) > max_length:
-            return value[:max_length-3] + "..."
+            return value[: max_length - 3] + "..."
         return value
     else:
         return str(value)
+
 
 def show_database_overview():
     """Show an overview of the database."""
@@ -122,6 +125,7 @@ def show_database_overview():
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
 
+
 def show_table_details(table_name):
     """Show detailed information about a specific table."""
     db_path = get_db_path()
@@ -203,6 +207,7 @@ def show_table_details(table_name):
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
 
+
 def show_database_stats():
     """Show database statistics."""
     db_path = get_db_path()
@@ -244,12 +249,13 @@ def show_database_stats():
 
         # File size
         file_size = os.path.getsize(db_path)
-        print(f"💾 Database file size: {file_size:,} bytes ({file_size/1024:.1f} KB)")
+        print(f"💾 Database file size: {file_size:,} bytes ({file_size / 1024:.1f} KB)")
 
         conn.close()
 
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
+
 
 def show_available_tables():
     """Show list of available tables."""
@@ -280,6 +286,7 @@ def show_available_tables():
     except sqlite3.Error as e:
         print(f"❌ Database error: {e}")
 
+
 def main():
     """Main function to run the visualization tool."""
     if len(sys.argv) > 1:
@@ -303,6 +310,7 @@ def main():
     else:
         # Default: show overview
         show_database_overview()
+
 
 if __name__ == "__main__":
     main()
