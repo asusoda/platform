@@ -71,10 +71,19 @@ def verify_clerk_token(token):
             options={"verify_signature": True, "verify_exp": True}
         )
         
-        # Extract email from Clerk token
-        email = payload.get('email')
+        print(f"[Clerk Auth] Token payload keys: {list(payload.keys())}")
+        print(f"[Clerk Auth] Full payload: {payload}")
+        
+        # Extract email from Clerk token (try multiple possible fields)
+        email = (
+            payload.get('email') or 
+            payload.get('email_address') or 
+            payload.get('primary_email') or
+            (payload.get('email_addresses', [{}])[0] if payload.get('email_addresses') else None)
+        )
+        
         if not email:
-            print(f"[Clerk Auth] No email in token payload: {payload.keys()}")
+            print(f"[Clerk Auth] No email found in token. Available fields: {payload.keys()}")
             return None
         
         print(f"[Clerk Auth] Successfully verified token for: {email}")
