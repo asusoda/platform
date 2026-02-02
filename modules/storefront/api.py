@@ -725,7 +725,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
         
         from modules.organizations.models import Organization
         from modules.points.models import Points
-        from modules.users.models import User
+        from modules.points.models import User
         
         organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
         if not organization:
@@ -755,5 +755,100 @@ def get_user_wallet_clerk(org_prefix, user_email):
                 "awarded_by": p.awarded_by_officer
             } for p in points_records]
         }), 200
+    finally:
+        db.close()
+
+@storefront_blueprint.route("/<string:org_prefix>/checkout", methods=["POST"])
+@require_clerk_auth
+@error_handler
+def clerk_checkout(org_prefix):
+    """Checkout endpoint using Clerk authentication"""
+    data = request.get_json()
+    user_email = request.clerk_user_email
+    
+    if not data.get('total_amount'):
+        return jsonify({"error": "Total amount is required"}), 400
+    if not data.get('items') or len(data['items']) == 0:
+        return jsonify({"error": "Order items are required"}), 400
+    
+    db = next(db_connect.get_db())
+    try:
+        org = get_organization_by_prefix(db, org_prefix)
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        
+        from modules.points.models import User, UserOrganizationMembership, Points
+        user = db.query(User).filter(User.email == user_email).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        membership = db.query(UserOrganizationMembership).filter(
+            UserOrganizationMembership.user_id == user.id,
+            UserOrganizationMembership.organization_id == org.id,
+            UserOrganizationMembership.is_active
+        ).first()
+        if not membership:
+            return jsonify({"error": "User is not a member of this organization"}), 403
+        
+        total_amount = float(data['total_amount'])
+        
+        points_sum = db.query(func.sum(Points.points)).filter(
+            Points.user_id == user.id,
+            Points.organization_id == org.id
+        ).scalar() or 0
+        
+        if points_sum < total_amount:
+            return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
+        
+        order_items = []
+        for item in data['items']:
+            if not all(k in item for k in ['product_id', 'quantity', 'price']):
+                return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
+            
+            product = db_connect.get_storefront_product(db, int(item['product_id']), org.id)
+            if not product:
+                return jsonify({"error": f"Product {item['product_id']} not found"}), 404
+            if product.stock < int(item['quantity']):
+                return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
+            
+            product.stock -= int(item['quantity'])
+            
+            order_items.append(OrderItem(
+                product_id=int(item['product_id']),
+                quantity=int(item['quantity']),
+                price_at_time=float(item['price'])
+            ))
+        
+        new_order = Order(
+            user_id=user.id,
+            total_amount=total_amount,
+            status='completed'
+        )
+        created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
+        
+        from datetime import datetime
+        point_deduction = Points(
+            user_id=user.id,
+            organization_id=org.id,
+            points=-int(total_amount),
+            event=f"Storefront Purchase - Order #{created_order.id}",
+            timestamp=datetime.utcnow(),
+            awarded_by_officer="System"
+        )
+        db.add(point_deduction)
+        db.commit()
+        
+        return jsonify({
+            'message': 'Order placed and points deducted successfully', 
+            'id': created_order.id,
+            'points_deducted': int(total_amount),
+            'order': {
+                'id': created_order.id,
+                'user_id': created_order.user_id,
+                'total_amount': created_order.total_amount,
+                'status': created_order.status,
+                'created_at': created_order.created_at.isoformat()
+            }
+        }), 201
     finally:
         db.close()
