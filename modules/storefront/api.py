@@ -1,9 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
-from modules.utils.clerk_auth import require_clerk_auth
+from modules.utils.clerk_auth import require_clerk_auth, verify_clerk_token
 from sqlalchemy import func
+import jwt
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
@@ -15,6 +16,34 @@ def get_organization_by_prefix(db, org_prefix):
     if not org:
         return None
     return org
+
+# Dual auth decorator - accepts both Discord and Clerk tokens
+def dual_auth_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        
+        # Try Clerk auth first
+        clerk_result = verify_clerk_token()
+        if clerk_result and 'email' in clerk_result:
+            g.auth_type = 'clerk'
+            g.user_email = clerk_result['email']
+            g.clerk_user_id = clerk_result.get('user_id')
+            request.clerk_user_email = clerk_result['email']
+            return f(*args, **kwargs)
+        
+        # Fall back to Discord auth
+        from modules.auth.decoraters import verify_token
+        discord_result = verify_token()
+        if discord_result:
+            g.auth_type = 'discord'
+            g.user_email = discord_result.get('email')
+            g.discord_user_id = discord_result.get('user_id')
+            return f(*args, **kwargs)
+        
+        return jsonify({"error": "Authentication required"}), 401
+    return decorated_function
 
 # PRODUCT ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
@@ -182,7 +211,7 @@ def delete_product(org_prefix, product_id):
 
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
-@auth_required
+@dual_auth_required
 @error_handler
 def get_orders(org_prefix):
     """Get all orders for an organization"""
