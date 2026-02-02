@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from flask import Flask, g, session
 from modules.storefront.api import storefront_blueprint
 from modules.storefront.models import Product, Order, OrderItem
