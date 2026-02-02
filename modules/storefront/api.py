@@ -77,7 +77,7 @@ def dual_auth_required(f):
             except Exception as e:
                 session.pop('token', None)
                 logging.exception("Session authentication failed")
-                return jsonify({"message": f"Session authentication failed: {str(e)}"}), 401
+                return jsonify({"message": "Session authentication failed!"}), 401
         
         # Check Authorization header for Discord token (reuse extracted token)
         if not token:
@@ -92,7 +92,7 @@ def dual_auth_required(f):
             return f(*args, **kwargs)
         except Exception as e:
             logging.exception("Discord token authentication failed")
-            return jsonify({"message": f"Authentication failed: {str(e)}"}), 401
+            return jsonify({"message": "Authentication failed!"}), 401
     
     return decorated_function
 
@@ -333,21 +333,6 @@ def create_order(org_prefix):
     """Create a new order for an organization with dual authentication"""
     data = request.get_json()
     
-    # Get user from auth context
-    token = extract_token()
-    if not token:
-        return jsonify({"error": "Authentication token required"}), 401
-    
-    try:
-        token_data = tokenManger.decode_token(token)
-    except Exception as e:
-        logging.exception("Failed to decode token")
-        return jsonify({"error": "Invalid token"}), 401
-    
-    discord_id = token_data.get('discord_id')
-    if not discord_id:
-        return jsonify({"error": "Invalid token data"}), 401
-    
     # Validate required fields
     if not data.get('total_amount'):
         return jsonify({"error": "Total amount is required"}), 400
@@ -360,9 +345,32 @@ def create_order(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
         
-        # Find user based on Discord auth
+        # Find user based on auth type
         from modules.points.models import User, UserOrganizationMembership
-        user = db.query(User).filter(User.discord_id == str(discord_id)).first()
+        
+        if g.auth_type == 'clerk':
+            # For Clerk auth, use request.clerk_user_email set by require_clerk_auth
+            user_email = getattr(request, "clerk_user_email", None)
+            if not user_email:
+                return jsonify({"error": "Authentication token required"}), 401
+            user = db.query(User).filter(User.email == user_email).first()
+        else:
+            # For Discord auth, get discord_id from token
+            token = extract_token()
+            if not token:
+                return jsonify({"error": "Authentication token required"}), 401
+            
+            try:
+                token_data = tokenManger.decode_token(token)
+            except Exception as e:
+                logging.exception("Failed to decode token")
+                return jsonify({"error": "Invalid token"}), 401
+            
+            discord_id = token_data.get('discord_id')
+            if not discord_id:
+                return jsonify({"error": "Invalid token data"}), 401
+            
+            user = db.query(User).filter(User.discord_id == str(discord_id)).first()
         
         if not user:
             return jsonify({"error": "User not found"}), 404
