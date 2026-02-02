@@ -60,7 +60,7 @@ def verify_clerk_token(token):
             logger.warning("No user_id found in request state or token payload")
             return None
         try:
-            user = clerk.users.get_user(user_id)
+            user = clerk.users.get(user_id)
         except Exception as e:
             logger.error(f"Failed to fetch Clerk user for id {user_id}: {e}")
             return None
