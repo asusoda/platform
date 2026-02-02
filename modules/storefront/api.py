@@ -864,7 +864,13 @@ def clerk_checkout(org_prefix):
         user_email = g.user_email
     else:
         # Discord auth - get discord_id from token
-        token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
+        token = session.get('token')
+        if not token:
+            auth_header = request.headers.get('Authorization', '')
+            if isinstance(auth_header, str) and auth_header.startswith('Bearer '):
+                parts = auth_header.split(' ', 1)
+                if len(parts) == 2 and parts[1].strip():
+                    token = parts[1].strip()
         if not token:
             return jsonify({"error": "Authentication token required"}), 401
         token_data = tokenManger.decode_token(token)
