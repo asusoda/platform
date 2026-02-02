@@ -55,7 +55,7 @@ def dual_auth_required(f):
                 return f(*args, **kwargs)
             except Exception as e:
                 session.pop('token', None)
-                return jsonify({"message": "Session authentication failed!"}), 401
+                return jsonify({"message": f"Session authentication failed: {str(e)}"}), 401
         
         # Check Authorization header for Discord token (reuse extracted token)
         if not token:
