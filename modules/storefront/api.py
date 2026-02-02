@@ -247,57 +247,86 @@ def get_order(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
+@require_clerk_auth
 @error_handler
 def create_order(org_prefix):
-    """Create a new order for an organization (public endpoint for customer purchases)"""
+    """Create a new order for an organization with Clerk authentication"""
     data = request.get_json()
+    user_email = request.clerk_user_email
     
     # Validate required fields
-    if not data.get('user_id'):
-        return jsonify({"error": "User ID is required"}), 400
     if not data.get('total_amount'):
         return jsonify({"error": "Total amount is required"}), 400
     if not data.get('items') or len(data['items']) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
-    new_order = Order(
-        user_id=data['user_id'],
-        total_amount=float(data['total_amount']),
-        status=data.get('status', 'pending')
-    )
-    
-    # Prepare order items
-    order_items = []
-    for item in data['items']:
-        if not all(k in item for k in ['product_id', 'quantity', 'price']):
-            return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
-        order_items.append(OrderItem(
-            product_id=int(item['product_id']),
-            quantity=int(item['quantity']),
-            price_at_time=float(item['price'])
-        ))
     
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
+        
+        # Find user by email
+        from modules.users.models import User
+        user = db.query(User).filter(User.email == user_email, User.organization_id == org.id).first()
+        if not user:
+            return jsonify({"error": "User not found in organization"}), 404
+        
+        total_amount = float(data['total_amount'])
+        
+        # Check user has sufficient points
+        from modules.points.models import Point
+        points_sum = db.query(func.sum(Point.points)).filter(Point.user_email == user_email).scalar() or 0
+        
+        if points_sum < total_amount:
+            return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
+        
+        # Prepare order items and validate stock
+        order_items = []
+        for item in data['items']:
+            if not all(k in item for k in ['product_id', 'quantity', 'price']):
+                return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
             
-        # Validate that all products exist and have sufficient stock
-        for item in order_items:
-            product = db_connect.get_storefront_product(db, item.product_id, org.id)
+            product = db_connect.get_storefront_product(db, int(item['product_id']), org.id)
             if not product:
-                return jsonify({"error": f"Product {item.product_id} not found"}), 404
-            if product.stock < item.quantity:
+                return jsonify({"error": f"Product {item['product_id']} not found"}), 404
+            if product.stock < int(item['quantity']):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
             
             # Update stock
-            product.stock -= item.quantity
+            product.stock -= int(item['quantity'])
             
+            order_items.append(OrderItem(
+                product_id=int(item['product_id']),
+                quantity=int(item['quantity']),
+                price_at_time=float(item['price'])
+            ))
+        
+        # Create order
+        new_order = Order(
+            user_id=user.id,
+            total_amount=total_amount,
+            status='completed'
+        )
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
+        
+        # Deduct points by creating negative point entry
+        from modules.points.models import Point
+        from datetime import datetime
+        point_deduction = Point(
+            points=-int(total_amount),
+            event=f"Storefront Purchase - Order #{created_order.id}",
+            timestamp=datetime.utcnow(),
+            awarded_by_officer="System",
+            user_email=user_email
+        )
+        db.add(point_deduction)
+        db.commit()
+        
         return jsonify({
-            'message': 'Order created successfully', 
+            'message': 'Order placed and points deducted successfully', 
             'id': created_order.id,
+            'points_deducted': int(total_amount),
             'order': {
                 'id': created_order.id,
                 'user_id': created_order.user_id,
