@@ -24,7 +24,6 @@ def dual_auth_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization', '')
-        
         # Extract bearer token from Authorization header, if present
         token = None
         if auth_header.startswith('Bearer '):
