@@ -2,6 +2,7 @@ import os
 from functools import wraps
 from flask import request, jsonify
 from clerk_backend_api import Clerk
+from clerk_backend_api.security.types import AuthenticateRequestOptions
 import httpx
 from shared import config
 from modules.utils.logging_config import get_logger
@@ -44,28 +45,43 @@ def verify_clerk_token(token):
         
         request_state = clerk.authenticate_request(
             req,
-            options={'authorized_parties': authorized_parties}
+            AuthenticateRequestOptions(authorized_parties=authorized_parties)
         )
         if not request_state.is_signed_in:
             logger.warning(f"Token invalid. Reason: {request_state.reason}")
             return None
-        
-        # Extract email from the payload
+        # Extract basic payload for debugging
         payload = request_state.payload
         logger.debug(f"Token payload: {payload}")
-        
-        # Try to get email from various possible fields in Clerk token
-        email = None
-        if payload:
-            email = (
-                payload.get('email') or
-                payload.get('email_address') or
-                payload.get('primary_email_address_id')
-            )
-        
-        if not email:
-            logger.warning("No email found in token payload")
+        # Clerk tokens typically contain a user ID (sub) rather than an email.
+        # Prefer request_state.user_id, fall back to sub in the payload if needed.
+        user_id = getattr(request_state, "user_id", None) or (payload.get("sub") if payload else None)
+        if not user_id:
+            logger.warning("No user_id found in request state or token payload")
             return None
+        try:
+            user = clerk.users.get(user_id=user_id)
+        except Exception as e:
+            logger.error(f"Failed to fetch Clerk user for id {user_id}: {e}")
+            return None
+        # Resolve the primary email address from the user object
+        email = None
+        primary_email_id = getattr(user, "primary_email_address_id", None)
+        email_addresses = getattr(user, "email_addresses", []) or []
+        if primary_email_id:
+            for addr in email_addresses:
+                # addr may be a dict-like object or have attributes; support both.
+                addr_id = addr.get("id") if isinstance(addr, dict) else getattr(addr, "id", None)
+                if addr_id == primary_email_id:
+                    email = addr.get("email_address") if isinstance(addr, dict) else getattr(addr, "email_address", None)
+                    break
+        # Fallback: use the first listed email address if no primary match was found
+        if not email and email_addresses:
+            first = email_addresses[0]
+            email = first.get("email_address") if isinstance(first, dict) else getattr(first, "email_address", None)
+        if not email:
+            logger.warning("No email address could be resolved for user")
+            return None 
         
         logger.info(f"Successfully verified token for: {email}")
         return email
@@ -82,12 +98,12 @@ def require_clerk_auth(f):
         auth_header = request.headers.get('Authorization', '')
         
         if not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'No valid authorization header', 'message': 'Token is invalid!'}), 401
+            return jsonify({'error': 'No valid authorization header', 'message': 'Clerk: Token is invalid!'}), 401
         
         # Safely extract token after 'Bearer '
         parts = auth_header.split(' ', 1)
         if len(parts) < 2 or not parts[1].strip():
-            return jsonify({'error': 'No valid authorization header', 'message': 'Token is invalid!'}), 401
+            return jsonify({'error': 'No valid authorization header', 'message': 'Clerk: Token is invalid!'}), 401
         
         token = parts[1].strip()
         
