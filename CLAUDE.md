@@ -1,6 +1,6 @@
-# CLAUDE.md
+# {CLAUDE,AGENTS}.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
 
 ## Development Commands
 
@@ -99,7 +99,7 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
 - CORS configured for local development and production domains
 - API communication via axios with organization headers
 
-## Important Notes
+## Development Best Practices
 
 ### Environment Setup
 - Copy `.env.template` to `.env` and configure before running
@@ -107,7 +107,6 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
 - Database file created automatically in `./data/` directory
 
 ### Testing Environment
-- Set `TESTING=true` environment variable for test runs
 - uv manages Python dependencies and virtual environment
 - GitHub Actions runs tests automatically on push/PR
 
@@ -117,3 +116,6 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
 - Shared data volume for persistence
 - Health checks configured for both services
 - Buildkit enabled for optimized builds
+
+### Logging
+- Stay away from vanilla `print()` statements. There's a shared logging module. Use that instead.
