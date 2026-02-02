@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON
+from sqlalchemy import JSON, Column, DateTime, Integer, String
 from sqlalchemy.sql import func
+
 from shared.db import Base
+
 
 class Session(Base):
     """Session model for storing user sessions in the database"""
@@ -13,4 +15,4 @@ class Session(Base):
     updated_at = Column(DateTime, default=func.utcnow(), onupdate=func.utcnow())
 
     def __repr__(self):
-        return f"<Session {self.session_id}>" 
+        return f"<Session {self.session_id}>"

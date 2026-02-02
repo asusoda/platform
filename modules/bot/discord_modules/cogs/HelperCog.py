@@ -1,9 +1,8 @@
+import asyncio
+
 import discord
 from discord.ext import commands
-from discord import Interaction # Explicitly import Interaction
-from typing import Optional, List, Dict, Any, Union, Tuple, Callable, Awaitable
-import random
-import asyncio
+
 from modules.utils.logging_config import get_logger
 
 # Get module logger
@@ -33,7 +32,7 @@ class HelperCog(commands.Cog):
         logger.info("HelperCog initialized")
 
     async def create_category(
-        self, guild: discord.Guild, name: str, position: Optional[int] = 0
+        self, guild: discord.Guild, name: str, position: int | None = 0
     ):
         """
         Creates a new category in the guild.
@@ -55,8 +54,8 @@ class HelperCog(commands.Cog):
         self,
         guild: discord.Guild,
         name: str,
-        category: Optional[discord.CategoryChannel],
-        overwrites: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
+        category: discord.CategoryChannel | None,
+        overwrites: dict[discord.Role, discord.PermissionOverwrite] | None = None,
     ):
         """
         Creates a new text channel in the guild.
@@ -82,8 +81,8 @@ class HelperCog(commands.Cog):
         self,
         guild: discord.Guild,
         name: str,
-        category: Optional[discord.CategoryChannel],
-        overwrites: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
+        category: discord.CategoryChannel | None,
+        overwrites: dict[discord.Role, discord.PermissionOverwrite] | None = None,
     ):
         """
         Creates a new voice channel in the guild.
@@ -101,7 +100,7 @@ class HelperCog(commands.Cog):
         return channel
 
     async def create_role(
-        self, guild: discord.Guild, name: str, colour: Optional[discord.Colour] = None
+        self, guild: discord.Guild, name: str, colour: discord.Colour | None = None
     ):
         """
         Creates a new role in the guild.
@@ -158,9 +157,9 @@ class HelperCog(commands.Cog):
     async def send_message(
         self,
         channel: discord.TextChannel,
-        embed: Optional[discord.Embed],
-        content: Optional[str],
-        view: Optional[discord.ui.View] = None,
+        embed: discord.Embed | None,
+        content: str | None,
+        view: discord.ui.View | None = None,
     ):
         """
         Sends a message to a channel.
@@ -195,9 +194,9 @@ class HelperCog(commands.Cog):
     async def edit_message(
         self,
         message: discord.Message,
-        embed: Optional[discord.Embed],
-        content: Optional[str],
-        view: Optional[discord.ui.View] = None,
+        embed: discord.Embed | None,
+        content: str | None,
+        view: discord.ui.View | None = None,
     ):
         """
         Edits a message.
@@ -299,7 +298,7 @@ class HelperCog(commands.Cog):
         description="Clears the game environment from the Discord server.",
         guild_ids=[1011586463219060807],
     )
-    async def clear(self, interaction, dummy: Optional[str] = None): # Removed Interaction type hint
+    async def clear(self, interaction, dummy: str | None = None): # Removed Interaction type hint
         """
         Clears the game environment from the Discord server.
         """

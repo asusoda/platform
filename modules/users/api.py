@@ -1,13 +1,9 @@
-import logging
-import sys
-import time
-import re
-import os
 from flask import Blueprint, jsonify, request
-from modules.auth.decoraters import auth_required, error_handler
-from modules.points.models import User, Points
-from shared import config, db_connect
 from sqlalchemy import func
+
+from modules.auth.decoraters import auth_required, error_handler
+from modules.points.models import Points, User
+from shared import db_connect
 
 # Flask Blueprint for users
 users_blueprint = Blueprint("users", __name__, template_folder=None, static_folder=None)
@@ -28,24 +24,24 @@ def view_user_in_org(org_prefix):
         return jsonify({"error": "User identifier (email, UUID, or username) is required."}), 400
 
     db = next(db_connect.get_db())
-    
+
     try:
         from modules.organizations.models import Organization
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
         ).first()
-        
+
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Query the user by email, UUID, or username
         user = db.query(User).filter(
-            (User.email == user_identifier) | 
-            (User.uuid == user_identifier) | 
+            (User.email == user_identifier) |
+            (User.uuid == user_identifier) |
             (User.username == user_identifier)
         ).first()
 
@@ -58,7 +54,7 @@ def view_user_in_org(org_prefix):
             organization_id=organization.id,
             is_active=True
         ).first()
-        
+
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 404
 
@@ -67,13 +63,13 @@ def view_user_in_org(org_prefix):
             user_id=user.id,
             organization_id=organization.id
         ).scalar() or 0
-        
+
         # Get points records for this organization
         points_records = db.query(Points).filter_by(
             user_id=user.id,
             organization_id=organization.id
         ).order_by(Points.last_updated.desc()).all()
-        
+
         points_data = [{
             "id": record.id,
             "points": record.points,
@@ -121,27 +117,27 @@ def create_user_in_org(org_prefix):
     user_name = request.args.get('name')
     user_asu_id = request.args.get('asu_id')
     user_academic_standing = request.args.get('academic_standing')
-    
+
     if not user_email or not user_name:
         return jsonify({"error": "Email and name are required"}), 400
-    
+
     db = next(db_connect.get_db())
     try:
         from modules.organizations.models import Organization
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
         ).first()
-        
+
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Check if user already exists
         existing_user = db.query(User).filter_by(email=user_email).first()
-        
+
         if existing_user:
             # Check if user is already a member of this organization
             membership = db.query(UserOrganizationMembership).filter_by(
@@ -149,10 +145,10 @@ def create_user_in_org(org_prefix):
                 organization_id=organization.id,
                 is_active=True
             ).first()
-            
+
             if membership:
                 return jsonify({"error": "User is already a member of this organization"}), 400
-            
+
             # Add existing user to this organization
             new_membership = UserOrganizationMembership(
                 user_id=existing_user.id,
@@ -161,7 +157,7 @@ def create_user_in_org(org_prefix):
             db.add(new_membership)
             db.commit()
             return jsonify({"message": "Existing user added to organization successfully."}), 200
-        
+
         # Create new user
         import uuid
         new_user = User(
@@ -176,7 +172,7 @@ def create_user_in_org(org_prefix):
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        
+
         # Add membership to organization
         membership = UserOrganizationMembership(
             user_id=new_user.id,
@@ -184,9 +180,9 @@ def create_user_in_org(org_prefix):
         )
         db.add(membership)
         db.commit()
-        
+
         return jsonify({"message": "User created and added to organization successfully."}), 201
-        
+
     except Exception as e:
         db.rollback()
         return jsonify({"error": str(e)}), 500
@@ -208,16 +204,16 @@ def user_in_org(org_prefix):
     try:
         from modules.organizations.models import Organization
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
         ).first()
-        
+
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Query the user by email
         user = db.query(User).filter_by(email=user_email).first()
 
@@ -232,7 +228,7 @@ def user_in_org(org_prefix):
                 organization_id=organization.id,
                 is_active=True
             ).first()
-            
+
             if not membership:
                 return jsonify({"error": "User is not a member of this organization"}), 404
 
@@ -257,10 +253,10 @@ def user_in_org(org_prefix):
                     organization_id=organization.id,
                     is_active=True
                 ).first()
-                
+
                 if not membership:
                     return jsonify({"error": "User is not a member of this organization"}), 404
-                
+
                 # Update user fields only if they are provided
                 if 'name' in data:
                     user.name = data['name']
@@ -290,7 +286,7 @@ def user_in_org(org_prefix):
                 db.add(new_user)
                 db.commit()
                 db.refresh(new_user)
-                
+
                 # Add membership to organization
                 membership = UserOrganizationMembership(
                     user_id=new_user.id,
@@ -298,7 +294,7 @@ def user_in_org(org_prefix):
                 )
                 db.add(membership)
                 db.commit()
-                
+
                 return jsonify({"message": "User created and added to organization successfully."}), 201
 
     except Exception as e:
@@ -319,7 +315,7 @@ def handle_form_submission_in_org(org_prefix):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
+
     return jsonify({"message": "recieved id: " + discordID + " and role: " + role}), 200
 
 @users_blueprint.route("/<string:org_prefix>/users", methods=["GET"])
@@ -331,22 +327,22 @@ def get_organization_users(org_prefix):
     try:
         from modules.organizations.models import Organization
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
         ).first()
-        
+
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Get all users who are members of this organization
         memberships = db.query(UserOrganizationMembership).filter_by(
             organization_id=organization.id,
             is_active=True
         ).all()
-        
+
         users_data = []
         for membership in memberships:
             user = db.query(User).filter_by(id=membership.user_id).first()
@@ -356,7 +352,7 @@ def get_organization_users(org_prefix):
                     user_id=user.id,
                     organization_id=organization.id
                 ).scalar() or 0
-                
+
                 users_data.append({
                     "id": user.id,
                     "name": user.name,
@@ -369,7 +365,7 @@ def get_organization_users(org_prefix):
                     "points": user_points,
                     "joined_at": membership.joined_at.isoformat() if membership.joined_at else None
                 })
-        
+
         return jsonify({
             "organization": {
                 "name": organization.name,
@@ -379,7 +375,7 @@ def get_organization_users(org_prefix):
             "total_members": len(users_data),
             "users": users_data
         }), 200
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -394,48 +390,48 @@ def get_user_in_organization(org_prefix, user_identifier):
     try:
         from modules.organizations.models import Organization
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
         ).first()
-        
+
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Find user by email, UUID, or username
         user = db.query(User).filter(
-            (User.email == user_identifier) | 
-            (User.uuid == user_identifier) | 
+            (User.email == user_identifier) |
+            (User.uuid == user_identifier) |
             (User.username == user_identifier)
         ).first()
-        
+
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
+
         # Check if user is a member of this organization
         membership = db.query(UserOrganizationMembership).filter_by(
             user_id=user.id,
             organization_id=organization.id,
             is_active=True
         ).first()
-        
+
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 404
-        
+
         # Get user's points in this organization
         user_points = db.query(func.sum(Points.points)).filter_by(
             user_id=user.id,
             organization_id=organization.id
         ).scalar() or 0
-        
+
         # Get points history for this organization
         points_records = db.query(Points).filter_by(
             user_id=user.id,
             organization_id=organization.id
         ).order_by(Points.last_updated.desc()).all()
-        
+
         points_history = [{
             "id": record.id,
             "points": record.points,
@@ -444,7 +440,7 @@ def get_user_in_organization(org_prefix, user_identifier):
             "timestamp": record.timestamp.isoformat() if record.timestamp else None,
             "last_updated": record.last_updated.isoformat() if record.last_updated else None
         } for record in points_records]
-        
+
         return jsonify({
             "user": {
                 "id": user.id,
@@ -468,7 +464,7 @@ def get_user_in_organization(org_prefix, user_identifier):
                 "points_history": points_history
             }
         }), 200
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -484,20 +480,20 @@ def add_user_to_organization(org_prefix):
     try:
         from modules.organizations.models import Organization
         from modules.points.api import link_or_create_user
-        
+
         # Get organization by prefix
         organization = db.query(Organization).filter_by(
             prefix=org_prefix,
             is_active=True
         ).first()
-        
+
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Validate required fields
         if not data.get('name') and not data.get('username'):
             return jsonify({"error": "Either name or username is required"}), 400
-        
+
         # Use the link_or_create_user function from points API
         user_data = {
             'username': data.get('username'),
@@ -507,16 +503,16 @@ def add_user_to_organization(org_prefix):
             'academic_standing': data.get('academic_standing', 'N/A'),
             'major': data.get('major', 'N/A')
         }
-        
+
         user = link_or_create_user(
             organization.id,
             user_data,
             data.get('discord_id')
         )
-        
+
         if not user:
             return jsonify({"error": "Failed to create or link user"}), 500
-        
+
         return jsonify({
             "message": "User added to organization successfully",
             "user": {
@@ -531,7 +527,7 @@ def add_user_to_organization(org_prefix):
                 "prefix": organization.prefix
             }
         }), 201
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:

@@ -1,9 +1,10 @@
-from flask import Blueprint, request, jsonify
-from modules.auth.decoraters import auth_required, member_required, error_handler
-from modules.utils.db import DBConnect
-from modules.storefront.models import Product, Order, OrderItem
-from modules.utils.clerk_auth import require_clerk_auth
+from flask import Blueprint, jsonify, request
 from sqlalchemy import func
+
+from modules.auth.decoraters import auth_required, error_handler, member_required
+from modules.storefront.models import Order, OrderItem, Product
+from modules.utils.clerk_auth import require_clerk_auth
+from modules.utils.db import DBConnect
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
@@ -26,7 +27,7 @@ def get_products(org_prefix):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         products = db_connect.get_storefront_products(db, org.id)
         return jsonify([{
             'id': p.id,
@@ -51,11 +52,11 @@ def get_product(org_prefix, product_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         product = db_connect.get_storefront_product(db, product_id, org.id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
-            
+
         return jsonify({
             'id': product.id,
             'name': product.name,
@@ -76,7 +77,7 @@ def get_product(org_prefix, product_id):
 def create_product(org_prefix):
     """Create a new product for an organization"""
     data = request.get_json()
-    
+
     # Validate required fields
     if not data.get('name'):
         return jsonify({"error": "Product name is required"}), 400
@@ -84,7 +85,7 @@ def create_product(org_prefix):
         return jsonify({"error": "Product price is required"}), 400
     if not data.get('stock'):
         return jsonify({"error": "Product stock is required"}), 400
-    
+
     new_product = Product(
         name=data['name'],
         description=data.get('description', ''),
@@ -92,16 +93,16 @@ def create_product(org_prefix):
         stock=int(data['stock']),
         image_url=data.get('image_url', '')
     )
-    
+
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         created_product = db_connect.create_storefront_product(db, new_product, org.id)
         return jsonify({
-            'message': 'Product created successfully', 
+            'message': 'Product created successfully',
             'id': created_product.id,
             'product': {
                 'id': created_product.id,
@@ -126,13 +127,13 @@ def update_product(org_prefix, product_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         product = db_connect.get_storefront_product(db, product_id, org.id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
-            
+
         data = request.get_json()
-        
+
         # Update fields if provided
         if 'name' in data:
             product.name = data['name']
@@ -144,7 +145,7 @@ def update_product(org_prefix, product_id):
             product.stock = int(data['stock'])
         if 'image_url' in data:
             product.image_url = data['image_url']
-        
+
         db.commit()
         return jsonify({
             'message': 'Product updated successfully',
@@ -171,11 +172,11 @@ def delete_product(org_prefix, product_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         success = db_connect.delete_storefront_product(db, product_id, org.id)
         if not success:
             return jsonify({"error": "Product not found"}), 404
-            
+
         return jsonify({'message': 'Product deleted successfully'}), 200
     finally:
         db.close()
@@ -191,7 +192,7 @@ def get_orders(org_prefix):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         orders = db_connect.get_storefront_orders(db, org.id)
         return jsonify([{
             'id': o.id,
@@ -223,11 +224,11 @@ def get_order(org_prefix, order_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
+
         return jsonify({
             'id': order.id,
             'user_id': order.user_id,
@@ -253,25 +254,25 @@ def create_order(org_prefix):
     """Create a new order for an organization with Clerk authentication"""
     data = request.get_json()
     user_email = request.clerk_user_email
-    
+
     # Validate required fields
     if not data.get('total_amount'):
         return jsonify({"error": "Total amount is required"}), 400
     if not data.get('items') or len(data['items']) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
+
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         # Find user by email
         from modules.points.models import User, UserOrganizationMembership
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
+
         # Check if user is a member of this organization
         membership = db.query(UserOrganizationMembership).filter(
             UserOrganizationMembership.user_id == user.id,
@@ -280,40 +281,40 @@ def create_order(org_prefix):
         ).first()
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 403
-        
+
         total_amount = float(data['total_amount'])
-        
+
         # Check user has sufficient points
         from modules.points.models import Points
         points_sum = db.query(func.sum(Points.points)).filter(
             Points.user_id == user.id,
             Points.organization_id == org.id
         ).scalar() or 0
-        
+
         if points_sum < total_amount:
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
-        
+
         # Prepare order items and validate stock
         order_items = []
         for item in data['items']:
             if not all(k in item for k in ['product_id', 'quantity', 'price']):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
-            
+
             product = db_connect.get_storefront_product(db, int(item['product_id']), org.id)
             if not product:
                 return jsonify({"error": f"Product {item['product_id']} not found"}), 404
             if product.stock < int(item['quantity']):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
-            
+
             # Update stock
             product.stock -= int(item['quantity'])
-            
+
             order_items.append(OrderItem(
                 product_id=int(item['product_id']),
                 quantity=int(item['quantity']),
                 price_at_time=float(item['price'])
             ))
-        
+
         # Create order
         new_order = Order(
             user_id=user.id,
@@ -321,10 +322,11 @@ def create_order(org_prefix):
             status='completed'
         )
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
-        
+
         # Deduct points by creating negative point entry
-        from modules.points.models import Points
         from datetime import datetime
+
+        from modules.points.models import Points
         point_deduction = Points(
             user_id=user.id,
             organization_id=org.id,
@@ -335,9 +337,9 @@ def create_order(org_prefix):
         )
         db.add(point_deduction)
         db.commit()
-        
+
         return jsonify({
-            'message': 'Order placed and points deducted successfully', 
+            'message': 'Order placed and points deducted successfully',
             'id': created_order.id,
             'points_deducted': int(total_amount),
             'order': {
@@ -361,24 +363,24 @@ def update_order_status(org_prefix, order_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
+
         data = request.get_json()
-        
+
         # Update status if provided
         if 'status' in data:
             valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
             if data['status'] not in valid_statuses:
                 return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
             order.status = data['status']
-        
+
         # Update message if provided
         if 'message' in data:
             order.message = data['message']
-        
+
         db.commit()
         return jsonify({
             'message': 'Order updated successfully',
@@ -404,18 +406,18 @@ def delete_order(org_prefix, order_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
+
         # Restore stock for cancelled orders
         if order.status not in ['cancelled', 'delivered']:
             for item in order.items:
                 product = db_connect.get_storefront_product(db, item.product_id, org.id)
                 if product:
                     product.stock += item.quantity
-            
+
         db.delete(order)
         db.commit()
         return jsonify({'message': 'Order deleted successfully'}), 200
@@ -432,11 +434,11 @@ def get_store_products(org_prefix):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         products = db_connect.get_storefront_products(db, org.id)
         # Only return products with stock > 0 for the store front
         available_products = [p for p in products if p.stock > 0]
-        
+
         return jsonify({
             'organization': {
                 'name': org.name,
@@ -469,17 +471,17 @@ def get_member_store(org_prefix, **kwargs):
     """Get store front for organization members (may include member-only products)"""
     user_discord_id = kwargs.get('user_discord_id')
     organization = kwargs.get('organization')
-    
+
     # Get or create user in this organization
     from modules.points.api import get_or_create_user
     user = get_or_create_user(user_discord_id, organization.id)
-    
+
     db = next(db_connect.get_db())
     try:
         products = db_connect.get_storefront_products(db, organization.id)
         # Only return products with stock > 0 for the store front
         available_products = [p for p in products if p.stock > 0]
-        
+
         return jsonify({
             'organization': {
                 'name': organization.name,
@@ -512,14 +514,14 @@ def get_member_orders(org_prefix, **kwargs):
     """Get orders for the authenticated member"""
     user_discord_id = kwargs.get('user_discord_id')
     organization = kwargs.get('organization')
-    
+
     # Get or create user in this organization
     from modules.points.api import get_or_create_user
     user = get_or_create_user(user_discord_id, organization.id)
-    
+
     if not user:
         return jsonify({"error": "Could not create or find user"}), 500
-    
+
     db = next(db_connect.get_db())
     try:
         # Get orders for this specific user in this organization
@@ -528,7 +530,7 @@ def get_member_orders(org_prefix, **kwargs):
             Order.organization_id == organization.id,
             Order.user_id == user.id
         ).order_by(Order.created_at.desc()).all()
-        
+
         return jsonify([{
             'id': o.id,
             'total_amount': o.total_amount,
@@ -554,29 +556,29 @@ def create_member_order(org_prefix, **kwargs):
     """Create a new order for authenticated member"""
     user_discord_id = kwargs.get('user_discord_id')
     organization = kwargs.get('organization')
-    
+
     # Get or create user in this organization
     from modules.points.api import get_or_create_user
     user = get_or_create_user(user_discord_id, organization.id)
-    
+
     if not user:
         return jsonify({"error": "Could not create or find user"}), 500
-    
+
     data = request.get_json()
-    
+
     # Validate required fields
     if not data.get('total_amount'):
         return jsonify({"error": "Total amount is required"}), 400
     if not data.get('items') or len(data['items']) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
+
     new_order = Order(
         user_id=user.id,  # Use proper user ID
         discord_user_id=user_discord_id,  # Keep for backward compatibility
         total_amount=float(data['total_amount']),
         status='pending'
     )
-    
+
     # Prepare order items
     order_items = []
     for item in data['items']:
@@ -587,7 +589,7 @@ def create_member_order(org_prefix, **kwargs):
             quantity=int(item['quantity']),
             price_at_time=float(item['price'])
         ))
-    
+
     db = next(db_connect.get_db())
     try:
         # Validate that all products exist and have sufficient stock
@@ -597,13 +599,13 @@ def create_member_order(org_prefix, **kwargs):
                 return jsonify({"error": f"Product {item.product_id} not found"}), 404
             if product.stock < item.quantity:
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
-            
+
             # Update stock
             product.stock -= item.quantity
-            
+
         created_order = db_connect.create_storefront_order(db, new_order, order_items, organization.id)
         return jsonify({
-            'message': 'Order created successfully', 
+            'message': 'Order created successfully',
             'id': created_order.id,
             'order': {
                 'id': created_order.id,
@@ -623,7 +625,7 @@ def get_member_order(org_prefix, order_id, **kwargs):
     """Get a specific order for the authenticated member"""
     user_discord_id = kwargs.get('user_discord_id')
     organization = kwargs.get('organization')
-    
+
     db = next(db_connect.get_db())
     try:
         # Get order for this specific user in this organization
@@ -633,10 +635,10 @@ def get_member_order(org_prefix, order_id, **kwargs):
             Order.organization_id == organization.id,
             Order.user_id == user_discord_id
         ).first()
-        
+
         if not order:
             return jsonify({"error": "Order not found"}), 404
-        
+
         return jsonify({
             'id': order.id,
             'total_amount': order.total_amount,
@@ -652,7 +654,7 @@ def get_member_order(org_prefix, order_id, **kwargs):
             } for item in order.items]
         }), 200
     finally:
-        db.close() 
+        db.close()
 
 # MEMBER POINTS ENDPOINT (for storefront)
 @storefront_blueprint.route("/<string:org_prefix>/members/points", methods=["GET"])
@@ -662,7 +664,7 @@ def get_user_points_public(org_prefix, **kwargs):
     """Get authenticated member's points balance (storefront endpoint)"""
     db = next(db_connect.get_db())
     try:
-        from modules.points.models import User, Points, UserOrganizationMembership
+        from modules.points.models import Points, User, UserOrganizationMembership
 
         user_discord_id = kwargs.get('user_discord_id')
         organization = kwargs.get('organization')
@@ -722,29 +724,28 @@ def get_user_wallet_clerk(org_prefix, user_email):
     try:
         if request.clerk_user_email != user_email:
             return jsonify({"error": "Unauthorized: Email mismatch"}), 403
-        
+
         from modules.organizations.models import Organization
-        from modules.points.models import Points
-        from modules.points.models import User
-        
+        from modules.points.models import Points, User
+
         organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         user = db.query(User).filter_by(email=user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
+
         total_points = db.query(func.sum(Points.points)).filter(
             Points.user_id == user.id,
             Points.organization_id == organization.id
         ).scalar() or 0
-        
+
         points_records = db.query(Points).filter_by(
             user_id=user.id,
             organization_id=organization.id
         ).order_by(Points.timestamp.desc()).limit(20).all()
-        
+
         return jsonify({
             "email": user.email,
             "total_points": total_points,
@@ -765,23 +766,23 @@ def clerk_checkout(org_prefix):
     """Checkout endpoint using Clerk authentication"""
     data = request.get_json()
     user_email = request.clerk_user_email
-    
+
     if not data.get('total_amount'):
         return jsonify({"error": "Total amount is required"}), 400
     if not data.get('items') or len(data['items']) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
+
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-        
-        from modules.points.models import User, UserOrganizationMembership, Points
+
+        from modules.points.models import Points, User, UserOrganizationMembership
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
+
         membership = db.query(UserOrganizationMembership).filter(
             UserOrganizationMembership.user_id == user.id,
             UserOrganizationMembership.organization_id == org.id,
@@ -789,43 +790,43 @@ def clerk_checkout(org_prefix):
         ).first()
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 403
-        
+
         total_amount = float(data['total_amount'])
-        
+
         points_sum = db.query(func.sum(Points.points)).filter(
             Points.user_id == user.id,
             Points.organization_id == org.id
         ).scalar() or 0
-        
+
         if points_sum < total_amount:
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
-        
+
         order_items = []
         for item in data['items']:
             if not all(k in item for k in ['product_id', 'quantity', 'price']):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
-            
+
             product = db_connect.get_storefront_product(db, int(item['product_id']), org.id)
             if not product:
                 return jsonify({"error": f"Product {item['product_id']} not found"}), 404
             if product.stock < int(item['quantity']):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
-            
+
             product.stock -= int(item['quantity'])
-            
+
             order_items.append(OrderItem(
                 product_id=int(item['product_id']),
                 quantity=int(item['quantity']),
                 price_at_time=float(item['price'])
             ))
-        
+
         new_order = Order(
             user_id=user.id,
             total_amount=total_amount,
             status='completed'
         )
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
-        
+
         from datetime import datetime
         point_deduction = Points(
             user_id=user.id,
@@ -837,9 +838,9 @@ def clerk_checkout(org_prefix):
         )
         db.add(point_deduction)
         db.commit()
-        
+
         return jsonify({
-            'message': 'Order placed and points deducted successfully', 
+            'message': 'Order placed and points deducted successfully',
             'id': created_order.id,
             'points_deducted': int(total_amount),
             'order': {

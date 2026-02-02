@@ -1,6 +1,7 @@
-import jwt
 import datetime
 import secrets
+
+import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -50,10 +51,10 @@ class TokenManager:
         """
         # Generate access token (short-lived)
         access_token = self.generate_token(username, discord_id, access_exp_minutes)
-        
+
         # Generate refresh token (long-lived, stored securely)
         refresh_token = self.generate_refresh_token(username, discord_id, refresh_exp_days)
-        
+
         return access_token, refresh_token
 
     def generate_token(self, username, discord_id=None, exp_minutes=60):
@@ -73,11 +74,11 @@ class TokenManager:
             "username": username,
             "type": "access"  # Token type for security
         }
-        
+
         # Add discord_id to payload if provided (more secure)
         if discord_id:
             payload["discord_id"] = str(discord_id)
-            
+
         return jwt.encode(payload, self.private_key, algorithm=self.algorithm)
 
     def generate_refresh_token(self, username, discord_id=None, exp_days=7):
@@ -95,7 +96,7 @@ class TokenManager:
         # Generate a cryptographically secure random token
         refresh_token = secrets.token_urlsafe(32)
         expires_at = datetime.datetime.utcnow() + datetime.timedelta(days=exp_days)
-        
+
         # Store refresh token metadata
         self.refresh_tokens[refresh_token] = {
             "username": username,
@@ -103,7 +104,7 @@ class TokenManager:
             "expires_at": expires_at,
             "created_at": datetime.datetime.utcnow()
         }
-        
+
         return refresh_token
 
     def refresh_access_token(self, refresh_token):
@@ -119,22 +120,22 @@ class TokenManager:
         # Check if refresh token exists and is not expired
         if refresh_token not in self.refresh_tokens:
             return None
-            
+
         token_data = self.refresh_tokens[refresh_token]
-        
+
         # Check if refresh token is expired
         if datetime.datetime.utcnow() > token_data["expires_at"]:
             # Remove expired refresh token
             del self.refresh_tokens[refresh_token]
             return None
-        
+
         # Generate new access token
         new_access_token = self.generate_token(
             username=token_data["username"],
             discord_id=token_data["discord_id"],
             exp_minutes=30  # Short-lived access token
         )
-        
+
         return new_access_token
 
     def revoke_refresh_token(self, refresh_token):
@@ -161,7 +162,7 @@ class TokenManager:
             token for token, data in self.refresh_tokens.items()
             if current_time > data["expires_at"]
         ]
-        
+
         for token in expired_tokens:
             del self.refresh_tokens[token]
 

@@ -1,12 +1,9 @@
-from discord.ext import commands
-from discord.ext import tasks
-from typing import Optional, List, Dict, Any, Union, Tuple, Callable, Awaitable
-import discord
 import random
-import asyncio
+
+import discord
+from discord.ext import commands
+
 from modules.bot.discord_modules.cogs.jeopardy.Jeopardy import JeopardyGame
-from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
-from modules.bot.discord_modules.cogs.jeopardy.Team import Team
 from modules.bot.discord_modules.cogs.UI import QuestionPost
 
 
@@ -63,7 +60,7 @@ class GameCog(commands.Cog):
         self.time = time
         return True
 
-    def get_game(self) -> Optional[dict]:
+    def get_game(self) -> dict | None:
         """
         Retrieves the current game's data in JSON format.
 

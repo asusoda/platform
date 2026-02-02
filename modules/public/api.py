@@ -1,12 +1,12 @@
-from flask import jsonify, request, Blueprint, send_from_directory
-import json
 import os
-from modules.points.models import User, Points
-from shared import db_connect
-from sqlalchemy import func, case, and_
-from modules.auth.decoraters import error_handler
 from datetime import datetime
 
+from flask import Blueprint, jsonify, send_from_directory
+from sqlalchemy import and_, case, func
+
+from modules.auth.decoraters import error_handler
+from modules.points.models import Points, User
+from shared import db_connect
 
 # Update the blueprint to include the static folder
 public_blueprint = Blueprint(
@@ -44,7 +44,7 @@ def get_leaderboard(org_prefix):
     db = next(db_connect.get_db())
     try:
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
@@ -81,7 +81,7 @@ def get_leaderboard(org_prefix):
                 "asu_id": asu_id,
                 "total_points": float(total_points) if total_points else 0.0
             })
-            
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     finally:
@@ -152,7 +152,7 @@ def get_global_leaderboard():
                 }
                 for detail in points_details
             ]
-            
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     finally:
@@ -176,7 +176,7 @@ def get_organization_users(org_prefix):
     db = next(db_connect.get_db())
     try:
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
@@ -190,7 +190,7 @@ def get_organization_users(org_prefix):
             .filter(UserOrganizationMembership.is_active == True)
             .all()
         )
-        
+
         return jsonify({
             "organization": {
                 "name": org.name,
@@ -210,7 +210,7 @@ def get_organization_users(org_prefix):
                 for user in users_query
             ]
         }), 200
-            
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     finally:
@@ -223,7 +223,7 @@ def get_organization_stats(org_prefix):
     db = next(db_connect.get_db())
     try:
         from modules.points.models import UserOrganizationMembership
-        
+
         # Get organization by prefix
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
@@ -234,18 +234,18 @@ def get_organization_stats(org_prefix):
             UserOrganizationMembership.organization_id == org.id,
             UserOrganizationMembership.is_active == True
         ).count()
-        
+
         # Get total points awarded in this organization
         total_points = db.query(func.sum(Points.points)).filter(Points.organization_id == org.id).scalar() or 0
-        
+
         # Get product count
         from modules.storefront.models import Product
         product_count = db.query(Product).filter(Product.organization_id == org.id).count()
-        
+
         # Get order count
         from modules.storefront.models import Order
         order_count = db.query(Order).filter(Order.organization_id == org.id).count()
-        
+
         return jsonify({
             "organization": {
                 "name": org.name,
@@ -259,7 +259,7 @@ def get_organization_stats(org_prefix):
                 "order_count": order_count
             }
         }), 200
-            
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     finally:

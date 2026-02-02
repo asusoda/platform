@@ -1,7 +1,6 @@
-import logging
-from notion_client import APIErrorCode, APIResponseError
 from googleapiclient.errors import HttpError
-from sentry_sdk import capture_exception, set_tag, set_context
+from notion_client import APIErrorCode, APIResponseError
+from sentry_sdk import capture_exception, set_context, set_tag
 
 # Assuming logger is configured elsewhere, e.g., in shared.py
 # If not, initialize a default logger:

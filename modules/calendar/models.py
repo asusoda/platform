@@ -1,15 +1,15 @@
 # modules/calendar/models.py
-import logging
+from dataclasses import dataclass, field  # Added field
 from datetime import datetime
-from dataclasses import dataclass, field # Added field
-from typing import Dict, Optional, Any
+from typing import Any, Optional
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from modules.utils.base import Base
 
 # Import helpers from the new utils module
-from .utils import DateParser, extract_property, logger # Added logger import
+from .utils import DateParser, extract_property, logger  # Added logger import
 
 # --- Data Transfer Object (DTO) ---
 
@@ -20,17 +20,17 @@ class CalendarEventDTO:
     Uses data from Notion to prepare for Google Calendar.
     """
     summary: str
-    start: Dict[str, str]
-    end: Dict[str, str]
+    start: dict[str, str]
+    end: dict[str, str]
     notion_page_id: str # Made non-optional as it's crucial for linking
-    gcal_id: Optional[str] = None # GCAL ID might not exist initially or be stored elsewhere
-    location: Optional[str] = None
-    description: Optional[str] = None
+    gcal_id: str | None = None # GCAL ID might not exist initially or be stored elsewhere
+    location: str | None = None
+    description: str | None = None
     # Add raw properties for potential debugging or future use
-    raw_notion_properties: Dict[str, Any] = field(default_factory=dict, repr=False)
+    raw_notion_properties: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def from_notion(cls, notion_event: Dict) -> Optional['CalendarEventDTO']:
+    def from_notion(cls, notion_event: dict) -> Optional['CalendarEventDTO']:
         """Create CalendarEventDTO from raw Notion event data."""
         properties = notion_event.get('properties', {})
         notion_page_id = notion_event.get('id')
@@ -79,7 +79,7 @@ class CalendarEventDTO:
             raw_notion_properties=properties # Store raw properties
         )
 
-    def to_gcal_format(self) -> Dict[str, Any]:
+    def to_gcal_format(self) -> dict[str, Any]:
         """Convert to Google Calendar API event format."""
         gcal_event = {
             'summary': self.summary,
@@ -100,7 +100,7 @@ class CalendarEventDTO:
         # Remove keys with None values before returning
         return {k: v for k, v in gcal_event.items() if v is not None}
 
-    def to_frontend_format(self) -> Dict[str, Any]:
+    def to_frontend_format(self) -> dict[str, Any]:
         """Convert to a format suitable for frontend display."""
         start_val = self.start.get('dateTime', self.start.get('date'))
         end_val = self.end.get('dateTime', self.end.get('date'))
@@ -138,7 +138,7 @@ class CalendarEventLink(Base):
     # Foreign keys to link with Notion and Google Calendar specific data
     notion_page_id = Column(String(255), nullable=False, index=True)
     google_calendar_event_id = Column(String(255), nullable=True, index=True)
-    
+
     # Calendar identifiers
     notion_database_id = Column(String(255), nullable=False)  # Which Notion database this event came from
     google_calendar_id = Column(String(255), nullable=False)  # Which Google Calendar this event is in

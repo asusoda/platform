@@ -1,5 +1,7 @@
 import logging
+
 import colorlog
+
 
 # Configure logging with colors and improved formatting
 def setup_logger():
@@ -17,14 +19,14 @@ def setup_logger():
         }
     )
     handler.setFormatter(formatter)
-    
+
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
-    
+
     # Remove existing handlers to avoid duplicates
     for hdlr in root_logger.handlers:
         root_logger.removeHandler(hdlr)
-    
+
     root_logger.addHandler(handler)
     return root_logger
 
@@ -33,4 +35,4 @@ logger = setup_logger()
 
 def get_logger(name):
     """Get a logger for a specific module with proper formatting"""
-    return logging.getLogger(name) 
+    return logging.getLogger(name)

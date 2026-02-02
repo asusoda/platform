@@ -1,6 +1,7 @@
-import requests
 import json
 import time
+
+import requests
 
 # --- Configuration ---
 BASE_URL = "http://127.0.0.1:8000"  # ADJUST IF YOUR APP RUNS ON A DIFFERENT PORT/URL
@@ -29,7 +30,7 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
     url = f"{BASE_URL}{endpoint}"
     print(f"--- Testing: {description} ({method.upper()} {endpoint}) ---")
     # Removed verbose request details printing here to reduce noise for passed tests
-    
+
     test_passed_this_call = False
     status_code_for_report = None
     response_preview_for_report = "N/A"
@@ -55,11 +56,11 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
         try:
             if "error" in description.lower() or "invalid" in description.lower() or "unauthorized" in description.lower():
                 assert response.status_code >= 400, f"Expected error status code (>=400), got {response.status_code}"
-            elif endpoint == "/auth/login": 
+            elif endpoint == "/auth/login":
                 assert response.status_code == 200 or response.status_code == 302, f"Expected 200 or 302 for /auth/login, got {response.status_code}"
-            else: 
+            else:
                 assert response.status_code < 400, f"Expected success status code (<400), got {response.status_code}"
-            test_passed_this_call = True 
+            test_passed_this_call = True
         except AssertionError as ae:
             # Detailed print only on assertion failure
             print(f"Request: {method.upper()} {url}")
@@ -99,7 +100,7 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
 def test_auth_endpoints():
     print("\n========== Testing Auth Endpoints ==========")
     make_request("GET", "/auth/login", headers=NO_AUTH_HEADERS, description="Auth Login Redirect")
-    
+
     # /validToken - This is a typo in your backend (should be /validateToken or similar based on usage)
     # Assuming it's /validateToken as defined later
     # make_request("GET", "/auth/validToken", headers=DEFAULT_HEADERS, description="Auth Valid Token (Corrected to /validateToken below)")
@@ -116,7 +117,7 @@ def test_auth_endpoints():
 
     make_request("GET", "/auth/appToken", headers=DEFAULT_HEADERS, params={"appname": "test_app"}, description="Auth Generate App Token")
     make_request("GET", "/auth/appToken", headers=DEFAULT_HEADERS, description="Auth Generate App Token - Missing appname (expect error)")
-    
+
     make_request("GET", "/auth/name", headers=DEFAULT_HEADERS, description="Auth Get Name")
     make_request("GET", "/auth/logout", headers=DEFAULT_HEADERS, description="Auth Logout")
     make_request("GET", "/auth/success", headers=NO_AUTH_HEADERS, description="Auth Success Page")
@@ -135,7 +136,7 @@ def test_points_endpoints():
 
     make_request("GET", "/points/get_users", headers=DEFAULT_HEADERS, description="Points Get Users")
     make_request("GET", "/points/get_points", headers=DEFAULT_HEADERS, description="Points Get Points")
-    
+
     make_request("GET", "/points/leaderboard", headers=NO_AUTH_HEADERS, description="Points Leaderboard - No Auth")
     make_request("GET", "/points/leaderboard", headers=DEFAULT_HEADERS, description="Points Leaderboard - With Auth (shows email)")
 
@@ -159,7 +160,7 @@ def test_public_endpoints():
     print("\n========== Testing Public Endpoints ==========")
     # /getnextevent seems to be a stub in modules/public/api.py
     make_request("GET", "/public/getnextevent", headers=NO_AUTH_HEADERS, description="Public Get Next Event")
-    
+
     # This leaderboard is different from /points/leaderboard
     make_request("GET", "/public/leaderboard", headers=NO_AUTH_HEADERS, description="Public Leaderboard")
 
@@ -172,7 +173,7 @@ def test_calendar_endpoints():
     print("\n========== Testing Calendar Endpoints (including OCP) ==========")
     make_request("POST", "/calendar/notion-webhook", headers=NO_AUTH_HEADERS, data={}, description="Calendar Notion Webhook")
     make_request("GET", "/calendar/events", headers=NO_AUTH_HEADERS, description="Calendar Get Events for Frontend")
-    
+
     # Destructive operation - call with caution or ensure ALLOW_DELETE_ALL is false for safety in prod/staging
     make_request("POST", "/calendar/delete-all-events", headers=NO_AUTH_HEADERS, data={}, description="Calendar Delete All Events (Potentially Destructive - expect error if not configured/allowed)")
 
@@ -183,13 +184,13 @@ def test_calendar_endpoints():
     make_request("GET", f"{ocp_prefix}/diagnose-unknown-officers", headers=NO_AUTH_HEADERS, description="OCP Diagnose Unknown Officers (GET)")
     make_request("POST", f"{ocp_prefix}/diagnose-unknown-officers", headers=NO_AUTH_HEADERS, data={}, description="OCP Diagnose Unknown Officers (POST)")
     make_request("GET", f"{ocp_prefix}/officers", headers=NO_AUTH_HEADERS, description="OCP Get Officer Leaderboard")
-    
+
     test_officer_email = "testofficer@example.com" # Use an email that might exist or not for testing
     make_request("GET", f"{ocp_prefix}/officer/{test_officer_email}/contributions", headers=NO_AUTH_HEADERS, description="OCP Get Officer Contributions")
 
     add_contrib_data = {"email": test_officer_email, "name": "Test Officer OCP", "event": "OCP Event", "points": 2, "role": "Participant"}
     make_request("POST", f"{ocp_prefix}/add-contribution", headers=NO_AUTH_HEADERS, data=add_contrib_data, description="OCP Add Contribution")
-    
+
     # For update/delete, you'd need a valid point_id from a previously created contribution
     test_point_id = 1 # Replace with a real ID from your DB after an add
     update_contrib_data = {"points": 3, "event": "Updated OCP Event"}
@@ -206,10 +207,10 @@ def test_summarizer_endpoints():
     print("\n========== Testing Summarizer Endpoints ==========")
     make_request("GET", "/summarizer/status", headers=DEFAULT_HEADERS, description="Summarizer Status")
     make_request("GET", "/summarizer/config", headers=DEFAULT_HEADERS, description="Summarizer Get Config")
-    
+
     config_data = {"model_name": "gemini-pro-test", "temperature": 0.8}
     make_request("POST", "/summarizer/config", headers=DEFAULT_HEADERS, data=config_data, description="Summarizer Update Config")
-    
+
     gemini_test_data = {"text": "This is a test sentence for Gemini."}
     make_request("POST", "/summarizer/gemini/test", headers=DEFAULT_HEADERS, data=gemini_test_data, description="Summarizer Test Gemini Connection")
 
@@ -227,9 +228,9 @@ def test_users_endpoints():
         existing_user_email = created_user_email_from_points[0]
         make_request("GET", "/users/viewUser", headers=DEFAULT_HEADERS, params={"user_identifier": existing_user_email}, description="Users View User by Email")
     else:
-        print(f"Skipping /users/viewUser with specific email as no user was tracked from points creation.")
+        print("Skipping /users/viewUser with specific email as no user was tracked from points creation.")
     make_request("GET", "/users/viewUser", headers=DEFAULT_HEADERS, params={"user_identifier": "nonexistent_user@example.com"}, description="Users View User - Non-existent (expect error)")
-    
+
     # Create user (Note: backend expects query params for POST /createUser based on api.py)
     new_user_email_users = f"newuser_{int(time.time())}@example.com"
     create_user_params = {"email": new_user_email_users, "name": "New API User", "asu_id": "0987654321", "academic_standing": "Freshman", "major": "AI"}
@@ -237,11 +238,11 @@ def test_users_endpoints():
 
     # GET /user
     make_request("GET", "/users/user", headers=DEFAULT_HEADERS, params={"email": new_user_email_users}, description="Users Get User by Email (created via /createUser)")
-    
+
     # POST /user (Update existing or create if not found)
     update_user_data = {"email": new_user_email_users, "name": "Updated API User", "major": "Robotics"}
     make_request("POST", "/users/user", headers=DEFAULT_HEADERS, data=update_user_data, description="Users Update User (POST to /user)")
-    
+
     new_user_for_post_upsert = f"upsert_{int(time.time())}@example.com"
     create_via_post_data = {"email": new_user_for_post_upsert, "name": "Upsert User", "asu_id": "112233", "academic_standing": "PHD", "major": "Space"}
     make_request("POST", "/users/user", headers=DEFAULT_HEADERS, data=create_via_post_data, description="Users Create User via POST to /user (Upsert)")
@@ -298,9 +299,9 @@ if __name__ == "__main__":
             # Truncate long descriptions/previews if necessary for table, actual data is in failed_test_details list
             desc_display = (f_test['description'][:desc_width-3] + "...") if len(f_test['description']) > desc_width-1 else f_test['description']
             preview_display = (f_test['response_preview'][:preview_width-3] + "...") if len(f_test['response_preview']) > preview_width-1 else f_test['response_preview']
-            
+
             print(f"| {desc_display:<{desc_width}} | {f_test['method']:<{method_width}} | {status_str:<{status_width}} | {preview_display:<{preview_width}} | {f_test['url']}")
         print("=============================================")
 
     print("\nReview the output above for detailed status codes and responses for each test.")
-    print("A FAILED status indicates either a request exception or an assertion failure based on expected status codes.") 
+    print("A FAILED status indicates either a request exception or an assertion failure based on expected status codes.")

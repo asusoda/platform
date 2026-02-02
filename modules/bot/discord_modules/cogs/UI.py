@@ -1,12 +1,8 @@
+
 import discord
-from discord.ext import commands
-from discord.ui import Button, View
-from discord.ext.commands import Cog
-from typing import Optional, List
-import random
-from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
-from modules.bot.discord_modules.cogs.jeopardy.Jeopardy import JeopardyGame
+
 from modules.bot.discord_modules.cogs import GameCog
+from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
 
 
 class QuestionPost(discord.ui.View):
@@ -15,7 +11,7 @@ class QuestionPost(discord.ui.View):
         question: JeopardyQuestion,
         voice: discord.StageChannel,
         cog: GameCog,
-        question_uuid: Optional[str],
+        question_uuid: str | None,
         avoid,
     ):
         """

@@ -99,6 +99,7 @@ dev = [
     "ty>=0.0.14",
     "mypy>=1.0.0",
     "bandit>=1.7.0",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.ruff]

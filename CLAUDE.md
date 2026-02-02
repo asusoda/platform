@@ -40,6 +40,22 @@ uv run pytest tests/test_filename.py -v
 uv sync
 ```
 
+### Code Quality
+```bash
+# Install pre-commit hooks
+uv run pre-commit install
+
+# Run linting and formatting
+uv run ruff check --fix .
+uv run ruff format .
+
+# Run type checking
+uv run ty check .
+
+# Run all pre-commit hooks manually
+uv run pre-commit run --all-files
+```
+
 ### Deployment
 ```bash
 # Deploy to production
@@ -119,3 +135,20 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
 
 ### Logging
 - Stay away from vanilla `print()` statements. There's a shared logging module. Use that instead.
+
+## Code Quality Tools
+
+### Linting & Formatting
+- **ruff**: Fast Python linter and formatter (configured in pyproject.toml)
+  - Line length: 120
+  - Auto-formats code and checks style
+  
+### Type Checking
+- **ty**: Rust-based type checker for Python
+- **mypy**: Additional type checking in CI
+
+### Pre-commit Hooks
+- Configured via `.pre-commit-config.yaml`
+- Runs ruff (lint + format) and ty automatically on commits
+- Install with `uv run pre-commit install`
+- All checks also run in CI on every push/PR

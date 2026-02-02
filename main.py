@@ -1,24 +1,22 @@
-from flask import Flask, current_app, jsonify # Import current_app
-from shared import app, logger, config, create_auth_bot
-from modules.calendar.service import MultiOrgCalendarService
-
-from modules.public.api import public_blueprint
-from modules.points.api import points_blueprint
-from modules.users.api import users_blueprint
-from modules.utils.db import DBConnect
-from modules.auth.api import auth_blueprint
-from modules.storefront.api import storefront_blueprint
-from modules.bot.api import game_blueprint
-from modules.calendar.api import calendar_blueprint
-from modules.organizations.api import organizations_blueprint
-from modules.superadmin.api import superadmin_blueprint
+import asyncio
+import os
+import threading
 
 import discord
-import threading
-import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
-import os
-from datetime import datetime
+from flask import jsonify  # Import current_app
+
+from modules.auth.api import auth_blueprint
+from modules.bot.api import game_blueprint
+from modules.calendar.api import calendar_blueprint
+from modules.calendar.service import MultiOrgCalendarService
+from modules.organizations.api import organizations_blueprint
+from modules.points.api import points_blueprint
+from modules.public.api import public_blueprint
+from modules.storefront.api import storefront_blueprint
+from modules.superadmin.api import superadmin_blueprint
+from modules.users.api import users_blueprint
+from shared import app, config, create_auth_bot, logger
 
 # Set a secret key for session management
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key')
@@ -86,7 +84,7 @@ def run_auth_bot_in_thread():
         # Use bot_instance.start() and manage the loop
         loop.run_until_complete(auth_bot_instance.start(auth_bot_token))
     except discord.errors.LoginFailure:
-        logger.error(f"Login failed for auth bot. Check AUTH_BOT_TOKEN.")
+        logger.error("Login failed for auth bot. Check AUTH_BOT_TOKEN.")
     except Exception as e:
         logger.error(f"Error in auth bot thread: {e}", exc_info=True)
     finally:

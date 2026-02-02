@@ -1,8 +1,10 @@
-from flask import jsonify, request, Blueprint, current_app
-from modules.utils.logging_config import get_logger
-from shared import db_connect as db
 import json
 import os
+
+from flask import Blueprint, current_app, jsonify, request
+
+from modules.utils.logging_config import get_logger
+from shared import db_connect as db
 
 # Get module logger
 logger = get_logger("bot.api")
@@ -138,19 +140,19 @@ def upload_game():
     if "file" not in request.files:
         logger.warning("No file part in request")
         return jsonify({"error": "No file part"}), 400
-    
+
     file = request.files["file"]
     if file.filename == "":
         logger.warning("No selected file")
         return jsonify({"error": "No selected file"}), 400
-    
+
     logger.info(f"Uploading game file: {file.filename}")
     try:
         game_data = json.load(file)
         if not is_valid_game_json(game_data):
             logger.warning("Invalid game JSON format")
             return jsonify({"error": "Invalid game JSON format"}), 400
-        
+
         db.add_or_update_game(game_data)
         logger.info(f"Game {game_data['game']['name']} uploaded successfully")
         return jsonify({"message": "File uploaded and validated successfully"}), 200
@@ -188,12 +190,12 @@ async def set_active_game():
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /setactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
-    
+
     name = request.args.get("name")
     date = request.args.get("date")
     time = request.args.get("time")
     logger.info(f"Setting active game: {name} for date: {date}, time: {time}")
-    
+
     try:
         games = db.get_all_games()
         game_to_set = None
@@ -201,7 +203,7 @@ async def set_active_game():
             if g["game"]["name"] == name:
                 game_to_set = {"game": g["game"], "questions": g["questions"]}
                 break
-        
+
         if game_to_set:
             cog = bot.get_cog("GameCog")
             if cog:
@@ -225,7 +227,7 @@ async def get_active_game():
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /getactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
-        
+
     logger.info("Getting active game state from auth_bot")
     try:
         cog = bot.get_cog("GameCog")
@@ -280,7 +282,7 @@ def get_active_game_state():
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /getactivegamestate")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
-        
+
     logger.info("Getting active game state from auth_bot")
     try:
         # Accessing bot.active_game directly is not safe if it's not a public/stable API of your BotFork or GameCog
@@ -350,7 +352,7 @@ async def reveal_question(): # Changed to async
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /revealquestion")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
-        
+
     uuid = request.args.get("uuid")
     logger.info(f"Revealing question with UUID: {uuid} via auth_bot")
     try:
@@ -373,7 +375,7 @@ async def reveal_answer():
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /revealanswer")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
-        
+
     uuid = request.args.get("uuid")
     logger.info(f"Revealing answer for question UUID: {uuid} via auth_bot")
     try:
@@ -396,7 +398,7 @@ async def award_points():
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /awardpoints")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
-        
+
     team = request.args.get("team")
     points = request.args.get("points")
     logger.info(f"Awarding {points} points to team: {team} via auth_bot")

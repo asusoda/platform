@@ -1,14 +1,15 @@
 # modules/calendar/api.py
-from flask import Blueprint, jsonify, request, current_app # Add current_app
+from flask import Blueprint, current_app, jsonify  # Add current_app
+from sentry_sdk import set_tag, start_transaction
+
+from modules.auth.decoraters import auth_required
+from modules.organizations.models import Organization
 
 # Assuming shared resources are correctly set up
-from shared import logger, config, db_connect # Remove calendar_service import
-from sentry_sdk import start_transaction, capture_exception, set_tag
+from shared import db_connect, logger  # Remove calendar_service import
 
 # Import the new service and error handler
 from .errors import APIErrorHandler
-from modules.organizations.models import Organization
-from modules.auth.decoraters import auth_required
 
 # Initialize the service and a top-level error handler for routes
 route_error_handler = APIErrorHandler(logger, "CalendarAPI_Route")
@@ -52,23 +53,23 @@ def get_organization_events(org_prefix):
                 Organization.prefix == org_prefix,
                 Organization.is_active == True
             ).first()
-            
+
             if not org:
                 # Check if organization exists but is inactive
                 inactive_org = session.query(Organization).filter(
                     Organization.prefix == org_prefix
                 ).first()
-                
+
                 if inactive_org:
                     logger.warning(f"Organization with prefix '{org_prefix}' exists but is inactive")
                     return jsonify({
-                        "status": "error", 
+                        "status": "error",
                         "message": f"Organization '{org_prefix}' exists but is inactive"
                     }), 403
                 else:
                     logger.warning(f"Organization with prefix '{org_prefix}' not found")
                     return jsonify({
-                        "status": "error", 
+                        "status": "error",
                         "message": f"Organization '{org_prefix}' not found"
                     }), 404
 
@@ -123,7 +124,7 @@ def sync_organization_calendar(org_prefix):
                 Organization.prefix == org_prefix,
                 Organization.is_active == True
             ).first()
-            
+
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
@@ -170,7 +171,7 @@ def setup_organization_calendar(org_prefix):
                 Organization.prefix == org_prefix,
                 Organization.is_active == True
             ).first()
-            
+
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
@@ -248,7 +249,7 @@ def get_calendar_events_for_frontend():
     Legacy endpoint - returns error as this requires organization context.
     """
     return jsonify({
-        "status": "error", 
+        "status": "error",
         "message": "This endpoint requires organization context. Use /api/calendar/{org_prefix}/events instead."
     }), 400
 
@@ -258,7 +259,7 @@ def delete_all_calendar_events():
     Legacy endpoint - returns error as this requires organization context.
     """
     return jsonify({
-        "status": "error", 
+        "status": "error",
         "message": "This endpoint requires organization context. Use organization-specific endpoints instead."
     }), 400
 

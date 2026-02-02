@@ -1,17 +1,16 @@
 # modules/calendar/clients.py
-import logging
-from typing import List, Dict, Optional, Any, Tuple
 
 from google.oauth2 import service_account
-from googleapiclient.discovery import build, Resource # Added Resource type hint
+from googleapiclient.discovery import Resource, build  # Added Resource type hint
 from googleapiclient.errors import HttpError
-from notion_client import Client as NotionClient # Alias to avoid confusion
+from notion_client import APIResponseError
+from notion_client import Client as NotionClient  # Alias to avoid confusion
 from notion_client.helpers import collect_paginated_api
-from notion_client import APIErrorCode, APIResponseError
 from sentry_sdk import capture_exception, set_context, start_transaction
 
 # Assuming shared resources are correctly set up
-from shared import config, notion as notion_shared_client, logger
+from shared import config, logger
+from shared import notion as notion_shared_client
 
 # Import custom modules
 from .errors import APIErrorHandler
@@ -27,10 +26,10 @@ class GoogleCalendarClient:
 
     def __init__(self, logger_instance=None):
         self.logger = logger_instance or logger # Use shared logger by default
-        self._service: Optional[Resource] = None # Type hint for service
+        self._service: Resource | None = None # Type hint for service
         self.error_handler = APIErrorHandler(self.logger, "GoogleCalendarClient")
 
-    def get_service(self, parent_transaction=None) -> Optional[Resource]: # Accept parent transaction
+    def get_service(self, parent_transaction=None) -> Resource | None: # Accept parent transaction
         """Get authenticated Google Calendar service with error handling."""
         if self._service:
             return self._service
@@ -79,7 +78,7 @@ class GoogleCalendarClient:
                 self.error_handler.transaction = None # Clear transaction from handler if it was set
 
 
-    def create_event(self, calendar_id: str, event_data: Dict, notion_page_id: str, parent_transaction=None) -> Optional[Tuple[str, str]]: # Accept parent transaction
+    def create_event(self, calendar_id: str, event_data: dict, notion_page_id: str, parent_transaction=None) -> tuple[str, str] | None: # Accept parent transaction
        """Create calendar event with error handling. Returns (jump_url, gcal_event_id) or None."""
        op_name = "create_event"
        self.error_handler.operation_name = op_name
@@ -134,7 +133,7 @@ class GoogleCalendarClient:
                 self.error_handler.transaction = None # Clear transaction from handler if it was set
 
 
-    def update_event(self, calendar_id: str, event_id: str, event_data: Dict, notion_page_id: str, parent_transaction=None) -> Optional[str]: # Accept parent transaction
+    def update_event(self, calendar_id: str, event_id: str, event_data: dict, notion_page_id: str, parent_transaction=None) -> str | None: # Accept parent transaction
         """Update calendar event with error handling. Returns jump_url or None."""
         op_name = "update_event"
         self.error_handler.operation_name = op_name
@@ -190,7 +189,7 @@ class GoogleCalendarClient:
                 self.error_handler.transaction = None # Clear transaction from handler if it was set
 
 
-    def get_all_events(self, calendar_id: str, time_min: Optional[str] = None, parent_transaction=None) -> Optional[List[Dict]]: # Accept parent transaction
+    def get_all_events(self, calendar_id: str, time_min: str | None = None, parent_transaction=None) -> list[dict] | None: # Accept parent transaction
         """Get all events with pagination handling. Returns list of events or None on error."""
         op_name = "get_all_events"
         self.error_handler.operation_name = op_name
@@ -244,7 +243,7 @@ class GoogleCalendarClient:
                 self.error_handler.transaction = None # Clear transaction from handler if it was set
 
 
-    def batch_delete_events(self, calendar_id: str, event_ids: List[str], description: str = "batch_delete", parent_transaction=None) -> Tuple[int, int]: # Accept parent transaction
+    def batch_delete_events(self, calendar_id: str, event_ids: list[str], description: str = "batch_delete", parent_transaction=None) -> tuple[int, int]: # Accept parent transaction
         """Delete events in batches using the utility function."""
         op_name = f"batch_delete_{description}"
         self.error_handler.operation_name = op_name # Set context for potential errors within batch_operation
@@ -283,93 +282,93 @@ class GoogleCalendarClient:
             return successful, failed
 
 
-    def create_calendar(self, calendar_name: str, description: str = None, timezone: str = "America/Phoenix", parent_transaction=None) -> Optional[Dict]:
+    def create_calendar(self, calendar_name: str, description: str = None, timezone: str = "America/Phoenix", parent_transaction=None) -> dict | None:
         """Create a new Google Calendar with error handling."""
         op_name = "create_calendar"
         self.error_handler.operation_name = op_name
-        
+
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
-        
+
         with operation_span(current_transaction, op="google_api", description=op_name, logger=self.logger) as transaction:
             self.error_handler.transaction = transaction
             service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
                 return None
-                
+
             calendar_body = {
                 'summary': calendar_name,
                 'timeZone': timezone
             }
-            
+
             if description:
                 calendar_body['description'] = description
-                
+
             try:
                 with operation_span(transaction, op="api_call", description="calendars.insert", logger=self.logger) as span:
                     created_calendar = service.calendars().insert(body=calendar_body).execute()
-                    
+
                     calendar_id = created_calendar['id']
                     span.set_data("calendar_details", {
                         "calendar_id": calendar_id,
                         "summary": created_calendar.get('summary'),
                         "timezone": created_calendar.get('timeZone')
                     })
-                    
+
                     self.logger.info(f"Successfully created calendar '{calendar_name}' with ID: {calendar_id}")
                     return created_calendar
-                    
+
             except Exception as e:
                 return self.error_handler.handle_generic_error(e)
             finally:
                 self.error_handler.transaction = None
 
-    def get_calendar(self, calendar_id: str, parent_transaction=None) -> Optional[Dict]:
+    def get_calendar(self, calendar_id: str, parent_transaction=None) -> dict | None:
         """Get calendar details by ID."""
         op_name = "get_calendar"
         self.error_handler.operation_name = op_name
-        
+
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
-        
+
         with operation_span(current_transaction, op="google_api", description=op_name, logger=self.logger) as transaction:
             self.error_handler.transaction = transaction
             service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
                 return None
-                
+
             try:
                 with operation_span(transaction, op="api_call", description="calendars.get", logger=self.logger) as span:
                     calendar = service.calendars().get(calendarId=calendar_id).execute()
                     span.set_data("calendar_id", calendar_id)
                     return calendar
-                    
+
             except Exception as e:
                 return self.error_handler.handle_generic_error(e)
             finally:
                 self.error_handler.transaction = None
 
-    def list_calendars(self, parent_transaction=None) -> Optional[List[Dict]]:
+    def list_calendars(self, parent_transaction=None) -> list[dict] | None:
         """List all calendars accessible to the service account."""
         op_name = "list_calendars"
         self.error_handler.operation_name = op_name
-        
+
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
-        
+
         with operation_span(current_transaction, op="google_api", description=op_name, logger=self.logger) as transaction:
             self.error_handler.transaction = transaction
             service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
                 return None
-                
+
             try:
                 with operation_span(transaction, op="api_call", description="calendarList.list", logger=self.logger) as span:
                     calendar_list = service.calendarList().list().execute()
                     calendars = calendar_list.get('items', [])
                     span.set_data("calendar_count", len(calendars))
                     return calendars
-                    
+
             except Exception as e:
                 return self.error_handler.handle_generic_error(e)
             finally:
@@ -379,23 +378,23 @@ class GoogleCalendarClient:
         """Delete a calendar (use with extreme caution)."""
         op_name = "delete_calendar"
         self.error_handler.operation_name = op_name
-        
+
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
-        
+
         with operation_span(current_transaction, op="google_api", description=op_name, logger=self.logger) as transaction:
             self.error_handler.transaction = transaction
             service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
                 return False
-                
+
             try:
                 with operation_span(transaction, op="api_call", description="calendars.delete", logger=self.logger) as span:
                     service.calendars().delete(calendarId=calendar_id).execute()
                     span.set_data("calendar_id", calendar_id)
                     self.logger.warning(f"Successfully deleted calendar: {calendar_id}")
                     return True
-                    
+
             except Exception as e:
                 return self.error_handler.handle_generic_error(e)
             finally:
@@ -410,7 +409,7 @@ class NotionCalendarClient:
         self.notion: NotionClient = notion_shared_client # Use shared Notion client instance
         self.error_handler = APIErrorHandler(self.logger, "NotionCalendarClient")
 
-    def fetch_events(self, database_id: str, parent_transaction=None) -> Optional[List[Dict]]: # Accept parent transaction
+    def fetch_events(self, database_id: str, parent_transaction=None) -> list[dict] | None: # Accept parent transaction
         """Fetch published events from Notion with pagination and error handling."""
         op_name = "fetch_notion_events"
         self.error_handler.operation_name = op_name
@@ -454,7 +453,7 @@ class NotionCalendarClient:
                 self.error_handler.transaction = None # Clear transaction from handler if it was set
 
 
-    def update_page_with_gcal_id(self, page_id: str, gcal_id: str, gcal_link: Optional[str] = None, parent_transaction=None) -> bool: # Accept parent transaction
+    def update_page_with_gcal_id(self, page_id: str, gcal_id: str, gcal_link: str | None = None, parent_transaction=None) -> bool: # Accept parent transaction
         """Update Notion page with Google Calendar ID and optionally the HTML link."""
         op_name = "update_notion_page_gcal_id"
         self.error_handler.operation_name = op_name

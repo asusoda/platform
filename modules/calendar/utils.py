@@ -1,12 +1,13 @@
 # modules/calendar/utils.py
 import logging
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional, List, Any, Tuple
-import pytz
+from datetime import datetime, timedelta
+from typing import Any
 
+import pytz
 from sentry_sdk import capture_exception, set_context
-from shared import config, logger # Assuming logger and config are available in shared
+
+from shared import config, logger  # Assuming logger and config are available in shared
 
 # If logger is not in shared, initialize it here:
 # logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ def operation_span(transaction, op, description, logger=None):
             span.finish()
         except Exception as finish_err:
             current_logger.error(f"Failed to finish span {description}: {finish_err}")
-def batch_operation(service: Any, operation_fn: Any, items: List[Any], calendar_id: str, batch_size: int = 900, description: str = "batch_operation", parent_transaction=None) -> Tuple[int, int]: # Added parent_transaction
+def batch_operation(service: Any, operation_fn: Any, items: list[Any], calendar_id: str, batch_size: int = 900, description: str = "batch_operation", parent_transaction=None) -> tuple[int, int]: # Added parent_transaction
     """Generic batch operation handler for Google API calls.
 
     Args:
@@ -120,7 +121,7 @@ class DateParser:
     """Utilities for parsing and formatting dates."""
 
     @staticmethod
-    def parse_notion_date(date_str: Optional[str]) -> Optional[Dict]:
+    def parse_notion_date(date_str: str | None) -> dict | None:
         """Parse Notion date string into Google Calendar format.
 
         Handles both all-day ('YYYY-MM-DD') and specific time (ISO 8601) formats.
@@ -188,7 +189,7 @@ class DateParser:
             return None
 
     @staticmethod
-    def ensure_end_date(start_date_dict: Dict, end_date_dict: Optional[Dict] = None) -> Dict:
+    def ensure_end_date(start_date_dict: dict, end_date_dict: dict | None = None) -> dict:
         """Ensure valid end date based on start date if end date is missing or invalid.
 
         Args:
@@ -262,7 +263,7 @@ class DateParser:
         return start_date_dict.copy()
 
 
-def extract_property(properties: Dict, name: str, prop_type: str) -> Optional[Any]:
+def extract_property(properties: dict, name: str, prop_type: str) -> Any | None:
     """Extract and parse content from Notion property based on its type.
 
     Args:

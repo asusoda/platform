@@ -77,72 +77,22 @@ make build
 make deploy
 ```
 
-## Code Quality & Linting
+## Code Quality
 
-This project uses automated linting and type checking to maintain code quality:
+This project uses ruff for linting/formatting and ty for type checking. Git hooks via pre-commit run these automatically.
 
-### Tools
-
-- **ruff**: Fast Python linter and formatter
-- **ty**: Type checker written in Rust
-- **mypy**: Additional type checking
-- **bandit**: Security vulnerability scanner
-
-### Running Locally
-
+**Setup:**
 ```bash
-# Install dependencies (including dev tools)
-uv sync
-
-# Run ruff linting
-uv run ruff check .
-
-# Auto-fix ruff issues
-uv run ruff check --fix .
-
-# Check code formatting
-uv run ruff format --check .
-
-# Format code
-uv run ruff format .
-
-# Run ty type checking
-uv run ty check .
-
-# Run all checks (same as CI)
-uv run ruff check . && uv run ruff format --check . && uv run ty check .
+uv sync                    # Install dependencies
+uv run pre-commit install  # Install git hooks
 ```
 
-### Git Hooks
-
-Pre-commit and pre-push hooks are configured via **husky** to automatically run linting and type checking before commits and pushes.
-
-**Setup (after cloning):**
+**Manual runs:**
 ```bash
-# Install npm dependencies (including husky)
-npm install
-
-# Hooks are automatically installed via the "prepare" script
+uv run ruff check --fix .  # Lint and auto-fix
+uv run ruff format .       # Format code
+uv run ty check .          # Type check
 ```
-
-The hooks will:
-1. Run ruff linting
-2. Check code formatting
-3. Run ty type checking
-
-If any checks fail, the commit/push will be blocked until issues are fixed.
-
-### CI/CD
-
-All linting and type checking runs automatically on:
-- Every push to any branch
-- Every pull request
-
-The CI workflow runs:
-- Ruff linting and formatting checks
-- Ty type checking
-- Mypy type checking
-- Bandit security checks
 
 
 ## Contributing
