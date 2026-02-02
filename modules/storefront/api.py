@@ -19,22 +19,45 @@ def get_organization_by_prefix(db, org_prefix):
         return None
     return org
 
+# Helper function to safely extract token from session or Authorization header
+def extract_token():
+    """
+    Safely extract authentication token from session or Authorization header.
+    Returns the token string or None if not found.
+    """
+    # Check session first
+    token = session.get('token')
+    if token:
+        return token
+    
+    # Check Authorization header
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        parts = auth_header.split(' ', 1)
+        if len(parts) == 2 and parts[1].strip():
+            return parts[1].strip()
+    
+    return None
+
 # Dual auth decorator - accepts both Discord and Clerk tokens
 def dual_auth_required(f):
+    """
+    Decorator that supports both Clerk (website) and Discord (admin dashboard) authentication.
+    For Clerk: Validates token and checks organization membership
+    For Discord: Validates token (guild membership checked by calling code if needed)
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        auth_header = request.headers.get('Authorization', '')
-        # Extract bearer token from Authorization header, if present
-        token = None
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ', 1)[1].strip()
+        # Extract token from session or Authorization header
+        token = extract_token()
         
         # Try Clerk auth first, if we have a token
         clerk_result = verify_clerk_token(token) if token else None
         
         # verify_clerk_token returns the user's email string directly (or None)
         if clerk_result:
-            # Delegate to require_clerk_auth to validate the Clerk token and set request.clerk_user_email
+            g.auth_type = 'clerk'
+            # Delegate to require_clerk_auth which validates and sets request.clerk_user_email
             clerk_protected_view = require_clerk_auth(f)
             return clerk_protected_view(*args, **kwargs)
         
@@ -54,7 +77,7 @@ def dual_auth_required(f):
             except Exception as e:
                 session.pop('token', None)
                 logging.exception("Session authentication failed")
-                return jsonify({"message": "Session authentication failed!"}), 401
+                return jsonify({"message": f"Session authentication failed: {str(e)}"}), 401
         
         # Check Authorization header for Discord token (reuse extracted token)
         if not token:
@@ -69,7 +92,7 @@ def dual_auth_required(f):
             return f(*args, **kwargs)
         except Exception as e:
             logging.exception("Discord token authentication failed")
-            return jsonify({"message": "Authentication failed!"}), 401
+            return jsonify({"message": f"Authentication failed: {str(e)}"}), 401
     
     return decorated_function
 
@@ -304,17 +327,23 @@ def get_order(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
-@auth_required
+@dual_auth_required
 @error_handler
 def create_order(org_prefix):
-    """Create a new order for an organization with Discord authentication"""
+    """Create a new order for an organization with dual authentication"""
     data = request.get_json()
     
-    # Get user from Discord auth
-    token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
+    # Get user from auth context
+    token = extract_token()
     if not token:
         return jsonify({"error": "Authentication token required"}), 401
-    token_data = tokenManger.decode_token(token)
+    
+    try:
+        token_data = tokenManger.decode_token(token)
+    except Exception as e:
+        logging.exception("Failed to decode token")
+        return jsonify({"error": "Invalid token"}), 401
+    
     discord_id = token_data.get('discord_id')
     if not discord_id:
         return jsonify({"error": "Invalid token data"}), 401
@@ -789,21 +818,25 @@ def get_user_wallet_clerk(org_prefix, user_email):
     try:
         # Verify user authorization based on auth type
         if g.auth_type == 'clerk':
-            if g.user_email != user_email:
+            # For Clerk auth, use request.clerk_user_email set by require_clerk_auth
+            clerk_email = getattr(request, "clerk_user_email", None)
+            if not clerk_email:
+                return jsonify({"error": "Authentication token required"}), 401
+            if clerk_email != user_email:
                 return jsonify({"error": "Unauthorized: Email mismatch"}), 403
             lookup_email = user_email
         else:
             # Discord auth - get discord_id from token and find user's email
-            token = session.get('token')
-            if not token:
-                auth_header = request.headers.get('Authorization', '')
-                if auth_header.startswith('Bearer '):
-                    parts = auth_header.split(' ', 1)
-                    if len(parts) == 2 and parts[1].strip():
-                        token = parts[1].strip()
+            token = extract_token()
             if not token:
                 return jsonify({"error": "Authentication token required"}), 401
-            token_data = tokenManger.decode_token(token)
+            
+            try:
+                token_data = tokenManger.decode_token(token)
+            except Exception as e:
+                logging.exception("Failed to decode token")
+                return jsonify({"error": "Invalid token"}), 401
+            
             discord_id = token_data.get('discord_id')
             if not discord_id:
                 return jsonify({"error": "Invalid token data"}), 401
@@ -861,19 +894,22 @@ def clerk_checkout(org_prefix):
     
     # Get user based on auth type
     if g.auth_type == 'clerk':
-        user_email = g.user_email
+        # For Clerk auth, use request.clerk_user_email set by require_clerk_auth
+        user_email = getattr(request, "clerk_user_email", None)
+        if not user_email:
+            return jsonify({"error": "Authentication token required"}), 401
     else:
         # Discord auth - get discord_id from token
-        token = session.get('token')
-        if not token:
-            auth_header = request.headers.get('Authorization', '')
-            if isinstance(auth_header, str) and auth_header.startswith('Bearer '):
-                parts = auth_header.split(' ', 1)
-                if len(parts) == 2 and parts[1].strip():
-                    token = parts[1].strip()
+        token = extract_token()
         if not token:
             return jsonify({"error": "Authentication token required"}), 401
-        token_data = tokenManger.decode_token(token)
+        
+        try:
+            token_data = tokenManger.decode_token(token)
+        except Exception as e:
+            logging.exception("Failed to decode token")
+            return jsonify({"error": "Invalid token"}), 401
+        
         discord_id = token_data.get('discord_id')
         if not discord_id:
             return jsonify({"error": "Invalid token data"}), 401
