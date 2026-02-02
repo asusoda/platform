@@ -35,11 +35,9 @@ def dual_auth_required(f):
         
         # verify_clerk_token returns the user's email string directly (or None)
         if clerk_result:
-            g.auth_type = 'clerk'
-            g.user_email = clerk_result
-            g.clerk_user_id = None  # Clerk user ID not available from email-only response
-            request.clerk_user_email = clerk_result
-            return f(*args, **kwargs)
+            # Delegate to require_clerk_auth so organization membership is enforced
+            clerk_protected_view = require_clerk_auth(f)
+            return clerk_protected_view(*args, **kwargs)
         
         # Fall back to Discord auth (using same logic as auth_required decorator)
         # Check session cookie first
