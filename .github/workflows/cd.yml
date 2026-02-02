@@ -30,6 +30,13 @@ jobs:
           
           cd "$PROJECT_DIR"
           
+          # Discard any local changes to prevent merge conflicts
+          echo "Discarding local changes..."
+          make discard-local-changes || {
+            echo "Failed to discard local changes!"
+            exit 1
+          }
+          
           # Run deployment using make
           echo "Starting deployment..."
           make deploy || {
