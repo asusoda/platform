@@ -18,6 +18,7 @@ def get_clerk_frontend_api():
             domain_part = parts[2].rstrip('$')
             return f"https://{domain_part}"
     except (IndexError, AttributeError):
+        # If parsing the publishable key fails, fall back to the default frontend API URL below.
         pass
     return "https://lenient-slug-40.clerk.accounts.dev"
 
