@@ -1,5 +1,8 @@
 .PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes
 
+# Use bash as the shell for all commands
+SHELL := /bin/bash
+
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
 BRANCH ?= main
@@ -73,9 +76,9 @@ clean:
 
 # Discard local changes (used by CD workflow)
 discard-local-changes:
-	@echo -e "$(GREEN)[INFO]$(NC) Discarding any local changes..."
-	@git reset --hard || (echo -e "$(RED)[ERROR]$(NC) Failed to reset local changes"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Local changes discarded successfully!"
+	@printf "$(GREEN)[INFO]$(NC) Discarding any local changes...\n"
+	@git reset --hard || (printf "$(RED)[ERROR]$(NC) Failed to reset local changes\n"; exit 1)
+	@printf "$(GREEN)[INFO]$(NC) Local changes discarded successfully!\n"
 
 # Deploy to production
 deploy:
