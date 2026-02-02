@@ -34,5 +34,5 @@ jobs:
       run: uv run mypy .
     
     - name: Run bandit security checks
-      run: uv run bandit -r . -f json
+      run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv
 
