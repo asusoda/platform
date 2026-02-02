@@ -44,6 +44,10 @@ class Config:
                 self.SERVER_DEBUG = True
                 self.TIMEZONE = "America/Phoenix"
                 
+                self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
+                                                                                                                                                                                                            
+                self.CLERK_AUTHORIZED_PARTIES = os.environ.get("CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173")
+
                 # Optional configs
                 self.SENTRY_DSN = None
                 self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "test-gemini-key")
@@ -70,6 +74,11 @@ class Config:
                 self.AVERY_BOT_TOKEN = os.environ.get("AVERY_BOT_TOKEN")  # AVERY bot token
                 self.AUTH_BOT_TOKEN = os.environ.get("AUTH_BOT_TOKEN")  # Auth bot token
                 
+                self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
+                                                                                                                                                                                                            
+                self.CLERK_AUTHORIZED_PARTIES = os.environ.get("CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173")
+
+
                 # Database Configuration
                 self.DB_TYPE = os.environ["DB_TYPE"]
                 self.DB_URI = os.environ["DB_URI"]

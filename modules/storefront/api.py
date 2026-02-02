@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
-from utils.clerk_auth import require_clerk_auth
+from modules.utils.clerk_auth import require_clerk_auth
 from sqlalchemy import func
 
 storefront_blueprint = Blueprint("storefront", __name__)
@@ -267,16 +267,28 @@ def create_order(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
         
         # Find user by email
-        from modules.users.models import User
-        user = db.query(User).filter(User.email == user_email, User.organization_id == org.id).first()
+        from modules.points.models import User, UserOrganizationMembership
+        user = db.query(User).filter(User.email == user_email).first()
         if not user:
-            return jsonify({"error": "User not found in organization"}), 404
+            return jsonify({"error": "User not found"}), 404
+        
+        # Check if user is a member of this organization
+        membership = db.query(UserOrganizationMembership).filter(
+            UserOrganizationMembership.user_id == user.id,
+            UserOrganizationMembership.organization_id == org.id,
+            UserOrganizationMembership.is_active
+        ).first()
+        if not membership:
+            return jsonify({"error": "User is not a member of this organization"}), 403
         
         total_amount = float(data['total_amount'])
         
         # Check user has sufficient points
-        from modules.points.models import Point
-        points_sum = db.query(func.sum(Point.points)).filter(Point.user_email == user_email).scalar() or 0
+        from modules.points.models import Points
+        points_sum = db.query(func.sum(Points.points)).filter(
+            Points.user_id == user.id,
+            Points.organization_id == org.id
+        ).scalar() or 0
         
         if points_sum < total_amount:
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
@@ -311,14 +323,15 @@ def create_order(org_prefix):
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
         
         # Deduct points by creating negative point entry
-        from modules.points.models import Point
+        from modules.points.models import Points
         from datetime import datetime
-        point_deduction = Point(
+        point_deduction = Points(
+            user_id=user.id,
+            organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
             timestamp=datetime.utcnow(),
-            awarded_by_officer="System",
-            user_email=user_email
+            awarded_by_officer="System"
         )
         db.add(point_deduction)
         db.commit()
