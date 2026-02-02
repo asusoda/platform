@@ -4,6 +4,9 @@ from flask import request, jsonify
 from clerk_backend_api import Clerk
 import httpx
 from shared import config
+from modules.utils.logging_config import get_logger
+
+logger = get_logger("utils.clerk_auth")
 
 _clerk_client = None
 
@@ -44,12 +47,12 @@ def verify_clerk_token(token):
             options={'authorized_parties': authorized_parties}
         
         if not request_state.is_signed_in:
-            print(f"[Clerk Auth] Token invalid. Reason: {request_state.reason}")
+            logger.warning(f"Token invalid. Reason: {request_state.reason}")
             return None
         
         # Extract email from the payload
         payload = request_state.payload
-        print(f"[Clerk Auth] Token payload: {payload}")
+        logger.debug(f"Token payload: {payload}")
         
         # Try to get email from various possible fields in Clerk token
         email = None
@@ -61,14 +64,14 @@ def verify_clerk_token(token):
             )
         
         if not email:
-            print(f"[Clerk Auth] No email found in token payload")
+            logger.warning("No email found in token payload")
             return None
         
-        print(f"[Clerk Auth] Successfully verified token for: {email}")
+        logger.info(f"Successfully verified token for: {email}")
         return email
         
     except Exception as e:
-        print(f"[Clerk Auth] Error verifying token: {e}")
+        logger.error(f"Error verifying token: {e}")
         return None
 
 def require_clerk_auth(f):
