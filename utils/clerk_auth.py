@@ -1,14 +1,24 @@
 import os
 import jwt
 import requests
-from functools import wraps, lru_cache
+import time
+from functools import wraps
 from flask import request, jsonify
 
 CLERK_SECRET_KEY = os.environ.get('CLERK_SECRET_KEY')
 CLERK_PUBLISHABLE_KEY = os.environ.get('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY')
+CLERK_FRONTEND_API_URL = os.environ.get('CLERK_FRONTEND_API_URL')
+
+# Cache for JWKS with TTL
+_jwks_cache = {'data': None, 'timestamp': 0}
+_jwks_cache_ttl = 3600  # 1 hour TTL for JWKS cache
 
 def get_clerk_frontend_api():
-    """Extract frontend API URL from publishable key"""
+    """Extract frontend API URL from publishable key or use configured URL"""
+    # Use explicitly configured URL if available
+    if CLERK_FRONTEND_API_URL:
+        return CLERK_FRONTEND_API_URL
+    
     if not CLERK_PUBLISHABLE_KEY:
         return None
     try:
@@ -20,24 +30,40 @@ def get_clerk_frontend_api():
     except (IndexError, AttributeError):
         # If parsing the publishable key fails, fall back to the default frontend API URL below.
         pass
-    return "https://lenient-slug-40.clerk.accounts.dev"
-
-@lru_cache(maxsize=128)
-def get_clerk_jwks():
-    """Fetch Clerk JWKS (cached)"""
-    frontend_api = get_clerk_frontend_api()
-    if not frontend_api:
-        return None
     
+    # Raise error if we can't determine the URL
+    raise ValueError("Cannot determine Clerk Frontend API URL. Please set CLERK_FRONTEND_API_URL environment variable.")
+
+def get_clerk_jwks():
+    """Fetch Clerk JWKS with TTL-based caching to handle key rotation"""
+    global _jwks_cache
+    
+    current_time = time.time()
+    
+    # Return cached JWKS if still valid
+    if _jwks_cache['data'] and (current_time - _jwks_cache['timestamp']) < _jwks_cache_ttl:
+        return _jwks_cache['data']
+    
+    # Fetch fresh JWKS
     try:
+        frontend_api = get_clerk_frontend_api()
+        if not frontend_api:
+            return None
+        
         jwks_url = f"{frontend_api}/.well-known/jwks.json"
         print(f"[Clerk Auth] Fetching JWKS from: {jwks_url}")
         response = requests.get(jwks_url, timeout=5)
         response.raise_for_status()
-        return response.json()
+        
+        # Update cache
+        _jwks_cache['data'] = response.json()
+        _jwks_cache['timestamp'] = current_time
+        
+        return _jwks_cache['data']
     except Exception as e:
         print(f"[Clerk Auth] Failed to fetch JWKS: {e}")
-        return None
+        # Return stale cache if available as fallback
+        return _jwks_cache.get('data')
 
 def verify_clerk_token(token):
     """Verify Clerk JWT token and return user email"""
@@ -72,22 +98,37 @@ def verify_clerk_token(token):
             options={"verify_signature": True, "verify_exp": True}
         )
         
-        print(f"[Clerk Auth] Token payload keys: {list(payload.keys())}")
-        print(f"[Clerk Auth] Full payload: {payload}")
+        # Log only non-sensitive metadata for debugging
+        if os.environ.get('DEBUG_CLERK_AUTH'):
+            print(f"[Clerk Auth] Token payload keys: {list(payload.keys())}")
         
         # Extract email from Clerk token (try multiple possible fields)
-        email = (
-            payload.get('email') or 
-            payload.get('email_address') or 
-            payload.get('primary_email') or
-            (payload.get('email_addresses', [{}])[0] if payload.get('email_addresses') else None)
-        )
+        email = None
+        
+        # Try direct email fields first
+        email = payload.get('email') or payload.get('email_address') or payload.get('primary_email')
+        
+        # If not found, try email_addresses array
+        if not email and payload.get('email_addresses'):
+            email_addresses = payload.get('email_addresses')
+            if isinstance(email_addresses, list) and len(email_addresses) > 0:
+                # Extract email_address field from first element
+                first_email = email_addresses[0]
+                if isinstance(first_email, dict):
+                    email = first_email.get('email_address')
+                elif isinstance(first_email, str):
+                    email = first_email
         
         if not email:
-            print(f"[Clerk Auth] No email found in token. Available fields: {payload.keys()}")
+            print(f"[Clerk Auth] No email found in token. Available fields: {list(payload.keys())}")
             return None
         
-        print(f"[Clerk Auth] Successfully verified token for: {email}")
+        # Only log email in debug mode to protect privacy
+        if os.environ.get('DEBUG_CLERK_AUTH'):
+            print(f"[Clerk Auth] Successfully verified token for: {email}")
+        else:
+            print(f"[Clerk Auth] Successfully verified token")
+        
         return email
         
     except jwt.ExpiredSignatureError:
