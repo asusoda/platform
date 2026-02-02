@@ -307,12 +307,24 @@ def get_order(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def create_order(org_prefix):
-    """Create a new order for an organization with Clerk authentication"""
+    """Create a new order for an organization with dual authentication"""
     data = request.get_json()
-    user_email = request.clerk_user_email
+    
+    # Get user based on auth type
+    if g.auth_type == 'clerk':
+        user_email = g.user_email
+    else:
+        # Discord auth - get user_id from token
+        token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
+        if not token:
+            return jsonify({"error": "Authentication token required"}), 401
+        token_data = tokenManger.decode_token(token)
+        discord_id = token_data.get('discord_id')
+        if not discord_id:
+            return jsonify({"error": "Invalid token data"}), 401
     
     # Validate required fields
     if not data.get('total_amount'):
@@ -326,9 +338,13 @@ def create_order(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
         
-        # Find user by email
+        # Find user based on auth type
         from modules.points.models import User, UserOrganizationMembership
-        user = db.query(User).filter(User.email == user_email).first()
+        if g.auth_type == 'clerk':
+            user = db.query(User).filter(User.email == user_email).first()
+        else:
+            user = db.query(User).filter(User.discord_id == str(discord_id)).first()
+        
         if not user:
             return jsonify({"error": "User not found"}), 404
         
@@ -516,9 +532,10 @@ def get_store_products(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
+@dual_auth_required
 @error_handler
 def purchase_products(org_prefix):
-    """Public endpoint for customers to purchase products"""
+    """Public endpoint for customers to purchase products (dual auth)"""
     return create_order(org_prefix)  # Reuse the create_order function
 
 # MEMBER-SPECIFIC ENDPOINTS (Requires organization membership)
@@ -774,14 +791,35 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def get_user_wallet_clerk(org_prefix, user_email):
-    """Get user wallet/points using Clerk authentication"""
+    """Get user wallet/points using dual authentication"""
     db = next(db_connect.get_db())
     try:
-        if request.clerk_user_email != user_email:
-            return jsonify({"error": "Unauthorized: Email mismatch"}), 403
+        # Verify user authorization based on auth type
+        if g.auth_type == 'clerk':
+            if g.user_email != user_email:
+                return jsonify({"error": "Unauthorized: Email mismatch"}), 403
+            lookup_email = user_email
+        else:
+            # Discord auth - get discord_id from token and find user's email
+            token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
+            if not token:
+                return jsonify({"error": "Authentication token required"}), 401
+            token_data = tokenManger.decode_token(token)
+            discord_id = token_data.get('discord_id')
+            if not discord_id:
+                return jsonify({"error": "Invalid token data"}), 401
+            
+            # Get user by discord_id and verify email matches
+            from modules.points.models import User
+            discord_user = db.query(User).filter(User.discord_id == str(discord_id)).first()
+            if not discord_user:
+                return jsonify({"error": "User not found"}), 404
+            if discord_user.email != user_email:
+                return jsonify({"error": "Unauthorized: Email mismatch"}), 403
+            lookup_email = user_email
         
         from modules.organizations.models import Organization
         from modules.points.models import Points
@@ -791,7 +829,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
         
-        user = db.query(User).filter_by(email=user_email).first()
+        user = db.query(User).filter_by(email=lookup_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
         
@@ -819,12 +857,24 @@ def get_user_wallet_clerk(org_prefix, user_email):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/checkout", methods=["POST"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def clerk_checkout(org_prefix):
-    """Checkout endpoint using Clerk authentication"""
+    """Checkout endpoint using dual authentication"""
     data = request.get_json()
-    user_email = request.clerk_user_email
+    
+    # Get user based on auth type
+    if g.auth_type == 'clerk':
+        user_email = g.user_email
+    else:
+        # Discord auth - get discord_id from token
+        token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
+        if not token:
+            return jsonify({"error": "Authentication token required"}), 401
+        token_data = tokenManger.decode_token(token)
+        discord_id = token_data.get('discord_id')
+        if not discord_id:
+            return jsonify({"error": "Invalid token data"}), 401
     
     if not data.get('total_amount'):
         return jsonify({"error": "Total amount is required"}), 400
@@ -838,7 +888,13 @@ def clerk_checkout(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
         
         from modules.points.models import User, UserOrganizationMembership, Points
-        user = db.query(User).filter(User.email == user_email).first()
+        
+        # Find user based on auth type
+        if g.auth_type == 'clerk':
+            user = db.query(User).filter(User.email == user_email).first()
+        else:
+            user = db.query(User).filter(User.discord_id == str(discord_id)).first()
+        
         if not user:
             return jsonify({"error": "User not found"}), 404
         
