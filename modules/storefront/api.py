@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, session
+from functools import wraps
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
 from modules.utils.clerk_auth import require_clerk_auth, verify_clerk_token
+from shared import tokenManger
 from sqlalchemy import func
 
 storefront_blueprint = Blueprint("storefront", __name__)
@@ -18,31 +20,57 @@ def get_organization_by_prefix(db, org_prefix):
 
 # Dual auth decorator - accepts both Discord and Clerk tokens
 def dual_auth_required(f):
-    from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization', '')
         
-        # Try Clerk auth first
-        token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
+        # Extract bearer token from Authorization header, if present
+        token = None
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1].strip()
+        
+        # Try Clerk auth first, if we have a token
         clerk_result = verify_clerk_token(token) if token else None
-        if clerk_result and 'email' in clerk_result:
+        
+        # verify_clerk_token returns the user's email string directly (or None)
+        if clerk_result:
             g.auth_type = 'clerk'
-            g.user_email = clerk_result['email']
-            g.clerk_user_id = clerk_result.get('user_id')
-            request.clerk_user_email = clerk_result['email']
+            g.user_email = clerk_result
+            g.clerk_user_id = None  # Clerk user ID not available from email-only response
+            request.clerk_user_email = clerk_result
             return f(*args, **kwargs)
         
-        # Fall back to Discord auth
-        from modules.auth.decoraters import verify_token
-        discord_result = verify_token()
-        if discord_result:
+        # Fall back to Discord auth (using same logic as auth_required decorator)
+        # Check session cookie first
+        session_token = session.get('token')
+        if session_token:
+            try:
+                if not tokenManger.is_token_valid(session_token):
+                    session.pop('token', None)
+                    return jsonify({"message": "Session token is invalid!"}), 401
+                elif tokenManger.is_token_expired(session_token):
+                    session.pop('token', None)
+                    return jsonify({"message": "Session token has expired!"}), 401
+                g.auth_type = 'discord'
+                return f(*args, **kwargs)
+            except Exception as e:
+                session.pop('token', None)
+                return jsonify({"message": f"Session authentication failed: {str(e)}"}), 401
+        
+        # Check Authorization header for Discord token (reuse extracted token)
+        if not token:
+            return jsonify({"message": "Authentication required!"}), 401
+        
+        try:
+            if not tokenManger.is_token_valid(token):
+                return jsonify({"message": "Token is invalid!"}), 401
+            elif tokenManger.is_token_expired(token):
+                return jsonify({"message": "Token is expired!"}), 403
             g.auth_type = 'discord'
-            g.user_email = discord_result.get('email')
-            g.discord_user_id = discord_result.get('user_id')
             return f(*args, **kwargs)
-        
-        return jsonify({"error": "Authentication required"}), 401
+        except Exception as e:
+            return jsonify({"message": str(e)}), 401
+    
     return decorated_function
 
 # PRODUCT ENDPOINTS
@@ -100,7 +128,7 @@ def get_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
-@auth_required
+@dual_auth_required
 @error_handler
 def create_product(org_prefix):
     """Create a new product for an organization"""
@@ -146,7 +174,7 @@ def create_product(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
-@auth_required
+@dual_auth_required
 @error_handler
 def update_product(org_prefix, product_id):
     """Update a product for an organization"""
@@ -191,7 +219,7 @@ def update_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
-@auth_required
+@dual_auth_required
 @error_handler
 def delete_product(org_prefix, product_id):
     """Delete a product for an organization"""
@@ -243,7 +271,7 @@ def get_orders(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
-@auth_required
+@dual_auth_required
 @error_handler
 def get_order(org_prefix, order_id):
     """Get a specific order by ID for an organization"""
@@ -381,7 +409,7 @@ def create_order(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
-@auth_required
+@dual_auth_required
 @error_handler
 def update_order_status(org_prefix, order_id):
     """Update order status for an organization"""
@@ -424,7 +452,7 @@ def update_order_status(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
-@auth_required
+@dual_auth_required
 @error_handler
 def delete_order(org_prefix, order_id):
     """Delete an order for an organization"""
