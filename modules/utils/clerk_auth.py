@@ -49,7 +49,6 @@ def verify_clerk_token(token):
         if not request_state.is_signed_in:
             logger.warning(f"Token invalid. Reason: {request_state.reason}")
             return None
-        
         # Extract basic payload for debugging
         payload = request_state.payload
         logger.debug(f"Token payload: {payload}")
@@ -82,7 +81,6 @@ def verify_clerk_token(token):
         if not email:
             logger.warning("No email address could be resolved for user")
             return None 
-       
         
         logger.info(f"Successfully verified token for: {email}")
         return email
