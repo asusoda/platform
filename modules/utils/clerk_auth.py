@@ -3,13 +3,18 @@ from functools import wraps
 from flask import request, jsonify
 from clerk_backend_api import Clerk
 import httpx
+from shared import config
+
+_clerk_client = None
+
+clerk_secret = config.CLERK_SECRET_KEY
+authorized_parties_env = config.CLERK_AUTHORIZED_PARTIES
 
 def get_clerk_client():
     """Get initialized Clerk client"""
-    clerk_secret = os.getenv('CLERK_SECRET_KEY')
-    if not clerk_secret:
-        raise ValueError("CLERK_SECRET_KEY not configured")
-    return Clerk(bearer_auth=clerk_secret)
+    global _clerk_client
+    _clerk_client = Clerk(bearer_auth=clerk_secret)
+    return _clerk_client
 
 def verify_clerk_token(token):
     """Verify Clerk session token using official SDK"""
@@ -24,10 +29,19 @@ def verify_clerk_token(token):
         )
         
         # Use Clerk's authenticate_request to verify the token
+        if authorized_parties_env:
+            authorized_parties = [
+                party.strip()
+                for party in authorized_parties_env.split(',')
+                if party.strip()
+            ]
+        else:
+            authorized_parties = ['https://thesoda.io', 'http://localhost:5173']
+        
+        # Use Clerk's authenticate_request to verify the token
         request_state = clerk.authenticate_request(
             req,
-            options={'authorized_parties': ['https://thesoda.io', 'http://localhost:5173']}
-        )
+            options={'authorized_parties': authorized_parties}
         
         if not request_state.is_signed_in:
             print(f"[Clerk Auth] Token invalid. Reason: {request_state.reason}")
@@ -67,7 +81,12 @@ def require_clerk_auth(f):
         if not auth_header.startswith('Bearer '):
             return jsonify({'error': 'No valid authorization header', 'message': 'Token is invalid!'}), 401
         
-        token = auth_header.split(' ')[1]
+       # Safely extract token after 'Bearer '
+        parts = auth_header.split(' ', 1)
+        if len(parts) < 2 or not parts[1].strip():
+            return jsonify({'error': 'No valid authorization header', 'message': 'Token is invalid!'}), 401
+        
+        token = parts[1].strip()
         
         # Verify token
         email = verify_clerk_token(token)
