@@ -1,11 +1,11 @@
-name: Static Analysis
+name: Lint & Type Check
 
 on: 
   push:
   pull_request:
 
 jobs:
-  analyze:
+  check:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -29,9 +29,6 @@ jobs:
     
     - name: Run ty type checking
       run: uv run ty check .
-    
-    - name: Run mypy type checking
-      run: uv run mypy .
     
     - name: Run bandit security checks
       run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv

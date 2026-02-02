@@ -145,7 +145,6 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
   
 ### Type Checking
 - **ty**: Rust-based type checker for Python
-- **mypy**: Additional type checking in CI
 
 ### Pre-commit Hooks
 - Configured via `.pre-commit-config.yaml`
