@@ -100,7 +100,7 @@ This module handles the storefront functionality, including product management a
 #### Create Order
 - **POST** `/<org_prefix>/orders`
 - Creates a new order
-- Requires authentication
+- **Requires Clerk authentication**
 - Request body:
   ```json
   {
