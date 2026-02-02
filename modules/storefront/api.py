@@ -129,7 +129,7 @@ def get_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
-@dual_auth_required
+@auth_required
 @error_handler
 def create_product(org_prefix):
     """Create a new product for an organization"""
@@ -175,7 +175,7 @@ def create_product(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
-@dual_auth_required
+@auth_required
 @error_handler
 def update_product(org_prefix, product_id):
     """Update a product for an organization"""
@@ -220,7 +220,7 @@ def update_product(org_prefix, product_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
-@dual_auth_required
+@auth_required
 @error_handler
 def delete_product(org_prefix, product_id):
     """Delete a product for an organization"""
@@ -272,7 +272,7 @@ def get_orders(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
-@dual_auth_required
+@auth_required
 @error_handler
 def get_order(org_prefix, order_id):
     """Get a specific order by ID for an organization"""
@@ -305,24 +305,20 @@ def get_order(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
-@dual_auth_required
+@auth_required
 @error_handler
 def create_order(org_prefix):
-    """Create a new order for an organization with dual authentication"""
+    """Create a new order for an organization with Discord authentication"""
     data = request.get_json()
     
-    # Get user based on auth type
-    if g.auth_type == 'clerk':
-        user_email = g.user_email
-    else:
-        # Discord auth - get user_id from token
-        token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
-        if not token:
-            return jsonify({"error": "Authentication token required"}), 401
-        token_data = tokenManger.decode_token(token)
-        discord_id = token_data.get('discord_id')
-        if not discord_id:
-            return jsonify({"error": "Invalid token data"}), 401
+    # Get user from Discord auth
+    token = session.get('token') or request.headers.get('Authorization', '').split(' ', 1)[1] if request.headers.get('Authorization', '').startswith('Bearer ') else None
+    if not token:
+        return jsonify({"error": "Authentication token required"}), 401
+    token_data = tokenManger.decode_token(token)
+    discord_id = token_data.get('discord_id')
+    if not discord_id:
+        return jsonify({"error": "Invalid token data"}), 401
     
     # Validate required fields
     if not data.get('total_amount'):
@@ -336,12 +332,9 @@ def create_order(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
         
-        # Find user based on auth type
+        # Find user based on Discord auth
         from modules.points.models import User, UserOrganizationMembership
-        if g.auth_type == 'clerk':
-            user = db.query(User).filter(User.email == user_email).first()
-        else:
-            user = db.query(User).filter(User.discord_id == str(discord_id)).first()
+        user = db.query(User).filter(User.discord_id == str(discord_id)).first()
         
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -426,7 +419,7 @@ def create_order(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
-@dual_auth_required
+@auth_required
 @error_handler
 def update_order_status(org_prefix, order_id):
     """Update order status for an organization"""
@@ -469,7 +462,7 @@ def update_order_status(org_prefix, order_id):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
-@dual_auth_required
+@auth_required
 @error_handler
 def delete_order(org_prefix, order_id):
     """Delete an order for an organization"""
@@ -530,10 +523,10 @@ def get_store_products(org_prefix):
         db.close()
 
 @storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
-@dual_auth_required
+@auth_required
 @error_handler
 def purchase_products(org_prefix):
-    """Public endpoint for customers to purchase products (dual auth)"""
+    """Public endpoint for customers to purchase products (Discord auth)"""
     return create_order(org_prefix)  # Reuse the create_order function
 
 # MEMBER-SPECIFIC ENDPOINTS (Requires organization membership)
