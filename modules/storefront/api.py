@@ -713,11 +713,11 @@ def get_user_points_public(org_prefix, **kwargs):
     finally:
         db.close()
 
-@storefront_blueprint.route("/<string:org_prefix>/users/<string:user_email>/points", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
 @require_clerk_auth
 @error_handler
-def get_user_points_clerk(org_prefix, user_email):
-    """Get user points using Clerk authentication"""
+def get_user_wallet_clerk(org_prefix, user_email):
+    """Get user wallet/points using Clerk authentication"""
     db = next(db_connect.get_db())
     try:
         if request.clerk_user_email != user_email:
