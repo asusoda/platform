@@ -1,4 +1,7 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health
+.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes
+
+# Use bash as the shell for all commands
+SHELL := /bin/bash
 
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
@@ -14,18 +17,19 @@ NC := \033[0m
 # Default target
 help:
 	@echo "Available commands:"
-	@echo "  make build       - Build container images"
-	@echo "  make up          - Start services in development mode"
-	@echo "  make down        - Stop and remove containers"
-	@echo "  make logs        - View last 50 lines of container logs"
-	@echo "  make logs-follow - Follow container logs continuously"
-	@echo "  make shell       - Open shell in API container"
-	@echo "  make clean       - Clean up containers and images"
-	@echo "  make deploy      - Deploy to production (pull, build, restart)"
-	@echo "  make dev         - Start development environment with hot reloading"
-	@echo "  make rollback    - Rollback to previous version"
-	@echo "  make status      - Show container status"
-	@echo "  make health      - Check container health"
+	@echo "  make build                  - Build container images"
+	@echo "  make up                     - Start services in development mode"
+	@echo "  make down                   - Stop and remove containers"
+	@echo "  make logs                   - View last 50 lines of container logs"
+	@echo "  make logs-follow            - Follow container logs continuously"
+	@echo "  make shell                  - Open shell in API container"
+	@echo "  make clean                  - Clean up containers and images"
+	@echo "  make deploy                 - Deploy to production (pull, build, restart)"
+	@echo "  make discard-local-changes  - Discard local git changes (used by CD)"
+	@echo "  make dev                    - Start development environment with hot reloading"
+	@echo "  make rollback               - Rollback to previous version"
+	@echo "  make status                 - Show container status"
+	@echo "  make health                 - Check container health"
 
 # Build container images
 build:
@@ -69,6 +73,12 @@ clean:
 	@echo -e "$(YELLOW)[WARNING]$(NC) Cleaning up containers and volumes..."
 	@$(COMPOSE_CMD) down -v
 	@$(CONTAINER_CMD) system prune -f
+
+# Discard local changes (used by CD workflow)
+discard-local-changes:
+	@printf "$(GREEN)[INFO]$(NC) Discarding any local changes...\n"
+	@git reset --hard || (printf "$(RED)[ERROR]$(NC) Failed to reset local changes\n"; exit 1)
+	@printf "$(GREEN)[INFO]$(NC) Local changes discarded successfully!\n"
 
 # Deploy to production
 deploy:
