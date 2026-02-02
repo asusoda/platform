@@ -16,7 +16,8 @@ authorized_parties_env = config.CLERK_AUTHORIZED_PARTIES
 def get_clerk_client():
     """Get initialized Clerk client"""
     global _clerk_client
-    _clerk_client = Clerk(bearer_auth=clerk_secret)
+    if _clerk_client is None:
+        _clerk_client = Clerk(bearer_auth=clerk_secret)
     return _clerk_client
 
 def verify_clerk_token(token):
@@ -39,13 +40,12 @@ def verify_clerk_token(token):
                 if party.strip()
             ]
         else:
-            authorized_parties = ['https://thesoda.io', 'http://localhost:5173']
+            authorized_parties = ['http://localhost:3000', 'http://localhost:5173']
         
-        # Use Clerk's authenticate_request to verify the token
         request_state = clerk.authenticate_request(
             req,
             options={'authorized_parties': authorized_parties}
-        
+        )
         if not request_state.is_signed_in:
             logger.warning(f"Token invalid. Reason: {request_state.reason}")
             return None
@@ -84,7 +84,7 @@ def require_clerk_auth(f):
         if not auth_header.startswith('Bearer '):
             return jsonify({'error': 'No valid authorization header', 'message': 'Token is invalid!'}), 401
         
-       # Safely extract token after 'Bearer '
+        # Safely extract token after 'Bearer '
         parts = auth_header.split(' ', 1)
         if len(parts) < 2 or not parts[1].strip():
             return jsonify({'error': 'No valid authorization header', 'message': 'Token is invalid!'}), 401
