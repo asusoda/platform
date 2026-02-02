@@ -277,7 +277,7 @@ def create_order(org_prefix):
         membership = db.query(UserOrganizationMembership).filter(
             UserOrganizationMembership.user_id == user.id,
             UserOrganizationMembership.organization_id == org.id,
-            UserOrganizationMembership.is_active == True
+            UserOrganizationMembership.is_active
         ).first()
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 403
