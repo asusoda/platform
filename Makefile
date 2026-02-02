@@ -75,7 +75,6 @@ clean:
 discard-local-changes:
 	@echo -e "$(GREEN)[INFO]$(NC) Discarding any local changes..."
 	@git reset --hard || (echo -e "$(RED)[ERROR]$(NC) Failed to reset local changes"; exit 1)
-	@git clean -fd || (echo -e "$(RED)[ERROR]$(NC) Failed to clean untracked files"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Local changes discarded successfully!"
 
 # Deploy to production
