@@ -6,6 +6,7 @@ from modules.storefront.models import Product, Order, OrderItem
 from modules.utils.clerk_auth import require_clerk_auth, verify_clerk_token
 from shared import tokenManger
 from sqlalchemy import func
+import logging
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
@@ -69,7 +70,8 @@ def dual_auth_required(f):
             g.auth_type = 'discord'
             return f(*args, **kwargs)
         except Exception as e:
-            return jsonify({"message": str(e)}), 401
+            logging.exception("Discord token authentication failed")
+            return jsonify({"message": "Authentication failed!"}), 401
     
     return decorated_function
 
