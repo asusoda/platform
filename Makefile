@@ -77,6 +77,9 @@ deploy:
 		echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
 		cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1); \
 	fi
+	@echo -e "$(GREEN)[INFO]$(NC) Discarding any local changes..."
+	@git reset --hard || (echo -e "$(RED)[ERROR]$(NC) Failed to reset local changes"; exit 1)
+	@git clean -fd || (echo -e "$(RED)[ERROR]$(NC) Failed to clean untracked files"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..."
 	@git pull || (echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."
