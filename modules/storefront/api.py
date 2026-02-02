@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
+from sqlalchemy import func
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
@@ -609,3 +610,62 @@ def get_member_order(org_prefix, order_id, **kwargs):
         }), 200
     finally:
         db.close() 
+
+# MEMBER POINTS ENDPOINT (for storefront)
+@storefront_blueprint.route("/<string:org_prefix>/members/points", methods=["GET"])
+@member_required
+@error_handler
+def get_user_points_public(org_prefix, **kwargs):
+    """Get authenticated member's points balance (storefront endpoint)"""
+    db = next(db_connect.get_db())
+    try:
+        from modules.points.models import User, Points, UserOrganizationMembership
+
+        user_discord_id = kwargs.get('user_discord_id')
+        organization = kwargs.get('organization')
+
+        if not organization:
+            return jsonify({"error": "Organization not found"}), 404
+
+        if not user_discord_id:
+            return jsonify({"error": "User not found"}), 404
+
+        # Find user based on authenticated context
+        user = db.query(User).filter_by(discord_id=user_discord_id).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Check membership
+        membership = db.query(UserOrganizationMembership).filter_by(
+            user_id=user.id,
+            organization_id=organization.id,
+            is_active=True
+        ).first()
+
+        if not membership:
+            return jsonify({"error": "User is not a member of this organization"}), 403
+
+        # Calculate total points using database aggregation
+        total_points = db.query(func.sum(Points.points)).filter_by(
+            user_id=user.id,
+            organization_id=organization.id
+        ).scalar() or 0
+
+        # Get last 20 points records for breakdown
+        points_records = db.query(Points).filter_by(
+            user_id=user.id,
+            organization_id=organization.id
+        ).order_by(Points.timestamp.desc()).limit(20).all()
+
+        return jsonify({
+            "email": getattr(user, "email", None),
+            "total_points": total_points,
+            "points_breakdown": [{
+                "points": p.points,
+                "event": p.event,
+                "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+                "awarded_by": p.awarded_by_officer
+            } for p in points_records]
+        }), 200
+    finally:
+        db.close()
