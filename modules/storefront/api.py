@@ -25,31 +25,30 @@ def dual_auth_required(f):
         auth_header = request.headers.get('Authorization', '')
         
         # Extract bearer token from Authorization header, if present
-        clerk_token = None
+        token = None
         if auth_header.startswith('Bearer '):
-            clerk_token = auth_header.split(' ', 1)[1].strip()
+            token = auth_header.split(' ', 1)[1].strip()
         
         # Try Clerk auth first, if we have a token
-        clerk_result = verify_clerk_token(clerk_token) if clerk_token else None
+        clerk_result = verify_clerk_token(token) if token else None
         
         # verify_clerk_token returns the user's email string directly (or None)
         if clerk_result:
             g.auth_type = 'clerk'
             g.user_email = clerk_result
-            g.clerk_user_id = None
+            g.clerk_user_id = None  # Clerk user ID not available from email-only response
             request.clerk_user_email = clerk_result
             return f(*args, **kwargs)
         
         # Fall back to Discord auth (using same logic as auth_required decorator)
         # Check session cookie first
-        token = None
-        if session.get('token'):
-            token = session.get('token')
+        session_token = session.get('token')
+        if session_token:
             try:
-                if not tokenManger.is_token_valid(token):
+                if not tokenManger.is_token_valid(session_token):
                     session.pop('token', None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManger.is_token_expired(token):
+                elif tokenManger.is_token_expired(session_token):
                     session.pop('token', None)
                     return jsonify({"message": "Session token has expired!"}), 401
                 g.auth_type = 'discord'
@@ -58,10 +57,7 @@ def dual_auth_required(f):
                 session.pop('token', None)
                 return jsonify({"message": "Session authentication failed!"}), 401
         
-        # Check Authorization header for Discord token
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.split(' ', 1)[1].strip()
-        
+        # Check Authorization header for Discord token (reuse extracted token)
         if not token:
             return jsonify({"message": "Authentication required!"}), 401
         
