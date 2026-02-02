@@ -35,7 +35,7 @@ def dual_auth_required(f):
         
         # verify_clerk_token returns the user's email string directly (or None)
         if clerk_result:
-            # Delegate to require_clerk_auth so organization membership is enforced
+            # Delegate to require_clerk_auth to validate the Clerk token and set request.clerk_user_email
             clerk_protected_view = require_clerk_auth(f)
             return clerk_protected_view(*args, **kwargs)
         
