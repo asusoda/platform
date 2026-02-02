@@ -9,12 +9,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
       with:
-        python-version: '3.11'
-    - run: pip install ruff mypy bandit
-    - run: ruff check .
-    - run: ruff format --check .
-    - run: mypy .
-    - run: bandit -r . -f json
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Run ruff linting
+      run: uv run ruff check .
+    
+    - name: Run ruff format check
+      run: uv run ruff format --check .
+    
+    - name: Run ty type checking
+      run: uv run ty check .
+    
+    - name: Run mypy type checking
+      run: uv run mypy .
+    
+    - name: Run bandit security checks
+      run: uv run bandit -r . -f json
 
