@@ -4,7 +4,6 @@ from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
 from modules.utils.clerk_auth import require_clerk_auth, verify_clerk_token
 from sqlalchemy import func
-import jwt
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
@@ -25,7 +24,8 @@ def dual_auth_required(f):
         auth_header = request.headers.get('Authorization', '')
         
         # Try Clerk auth first
-        clerk_result = verify_clerk_token()
+        token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
+        clerk_result = verify_clerk_token(token) if token else None
         if clerk_result and 'email' in clerk_result:
             g.auth_type = 'clerk'
             g.user_email = clerk_result['email']
