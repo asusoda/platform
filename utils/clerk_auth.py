@@ -32,7 +32,11 @@ def get_clerk_frontend_api():
         pass
     
     # Raise error if we can't determine the URL
-    raise ValueError("Cannot determine Clerk Frontend API URL. Please set CLERK_FRONTEND_API_URL environment variable.")
+    raise ValueError(
+        "Cannot determine Clerk Frontend API URL. "
+        "Please set CLERK_FRONTEND_API_URL environment variable, "
+        "or ensure NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is properly formatted."
+    )
 
 def get_clerk_jwks():
     """Fetch Clerk JWKS with TTL-based caching to handle key rotation"""
@@ -63,7 +67,10 @@ def get_clerk_jwks():
     except Exception as e:
         print(f"[Clerk Auth] Failed to fetch JWKS: {e}")
         # Return stale cache if available as fallback
-        return _jwks_cache.get('data')
+        if _jwks_cache.get('data'):
+            print("[Clerk Auth] Using stale JWKS cache as fallback")
+            return _jwks_cache['data']
+        return None
 
 def verify_clerk_token(token):
     """Verify Clerk JWT token and return user email"""
