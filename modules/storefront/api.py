@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from modules.auth.decoraters import auth_required, member_required, error_handler
 from modules.utils.db import DBConnect
 from modules.storefront.models import Product, Order, OrderItem
+from utils.clerk_auth import require_clerk_auth
 from sqlalchemy import func
 
 storefront_blueprint = Blueprint("storefront", __name__)
@@ -659,6 +660,51 @@ def get_user_points_public(org_prefix, **kwargs):
 
         return jsonify({
             "email": getattr(user, "email", None),
+            "total_points": total_points,
+            "points_breakdown": [{
+                "points": p.points,
+                "event": p.event,
+                "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+                "awarded_by": p.awarded_by_officer
+            } for p in points_records]
+        }), 200
+    finally:
+        db.close()
+
+@storefront_blueprint.route("/<string:org_prefix>/users/<string:user_email>/points", methods=["GET"])
+@require_clerk_auth
+@error_handler
+def get_user_points_clerk(org_prefix, user_email):
+    """Get user points using Clerk authentication"""
+    db = next(db_connect.get_db())
+    try:
+        if request.clerk_user_email != user_email:
+            return jsonify({"error": "Unauthorized: Email mismatch"}), 403
+        
+        from modules.organizations.models import Organization
+        from modules.points.models import Points
+        from modules.users.models import User
+        
+        organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
+        if not organization:
+            return jsonify({"error": "Organization not found"}), 404
+        
+        user = db.query(User).filter_by(email=user_email).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        total_points = db.query(func.sum(Points.points)).filter(
+            Points.user_id == user.id,
+            Points.organization_id == organization.id
+        ).scalar() or 0
+        
+        points_records = db.query(Points).filter_by(
+            user_id=user.id,
+            organization_id=organization.id
+        ).order_by(Points.timestamp.desc()).limit(20).all()
+        
+        return jsonify({
+            "email": user.email,
             "total_points": total_points,
             "points_breakdown": [{
                 "points": p.points,
