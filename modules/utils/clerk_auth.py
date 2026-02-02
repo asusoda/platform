@@ -2,6 +2,7 @@ import os
 from functools import wraps
 from flask import request, jsonify
 from clerk_backend_api import Clerk
+from clerk_backend_api.security.types import AuthenticateRequestOptions
 import httpx
 from shared import config
 from modules.utils.logging_config import get_logger
@@ -44,7 +45,7 @@ def verify_clerk_token(token):
         
         request_state = clerk.authenticate_request(
             req,
-            options={'authorized_parties': authorized_parties}
+            AuthenticateRequestOptions(authorized_parties=authorized_parties)
         )
         if not request_state.is_signed_in:
             logger.warning(f"Token invalid. Reason: {request_state.reason}")
