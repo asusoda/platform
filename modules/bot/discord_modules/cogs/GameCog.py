@@ -188,7 +188,7 @@ class GameCog(commands.Cog):
         """
         if self.game is None:
             return False
-        
+
         self.guild = self.bot.guilds[0]
 
         category = await self.guild.create_category("Jeopardy")
