@@ -511,6 +511,10 @@ def get_store_products(org_prefix):
 @error_handler
 def purchase_products(org_prefix):
     """Public endpoint for customers to purchase products (Discord auth)"""
+    # Ensure create_order's expectation of request.clerk_user_email is met even for Discord-auth flows
+    if not hasattr(request, "clerk_user_email"):
+        # For Discord-authenticated users, there may be no Clerk email; use None as a safe default.
+        setattr(request, "clerk_user_email", None)
     return create_order(org_prefix)  # Reuse the create_order function
 
 
