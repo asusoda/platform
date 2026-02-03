@@ -14,7 +14,7 @@ class GameCogProtocol(Protocol):
 
     question_post: dict
 
-    def get_member_role(self, member: discord.Member) -> discord.Role | None:
+    def get_member_role(self, member: discord.User | discord.Member | None) -> discord.Role | None:
         """Get the game role assigned to a member."""
         ...
 
