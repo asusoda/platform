@@ -517,7 +517,7 @@ def purchase_products(org_prefix):
     # Ensure create_order's expectation of request.clerk_user_email is met even for Discord-auth flows
     if not hasattr(request, "clerk_user_email"):
         # For Discord-authenticated users, there may be no Clerk email; use None as a safe default.
-        request.clerk_user_email = None
+        request.clerk_user_email = None  # type: ignore[attr-defined]
     return create_order(org_prefix)  # Reuse the create_order function
 
 
@@ -870,7 +870,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
     """Get user wallet/points using dual authentication"""
     db = next(db_connect.get_db())
     try:
-        if request.clerk_user_email != user_email:
+        if request.clerk_user_email != user_email:  # type: ignore[attr-defined]
             return jsonify({"error": "Unauthorized: Email mismatch"}), 403
 
         from modules.organizations.models import Organization
@@ -924,7 +924,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
 def clerk_checkout(org_prefix):
     """Checkout endpoint using dual authentication"""
     data = request.get_json()
-    user_email = request.clerk_user_email
+    user_email = request.clerk_user_email  # type: ignore[attr-defined]
 
     if not data.get("total_amount"):
         return jsonify({"error": "Total amount is required"}), 400

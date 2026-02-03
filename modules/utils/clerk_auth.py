@@ -116,7 +116,7 @@ def require_clerk_auth(f):
             return jsonify({"error": "Invalid token", "message": "Token is invalid!"}), 401
 
         # Add user email to request context
-        request.clerk_user_email = email
+        request.clerk_user_email = email  # type: ignore[attr-defined]
 
         return f(*args, **kwargs)
 

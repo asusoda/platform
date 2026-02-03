@@ -9,8 +9,8 @@ class OrganizationSettings:
     # Discord integration settings
     enable_discord_integration: bool = True
     discord_bot_prefix: str = "!"
-    discord_admin_roles: list = None
-    discord_officer_roles: list = None
+    discord_admin_roles: list | None = None
+    discord_officer_roles: list | None = None
 
     # Points system settings
     enable_points_system: bool = True
