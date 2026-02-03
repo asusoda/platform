@@ -2,9 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
   deploy:
