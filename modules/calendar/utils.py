@@ -242,11 +242,11 @@ class DateParser:
                         tz_obj = pytz.timezone(start_tz_str)
                         start_dt_aware = tz_obj.localize(start_dt_aware)
                     except pytz.UnknownTimeZoneError:
-                        logger.error(f"Timezone '{start_tz_str}' is invalid. Cannot localize naive datetime.")
+                        logger.error("Invalid timezone provided when localizing datetime. Using start as end.")
                         # Fallback: Use start time as end time if timezone is invalid
                         return start_date_dict.copy()
                     except Exception as tz_err:
-                        logger.error(f"Error applying timezone '{start_tz_str}': {tz_err}")
+                        logger.error(f"Error applying provided timezone when localizing datetime: {tz_err}")
                         capture_exception(tz_err)
                         return start_date_dict.copy()
 
@@ -258,7 +258,7 @@ class DateParser:
 
                 return {"dateTime": end_dt_aware.isoformat(), "timeZone": end_tz_str}
             except Exception as e:
-                logger.error(f"Error calculating default end time for start {start_date_dict}: {e}")
+                logger.error("Error calculating default end time from start date/time. Using start as end.")
                 capture_exception(e)
                 # Fallback: If calculation fails, return the start date dict
                 return start_date_dict.copy()
