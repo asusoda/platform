@@ -1,5 +1,6 @@
 import asyncio
 import os
+import subprocess
 import threading
 
 import discord
@@ -26,10 +27,19 @@ multi_org_calendar_service = MultiOrgCalendarService(logger)
 app.multi_org_calendar_service = multi_org_calendar_service
 
 
+def get_git_commit_hash():
+    """Get the current git commit hash."""
+    try:
+        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True, timeout=5)
+        return result.stdout.strip()
+    except Exception:
+        return "unknown"
+
+
 # Health endpoint
 @app.route("/health")
 def health():
-    return jsonify({"status": "healthy", "service": "soda-internal-api"}), 200
+    return jsonify({"status": "healthy", "service": "soda-internal-api", "commit": get_git_commit_hash()}), 200
 
 
 # Register Blueprints
