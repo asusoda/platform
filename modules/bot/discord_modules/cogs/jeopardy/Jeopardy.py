@@ -1,11 +1,9 @@
-from typing import Optional, List, Dict, Any, Union, Tuple, Callable, Awaitable
-from modules.bot.discord_modules.cogs.jeopardy.Team import Team
-from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
 import uuid
+
 import discord
 
-import uuid
-import discord
+from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
+from modules.bot.discord_modules.cogs.jeopardy.Team import Team
 
 
 class JeopardyGame:
@@ -196,7 +194,7 @@ class JeopardyGame:
         """
         self.players.append(member)
 
-    def get_question_by_uuid(self, uuid: str) -> Optional[JeopardyQuestion]:
+    def get_question_by_uuid(self, uuid: str) -> JeopardyQuestion | None:
         """
         Retrieves a question by its UUID.
 
@@ -227,7 +225,7 @@ class JeopardyGame:
             return True, question
         return False
 
-    def get_winners(self) -> List[str]:
+    def get_winners(self) -> list[str]:
         """
         Retrieves the winning team(s).
 
@@ -241,7 +239,7 @@ class JeopardyGame:
                 for member in team.members:
                     winners.append(member)
 
-    def attach_roles(self, roles: List[discord.Role]) -> None:
+    def attach_roles(self, roles: list[discord.Role]) -> None:
         """
         Attaches roles to teams
         """

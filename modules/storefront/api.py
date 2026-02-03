@@ -1,100 +1,25 @@
-from flask import Blueprint, request, jsonify, g, session
-from functools import wraps
-from modules.auth.decoraters import auth_required, member_required, error_handler
-from modules.utils.db import DBConnect
-from modules.storefront.models import Product, Order, OrderItem
-from modules.utils.clerk_auth import require_clerk_auth, verify_clerk_token
-from shared import tokenManger
+from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 import logging
+
+from modules.auth.decoraters import auth_required, error_handler, member_required
+from modules.storefront.models import Order, OrderItem, Product
+from modules.utils.clerk_auth import require_clerk_auth
+from modules.utils.db import DBConnect
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
 
+
 # Helper function to get organization by prefix
 def get_organization_by_prefix(db, org_prefix):
     from modules.organizations.models import Organization
+
     org = db.query(Organization).filter(Organization.prefix == org_prefix).first()
     if not org:
         return None
     return org
 
-# Helper function to safely extract token from session or Authorization header
-def extract_token():
-    """
-    Safely extract authentication token from session or Authorization header.
-    Returns the token string or None if not found.
-    """
-    # Check session first
-    token = session.get('token')
-    if token:
-        return token
-    
-    # Check Authorization header
-    auth_header = request.headers.get('Authorization', '')
-    if auth_header.startswith('Bearer '):
-        parts = auth_header.split(' ', 1)
-        if len(parts) == 2 and parts[1].strip():
-            return parts[1].strip()
-    
-    return None
-
-# Dual auth decorator - accepts both Discord and Clerk tokens
-def dual_auth_required(f):
-    """
-    Decorator that supports both Clerk (website) and Discord (admin dashboard) authentication.
-    For Clerk: Validates token and checks organization membership
-    For Discord: Validates token (guild membership checked by calling code if needed)
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Extract token from session or Authorization header
-        token = extract_token()
-        
-        # Try Clerk auth first, if we have a token
-        clerk_result = verify_clerk_token(token) if token else None
-        
-        # verify_clerk_token returns the user's email string directly (or None)
-        if clerk_result:
-            g.auth_type = 'clerk'
-            # Delegate to require_clerk_auth which validates and sets request.clerk_user_email
-            clerk_protected_view = require_clerk_auth(f)
-            return clerk_protected_view(*args, **kwargs)
-        
-        # Fall back to Discord auth (using same logic as auth_required decorator)
-        # Check session cookie first
-        session_token = session.get('token')
-        if session_token:
-            try:
-                if not tokenManger.is_token_valid(session_token):
-                    session.pop('token', None)
-                    return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManger.is_token_expired(session_token):
-                    session.pop('token', None)
-                    return jsonify({"message": "Session token has expired!"}), 401
-                g.auth_type = 'discord'
-                return f(*args, **kwargs)
-            except Exception as e:
-                session.pop('token', None)
-                logging.exception("Session authentication failed")
-                return jsonify({"message": "Session authentication failed!"}), 401
-        
-        # Check Authorization header for Discord token (reuse extracted token)
-        if not token:
-            return jsonify({"message": "Authentication required!"}), 401
-        
-        try:
-            if not tokenManger.is_token_valid(token):
-                return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManger.is_token_expired(token):
-                return jsonify({"message": "Token is expired!"}), 403
-            g.auth_type = 'discord'
-            return f(*args, **kwargs)
-        except Exception as e:
-            logging.exception("Discord token authentication failed")
-            return jsonify({"message": "Authentication failed!"}), 401
-    
-    return decorated_function
 
 # PRODUCT ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
@@ -106,21 +31,27 @@ def get_products(org_prefix):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         products = db_connect.get_storefront_products(db, org.id)
-        return jsonify([{
-            'id': p.id,
-            'name': p.name,
-            'description': p.description,
-            'price': p.price,
-            'stock': p.stock,
-            'image_url': p.image_url,
-            'organization_id': p.organization_id,
-            'created_at': p.created_at.isoformat() if p.created_at else None,
-            'updated_at': p.updated_at.isoformat() if p.updated_at else None
-        } for p in products]), 200
+        return jsonify(
+            [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "price": p.price,
+                    "stock": p.stock,
+                    "image_url": p.image_url,
+                    "organization_id": p.organization_id,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                }
+                for p in products
+            ]
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["GET"])
 @error_handler
@@ -131,24 +62,27 @@ def get_product(org_prefix, product_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         product = db_connect.get_storefront_product(db, product_id, org.id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
-            
-        return jsonify({
-            'id': product.id,
-            'name': product.name,
-            'description': product.description,
-            'price': product.price,
-            'stock': product.stock,
-            'image_url': product.image_url,
-            'organization_id': product.organization_id,
-            'created_at': product.created_at.isoformat() if product.created_at else None,
-            'updated_at': product.updated_at.isoformat() if product.updated_at else None
-        }), 200
+
+        return jsonify(
+            {
+                "id": product.id,
+                "name": product.name,
+                "description": product.description,
+                "price": product.price,
+                "stock": product.stock,
+                "image_url": product.image_url,
+                "organization_id": product.organization_id,
+                "created_at": product.created_at.isoformat() if product.created_at else None,
+                "updated_at": product.updated_at.isoformat() if product.updated_at else None,
+            }
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
 @auth_required
@@ -156,45 +90,48 @@ def get_product(org_prefix, product_id):
 def create_product(org_prefix):
     """Create a new product for an organization"""
     data = request.get_json()
-    
+
     # Validate required fields
-    if not data.get('name'):
+    if not data.get("name"):
         return jsonify({"error": "Product name is required"}), 400
-    if not data.get('price'):
+    if not data.get("price"):
         return jsonify({"error": "Product price is required"}), 400
-    if not data.get('stock'):
+    if not data.get("stock"):
         return jsonify({"error": "Product stock is required"}), 400
-    
+
     new_product = Product(
-        name=data['name'],
-        description=data.get('description', ''),
-        price=float(data['price']),
-        stock=int(data['stock']),
-        image_url=data.get('image_url', '')
+        name=data["name"],
+        description=data.get("description", ""),
+        price=float(data["price"]),
+        stock=int(data["stock"]),
+        image_url=data.get("image_url", ""),
     )
-    
+
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         created_product = db_connect.create_storefront_product(db, new_product, org.id)
-        return jsonify({
-            'message': 'Product created successfully', 
-            'id': created_product.id,
-            'product': {
-                'id': created_product.id,
-                'name': created_product.name,
-                'description': created_product.description,
-                'price': created_product.price,
-                'stock': created_product.stock,
-                'image_url': created_product.image_url,
-                'organization_id': created_product.organization_id
+        return jsonify(
+            {
+                "message": "Product created successfully",
+                "id": created_product.id,
+                "product": {
+                    "id": created_product.id,
+                    "name": created_product.name,
+                    "description": created_product.description,
+                    "price": created_product.price,
+                    "stock": created_product.stock,
+                    "image_url": created_product.image_url,
+                    "organization_id": created_product.organization_id,
+                },
             }
-        }), 201
+        ), 201
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
 @auth_required
@@ -206,40 +143,43 @@ def update_product(org_prefix, product_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         product = db_connect.get_storefront_product(db, product_id, org.id)
         if not product:
             return jsonify({"error": "Product not found"}), 404
-            
+
         data = request.get_json()
-        
+
         # Update fields if provided
-        if 'name' in data:
-            product.name = data['name']
-        if 'description' in data:
-            product.description = data['description']
-        if 'price' in data:
-            product.price = float(data['price'])
-        if 'stock' in data:
-            product.stock = int(data['stock'])
-        if 'image_url' in data:
-            product.image_url = data['image_url']
-        
+        if "name" in data:
+            product.name = data["name"]
+        if "description" in data:
+            product.description = data["description"]
+        if "price" in data:
+            product.price = float(data["price"])
+        if "stock" in data:
+            product.stock = int(data["stock"])
+        if "image_url" in data:
+            product.image_url = data["image_url"]
+
         db.commit()
-        return jsonify({
-            'message': 'Product updated successfully',
-            'product': {
-                'id': product.id,
-                'name': product.name,
-                'description': product.description,
-                'price': product.price,
-                'stock': product.stock,
-                'image_url': product.image_url,
-                'organization_id': product.organization_id
+        return jsonify(
+            {
+                "message": "Product updated successfully",
+                "product": {
+                    "id": product.id,
+                    "name": product.name,
+                    "description": product.description,
+                    "price": product.price,
+                    "stock": product.stock,
+                    "image_url": product.image_url,
+                    "organization_id": product.organization_id,
+                },
             }
-        }), 200
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
 @auth_required
@@ -251,14 +191,15 @@ def delete_product(org_prefix, product_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         success = db_connect.delete_storefront_product(db, product_id, org.id)
         if not success:
             return jsonify({"error": "Product not found"}), 404
-            
-        return jsonify({'message': 'Product deleted successfully'}), 200
+
+        return jsonify({"message": "Product deleted successfully"}), 200
     finally:
         db.close()
+
 
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
@@ -271,27 +212,36 @@ def get_orders(org_prefix):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         orders = db_connect.get_storefront_orders(db, org.id)
-        return jsonify([{
-            'id': o.id,
-            'user_id': o.user_id,
-            'total_amount': o.total_amount,
-            'status': o.status,
-            'message': o.message,
-            'created_at': o.created_at.isoformat(),
-            'updated_at': o.updated_at.isoformat() if o.updated_at else None,
-            'organization_id': o.organization_id,
-            'user_name': o.user.name if o.user else 'Unknown User',
-            'items': [{
-                'id': item.id,
-                'product_id': item.product_id,
-                'quantity': item.quantity,
-                'price_at_time': item.price_at_time
-            } for item in o.items]
-        } for o in orders]), 200
+        return jsonify(
+            [
+                {
+                    "id": o.id,
+                    "user_id": o.user_id,
+                    "total_amount": o.total_amount,
+                    "status": o.status,
+                    "message": o.message,
+                    "created_at": o.created_at.isoformat(),
+                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+                    "organization_id": o.organization_id,
+                    "user_name": o.user.name if o.user else "Unknown User",
+                    "items": [
+                        {
+                            "id": item.id,
+                            "product_id": item.product_id,
+                            "quantity": item.quantity,
+                            "price_at_time": item.price_at_time,
+                        }
+                        for item in o.items
+                    ],
+                }
+                for o in orders
+            ]
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
 @auth_required
@@ -303,28 +253,34 @@ def get_order(org_prefix, order_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
-        return jsonify({
-            'id': order.id,
-            'user_id': order.user_id,
-            'total_amount': order.total_amount,
-            'status': order.status,
-            'created_at': order.created_at.isoformat(),
-            'updated_at': order.updated_at.isoformat() if order.updated_at else None,
-            'organization_id': order.organization_id,
-            'items': [{
-                'id': item.id,
-                'product_id': item.product_id,
-                'quantity': item.quantity,
-                'price_at_time': item.price_at_time
-            } for item in order.items]
-        }), 200
+
+        return jsonify(
+            {
+                "id": order.id,
+                "user_id": order.user_id,
+                "total_amount": order.total_amount,
+                "status": order.status,
+                "created_at": order.created_at.isoformat(),
+                "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+                "organization_id": order.organization_id,
+                "items": [
+                    {
+                        "id": item.id,
+                        "product_id": item.product_id,
+                        "quantity": item.quantity,
+                        "price_at_time": item.price_at_time,
+                    }
+                    for item in order.items
+                ],
+            }
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
 @dual_auth_required
@@ -332,127 +288,115 @@ def get_order(org_prefix, order_id):
 def create_order(org_prefix):
     """Create a new order for an organization with dual authentication"""
     data = request.get_json()
-    
+    user_email = request.clerk_user_email
+
     # Validate required fields
-    if not data.get('total_amount'):
+    if not data.get("total_amount"):
         return jsonify({"error": "Total amount is required"}), 400
-    if not data.get('items') or len(data['items']) == 0:
+    if not data.get("items") or len(data["items"]) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
+
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-        
-        # Find user based on auth type
+
+        # Find user by email
         from modules.points.models import User, UserOrganizationMembership
-        
-        if g.auth_type == 'clerk':
-            # For Clerk auth, use request.clerk_user_email set by require_clerk_auth
-            user_email = getattr(request, "clerk_user_email", None)
-            if not user_email:
-                return jsonify({"error": "Authentication token required"}), 401
-            user = db.query(User).filter(User.email == user_email).first()
-        else:
-            # For Discord auth, get discord_id from token
-            token = extract_token()
-            if not token:
-                return jsonify({"error": "Authentication token required"}), 401
-            
-            try:
-                token_data = tokenManger.decode_token(token)
-            except Exception as e:
-                logging.exception("Failed to decode token")
-                return jsonify({"error": "Invalid token"}), 401
-            
-            discord_id = token_data.get('discord_id')
-            if not discord_id:
-                return jsonify({"error": "Invalid token data"}), 401
-            
-            user = db.query(User).filter(User.discord_id == str(discord_id)).first()
-        
+
+        user = db.query(User).filter(User.email == user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
+
         # Check if user is a member of this organization
-        membership = db.query(UserOrganizationMembership).filter(
-            UserOrganizationMembership.user_id == user.id,
-            UserOrganizationMembership.organization_id == org.id,
-            UserOrganizationMembership.is_active
-        ).first()
+        membership = (
+            db.query(UserOrganizationMembership)
+            .filter(
+                UserOrganizationMembership.user_id == user.id,
+                UserOrganizationMembership.organization_id == org.id,
+                UserOrganizationMembership.is_active,
+            )
+            .first()
+        )
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 403
-        
-        total_amount = float(data['total_amount'])
-        
+
+        total_amount = float(data["total_amount"])
+
         # Check user has sufficient points
         from modules.points.models import Points
-        points_sum = db.query(func.sum(Points.points)).filter(
-            Points.user_id == user.id,
-            Points.organization_id == org.id
-        ).scalar() or 0
-        
+
+        points_sum = (
+            db.query(func.sum(Points.points))
+            .filter(Points.user_id == user.id, Points.organization_id == org.id)
+            .scalar()
+            or 0
+        )
+
         if points_sum < total_amount:
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
-        
+
         # Prepare order items and validate stock
         order_items = []
-        for item in data['items']:
-            if not all(k in item for k in ['product_id', 'quantity', 'price']):
+        for item in data["items"]:
+            if not all(k in item for k in ["product_id", "quantity", "price"]):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
-            
-            product = db_connect.get_storefront_product(db, int(item['product_id']), org.id)
+
+            product = db_connect.get_storefront_product(db, int(item["product_id"]), org.id)
             if not product:
                 return jsonify({"error": f"Product {item['product_id']} not found"}), 404
-            if product.stock < int(item['quantity']):
+            if product.stock < int(item["quantity"]):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
-            
+
             # Update stock
-            product.stock -= int(item['quantity'])
-            
-            order_items.append(OrderItem(
-                product_id=int(item['product_id']),
-                quantity=int(item['quantity']),
-                price_at_time=float(item['price'])
-            ))
-        
+            product.stock -= int(item["quantity"])
+
+            order_items.append(
+                OrderItem(
+                    product_id=int(item["product_id"]),
+                    quantity=int(item["quantity"]),
+                    price_at_time=float(item["price"]),
+                )
+            )
+
         # Create order
-        new_order = Order(
-            user_id=user.id,
-            total_amount=total_amount,
-            status='completed'
-        )
+        new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
-        
+
         # Deduct points by creating negative point entry
-        from modules.points.models import Points
         from datetime import datetime
+
+        from modules.points.models import Points
+
         point_deduction = Points(
             user_id=user.id,
             organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
             timestamp=datetime.utcnow(),
-            awarded_by_officer="System"
+            awarded_by_officer="System",
         )
         db.add(point_deduction)
         db.commit()
-        
-        return jsonify({
-            'message': 'Order placed and points deducted successfully', 
-            'id': created_order.id,
-            'points_deducted': int(total_amount),
-            'order': {
-                'id': created_order.id,
-                'user_id': created_order.user_id,
-                'total_amount': created_order.total_amount,
-                'status': created_order.status,
-                'created_at': created_order.created_at.isoformat()
+
+        return jsonify(
+            {
+                "message": "Order placed and points deducted successfully",
+                "id": created_order.id,
+                "points_deducted": int(total_amount),
+                "order": {
+                    "id": created_order.id,
+                    "user_id": created_order.user_id,
+                    "total_amount": created_order.total_amount,
+                    "status": created_order.status,
+                    "created_at": created_order.created_at.isoformat(),
+                },
             }
-        }), 201
+        ), 201
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
 @auth_required
@@ -464,38 +408,41 @@ def update_order_status(org_prefix, order_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
+
         data = request.get_json()
-        
+
         # Update status if provided
-        if 'status' in data:
-            valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
-            if data['status'] not in valid_statuses:
+        if "status" in data:
+            valid_statuses = ["pending", "processing", "shipped", "delivered", "cancelled"]
+            if data["status"] not in valid_statuses:
                 return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
-            order.status = data['status']
-        
+            order.status = data["status"]
+
         # Update message if provided
-        if 'message' in data:
-            order.message = data['message']
-        
+        if "message" in data:
+            order.message = data["message"]
+
         db.commit()
-        return jsonify({
-            'message': 'Order updated successfully',
-            'order': {
-                'id': order.id,
-                'user_id': order.user_id,
-                'total_amount': order.total_amount,
-                'status': order.status,
-                'message': order.message,
-                'updated_at': order.updated_at.isoformat() if order.updated_at else None
+        return jsonify(
+            {
+                "message": "Order updated successfully",
+                "order": {
+                    "id": order.id,
+                    "user_id": order.user_id,
+                    "total_amount": order.total_amount,
+                    "status": order.status,
+                    "message": order.message,
+                    "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+                },
             }
-        }), 200
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
 @auth_required
@@ -507,23 +454,24 @@ def delete_order(org_prefix, order_id):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         order = db_connect.get_storefront_order(db, order_id, org.id)
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
+
         # Restore stock for cancelled orders
-        if order.status not in ['cancelled', 'delivered']:
+        if order.status not in ["cancelled", "delivered"]:
             for item in order.items:
                 product = db_connect.get_storefront_product(db, item.product_id, org.id)
                 if product:
                     product.stock += item.quantity
-            
+
         db.delete(order)
         db.commit()
-        return jsonify({'message': 'Order deleted successfully'}), 200
+        return jsonify({"message": "Order deleted successfully"}), 200
     finally:
         db.close()
+
 
 # STORE FRONT ENDPOINTS (Public access for customers)
 @storefront_blueprint.route("/<string:org_prefix>/store", methods=["GET"])
@@ -535,28 +483,30 @@ def get_store_products(org_prefix):
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-            
+
         products = db_connect.get_storefront_products(db, org.id)
         # Only return products with stock > 0 for the store front
         available_products = [p for p in products if p.stock > 0]
-        
-        return jsonify({
-            'organization': {
-                'name': org.name,
-                'prefix': org.prefix,
-                'description': org.description
-            },
-            'products': [{
-                'id': p.id,
-                'name': p.name,
-                'description': p.description,
-                'price': p.price,
-                'stock': p.stock,
-                'image_url': p.image_url
-            } for p in available_products]
-        }), 200
+
+        return jsonify(
+            {
+                "organization": {"name": org.name, "prefix": org.prefix, "description": org.description},
+                "products": [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "description": p.description,
+                        "price": p.price,
+                        "stock": p.stock,
+                        "image_url": p.image_url,
+                    }
+                    for p in available_products
+                ],
+            }
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
 @auth_required
@@ -565,133 +515,151 @@ def purchase_products(org_prefix):
     """Public endpoint for customers to purchase products (Discord auth)"""
     return create_order(org_prefix)  # Reuse the create_order function
 
+
 # MEMBER-SPECIFIC ENDPOINTS (Requires organization membership)
 @storefront_blueprint.route("/<string:org_prefix>/members/store", methods=["GET"])
 @member_required
 @error_handler
 def get_member_store(org_prefix, **kwargs):
     """Get store front for organization members (may include member-only products)"""
-    user_discord_id = kwargs.get('user_discord_id')
-    organization = kwargs.get('organization')
-    
+    user_discord_id = kwargs.get("user_discord_id")
+    organization = kwargs.get("organization")
+
     # Get or create user in this organization
     from modules.points.api import get_or_create_user
+
     user = get_or_create_user(user_discord_id, organization.id)
-    
+
     db = next(db_connect.get_db())
     try:
         products = db_connect.get_storefront_products(db, organization.id)
         # Only return products with stock > 0 for the store front
         available_products = [p for p in products if p.stock > 0]
-        
-        return jsonify({
-            'organization': {
-                'name': organization.name,
-                'prefix': organization.prefix,
-                'description': organization.description
-            },
-            'user_info': {
-                'discord_id': user_discord_id,
-                'user_id': user.id if user else None,
-                'is_member': True
-            },
-            'products': [{
-                'id': p.id,
-                'name': p.name,
-                'description': p.description,
-                'price': p.price,
-                'stock': p.stock,
-                'image_url': p.image_url,
-                'created_at': p.created_at.isoformat() if p.created_at else None,
-                'updated_at': p.updated_at.isoformat() if p.updated_at else None
-            } for p in available_products]
-        }), 200
+
+        return jsonify(
+            {
+                "organization": {
+                    "name": organization.name,
+                    "prefix": organization.prefix,
+                    "description": organization.description,
+                },
+                "user_info": {"discord_id": user_discord_id, "user_id": user.id if user else None, "is_member": True},
+                "products": [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "description": p.description,
+                        "price": p.price,
+                        "stock": p.stock,
+                        "image_url": p.image_url,
+                        "created_at": p.created_at.isoformat() if p.created_at else None,
+                        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                    }
+                    for p in available_products
+                ],
+            }
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/members/orders", methods=["GET"])
 @member_required
 @error_handler
 def get_member_orders(org_prefix, **kwargs):
     """Get orders for the authenticated member"""
-    user_discord_id = kwargs.get('user_discord_id')
-    organization = kwargs.get('organization')
-    
+    user_discord_id = kwargs.get("user_discord_id")
+    organization = kwargs.get("organization")
+
     # Get or create user in this organization
     from modules.points.api import get_or_create_user
+
     user = get_or_create_user(user_discord_id, organization.id)
-    
+
     if not user:
         return jsonify({"error": "Could not create or find user"}), 500
-    
+
     db = next(db_connect.get_db())
     try:
         # Get orders for this specific user in this organization
         from modules.storefront.models import Order
-        orders = db.query(Order).filter(
-            Order.organization_id == organization.id,
-            Order.user_id == user.id
-        ).order_by(Order.created_at.desc()).all()
-        
-        return jsonify([{
-            'id': o.id,
-            'total_amount': o.total_amount,
-            'status': o.status,
-            'message': o.message,
-            'created_at': o.created_at.isoformat(),
-            'updated_at': o.updated_at.isoformat() if o.updated_at else None,
-            'items': [{
-                'id': item.id,
-                'product_id': item.product_id,
-                'quantity': item.quantity,
-                'price_at_time': item.price_at_time,
-                'product_name': item.product.name if item.product else 'Unknown Product'
-            } for item in o.items]
-        } for o in orders]), 200
+
+        orders = (
+            db.query(Order)
+            .filter(Order.organization_id == organization.id, Order.user_id == user.id)
+            .order_by(Order.created_at.desc())
+            .all()
+        )
+
+        return jsonify(
+            [
+                {
+                    "id": o.id,
+                    "total_amount": o.total_amount,
+                    "status": o.status,
+                    "message": o.message,
+                    "created_at": o.created_at.isoformat(),
+                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+                    "items": [
+                        {
+                            "id": item.id,
+                            "product_id": item.product_id,
+                            "quantity": item.quantity,
+                            "price_at_time": item.price_at_time,
+                            "product_name": item.product.name if item.product else "Unknown Product",
+                        }
+                        for item in o.items
+                    ],
+                }
+                for o in orders
+            ]
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/members/orders", methods=["POST"])
 @member_required
 @error_handler
 def create_member_order(org_prefix, **kwargs):
     """Create a new order for authenticated member"""
-    user_discord_id = kwargs.get('user_discord_id')
-    organization = kwargs.get('organization')
-    
+    user_discord_id = kwargs.get("user_discord_id")
+    organization = kwargs.get("organization")
+
     # Get or create user in this organization
     from modules.points.api import get_or_create_user
+
     user = get_or_create_user(user_discord_id, organization.id)
-    
+
     if not user:
         return jsonify({"error": "Could not create or find user"}), 500
-    
+
     data = request.get_json()
-    
+
     # Validate required fields
-    if not data.get('total_amount'):
+    if not data.get("total_amount"):
         return jsonify({"error": "Total amount is required"}), 400
-    if not data.get('items') or len(data['items']) == 0:
+    if not data.get("items") or len(data["items"]) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
+
     new_order = Order(
         user_id=user.id,  # Use proper user ID
         discord_user_id=user_discord_id,  # Keep for backward compatibility
-        total_amount=float(data['total_amount']),
-        status='pending'
+        total_amount=float(data["total_amount"]),
+        status="pending",
     )
-    
+
     # Prepare order items
     order_items = []
-    for item in data['items']:
-        if not all(k in item for k in ['product_id', 'quantity', 'price']):
+    for item in data["items"]:
+        if not all(k in item for k in ["product_id", "quantity", "price"]):
             return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
-        order_items.append(OrderItem(
-            product_id=int(item['product_id']),
-            quantity=int(item['quantity']),
-            price_at_time=float(item['price'])
-        ))
-    
+        order_items.append(
+            OrderItem(
+                product_id=int(item["product_id"]), quantity=int(item["quantity"]), price_at_time=float(item["price"])
+            )
+        )
+
     db = next(db_connect.get_db())
     try:
         # Validate that all products exist and have sufficient stock
@@ -701,62 +669,72 @@ def create_member_order(org_prefix, **kwargs):
                 return jsonify({"error": f"Product {item.product_id} not found"}), 404
             if product.stock < item.quantity:
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
-            
+
             # Update stock
             product.stock -= item.quantity
-            
+
         created_order = db_connect.create_storefront_order(db, new_order, order_items, organization.id)
-        return jsonify({
-            'message': 'Order created successfully', 
-            'id': created_order.id,
-            'order': {
-                'id': created_order.id,
-                'user_id': created_order.user_id,
-                'total_amount': created_order.total_amount,
-                'status': created_order.status,
-                'created_at': created_order.created_at.isoformat()
+        return jsonify(
+            {
+                "message": "Order created successfully",
+                "id": created_order.id,
+                "order": {
+                    "id": created_order.id,
+                    "user_id": created_order.user_id,
+                    "total_amount": created_order.total_amount,
+                    "status": created_order.status,
+                    "created_at": created_order.created_at.isoformat(),
+                },
             }
-        }), 201
+        ), 201
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/members/orders/<int:order_id>", methods=["GET"])
 @member_required
 @error_handler
 def get_member_order(org_prefix, order_id, **kwargs):
     """Get a specific order for the authenticated member"""
-    user_discord_id = kwargs.get('user_discord_id')
-    organization = kwargs.get('organization')
-    
+    user_discord_id = kwargs.get("user_discord_id")
+    organization = kwargs.get("organization")
+
     db = next(db_connect.get_db())
     try:
         # Get order for this specific user in this organization
         from modules.storefront.models import Order
-        order = db.query(Order).filter(
-            Order.id == order_id,
-            Order.organization_id == organization.id,
-            Order.user_id == user_discord_id
-        ).first()
-        
+
+        order = (
+            db.query(Order)
+            .filter(Order.id == order_id, Order.organization_id == organization.id, Order.user_id == user_discord_id)
+            .first()
+        )
+
         if not order:
             return jsonify({"error": "Order not found"}), 404
-        
-        return jsonify({
-            'id': order.id,
-            'total_amount': order.total_amount,
-            'status': order.status,
-            'created_at': order.created_at.isoformat(),
-            'updated_at': order.updated_at.isoformat() if order.updated_at else None,
-            'items': [{
-                'id': item.id,
-                'product_id': item.product_id,
-                'quantity': item.quantity,
-                'price_at_time': item.price_at_time,
-                'product_name': item.product.name if item.product else 'Unknown Product'
-            } for item in order.items]
-        }), 200
+
+        return jsonify(
+            {
+                "id": order.id,
+                "total_amount": order.total_amount,
+                "status": order.status,
+                "created_at": order.created_at.isoformat(),
+                "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+                "items": [
+                    {
+                        "id": item.id,
+                        "product_id": item.product_id,
+                        "quantity": item.quantity,
+                        "price_at_time": item.price_at_time,
+                        "product_name": item.product.name if item.product else "Unknown Product",
+                    }
+                    for item in order.items
+                ],
+            }
+        ), 200
     finally:
-        db.close() 
+        db.close()
+
 
 # MEMBER POINTS ENDPOINT (for storefront)
 @storefront_blueprint.route("/<string:org_prefix>/members/points", methods=["GET"])
@@ -766,10 +744,10 @@ def get_user_points_public(org_prefix, **kwargs):
     """Get authenticated member's points balance (storefront endpoint)"""
     db = next(db_connect.get_db())
     try:
-        from modules.points.models import User, Points, UserOrganizationMembership
+        from modules.points.models import Points, User, UserOrganizationMembership
 
-        user_discord_id = kwargs.get('user_discord_id')
-        organization = kwargs.get('organization')
+        user_discord_id = kwargs.get("user_discord_id")
+        organization = kwargs.get("organization")
 
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
@@ -783,39 +761,47 @@ def get_user_points_public(org_prefix, **kwargs):
             return jsonify({"error": "User not found"}), 404
 
         # Check membership
-        membership = db.query(UserOrganizationMembership).filter_by(
-            user_id=user.id,
-            organization_id=organization.id,
-            is_active=True
-        ).first()
+        membership = (
+            db.query(UserOrganizationMembership)
+            .filter_by(user_id=user.id, organization_id=organization.id, is_active=True)
+            .first()
+        )
 
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 403
 
         # Calculate total points using database aggregation
-        total_points = db.query(func.sum(Points.points)).filter_by(
-            user_id=user.id,
-            organization_id=organization.id
-        ).scalar() or 0
+        total_points = (
+            db.query(func.sum(Points.points)).filter_by(user_id=user.id, organization_id=organization.id).scalar() or 0
+        )
 
         # Get last 20 points records for breakdown
-        points_records = db.query(Points).filter_by(
-            user_id=user.id,
-            organization_id=organization.id
-        ).order_by(Points.timestamp.desc()).limit(20).all()
+        points_records = (
+            db.query(Points)
+            .filter_by(user_id=user.id, organization_id=organization.id)
+            .order_by(Points.timestamp.desc())
+            .limit(20)
+            .all()
+        )
 
-        return jsonify({
-            "email": getattr(user, "email", None),
-            "total_points": total_points,
-            "points_breakdown": [{
-                "points": p.points,
-                "event": p.event,
-                "timestamp": p.timestamp.isoformat() if p.timestamp else None,
-                "awarded_by": p.awarded_by_officer
-            } for p in points_records]
-        }), 200
+        return jsonify(
+            {
+                "email": getattr(user, "email", None),
+                "total_points": total_points,
+                "points_breakdown": [
+                    {
+                        "points": p.points,
+                        "event": p.event,
+                        "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+                        "awarded_by": p.awarded_by_officer,
+                    }
+                    for p in points_records
+                ],
+            }
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
 @dual_auth_required
@@ -824,74 +810,53 @@ def get_user_wallet_clerk(org_prefix, user_email):
     """Get user wallet/points using dual authentication"""
     db = next(db_connect.get_db())
     try:
-        # Verify user authorization based on auth type
-        if g.auth_type == 'clerk':
-            # For Clerk auth, use request.clerk_user_email set by require_clerk_auth
-            clerk_email = getattr(request, "clerk_user_email", None)
-            if not clerk_email:
-                return jsonify({"error": "Authentication token required"}), 401
-            if clerk_email != user_email:
-                return jsonify({"error": "Unauthorized: Email mismatch"}), 403
-            lookup_email = user_email
-        else:
-            # Discord auth - get discord_id from token and find user's email
-            token = extract_token()
-            if not token:
-                return jsonify({"error": "Authentication token required"}), 401
-            
-            try:
-                token_data = tokenManger.decode_token(token)
-            except Exception as e:
-                logging.exception("Failed to decode token")
-                return jsonify({"error": "Invalid token"}), 401
-            
-            discord_id = token_data.get('discord_id')
-            if not discord_id:
-                return jsonify({"error": "Invalid token data"}), 401
-            
-            # Get user by discord_id and verify email matches
-            from modules.points.models import User
-            discord_user = db.query(User).filter(User.discord_id == str(discord_id)).first()
-            if not discord_user:
-                return jsonify({"error": "User not found"}), 404
-            if discord_user.email != user_email:
-                return jsonify({"error": "Unauthorized: Email mismatch"}), 403
-            lookup_email = user_email
-        
+        if request.clerk_user_email != user_email:
+            return jsonify({"error": "Unauthorized: Email mismatch"}), 403
+
         from modules.organizations.models import Organization
-        from modules.points.models import Points
-        from modules.points.models import User
-        
+        from modules.points.models import Points, User
+
         organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
-        
-        user = db.query(User).filter_by(email=lookup_email).first()
+
+        user = db.query(User).filter_by(email=user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
-        total_points = db.query(func.sum(Points.points)).filter(
-            Points.user_id == user.id,
-            Points.organization_id == organization.id
-        ).scalar() or 0
-        
-        points_records = db.query(Points).filter_by(
-            user_id=user.id,
-            organization_id=organization.id
-        ).order_by(Points.timestamp.desc()).limit(20).all()
-        
-        return jsonify({
-            "email": user.email,
-            "total_points": total_points,
-            "points_breakdown": [{
-                "points": p.points,
-                "event": p.event,
-                "timestamp": p.timestamp.isoformat() if p.timestamp else None,
-                "awarded_by": p.awarded_by_officer
-            } for p in points_records]
-        }), 200
+
+        total_points = (
+            db.query(func.sum(Points.points))
+            .filter(Points.user_id == user.id, Points.organization_id == organization.id)
+            .scalar()
+            or 0
+        )
+
+        points_records = (
+            db.query(Points)
+            .filter_by(user_id=user.id, organization_id=organization.id)
+            .order_by(Points.timestamp.desc())
+            .limit(20)
+            .all()
+        )
+
+        return jsonify(
+            {
+                "email": user.email,
+                "total_points": total_points,
+                "points_breakdown": [
+                    {
+                        "points": p.points,
+                        "event": p.event,
+                        "timestamp": p.timestamp.isoformat() if p.timestamp else None,
+                        "awarded_by": p.awarded_by_officer,
+                    }
+                    for p in points_records
+                ],
+            }
+        ), 200
     finally:
         db.close()
+
 
 @storefront_blueprint.route("/<string:org_prefix>/checkout", methods=["POST"])
 @dual_auth_required
@@ -899,118 +864,99 @@ def get_user_wallet_clerk(org_prefix, user_email):
 def clerk_checkout(org_prefix):
     """Checkout endpoint using dual authentication"""
     data = request.get_json()
-    
-    # Get user based on auth type
-    if g.auth_type == 'clerk':
-        # For Clerk auth, use request.clerk_user_email set by require_clerk_auth
-        user_email = getattr(request, "clerk_user_email", None)
-        if not user_email:
-            return jsonify({"error": "Authentication token required"}), 401
-    else:
-        # Discord auth - get discord_id from token
-        token = extract_token()
-        if not token:
-            return jsonify({"error": "Authentication token required"}), 401
-        
-        try:
-            token_data = tokenManger.decode_token(token)
-        except Exception as e:
-            logging.exception("Failed to decode token")
-            return jsonify({"error": "Invalid token"}), 401
-        
-        discord_id = token_data.get('discord_id')
-        if not discord_id:
-            return jsonify({"error": "Invalid token data"}), 401
-    
-    if not data.get('total_amount'):
+    user_email = request.clerk_user_email
+
+    if not data.get("total_amount"):
         return jsonify({"error": "Total amount is required"}), 400
-    if not data.get('items') or len(data['items']) == 0:
+    if not data.get("items") or len(data["items"]) == 0:
         return jsonify({"error": "Order items are required"}), 400
-    
+
     db = next(db_connect.get_db())
     try:
         org = get_organization_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-        
-        from modules.points.models import User, UserOrganizationMembership, Points
-        
-        # Find user based on auth type
-        if g.auth_type == 'clerk':
-            user = db.query(User).filter(User.email == user_email).first()
-        else:
-            user = db.query(User).filter(User.discord_id == str(discord_id)).first()
-        
+
+        from modules.points.models import Points, User, UserOrganizationMembership
+
+        user = db.query(User).filter(User.email == user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        
-        membership = db.query(UserOrganizationMembership).filter(
-            UserOrganizationMembership.user_id == user.id,
-            UserOrganizationMembership.organization_id == org.id,
-            UserOrganizationMembership.is_active
-        ).first()
+
+        membership = (
+            db.query(UserOrganizationMembership)
+            .filter(
+                UserOrganizationMembership.user_id == user.id,
+                UserOrganizationMembership.organization_id == org.id,
+                UserOrganizationMembership.is_active,
+            )
+            .first()
+        )
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 403
-        
-        total_amount = float(data['total_amount'])
-        
-        points_sum = db.query(func.sum(Points.points)).filter(
-            Points.user_id == user.id,
-            Points.organization_id == org.id
-        ).scalar() or 0
-        
+
+        total_amount = float(data["total_amount"])
+
+        points_sum = (
+            db.query(func.sum(Points.points))
+            .filter(Points.user_id == user.id, Points.organization_id == org.id)
+            .scalar()
+            or 0
+        )
+
         if points_sum < total_amount:
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
-        
+
         order_items = []
-        for item in data['items']:
-            if not all(k in item for k in ['product_id', 'quantity', 'price']):
+        for item in data["items"]:
+            if not all(k in item for k in ["product_id", "quantity", "price"]):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
-            
-            product = db_connect.get_storefront_product(db, int(item['product_id']), org.id)
+
+            product = db_connect.get_storefront_product(db, int(item["product_id"]), org.id)
             if not product:
                 return jsonify({"error": f"Product {item['product_id']} not found"}), 404
-            if product.stock < int(item['quantity']):
+            if product.stock < int(item["quantity"]):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
-            
-            product.stock -= int(item['quantity'])
-            
-            order_items.append(OrderItem(
-                product_id=int(item['product_id']),
-                quantity=int(item['quantity']),
-                price_at_time=float(item['price'])
-            ))
-        
-        new_order = Order(
-            user_id=user.id,
-            total_amount=total_amount,
-            status='completed'
-        )
+
+            product.stock -= int(item["quantity"])
+
+            order_items.append(
+                OrderItem(
+                    product_id=int(item["product_id"]),
+                    quantity=int(item["quantity"]),
+                    price_at_time=float(item["price"]),
+                )
+            )
+
+        new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
-        
+
         from datetime import datetime
+
         point_deduction = Points(
             user_id=user.id,
             organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
             timestamp=datetime.utcnow(),
-            awarded_by_officer="System"
+            awarded_by_officer="System",
         )
         db.add(point_deduction)
         db.commit()
-        
-        return jsonify({
-            'message': 'Order placed and points deducted successfully', 
-            'id': created_order.id,
-            'points_deducted': int(total_amount),
-            'order': {
-                'id': created_order.id,
-                'user_id': created_order.user_id,
-                'total_amount': created_order.total_amount,
-                'status': created_order.status,
-                'created_at': created_order.created_at.isoformat()
+
+        return jsonify(
+            {
+                "message": "Order placed and points deducted successfully",
+                "id": created_order.id,
+                "points_deducted": int(total_amount),
+                "order": {
+                    "id": created_order.id,
+                    "user_id": created_order.user_id,
+                    "total_amount": created_order.total_amount,
+                    "status": created_order.status,
+                    "created_at": created_order.created_at.isoformat(),
+                },
             }
-        }), 201
+        ), 201
     finally:
         db.close()

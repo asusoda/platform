@@ -1,13 +1,13 @@
+import asyncio
+
 import discord
 from discord.ext import commands
-from discord import Interaction # Explicitly import Interaction
-from typing import Optional, List, Dict, Any, Union, Tuple, Callable, Awaitable
-import random
-import asyncio
+
 from modules.utils.logging_config import get_logger
 
 # Get module logger
 logger = get_logger("bot.helpercog")
+
 
 class HelperCog(commands.Cog):
     """
@@ -32,9 +32,7 @@ class HelperCog(commands.Cog):
         self.message_listen_for = []
         logger.info("HelperCog initialized")
 
-    async def create_category(
-        self, guild: discord.Guild, name: str, position: Optional[int] = 0
-    ):
+    async def create_category(self, guild: discord.Guild, name: str, position: int | None = 0):
         """
         Creates a new category in the guild.
 
@@ -55,8 +53,8 @@ class HelperCog(commands.Cog):
         self,
         guild: discord.Guild,
         name: str,
-        category: Optional[discord.CategoryChannel],
-        overwrites: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
+        category: discord.CategoryChannel | None,
+        overwrites: dict[discord.Role, discord.PermissionOverwrite] | None = None,
     ):
         """
         Creates a new text channel in the guild.
@@ -72,9 +70,7 @@ class HelperCog(commands.Cog):
             logger.debug(f"Created text channel '{name}' in guild {guild.name}")
             return channel
         else:
-            channel = await guild.create_text_channel(
-                name, category=category, overwrites=overwrites
-            )
+            channel = await guild.create_text_channel(name, category=category, overwrites=overwrites)
             logger.debug(f"Created text channel '{name}' with custom overwrites in guild {guild.name}")
             return channel
 
@@ -82,8 +78,8 @@ class HelperCog(commands.Cog):
         self,
         guild: discord.Guild,
         name: str,
-        category: Optional[discord.CategoryChannel],
-        overwrites: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
+        category: discord.CategoryChannel | None,
+        overwrites: dict[discord.Role, discord.PermissionOverwrite] | None = None,
     ):
         """
         Creates a new voice channel in the guild.
@@ -94,15 +90,11 @@ class HelperCog(commands.Cog):
         category (discord.CategoryChannel): The category to create the channel in.
         overwrites (dict, optional): A dictionary of role overwrites.
         """
-        channel = await guild.create_voice_channel(
-            name, category=category, overwrites=overwrites
-        )
+        channel = await guild.create_voice_channel(name, category=category, overwrites=overwrites)
         logger.debug(f"Created voice channel '{name}' in guild {guild.name}")
         return channel
 
-    async def create_role(
-        self, guild: discord.Guild, name: str, colour: Optional[discord.Colour] = None
-    ):
+    async def create_role(self, guild: discord.Guild, name: str, colour: discord.Colour | None = None):
         """
         Creates a new role in the guild.
 
@@ -158,9 +150,9 @@ class HelperCog(commands.Cog):
     async def send_message(
         self,
         channel: discord.TextChannel,
-        embed: Optional[discord.Embed],
-        content: Optional[str],
-        view: Optional[discord.ui.View] = None,
+        embed: discord.Embed | None,
+        content: str | None,
+        view: discord.ui.View | None = None,
     ):
         """
         Sends a message to a channel.
@@ -184,9 +176,7 @@ class HelperCog(commands.Cog):
             if embed is None:
                 message = self.bot.loop.create_task(channel.send(content, view=view))
             elif content is None:
-                message = self.bot.loop.create_task(
-                    channel.send(embed=embed, view=view)
-                )
+                message = self.bot.loop.create_task(channel.send(embed=embed, view=view))
             else:
                 raise Exception("Both embed and content cannot be None.")
             logger.debug(f"Message with view sent to channel '{channel.name}'")
@@ -195,9 +185,9 @@ class HelperCog(commands.Cog):
     async def edit_message(
         self,
         message: discord.Message,
-        embed: Optional[discord.Embed],
-        content: Optional[str],
-        view: Optional[discord.ui.View] = None,
+        embed: discord.Embed | None,
+        content: str | None,
+        view: discord.ui.View | None = None,
     ):
         """
         Edits a message.
@@ -257,7 +247,7 @@ class HelperCog(commands.Cog):
         message (discord.Message): The message to remove.
         emoji (str): The emoji to stop listening for.
         """
-        for msg_info in self.message_listen_for: # Renamed loop variable
+        for msg_info in self.message_listen_for:  # Renamed loop variable
             if msg_info["message"] == message and msg_info["emoji"] == emoji:
                 self.message_listen_for.remove(msg_info)
                 logger.debug(f"Removed message {message.id} from reaction listener with emoji {emoji}")
@@ -299,7 +289,7 @@ class HelperCog(commands.Cog):
         description="Clears the game environment from the Discord server.",
         guild_ids=[1011586463219060807],
     )
-    async def clear(self, interaction, dummy: Optional[str] = None): # Removed Interaction type hint
+    async def clear(self, interaction, dummy: str | None = None):  # Removed Interaction type hint
         """
         Clears the game environment from the Discord server.
         """
