@@ -182,17 +182,18 @@ class DateParser:
             except ValueError:
                 # If both parsing attempts fail, log warning and return None
                 logger.warning(
-                    f"Invalid or unsupported date format encountered after cleaning: '{cleaned_date_str}' (original: '{date_str}')"
+                    "Invalid or unsupported date format encountered in Notion date field "
+                    f"(cleaned length={len(cleaned_date_str)}, original length={len(date_str) if date_str is not None else 'None'})."
                 )
                 return None
             except Exception as e_iso:
                 # Catch unexpected errors during ISO parsing
-                logger.error(f"Unexpected error parsing ISO date string '{cleaned_date_str}': {str(e_iso)}")
+                logger.error(f"Unexpected error parsing ISO date string: {str(e_iso)}")
                 capture_exception(e_iso)
                 return None
         except Exception as e_date:
             # Catch any other unexpected errors during date parsing
-            logger.error(f"Unexpected error parsing date string '{date_str}': {str(e_date)}")
+            logger.error(f"Unexpected error parsing date string: {str(e_date)}")
             capture_exception(e_date)
             return None
 
