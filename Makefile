@@ -34,12 +34,14 @@ help:
 # Build container images
 build:
 	@echo -e "$(GREEN)[INFO]$(NC) Building container images with BuildKit..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build
+	@COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build
 
 # Build only API
 build-api:
 	@echo -e "$(GREEN)[INFO]$(NC) Building API image..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build api
+	@COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build api
 
 # Build only web
 build-web:
@@ -98,7 +100,8 @@ deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..."
 	@$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true
 	@echo -e "$(GREEN)[INFO]$(NC) Building container image..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1)
+	@COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Stopping existing containers..."
 	@$(COMPOSE_CMD) -f docker-compose.yml down
 	@echo -e "$(GREEN)[INFO]$(NC) Starting containers..."
