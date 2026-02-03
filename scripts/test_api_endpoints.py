@@ -423,7 +423,6 @@ def test_users_endpoints():
     )  # Auth not specified, assuming public or adjust
 
     # Using the email from points test for consistency, assuming it was created
-    existing_user_email = f"testuser_{int(time.time()) - 50}@example.com"  # Approx email from points test
     # You might need to ensure this user exists or use a known one
     # For /viewUser, use the email of the user created in points section for better chance of success
     created_user_email_from_points = [d["email"] for d in created_users_for_points if "email" in d]  # Helper to get it
