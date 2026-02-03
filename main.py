@@ -31,7 +31,7 @@ def get_git_commit_hash():
     """Get the current git commit hash."""
     # First check if commit hash is provided via environment variable (set during Docker build)
     commit_hash = os.environ.get("GIT_COMMIT_HASH")
-    if commit_hash and commit_hash != "unknown":
+    if commit_hash:
         return commit_hash
 
     # Fall back to git command (for local development)
