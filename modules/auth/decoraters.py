@@ -391,19 +391,15 @@ def member_required(f):
                 logger.debug("Member authentication successful!")
                 return f(*args, **kwargs)
 
-            except Exception as e:
-                logger.error(f"Error checking guild membership: {e}")
-                import traceback
+            except Exception:
+                # Log full exception details server-side without exposing them to the client
+                logger.exception("Error checking guild membership")
+                return jsonify({"message": "Error verifying membership"}), 500
 
-                traceback.print_exc()
-                return jsonify({"message": f"Error verifying membership: {str(e)}"}), 500
-
-        except Exception as e:
-            logger.error(f"General error in member_required: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return jsonify({"message": str(e)}), 500
+        except Exception:
+            # Log full exception details server-side without exposing them to the client
+            logger.exception("General error in member_required")
+            return jsonify({"message": "Internal server error"}), 500
 
     return wrapper
 
