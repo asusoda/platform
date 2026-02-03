@@ -19,27 +19,29 @@ def dual_auth_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
+        token = None
 
-        # Try Clerk authentication first
+        # Extract token from Authorization header
         if auth_header.startswith("Bearer "):
             parts = auth_header.split(" ", 1)
             if len(parts) >= 2 and parts[1].strip():
                 token = parts[1].strip()
 
-                # Import here to avoid circular imports
-                try:
-                    from modules.utils.clerk_auth import verify_clerk_token
+        # Try Clerk authentication first if we have a Bearer token
+        if token:
+            try:
+                from modules.utils.clerk_auth import verify_clerk_token
 
-                    email = verify_clerk_token(token)
-                    if email:
-                        # Clerk authentication successful
-                        logger.debug(f"Dual auth: Clerk authentication successful for {email}")
-                        request.clerk_user_email = email
-                        return f(*args, **kwargs)
-                    else:
-                        logger.debug("Dual auth: Clerk token verification failed, trying Discord OAuth")
-                except Exception as e:
-                    logger.debug(f"Dual auth: Clerk verification error: {e}, trying Discord OAuth")
+                email = verify_clerk_token(token)
+                if email:
+                    # Clerk authentication successful
+                    logger.debug(f"Dual auth: Clerk authentication successful for {email}")
+                    request.clerk_user_email = email
+                    return f(*args, **kwargs)
+                else:
+                    logger.debug("Dual auth: Clerk token verification failed, trying Discord OAuth")
+            except Exception as e:
+                logger.debug(f"Dual auth: Clerk verification error: {e}, trying Discord OAuth")
 
         # Fall back to Discord OAuth authentication
         # Check session cookie first
@@ -63,13 +65,7 @@ def dual_auth_required(f):
                 logger.debug(f"Dual auth: Session authentication error: {e}")
                 session.pop("token", None)
 
-        # If no session, check Authorization header for Discord OAuth token
-        token = None
-        if "Authorization" in request.headers:
-            auth_header = request.headers["Authorization"]
-            if auth_header.startswith("Bearer "):
-                token = auth_header.split(" ")[1]
-
+        # Check Authorization header for Discord OAuth token
         if not token:
             return jsonify({"message": "Authentication required!"}), 401
 

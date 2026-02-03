@@ -1,4 +1,5 @@
 import datetime
+import os
 import secrets
 
 import jwt
@@ -7,14 +8,51 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 class TokenManager:
-    def __init__(self, algorithm="RS256") -> None:
+    def __init__(self, algorithm="RS256", keys_path="./data") -> None:
         self.algorithm = algorithm
-        self.private_key, self.public_key = self.generate_keys()
+        self.keys_path = keys_path
+        self.private_key_file = os.path.join(keys_path, "jwt_private.pem")
+        self.public_key_file = os.path.join(keys_path, "jwt_public.pem")
+        self.private_key, self.public_key = self.load_or_generate_keys()
         self.blacklist = set()
         # Store refresh tokens with their metadata
         self.refresh_tokens = {}  # refresh_token -> {user_id, username, expires_at}
 
+    def load_or_generate_keys(self):
+        """Load keys from disk if they exist, otherwise generate and save new ones"""
+        # Check if both key files exist
+        if os.path.exists(self.private_key_file) and os.path.exists(self.public_key_file):
+            try:
+                # Load existing keys
+                with open(self.private_key_file) as f:
+                    private_key = f.read()
+                with open(self.public_key_file) as f:
+                    public_key = f.read()
+                print(f"Loaded existing RSA keys from {self.keys_path}")
+                return private_key, public_key
+            except Exception as e:
+                print(f"Error loading keys: {e}. Generating new keys...")
+
+        # Generate new keys if loading failed or files don't exist
+        private_key, public_key = self.generate_keys()
+
+        # Save keys to disk
+        try:
+            os.makedirs(self.keys_path, exist_ok=True)
+            with open(self.private_key_file, "w") as f:
+                f.write(private_key)
+            with open(self.public_key_file, "w") as f:
+                f.write(public_key)
+            # Set restrictive permissions on private key
+            os.chmod(self.private_key_file, 0o600)
+            print(f"Generated and saved new RSA keys to {self.keys_path}")
+        except Exception as e:
+            print(f"Warning: Could not save keys to disk: {e}")
+
+        return private_key, public_key
+
     def generate_keys(self):
+        """Generate a new RSA key pair"""
         # Generate a private RSA key
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
