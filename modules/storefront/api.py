@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
@@ -366,7 +368,7 @@ def create_order(org_prefix):
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
 
         # Deduct points by creating negative point entry
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         from modules.points.models import Points
 
@@ -375,7 +377,7 @@ def create_order(org_prefix):
             organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             awarded_by_officer="System",
         )
         db.add(point_deduction)
@@ -936,14 +938,14 @@ def clerk_checkout(org_prefix):
         new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
 
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         point_deduction = Points(
             user_id=user.id,
             organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             awarded_by_officer="System",
         )
         db.add(point_deduction)

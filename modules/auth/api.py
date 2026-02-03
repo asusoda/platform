@@ -38,7 +38,7 @@ def validToken():
 @auth_blueprint.route("/callback", methods=["GET"])
 def callback():
     # Get the auth bot from Flask app context (the one actually running in thread)
-    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
         logger.error("Auth bot is not available or not ready for /callback")
         return jsonify({"error": "Authentication service temporarily unavailable. Bot not ready."}), 503

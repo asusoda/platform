@@ -498,7 +498,7 @@ class NotionCalendarClient:
                     all_events = collect_paginated_api(
                         self.notion.databases.query,
                         database_id=database_id,
-                        filter=query_filter,  # type: ignore[attr-defined]
+                        filter=query_filter,
                     )
                     span.set_data("event_count", len(all_events))
 

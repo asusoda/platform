@@ -77,7 +77,7 @@ def run_auth_bot_in_thread():
     # Create bot instance inside the thread, using the thread's loop
     auth_bot_instance = create_auth_bot(loop)
     # Store the auth_bot instance on the Flask app context for API use
-    app.auth_bot = auth_bot_instance  # type: ignore[attr-defined]
+    app.auth_bot = auth_bot_instance
     try:
         logger.info("Starting auth bot thread...")
         auth_bot_token = config.BOT_TOKEN
