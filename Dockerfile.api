@@ -46,7 +46,6 @@ ENV GIT_COMMIT_HASH=${COMMIT_HASH}
 
 # Copy application code
 COPY --chown=appuser:appuser modules ./modules
-COPY --chown=appuser:appuser migrations ./migrations
 COPY --chown=appuser:appuser *.py ./
 
 # Switch to non-root user
