@@ -86,7 +86,7 @@ def dual_auth_required(f):
             return f(*args, **kwargs)
         except Exception as e:
             logger.debug(f"Dual auth: Discord OAuth token authentication error: {e}")
-            return jsonify({"message": str(e)}), 401
+            return jsonify({"message": "Authentication failed due to an internal error."}), 401
 
     return wrapper
 
