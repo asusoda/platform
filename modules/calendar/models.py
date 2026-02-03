@@ -61,7 +61,8 @@ class CalendarEventDTO:
         start_dict = DateParser.parse_notion_date(start_str)
         if not start_dict:
             logger.warning(
-                f"Cannot create CalendarEventDTO for Notion page {notion_page_id}: Invalid or missing start date ('{start_str}')."
+                "Cannot create CalendarEventDTO for Notion page %s: Invalid or missing start date.",
+                notion_page_id,
             )
             return None  # Cannot create event without a valid start date
 
