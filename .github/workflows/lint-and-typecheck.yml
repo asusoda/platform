@@ -48,7 +48,9 @@ jobs:
         fi
     
     - name: Run ty type checking
-      run: uv run ty check .
+      run: |
+        echo "Running type checker (errors will fail this workflow)..."
+        uv run ty check .
     
     - name: Run bandit security checks
       run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv
