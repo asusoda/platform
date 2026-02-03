@@ -5,7 +5,7 @@ import requests
 
 # --- Configuration ---
 BASE_URL = "http://127.0.0.1:8000"  # ADJUST IF YOUR APP RUNS ON A DIFFERENT PORT/URL
-TEST_TOKEN = "YOUR_VALID_TEST_TOKEN"  # REPLACE WITH A VALID JWT TOKEN FOR AUTHENTICATED ENDPOINTS
+TEST_TOKEN = "YOUR_VALID_TEST_TOKEN"  # nosec B105 - Placeholder, not actual password
 # To get a test token, you might need to manually go through the login flow once
 # and extract the token your frontend receives, or have a debug endpoint to generate one.
 
@@ -63,13 +63,16 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
                 or "invalid" in description.lower()
                 or "unauthorized" in description.lower()
             ):
-                assert response.status_code >= 400, f"Expected error status code (>=400), got {response.status_code}"
+                # nosec B101 - Assert used in test script, not production code
+                assert response.status_code >= 400, f"Expected error status code (>=400), got {response.status_code}"  # nosec B101
             elif endpoint == "/auth/login":
-                assert response.status_code == 200 or response.status_code == 302, (
+                # nosec B101 - Assert used in test script, not production code
+                assert response.status_code == 200 or response.status_code == 302, (  # nosec B101
                     f"Expected 200 or 302 for /auth/login, got {response.status_code}"
                 )
             else:
-                assert response.status_code < 400, f"Expected success status code (<400), got {response.status_code}"
+                # nosec B101 - Assert used in test script, not production code
+                assert response.status_code < 400, f"Expected success status code (<400), got {response.status_code}"  # nosec B101
             test_passed_this_call = True
         except AssertionError as ae:
             # Detailed print only on assertion failure
@@ -503,7 +506,8 @@ def test_users_endpoints():
 # --- Main Execution ---
 if __name__ == "__main__":
     start_time = time.time()
-    if TEST_TOKEN == "YOUR_VALID_TEST_TOKEN":
+    # nosec B105 - Checking if placeholder token is still set, not using it as password
+    if TEST_TOKEN == "YOUR_VALID_TEST_TOKEN":  # nosec B105
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print("!!! WARNING: TEST_TOKEN is not set. Authenticated endpoints will likely fail. !!!")
         print("!!! Please replace 'YOUR_VALID_TEST_TOKEN' in the script with a valid token.  !!!")

@@ -117,7 +117,7 @@ def refresh_token():
             return jsonify(
                 {
                     "access_token": new_access_token,
-                    "token_type": "Bearer",
+                    "token_type": "Bearer",  # nosec B105 - OAuth2 token type, not a password
                     "expires_in": 1800,  # 30 minutes in seconds
                 }
             ), 200
