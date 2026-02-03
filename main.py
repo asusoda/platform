@@ -1,6 +1,6 @@
 import asyncio
 import os
-import subprocess
+import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
 
 import discord
@@ -30,7 +30,13 @@ app.multi_org_calendar_service = multi_org_calendar_service
 def get_git_commit_hash():
     """Get the current git commit hash."""
     try:
-        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True, timeout=5)
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],  # nosec B603, B607 - hardcoded git command with no user input
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
         return result.stdout.strip()
     except Exception:
         return "unknown"
