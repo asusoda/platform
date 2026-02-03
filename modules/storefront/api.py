@@ -808,6 +808,61 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 
+@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET"])
+@dual_auth_required
+@error_handler
+def get_user_orders_clerk(org_prefix, user_email):
+    """Get user's orders using dual authentication"""
+    db = next(db_connect.get_db())
+    try:
+        if request.clerk_user_email != user_email:
+            return jsonify({"error": "Unauthorized: Email mismatch"}), 403
+
+        from modules.organizations.models import Organization
+        from modules.points.models import User
+
+        organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
+        if not organization:
+            return jsonify({"error": "Organization not found"}), 404
+
+        user = db.query(User).filter_by(email=user_email).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        orders = (
+            db.query(Order)
+            .filter(Order.organization_id == organization.id, Order.user_id == user.id)
+            .order_by(Order.created_at.desc())
+            .all()
+        )
+
+        return jsonify(
+            [
+                {
+                    "id": o.id,
+                    "total_amount": o.total_amount,
+                    "status": o.status,
+                    "message": o.message,
+                    "created_at": o.created_at.isoformat(),
+                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+                    "items": [
+                        {
+                            "id": item.id,
+                            "product_id": item.product_id,
+                            "quantity": item.quantity,
+                            "price_at_time": item.price_at_time,
+                            "product_name": item.product.name if item.product else "Unknown Product",
+                        }
+                        for item in o.items
+                    ],
+                }
+                for o in orders
+            ]
+        ), 200
+    finally:
+        db.close()
+
+
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
 @dual_auth_required
 @error_handler
