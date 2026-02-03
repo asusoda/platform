@@ -517,7 +517,7 @@ def purchase_products(org_prefix):
     # Ensure create_order's expectation of request.clerk_user_email is met even for Discord-auth flows
     if not hasattr(request, "clerk_user_email"):
         # For Discord-authenticated users, there may be no Clerk email; use None as a safe default.
-        setattr(request, "clerk_user_email", None)
+        request.clerk_user_email = None
     return create_order(org_prefix)  # Reuse the create_order function
 
 
@@ -809,7 +809,7 @@ def get_user_points_public(org_prefix, **kwargs):
 
 
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def get_user_wallet_clerk(org_prefix, user_email):
     """Get user wallet/points using dual authentication"""
