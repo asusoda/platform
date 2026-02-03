@@ -309,12 +309,12 @@ def member_required(f):
                 logger.debug("Member authentication successful!")
                 return f(*args, **kwargs)
 
-            except Exception as e:
+            except Exception:
                 # Log full exception details server-side without exposing them to the client
                 logger.exception("Error checking guild membership")
                 return jsonify({"message": "Error verifying membership"}), 500
 
-        except Exception as e:
+        except Exception:
             # Log full exception details server-side without exposing them to the client
             logger.exception("General error in member_required")
             return jsonify({"message": "Internal server error"}), 500
