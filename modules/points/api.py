@@ -9,6 +9,7 @@ from sqlalchemy import and_, func, or_
 
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
+from modules.utils.logging_config import logger
 from shared import db_connect, tokenManger
 
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
@@ -344,7 +345,8 @@ def member_login(org_prefix):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in getPointsByUser: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving user points"}), 500
     finally:
         db.close()
 
@@ -433,7 +435,8 @@ def get_member_profile(org_prefix):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in getAllPointsByUser: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving user points across organizations"}), 500
     finally:
         db.close()
 
@@ -495,7 +498,8 @@ def manage_user(org_prefix):
         ), 201 if "created" in message else 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in createOrUpdateUserByOrgPrefix: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while creating or updating user"}), 500
     finally:
         db.close()
 
@@ -547,7 +551,8 @@ def add_points_to_org(org_prefix):
 
     except Exception as e:
         db.rollback()
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Error in addPointsToUserByAsuId: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while adding points"}), 400
     finally:
         db.close()
 
@@ -614,7 +619,8 @@ def get_org_users(org_prefix):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Error in uploadEventCSV: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while processing CSV upload"}), 400
     finally:
         db.close()
 
@@ -653,7 +659,8 @@ def get_org_points(org_prefix):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Error in getAllPointsRecords: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving points records"}), 400
     finally:
         db.close()
 
@@ -777,7 +784,8 @@ def get_org_leaderboard(org_prefix):
         return jsonify(response_payload), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Error in getLeaderboard: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving leaderboard"}), 400
     finally:
         db.close()
 
@@ -856,7 +864,8 @@ def get_user_points_in_org(org_prefix):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Error in getPointsHistoryByDiscordId: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving points history"}), 400
     finally:
         db.close()
 
@@ -902,7 +911,8 @@ def get_user_total_points_in_org(org_prefix):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Error in getUserPointsByDiscordId: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving user points"}), 400
     finally:
         db.close()
 
@@ -984,7 +994,8 @@ def assign_points_to_org(org_prefix):
 
     except Exception as e:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in addPointsByDiscordId: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while adding points"}), 500
     finally:
         db.close()
 
@@ -1040,7 +1051,8 @@ def delete_points_by_event(org_prefix):
 
     except Exception as e:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in deletePointsById: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while deleting points"}), 500
     finally:
         db.close()
 
@@ -1120,7 +1132,8 @@ def update_user_fields_endpoint(org_prefix, user_identifier):
 
     except Exception as e:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in updateUserPointsByAsuId: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while updating user points"}), 500
     finally:
         db.close()
 
@@ -1193,6 +1206,7 @@ def get_user_points_in_org_by_identifier(org_prefix, user_identifier):
         ), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in getUserPointsByAsuId: {e}", exc_info=True)
+        return jsonify({"error": "An error occurred while retrieving user points"}), 500
     finally:
         db.close()
