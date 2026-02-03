@@ -264,7 +264,7 @@ class DateParser:
                 return start_date_dict.copy()
 
         # Should not happen if start_date_dict is valid from parse_notion_date
-        logger.error(f"Start date object is in an unexpected format: {start_date_dict}. Using start as end.")
+        logger.error("Start date object is in an unexpected format. Using start as end.")
         return start_date_dict.copy()
 
 
