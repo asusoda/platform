@@ -2,6 +2,7 @@ version: '3.8'
 services:
   api:
     volumes:
+      - ./data:/app/data
       - ./modules:/app/modules
       - ./main.py:/app/main.py
       - ./shared.py:/app/shared.py

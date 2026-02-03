@@ -1,10 +1,9 @@
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
-import logging
 
-from modules.auth.decoraters import auth_required, error_handler, member_required
+from modules.auth.decoraters import auth_required, dual_auth_required, error_handler, member_required
 from modules.storefront.models import Order, OrderItem, Product
-from modules.utils.clerk_auth import require_clerk_auth
 from modules.utils.db import DBConnect
 
 storefront_blueprint = Blueprint("storefront", __name__)
