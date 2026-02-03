@@ -34,19 +34,19 @@ This module handles the storefront functionality, including product management a
 ### Products
 
 #### Get All Products
-- **GET** `/products`
-- Returns a list of all products
+- **GET** `/<org_prefix>/products`
+- Returns a list of all products for an organization
 - No authentication required
 
 #### Get Single Product
-- **GET** `/products/<product_id>`
+- **GET** `/<org_prefix>/products/<product_id>`
 - Returns details of a specific product
 - No authentication required
 
 #### Create Product
-- **POST** `/products`
+- **POST** `/<org_prefix>/products`
 - Creates a new product
-- Requires authentication
+- **Requires dual authentication** (Clerk or Discord)
 - Request body:
   ```json
   {
@@ -59,27 +59,48 @@ This module handles the storefront functionality, including product management a
   ```
 
 #### Update Product
-- **PUT** `/products/<product_id>`
+- **PUT** `/<org_prefix>/products/<product_id>`
 - Updates an existing product
-- Requires authentication
+- **Requires dual authentication** (Clerk or Discord)
 - Request body: Same as create product, all fields optional
 
 #### Delete Product
-- **DELETE** `/products/<product_id>`
+- **DELETE** `/<org_prefix>/products/<product_id>`
 - Deletes a product
-- Requires authentication
+- **Requires dual authentication** (Clerk or Discord)
 
 ### Orders
 
 #### Get All Orders
-- **GET** `/orders`
+- **GET** `/<org_prefix>/orders`
 - Returns a list of all orders
-- Requires authentication
+- **Requires dual authentication** (Clerk or Discord)
+
+#### Get Single Order
+- **GET** `/<org_prefix>/orders/<order_id>`
+- Returns details of a specific order
+- **Requires dual authentication** (Clerk or Discord)
+
+#### Update Order Status
+- **PUT** `/<org_prefix>/orders/<order_id>`
+- Updates an order's status
+- **Requires dual authentication** (Clerk or Discord)
+- Request body:
+  ```json
+  {
+    "status": "completed"
+  }
+  ```
+
+#### Delete Order
+- **DELETE** `/<org_prefix>/orders/<order_id>`
+- Deletes an order
+- **Requires dual authentication** (Clerk or Discord)
 
 #### Create Order
-- **POST** `/orders`
+- **POST** `/<org_prefix>/orders`
 - Creates a new order
-- Requires authentication
+- **Requires Clerk authentication**
 - Request body:
   ```json
   {
@@ -97,11 +118,32 @@ This module handles the storefront functionality, including product management a
 
 ## Authentication
 
-All protected endpoints require Discord authentication. The authentication token should be included in the request header:
+Protected endpoints support **dual authentication** - both Clerk (for website users) and Discord (for admin dashboard) tokens are accepted.
+
+### Supported Authentication Methods
+
+1. **Clerk Authentication** (Website Users)
+   - Used by the public-facing website
+   - Requires Clerk session token
+   - Returns user email for identification
+
+2. **Discord Authentication** (Admin Dashboard)
+   - Used by the admin dashboard
+   - Supports both session cookies and JWT tokens
+   - Validates against Discord bot for permissions
+
+### Usage
+
+Include the authentication token in the request header:
 
 ```
 Authorization: Bearer <token>
 ```
+
+The system automatically detects the token type and validates accordingly:
+- Clerk tokens are validated first
+- If Clerk validation fails, Discord authentication is attempted
+- Session cookies are also supported for Discord authentication
 
 ## Error Handling
 

@@ -1,14 +1,15 @@
 # modules/calendar/api.py
-from flask import Blueprint, jsonify, request, current_app # Add current_app
+from flask import Blueprint, current_app, jsonify  # Add current_app
+from sentry_sdk import set_tag, start_transaction
+
+from modules.auth.decoraters import auth_required
+from modules.organizations.models import Organization
 
 # Assuming shared resources are correctly set up
-from shared import logger, config, db_connect # Remove calendar_service import
-from sentry_sdk import start_transaction, capture_exception, set_tag
+from shared import db_connect, logger  # Remove calendar_service import
 
 # Import the new service and error handler
 from .errors import APIErrorHandler
-from modules.organizations.models import Organization
-from modules.auth.decoraters import auth_required
 
 # Initialize the service and a top-level error handler for routes
 route_error_handler = APIErrorHandler(logger, "CalendarAPI_Route")
@@ -16,21 +17,19 @@ route_error_handler = APIErrorHandler(logger, "CalendarAPI_Route")
 # Create Flask Blueprint
 calendar_blueprint = Blueprint("calendar", __name__)
 
+
 @calendar_blueprint.route("/debug/organizations", methods=["GET"])
 def debug_organizations():
     """Debug endpoint to list all organizations."""
     try:
         with next(db_connect.get_db()) as session:
-            orgs = session.query(Organization).filter(Organization.is_active == True).all()
+            orgs = session.query(Organization).filter(Organization.is_active).all()
             org_list = [{"id": org.id, "name": org.name, "prefix": org.prefix} for org in orgs]
-            return jsonify({
-                "status": "success",
-                "organizations": org_list,
-                "count": len(org_list)
-            })
+            return jsonify({"status": "success", "organizations": org_list, "count": len(org_list)})
     except Exception as e:
         logger.error(f"Error in debug_organizations: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @calendar_blueprint.route("/<org_prefix>/events", methods=["GET"])
 def get_organization_events(org_prefix):
@@ -48,39 +47,29 @@ def get_organization_events(org_prefix):
     try:
         with next(db_connect.get_db()) as session:
             # Get organization by prefix
-            org = session.query(Organization).filter(
-                Organization.prefix == org_prefix,
-                Organization.is_active == True
-            ).first()
-            
+            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+
             if not org:
                 # Check if organization exists but is inactive
-                inactive_org = session.query(Organization).filter(
-                    Organization.prefix == org_prefix
-                ).first()
-                
+                inactive_org = session.query(Organization).filter(Organization.prefix == org_prefix).first()
+
                 if inactive_org:
                     logger.warning(f"Organization with prefix '{org_prefix}' exists but is inactive")
-                    return jsonify({
-                        "status": "error", 
-                        "message": f"Organization '{org_prefix}' exists but is inactive"
-                    }), 403
+                    return jsonify(
+                        {"status": "error", "message": f"Organization '{org_prefix}' exists but is inactive"}
+                    ), 403
                 else:
                     logger.warning(f"Organization with prefix '{org_prefix}' not found")
-                    return jsonify({
-                        "status": "error", 
-                        "message": f"Organization '{org_prefix}' not found"
-                    }), 404
+                    return jsonify({"status": "error", "message": f"Organization '{org_prefix}' not found"}), 404
 
             # Check if organization has calendar configuration
             if not org.notion_database_id:
-                return jsonify({
-                    "status": "error",
-                    "message": f"Organization '{org_prefix}' has no Notion database configured"
-                }), 400
+                return jsonify(
+                    {"status": "error", "message": f"Organization '{org_prefix}' has no Notion database configured"}
+                ), 400
 
             # Get events using multi-org service
-            events_result = current_app.multi_org_calendar_service.get_organization_events_for_frontend(
+            events_result = current_app.multi_org_calendar_service.get_organization_events_for_frontend(  # type: ignore[attr-defined]
                 org.id, transaction
             )
 
@@ -101,6 +90,7 @@ def get_organization_events(org_prefix):
         if session:
             session.close()
 
+
 @calendar_blueprint.route("/<org_prefix>/sync", methods=["POST"])
 @auth_required
 def sync_organization_calendar(org_prefix):
@@ -119,19 +109,14 @@ def sync_organization_calendar(org_prefix):
     try:
         with next(db_connect.get_db()) as session:
             # Get organization by prefix
-            org = session.query(Organization).filter(
-                Organization.prefix == org_prefix,
-                Organization.is_active == True
-            ).first()
-            
+            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
 
             # Sync using multi-org service
-            sync_result = current_app.multi_org_calendar_service.sync_organization_notion_to_google(
-                org.id, transaction
-            )
+            sync_result = current_app.multi_org_calendar_service.sync_organization_notion_to_google(org.id, transaction)  # type: ignore[attr-defined]
 
             if sync_result.get("status") == "error":
                 logger.error(f"Failed to sync org {org_prefix}: {sync_result.get('message')}")
@@ -147,6 +132,7 @@ def sync_organization_calendar(org_prefix):
         route_error_handler.transaction = None
         if transaction:
             transaction.finish()
+
 
 @calendar_blueprint.route("/<org_prefix>/setup", methods=["POST"])
 @auth_required
@@ -166,28 +152,27 @@ def setup_organization_calendar(org_prefix):
     try:
         with next(db_connect.get_db()) as session:
             # Get organization by prefix
-            org = session.query(Organization).filter(
-                Organization.prefix == org_prefix,
-                Organization.is_active == True
-            ).first()
-            
+            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
 
             # Ensure calendar exists
-            calendar_id = current_app.multi_org_calendar_service.ensure_organization_calendar(
+            calendar_id = current_app.multi_org_calendar_service.ensure_organization_calendar(  # type: ignore[attr-defined]
                 org.id, org.name, transaction
             )
 
             if calendar_id:
                 logger.info(f"Successfully set up calendar {calendar_id} for org {org_prefix}")
-                return jsonify({
-                    "status": "success",
-                    "message": f"Calendar set up for organization {org_prefix}",
-                    "calendar_id": calendar_id,
-                    "organization_id": org.id
-                }), 200
+                return jsonify(
+                    {
+                        "status": "success",
+                        "message": f"Calendar set up for organization {org_prefix}",
+                        "calendar_id": calendar_id,
+                        "organization_id": org.id,
+                    }
+                ), 200
             else:
                 logger.error(f"Failed to set up calendar for org {org_prefix}")
                 return jsonify({"status": "error", "message": "Failed to set up calendar"}), 500
@@ -199,6 +184,7 @@ def setup_organization_calendar(org_prefix):
         route_error_handler.transaction = None
         if transaction:
             transaction.finish()
+
 
 @calendar_blueprint.route("/sync-all", methods=["POST"])
 @auth_required
@@ -216,7 +202,7 @@ def sync_all_organizations():
 
     try:
         # Sync all organizations using multi-org service
-        sync_result = current_app.multi_org_calendar_service.sync_all_organizations(transaction)
+        sync_result = current_app.multi_org_calendar_service.sync_all_organizations(transaction)  # type: ignore[attr-defined]
 
         if sync_result.get("status") == "error":
             logger.error(f"Failed to sync all organizations: {sync_result.get('message')}")
@@ -233,6 +219,7 @@ def sync_all_organizations():
         if transaction:
             transaction.finish()
 
+
 # Legacy endpoints for backward compatibility (deprecated)
 @calendar_blueprint.route("/notion-webhook", methods=["POST"])
 def notion_webhook():
@@ -242,24 +229,28 @@ def notion_webhook():
     logger.warning("Legacy /notion-webhook endpoint called. This will sync all organizations.")
     return sync_all_organizations()
 
+
 @calendar_blueprint.route("/events", methods=["GET"])
 def get_calendar_events_for_frontend():
     """
     Legacy endpoint - returns error as this requires organization context.
     """
-    return jsonify({
-        "status": "error", 
-        "message": "This endpoint requires organization context. Use /api/calendar/{org_prefix}/events instead."
-    }), 400
+    return jsonify(
+        {
+            "status": "error",
+            "message": "This endpoint requires organization context. Use /api/calendar/{org_prefix}/events instead.",
+        }
+    ), 400
+
 
 @calendar_blueprint.route("/delete-all-events", methods=["POST"])
 def delete_all_calendar_events():
     """
     Legacy endpoint - returns error as this requires organization context.
     """
-    return jsonify({
-        "status": "error", 
-        "message": "This endpoint requires organization context. Use organization-specific endpoints instead."
-    }), 400
-
-
+    return jsonify(
+        {
+            "status": "error",
+            "message": "This endpoint requires organization context. Use organization-specific endpoints instead.",
+        }
+    ), 400

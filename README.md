@@ -77,6 +77,23 @@ make build
 make deploy
 ```
 
+## Code Quality
+
+This project uses ruff for linting/formatting and ty for type checking. Git hooks via pre-commit run these automatically.
+
+**Setup:**
+```bash
+uv sync                    # Install dependencies
+uv run pre-commit install  # Install git hooks
+```
+
+**Manual runs:**
+```bash
+uv run ruff check --fix .  # Lint and auto-fix
+uv run ruff format .       # Format code
+uv run ty check .          # Type check
+```
+
 
 ## Contributing
 

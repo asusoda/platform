@@ -2,7 +2,9 @@ name: Pytest
 
 on:
   push:
+    branches: [main, master]
   pull_request:
+    branches: [main, master]
 
 env:
   DOCKER_BUILDKIT: 1
