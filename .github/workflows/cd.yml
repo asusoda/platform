@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to Production
