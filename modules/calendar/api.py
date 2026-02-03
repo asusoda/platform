@@ -69,7 +69,7 @@ def get_organization_events(org_prefix):
                 ), 400
 
             # Get events using multi-org service
-            events_result = current_app.multi_org_calendar_service.get_organization_events_for_frontend(
+            events_result = current_app.multi_org_calendar_service.get_organization_events_for_frontend(  # type: ignore[attr-defined]
                 org.id, transaction
             )
 
@@ -116,7 +116,7 @@ def sync_organization_calendar(org_prefix):
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
 
             # Sync using multi-org service
-            sync_result = current_app.multi_org_calendar_service.sync_organization_notion_to_google(org.id, transaction)
+            sync_result = current_app.multi_org_calendar_service.sync_organization_notion_to_google(org.id, transaction)  # type: ignore[attr-defined]
 
             if sync_result.get("status") == "error":
                 logger.error(f"Failed to sync org {org_prefix}: {sync_result.get('message')}")
@@ -159,7 +159,7 @@ def setup_organization_calendar(org_prefix):
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
 
             # Ensure calendar exists
-            calendar_id = current_app.multi_org_calendar_service.ensure_organization_calendar(
+            calendar_id = current_app.multi_org_calendar_service.ensure_organization_calendar(  # type: ignore[attr-defined]
                 org.id, org.name, transaction
             )
 
@@ -202,7 +202,7 @@ def sync_all_organizations():
 
     try:
         # Sync all organizations using multi-org service
-        sync_result = current_app.multi_org_calendar_service.sync_all_organizations(transaction)
+        sync_result = current_app.multi_org_calendar_service.sync_all_organizations(transaction)  # type: ignore[attr-defined]
 
         if sync_result.get("status") == "error":
             logger.error(f"Failed to sync all organizations: {sync_result.get('message')}")
