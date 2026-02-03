@@ -32,7 +32,7 @@ class HelperCog(commands.Cog):
         self.message_listen_for = []
         logger.info("HelperCog initialized")
 
-    async def create_category(self, guild: discord.Guild, name: str, position: int | None = 0):
+    async def create_category(self, guild: discord.Guild, name: str, position: int | None = None):
         """
         Creates a new category in the guild.
 
@@ -91,7 +91,10 @@ class HelperCog(commands.Cog):
         category (discord.CategoryChannel): The category to create the channel in.
         overwrites (dict, optional): A dictionary of role overwrites.
         """
-        channel = await guild.create_voice_channel(name, category=category, overwrites=overwrites)
+        if overwrites is None:
+            channel = await guild.create_voice_channel(name, category=category)
+        else:
+            channel = await guild.create_voice_channel(name, category=category, overwrites=overwrites)
         logger.debug(f"Created voice channel '{name}' in guild {guild.name}")
         return channel
 
@@ -104,7 +107,10 @@ class HelperCog(commands.Cog):
         name (str): The name of the role.
         colour (discord.Colour, optional): The colour of the role.
         """
-        role = await guild.create_role(name=name, colour=colour)
+        if colour is None:
+            role = await guild.create_role(name=name)
+        else:
+            role = await guild.create_role(name=name, colour=colour)
         logger.debug(f"Created role '{name}' in guild {guild.name}")
         return role
 
