@@ -709,9 +709,7 @@ def get_org_leaderboard(org_prefix):
                 User.name,
                 User.email,
                 User.uuid,
-                func.coalesce(func.sum(case((Points.points > 0, Points.points), else_=0)), 0).label(
-                    "total_points"
-                ),
+                func.coalesce(func.sum(case((Points.points > 0, Points.points), else_=0)), 0).label("total_points"),
             )
             .select_from(User)
             .outerjoin(
