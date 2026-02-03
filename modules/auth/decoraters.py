@@ -220,7 +220,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot from Flask app context...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot:
                         logger.debug("Auth bot not found in Flask app context!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -260,7 +260,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot for username lookup...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
                         logger.debug("Auth bot not available for username lookup!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -366,7 +366,7 @@ def member_required(f):
 
             # Check if user is a member using the bot (same pattern as auth_required)
             try:
-                auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+                auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
 
                 if not auth_bot:
                     logger.debug("Discord bot not available")

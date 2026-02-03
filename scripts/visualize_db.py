@@ -9,7 +9,7 @@ import sqlite3
 import sys
 from datetime import datetime
 
-from tabulate import tabulate
+from tabulate import tabulate  # type: ignore[import-untyped]
 
 
 def get_db_path():

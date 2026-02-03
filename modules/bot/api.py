@@ -198,7 +198,7 @@ def get_game():
 
 @game_blueprint.route("/setactivegame", methods=["POST"])
 async def set_active_game():
-    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
     if not bot or not bot.is_ready():  # type: ignore[attr-defined]
         logger.warning("Auth bot not ready or not available for /setactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -304,7 +304,7 @@ def get_active_game_state():
             state = cog.game.get_state()
             return jsonify(state), 200
         # Fallback for direct access if `active_game` was a custom attribute on your bot instance
-        elif hasattr(bot, "active_game") and bot.active_game not in [None, ""]:  # type: ignore[attr-defined]
+        elif hasattr(bot, "active_game") and bot.active_game not in [None, ""]:
             return jsonify(bot.active_game.get_state()), 200  # type: ignore[attr-defined]
         else:
             logger.info("No active game or state found in GameCog or bot")

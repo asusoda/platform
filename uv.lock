@@ -1703,7 +1703,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.11.16" },
+    { name = "aiohttp", specifier = ">=3.13.3" },
     { name = "aiosignal", specifier = "==1.4.0" },
     { name = "anthropic", specifier = ">=0.64.0" },
     { name = "apscheduler", specifier = ">=3.11.0" },

@@ -1,6 +1,6 @@
 import discord
 
-from modules.bot.discord_modules.cogs import GameCog
+from modules.bot.discord_modules.cogs.GameCog import GameCog
 from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
 
 

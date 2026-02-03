@@ -104,7 +104,7 @@ class GameCog(commands.Cog):
         self.question_post = {}
         return True
 
-    def add_member(self, member: discord.User) -> bool:
+    def add_member(self, member: discord.Member) -> bool:
         """
         Adds a member to the current game.
 
@@ -186,6 +186,9 @@ class GameCog(commands.Cog):
         """
         Asynchronously sets up the game environment in the Discord server.
         """
+        if self.game is None:
+            return False
+
         self.guild = self.bot.guilds[0]
 
         category = await self.guild.create_category("Jeopardy")
@@ -210,8 +213,8 @@ class GameCog(commands.Cog):
             description="Get ready for an exciting evening of trivia and fun!",
             color=discord.Color.random(),
         )
-        embed.add_field(name="Date", value=self.date, inline=False)
-        embed.add_field(name="Time", value=self.time, inline=False)
+        embed.add_field(name="Date", value=self.date or "TBD", inline=False)
+        embed.add_field(name="Time", value=self.time or "TBD", inline=False)
         embed.add_field(name="Location", value="The SoDA Discord Server", inline=False)
         embed.add_field(name="How to Enroll?", value="React with ✅.", inline=False)
         embed.set_footer(text="React with ✅ to enroll!")
@@ -229,6 +232,8 @@ class GameCog(commands.Cog):
         """
         if uuid in self.question_post.keys():
             question_data = self.game.get_question_by_uuid(uuid)
+            if question_data is None or self.stage is None:
+                return
             embed = discord.Embed(
                 title="🌟QUESTION🌟",
                 description="Here is the question again! \n",
@@ -247,6 +252,8 @@ class GameCog(commands.Cog):
             await self.question_post[uuid]["message_id"].edit(embed=embed, view=question)
         else:
             question_data = self.game.get_question_by_uuid(uuid)
+            if question_data is None or self.stage is None:
+                return
             embed = discord.Embed(
                 title="🌟QUESTION🌟",
                 description="Here is the question! \n",
@@ -375,7 +382,7 @@ class GameCog(commands.Cog):
         await self.announcement_channel.send(embed=embed)
         return True
 
-    def get_member_role(self, member) -> discord.Role:
+    def get_member_role(self, member) -> discord.Role | None:
         """
         Retrieves the role assigned to a member.
 
@@ -383,7 +390,7 @@ class GameCog(commands.Cog):
             member (discord.Member): The member to retrieve the role for.
 
         Returns:
-            discord.Role: The role assigned to the member.
+            discord.Role | None: The role assigned to the member, or None if not found.
         """
         for role in self.roles:
             if role in member.roles:
