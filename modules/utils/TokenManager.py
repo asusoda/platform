@@ -258,7 +258,7 @@ class TokenManager:
         try:
             self.decode_token(token)
             return True
-        except jwt.InvalidSignatureError:
+        except jwt.InvalidTokenError:
             return False
 
     def is_token_expired(self, token):

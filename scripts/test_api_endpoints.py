@@ -121,6 +121,11 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
 # --- Test Functions for Each Module ---
 
 
+def test_health_endpoint():
+    print("\n========== Testing Health Endpoint ==========")
+    make_request("GET", "/health", headers=NO_AUTH_HEADERS, description="Health Check - Includes commit hash")
+
+
 def test_auth_endpoints():
     print("\n========== Testing Auth Endpoints ==========")
     make_request("GET", "/auth/login", headers=NO_AUTH_HEADERS, description="Auth Login Redirect")
@@ -516,6 +521,7 @@ if __name__ == "__main__":
     # This is a simplified way; a proper test setup might use fixtures or a shared context.
     # For now, just running tests sequentially.
 
+    test_health_endpoint()
     test_auth_endpoints()
     test_points_endpoints()  # This function now uses a dynamic email
     test_public_endpoints()
