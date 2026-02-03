@@ -113,7 +113,8 @@ def initialize_app():
     # Start Flask app
     # Enable debug and reloader based on IS_PROD environment variable
     is_prod = os.environ.get("IS_PROD", "").lower() == "true"
-    app.run(host="0.0.0.0", port=8000, debug=not is_prod, use_reloader=not is_prod)
+    # Binding to 0.0.0.0 is required for Docker container accessibility
+    app.run(host="0.0.0.0", port=8000, debug=not is_prod, use_reloader=not is_prod)  # nosec B104
 
 
 if __name__ == "__main__":

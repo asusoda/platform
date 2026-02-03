@@ -56,6 +56,7 @@ def callback():
             "redirect_uri": REDIRECT_URI,
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=30,  # Add timeout to prevent hanging requests
     )
     token_response_data = token_response.json()
 
@@ -66,7 +67,7 @@ def callback():
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         }
-        user_response = requests.get("https://discord.com/api/v10/users/@me", headers=headers)
+        user_response = requests.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=30)
         user_info = user_response.json()
         user_id = user_info["id"]
         officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)

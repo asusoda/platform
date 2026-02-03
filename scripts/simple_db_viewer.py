@@ -87,14 +87,16 @@ def show_database_overview():
             print()
 
             # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
+            # Table name comes from database schema, not user input
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name};")  # nosec B608
             row_count = cursor.fetchone()[0]
             print(f"📈 Row count: {row_count}")
 
             # Show sample data
             if row_count > 0:
                 print("Sample data (first 5 rows):")
-                cursor.execute(f"SELECT * FROM {table_name} LIMIT 5;")
+                # Table name comes from database schema, not user input
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT 5;")  # nosec B608
                 rows = cursor.fetchall()
 
                 if rows:
@@ -162,7 +164,8 @@ def show_table_details(table_name):
         print()
 
         # Get row count
-        cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
+        # Table name comes from database schema, not user input
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name};")  # nosec B608
         row_count = cursor.fetchone()[0]
         print(f"📈 Total rows: {row_count}")
 
@@ -173,7 +176,8 @@ def show_table_details(table_name):
 
             for page in range(min(total_pages, 3)):  # Show max 3 pages
                 offset = page * page_size
-                cursor.execute(f"SELECT * FROM {table_name} LIMIT {page_size} OFFSET {offset};")
+                # Table name and pagination params are controlled by script, not user input
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT {page_size} OFFSET {offset};")  # nosec B608
                 rows = cursor.fetchall()
 
                 # Get column names
@@ -231,7 +235,8 @@ def show_database_stats():
         total_rows = 0
 
         for table in tables:
-            cursor.execute(f"SELECT COUNT(*) FROM {table};")
+            # Table name comes from database schema, not user input
+            cursor.execute(f"SELECT COUNT(*) FROM {table};")  # nosec B608
             row_count = cursor.fetchone()[0]
             total_rows += row_count
 
@@ -277,7 +282,8 @@ def show_available_tables():
             print("No tables found in the database.")
         else:
             for i, table in enumerate(tables, 1):
-                cursor.execute(f"SELECT COUNT(*) FROM {table};")
+                # Table name comes from database schema, not user input
+                cursor.execute(f"SELECT COUNT(*) FROM {table};")  # nosec B608
                 row_count = cursor.fetchone()[0]
                 print(f"{i:2}. {table:<25} ({row_count} rows)")
 

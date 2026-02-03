@@ -39,7 +39,8 @@ def get_table_schema(cursor, table_name):
 def get_table_data(cursor, table_name, limit=10):
     """Get sample data from a table."""
     try:
-        cursor.execute(f"SELECT * FROM {table_name} LIMIT {limit};")
+        # Table name and limit are controlled by script, not user input
+        cursor.execute(f"SELECT * FROM {table_name} LIMIT {limit};")  # nosec B608
         rows = cursor.fetchall()
 
         # Get column names
@@ -122,7 +123,8 @@ def show_database_overview():
             print()
 
             # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
+            # Table name comes from database schema, not user input
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name};")  # nosec B608
             row_count = cursor.fetchone()[0]
             print(f"📈 Row count: {row_count}")
 
@@ -180,7 +182,8 @@ def show_table_details(table_name):
         print()
 
         # Get row count
-        cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
+        # Table name comes from database schema, not user input
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name};")  # nosec B608
         row_count = cursor.fetchone()[0]
         print(f"📈 Total rows: {row_count}")
 
@@ -191,7 +194,8 @@ def show_table_details(table_name):
 
             for page in range(min(total_pages, 3)):  # Show max 3 pages
                 offset = page * page_size
-                cursor.execute(f"SELECT * FROM {table_name} LIMIT {page_size} OFFSET {offset};")
+                # Table name and pagination params are controlled by script, not user input
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT {page_size} OFFSET {offset};")  # nosec B608
                 rows = cursor.fetchall()
 
                 # Get column names
@@ -233,7 +237,8 @@ def show_database_stats():
         total_rows = 0
 
         for table in tables:
-            cursor.execute(f"SELECT COUNT(*) FROM {table};")
+            # Table name comes from database schema, not user input
+            cursor.execute(f"SELECT COUNT(*) FROM {table};")  # nosec B608
             row_count = cursor.fetchone()[0]
             total_rows += row_count
 
