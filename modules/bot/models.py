@@ -1,5 +1,6 @@
+from sqlalchemy import JSON, Column, Integer, String
+
 from modules.utils.base import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, JSON
 
 
 class JeopardyGame(Base):

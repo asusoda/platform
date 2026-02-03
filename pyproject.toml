@@ -45,7 +45,7 @@ dependencies = [
     "simple-websocket==1.0.0",
     "sqlalchemy==2.0.30",
     "typing-extensions>=4.13.1",
-    "urllib3==2.5.0",
+    "urllib3==2.6.3",
     "werkzeug==3.0.6",
     "wsproto==1.2.0",
     "yarl>=1.18.3",
@@ -95,4 +95,30 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
+    "ruff>=0.8.7",
+    "ty>=0.0.14",
+    "bandit>=1.7.0",
+    "pre-commit>=4.0.0",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

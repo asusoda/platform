@@ -1,12 +1,10 @@
-from shared import tokenManger
-from flask import request, jsonify, session, current_app
-from shared import db_connect
-from dotenv import load_dotenv
 import functools
-import os
-from functools import wraps
 import logging
-from shared import config
+from functools import wraps
+
+from flask import current_app, jsonify, request, session
+
+from shared import config, tokenManger
 
 logger = logging.getLogger(__name__)
 
@@ -16,20 +14,21 @@ def auth_required(f):
     A decorator for Flask endpoints to ensure the user is authenticated.
     Checks both session cookies and Authorization headers.
     """
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         # Check session cookie first
-        if session.get('token'):
+        if session.get("token"):
             try:
-                if not tokenManger.is_token_valid(session['token']):
-                    session.pop('token', None)
+                if not tokenManger.is_token_valid(session["token"]):
+                    session.pop("token", None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManger.is_token_expired(session['token']):
-                    session.pop('token', None)
+                elif tokenManger.is_token_expired(session["token"]):
+                    session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
                 return f(*args, **kwargs)
-            except Exception as e:
-                session.pop('token', None)
+            except Exception:
+                session.pop("token", None)
                 return jsonify({"message": "Session authentication failed!"}), 401
 
         # If no session, check Authorization header (for API calls)
@@ -42,10 +41,10 @@ def auth_required(f):
 
         try:
             if not tokenManger.is_token_valid(token):
-                print("Token is invalid")
+                logger.debug("Token is invalid")
                 return jsonify({"message": "Token is invalid!"}), 401
             elif tokenManger.is_token_expired(token):
-                print("Token is expired")
+                logger.debug("Token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
             return f(*args, **kwargs)
         except Exception as e:
@@ -59,167 +58,170 @@ def superadmin_required(f):
     A decorator for API endpoints to ensure the user is a superadmin.
     Checks authentication and superadmin role.
     """
+
     @wraps(f)
     def wrapper(*args, **kwargs):
-        print(f"🔍 [DEBUG] superadmin_required called for function: {f.__name__}")
-        print(f"🔍 [DEBUG] Request method: {request.method}")
-        print(f"🔍 [DEBUG] Request headers: {dict(request.headers)}")
-        
+        logger.debug(f"superadmin_required called for function: {f.__name__}")
+        logger.debug(f"Request method: {request.method}")
+
         # First check authentication
         token = None
-        
+
         # Check session cookie first
-        print(f"🔍 [DEBUG] Checking session token...")
-        if session.get('token'):
-            token = session.get('token')
-            print(f"🔍 [DEBUG] Found session token: {token[:20]}...")
+        logger.debug("Checking session token...")
+        if session.get("token"):
+            token = session.get("token")
+            logger.debug("Found session token")
             try:
-                print(f"🔍 [DEBUG] Validating session token...")
+                logger.debug("Validating session token...")
                 if not tokenManger.is_token_valid(token):
-                    print(f"❌ [DEBUG] Session token is invalid!")
+                    logger.debug("Session token is invalid!")
                     return jsonify({"message": "Token is invalid!"}), 401
                 elif tokenManger.is_token_expired(token):
-                    print(f"❌ [DEBUG] Session token is expired!")
+                    logger.debug("Session token is expired!")
                     return jsonify({"message": "Token is expired!"}), 403
-                
-                print(f"🔍 [DEBUG] Session token is valid, checking role...")
-                user_role = session.get('user', {}).get('role')
-                print(f"🔍 [DEBUG] User role from session: {user_role}")
-                
+
+                logger.debug("Session token is valid, checking role...")
+                user_role = session.get("user", {}).get("role")
+                logger.debug(f"User role from session: {user_role}")
+
                 # Check superadmin role from session
-                if user_role != 'admin':
-                    print(f"❌ [DEBUG] User role '{user_role}' is not admin!")
+                if user_role != "admin":
+                    logger.debug(f"User role '{user_role}' is not admin!")
                     return jsonify({"message": "Superadmin access required!"}), 403
-                
-                print(f"✅ [DEBUG] Session authentication successful!")
+
+                logger.debug("Session authentication successful!")
                 return f(*args, **kwargs)
             except Exception as e:
-                print(f"❌ [DEBUG] Error validating session token: {e}")
+                logger.debug(f"Error validating session token: {e}")
                 return jsonify({"message": str(e)}), 401
-        
+
         # Check Authorization header (for API calls)
-        print(f"🔍 [DEBUG] No session token, checking Authorization header...")
+        logger.debug("No session token, checking Authorization header...")
         if "Authorization" in request.headers:
             auth_header = request.headers["Authorization"]
-            print(f"🔍 [DEBUG] Authorization header: {auth_header[:50]}...")
+            logger.debug("Authorization header present")
             if auth_header.startswith("Bearer "):
                 token = auth_header.split(" ")[1]
-                print(f"🔍 [DEBUG] Extracted Bearer token: {token[:20]}...")
+                logger.debug("Extracted Bearer token")
             else:
-                print(f"❌ [DEBUG] Authorization header doesn't start with 'Bearer '")
+                logger.debug("Authorization header doesn't start with 'Bearer '")
                 return jsonify({"message": "Invalid Authorization header format!"}), 401
-        
+
         if not token:
-            print(f"❌ [DEBUG] No token found in session or Authorization header!")
+            logger.debug("No token found in session or Authorization header!")
             return jsonify({"message": "Authentication required!"}), 401
 
         try:
-            print(f"🔍 [DEBUG] Validating API token...")
+            logger.debug("Validating API token...")
             if not tokenManger.is_token_valid(token):
-                print(f"❌ [DEBUG] API token is invalid!")
+                logger.debug("API token is invalid!")
                 return jsonify({"message": "Token is invalid!"}), 401
             elif tokenManger.is_token_expired(token):
-                print(f"❌ [DEBUG] API token is expired!")
+                logger.debug("API token is expired!")
                 return jsonify({"message": "Token is expired!"}), 403
-            
-            print(f"🔍 [DEBUG] API token is valid, decoding...")
+
+            logger.debug("API token is valid, decoding...")
             # For API calls, we need to verify superadmin status from the token
             token_data = tokenManger.decode_token(token)
             if not token_data:
-                print(f"❌ [DEBUG] Failed to decode token data!")
+                logger.debug("Failed to decode token data!")
                 return jsonify({"message": "Invalid token data!"}), 401
-            
-            print(f"🔍 [DEBUG] Token data: {token_data}")
-            
+
+            logger.debug("Token decoded successfully")
+
             # Try to get discord_id directly from token (more secure)
-            discord_id = token_data.get('discord_id')
+            discord_id = token_data.get("discord_id")
             if discord_id:
-                print(f"🔍 [DEBUG] Found discord_id in token: {discord_id}")
+                logger.debug("Found discord_id in token")
                 # Direct lookup using discord_id (secure and efficient)
                 try:
                     # Get the auth bot from Flask app context
-                    print(f"🔍 [DEBUG] Getting auth bot from Flask app context...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+                    logger.debug("Getting auth bot from Flask app context...")
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot:
-                        print(f"❌ [DEBUG] Auth bot not found in Flask app context!")
+                        logger.debug("Auth bot not found in Flask app context!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
-                    
+
                     if not auth_bot.is_ready():
-                        print(f"❌ [DEBUG] Auth bot is not ready!")
+                        logger.debug("Auth bot is not ready!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
-                    
-                    print(f"🔍 [DEBUG] Auth bot is ready, checking officer status...")
-                    print(f"🔍 [DEBUG] Checking if user {discord_id} is officer in any guild...")
+
+                    logger.debug("Auth bot is ready, checking officer status...")
+                    logger.debug("Checking if user is officer in any guild...")
                     officer_guilds = auth_bot.check_officer(str(discord_id), config.SUPERADMIN_USER_ID)
-                    print(f"🔍 [DEBUG] Officer guilds result: {officer_guilds}")
-                    
+                    logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
+
                     if not officer_guilds:  # If user is not officer in any organization
-                        print(f"❌ [DEBUG] User is not an officer in any organization!")
+                        logger.debug("User is not an officer in any organization!")
                         return jsonify({"message": "Superadmin access required!"}), 403
-                    
-                    print(f"✅ [DEBUG] User is an officer in {len(officer_guilds)} guild(s)!")
+
+                    logger.debug(f"User is an officer in {len(officer_guilds)} guild(s)!")
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error verifying superadmin status: {e}")
+                    logger.error(f"Error verifying superadmin status: {e}")
                     import traceback
+
                     traceback.print_exc()
                     return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
             else:
-                print(f"🔍 [DEBUG] No discord_id in token, trying username lookup...")
+                logger.debug("No discord_id in token, trying username lookup...")
                 # Fallback to username lookup for older tokens (less secure)
-                username = token_data.get('username')
+                username = token_data.get("username")
                 if not username:
-                    print(f"❌ [DEBUG] Token missing both discord_id and username!")
+                    logger.debug("Token missing both discord_id and username!")
                     return jsonify({"message": "Token missing user identification!"}), 401
-                
-                print(f"🔍 [DEBUG] Using username for lookup: {username}")
+
+                logger.debug("Using username for lookup")
                 # Find the user's discord_id by looking through the bot's guild members
                 # This is a reverse lookup: username -> discord_id (less secure)
                 user_discord_id = None
                 try:
                     # Get the auth bot from Flask app context
-                    print(f"🔍 [DEBUG] Getting auth bot for username lookup...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
+                    logger.debug("Getting auth bot for username lookup...")
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot or not auth_bot.is_ready():
-                        print(f"❌ [DEBUG] Auth bot not available for username lookup!")
+                        logger.debug("Auth bot not available for username lookup!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
-                    
-                    print(f"🔍 [DEBUG] Searching through guild members for username: {username}")
+
+                    logger.debug("Searching through guild members for username")
                     for guild in auth_bot.guilds:
-                        print(f"🔍 [DEBUG] Checking guild: {guild.name} ({guild.id})")
+                        logger.debug(f"Checking guild: {guild.name}")
                         for member in guild.members:
                             display_name = member.nick if member.nick else member.name
                             if display_name == username:
                                 user_discord_id = member.id
-                                print(f"✅ [DEBUG] Found user in guild {guild.name}: {user_discord_id}")
+                                logger.debug(f"Found user in guild {guild.name}")
                                 break
                         if user_discord_id:
                             break
-                    
+
                     if not user_discord_id:
-                        print(f"❌ [DEBUG] User not found in any Discord guild!")
+                        logger.debug("User not found in any Discord guild!")
                         return jsonify({"message": "User not found in Discord!"}), 401
-                    
-                    print(f"🔍 [DEBUG] Checking officer status for discord_id: {user_discord_id}")
+
+                    logger.debug("Checking officer status for user")
                     # Check if user is still an officer using the bot's check_officer method
                     officer_guilds = auth_bot.check_officer(str(user_discord_id))
-                    print(f"🔍 [DEBUG] Officer guilds result: {officer_guilds}")
+                    logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
                     if not officer_guilds:  # If user is not officer in any organization
-                        print(f"❌ [DEBUG] User is not an officer in any organization!")
+                        logger.debug("User is not an officer in any organization!")
                         return jsonify({"message": "Superadmin access required!"}), 403
-                    
-                    print(f"✅ [DEBUG] User is an officer in {len(officer_guilds)} guild(s)!")
-                        
+
+                    logger.debug(f"User is an officer in {len(officer_guilds)} guild(s)!")
+
                 except Exception as e:
-                    print(f"❌ [DEBUG] Error in username lookup: {e}")
+                    logger.error(f"Error in username lookup: {e}")
                     import traceback
+
                     traceback.print_exc()
                     return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
-                
-            print(f"✅ [DEBUG] Superadmin authentication successful!")
+
+            logger.debug("Superadmin authentication successful!")
             return f(*args, **kwargs)
         except Exception as e:
-            print(f"❌ [DEBUG] General error in superadmin_required: {e}")
+            logger.error(f"General error in superadmin_required: {e}")
             import traceback
+
             traceback.print_exc()
             return jsonify({"message": str(e)}), 401
 
@@ -231,90 +233,93 @@ def member_required(f):
     Decorator that requires the user to be a member of the organization specified by org_prefix.
     Similar to auth_required but checks for guild membership instead of officer role.
     """
-    
+
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         try:
-            print(f"🔍 [DEBUG] member_required decorator called for function: {f.__name__}")
-            
+            logger.debug(f"member_required decorator called for function: {f.__name__}")
+
             # Get the org_prefix from the URL parameters
-            org_prefix = kwargs.get('org_prefix') or (args[0] if args else None)
+            org_prefix = kwargs.get("org_prefix") or (args[0] if args else None)
             if not org_prefix:
-                print(f"❌ [DEBUG] No org_prefix found in request")
+                logger.debug("No org_prefix found in request")
                 return jsonify({"message": "Organization prefix is required"}), 400
-            
-            print(f"🏢 [DEBUG] Organization prefix: {org_prefix}")
-            
+
+            logger.debug(f"Organization prefix: {org_prefix}")
+
             # Get Discord ID from session (same as auth_required)
-            user_discord_id = session.get('discord_id')
+            user_discord_id = session.get("discord_id")
             if not user_discord_id:
-                print(f"❌ [DEBUG] No discord_id in session")
+                logger.debug("No discord_id in session")
                 return jsonify({"message": "Discord authentication required"}), 401
-            
-            print(f"👤 [DEBUG] User discord_id from session: {user_discord_id}")
-            
+
+            logger.debug("User discord_id found in session")
+
             # Get organization from database
             try:
-                from shared import db_connect
                 from modules.organizations.models import Organization
-                
-                print(f"📊 [DEBUG] Getting database connection...")
+                from shared import db_connect
+
+                logger.debug("Getting database connection...")
                 db = next(db_connect.get_db())
-                
-                print(f"🏢 [DEBUG] Looking up organization with prefix: {org_prefix}")
-                organization = db.query(Organization).filter(
-                    Organization.prefix == org_prefix,
-                    Organization.is_active == True
-                ).first()
-                
+
+                logger.debug(f"Looking up organization with prefix: {org_prefix}")
+                organization = (
+                    db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+                )
+
                 if not organization:
-                    print(f"❌ [DEBUG] Organization not found for prefix: {org_prefix}")
+                    logger.debug(f"Organization not found for prefix: {org_prefix}")
                     db.close()
                     return jsonify({"message": "Organization not found"}), 404
-                
-                print(f"✅ [DEBUG] Found organization: {organization.name} (Guild ID: {organization.guild_id})")
+
+                logger.debug(f"Found organization: {organization.name}")
                 db.close()
-                
+
             except Exception as e:
-                print(f"❌ [DEBUG] Database error: {e}")
-                if 'db' in locals():
+                logger.error(f"Database error: {e}")
+                if "db" in locals():
                     db.close()
                 return jsonify({"message": f"Database error: {str(e)}"}), 500
-            
+
             # Check if user is a member using the bot (same pattern as auth_required)
             try:
                 from shared import auth_bot
-                
+
                 if not auth_bot:
-                    print(f"❌ [DEBUG] Discord bot not available")
+                    logger.debug("Discord bot not available")
                     return jsonify({"message": "Discord bot not available"}), 503
-                
-                print(f"🤖 [DEBUG] Checking if user is member of guild: {organization.guild_id}")
-                
+
+                logger.debug("Checking if user is member of guild")
+
                 # Use bot's method to check membership
                 is_member = auth_bot.check_user_membership(int(user_discord_id), int(organization.guild_id))
                 if not is_member:
-                    print(f"❌ [DEBUG] User is not a member of guild: {organization.guild_id}")
-                    return jsonify({"message": "You must be a member of this organization to access this resource"}), 403
-                
-                print(f"✅ [DEBUG] User is a member of {organization.name}")
-                
+                    logger.debug("User is not a member of guild")
+                    return jsonify(
+                        {"message": "You must be a member of this organization to access this resource"}
+                    ), 403
+
+                logger.debug(f"User is a member of {organization.name}")
+
                 # Add user info and organization to kwargs for the wrapped function
-                kwargs['user_discord_id'] = user_discord_id
-                kwargs['organization'] = organization
-                
-                print(f"✅ [DEBUG] Member authentication successful!")
+                kwargs["user_discord_id"] = user_discord_id
+                kwargs["organization"] = organization
+
+                logger.debug("Member authentication successful!")
                 return f(*args, **kwargs)
-                
+
             except Exception as e:
-                print(f"❌ [DEBUG] Error checking guild membership: {e}")
+                logger.error(f"Error checking guild membership: {e}")
                 import traceback
+
                 traceback.print_exc()
                 return jsonify({"message": f"Error verifying membership: {str(e)}"}), 500
-                
+
         except Exception as e:
-            print(f"❌ [DEBUG] General error in member_required: {e}")
+            logger.error(f"General error in member_required: {e}")
             import traceback
+
             traceback.print_exc()
             return jsonify({"message": str(e)}), 500
 
@@ -325,7 +330,7 @@ def error_handler(f):
     """
     Decorator to handle errors and return JSON error responses.
     """
-    
+
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         try:
@@ -333,5 +338,5 @@ def error_handler(f):
         except Exception as e:
             logger.error(f"Error in {f.__name__}: {str(e)}")
             return jsonify({"error": str(e)}), 500
-    
+
     return wrapper

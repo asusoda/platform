@@ -8,9 +8,7 @@ class QuestionPost(discord.ui.View):
         self.question = question
 
     @discord.ui.button(label="Buzz In", style=discord.ButtonStyle.blurple)
-    async def button_callback(
-        self, button: discord.ui.Button, interaction: discord.Interaction
-    ):
+    async def button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         user = interaction.user
         await interaction.response.send_message(f"<@{user.id}> buzzed in!")
         button.disabled = True

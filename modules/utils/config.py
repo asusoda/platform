@@ -1,10 +1,12 @@
-import os
 import json
+import os
+
 from dotenv import load_dotenv
+
 
 class Config:
     """Centralized configuration management for the application"""
-    
+
     def __init__(self, testing: bool = False) -> None:
         load_dotenv()
         self.testing = testing
@@ -17,24 +19,24 @@ class Config:
                 self.REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/callback")
                 self.CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:3000")
                 self.PROD = False
-                
+
                 # Service Tokens
                 self.BOT_TOKEN = os.environ.get("BOT_TOKEN", "test-bot-token")
                 self.AVERY_BOT_TOKEN = os.environ.get("AVERY_BOT_TOKEN", "test-avery-token")
                 self.AUTH_BOT_TOKEN = os.environ.get("AUTH_BOT_TOKEN", "test-auth-token")
-                
+
                 # Database Configuration
                 self.DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
                 self.DB_URI = os.environ.get("DB_URI", "sqlite:///test.db")
                 self.DB_NAME = os.environ.get("DB_NAME", "test")
-                self.DB_USER = os.environ.get("DB_USER", "test") 
+                self.DB_USER = os.environ.get("DB_USER", "test")
                 self.DB_PASSWORD = os.environ.get("DB_PASSWORD", "test")
                 self.DB_HOST = os.environ.get("DB_HOST", "localhost")
                 self.DB_PORT = os.environ.get("DB_PORT", "5432")
-                
+
                 # Google service account - use dummy data for tests
                 self.GOOGLE_SERVICE_ACCOUNT = {"type": "service_account", "project_id": "test"}
-                
+
                 self.NOTION_API_KEY = os.environ.get("NOTION_API_KEY", "test-notion-key")
                 self.NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "test-db-id")
                 self.NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "test-notion-token")
@@ -43,10 +45,12 @@ class Config:
                 self.SERVER_PORT = 5000
                 self.SERVER_DEBUG = True
                 self.TIMEZONE = "America/Phoenix"
-                
+
                 self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
-                                                                                                                                                                                                            
-                self.CLERK_AUTHORIZED_PARTIES = os.environ.get("CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173")
+
+                self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
+                    "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
+                )
 
                 # Optional configs
                 self.SENTRY_DSN = None
@@ -73,11 +77,12 @@ class Config:
                 self.BOT_TOKEN = os.environ.get("BOT_TOKEN")  # Legacy token
                 self.AVERY_BOT_TOKEN = os.environ.get("AVERY_BOT_TOKEN")  # AVERY bot token
                 self.AUTH_BOT_TOKEN = os.environ.get("AUTH_BOT_TOKEN")  # Auth bot token
-                
-                self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
-                                                                                                                                                                                                            
-                self.CLERK_AUTHORIZED_PARTIES = os.environ.get("CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173")
 
+                self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
+
+                self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
+                    "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
+                )
 
                 # Database Configuration
                 self.DB_TYPE = os.environ["DB_TYPE"]
@@ -90,15 +95,11 @@ class Config:
                 # Calendar Integration
 
                 try:
-                    with open("google-secret.json", "r") as file:
+                    with open("google-secret.json") as file:
                         print("Loading Google service account credentials")
                         self.GOOGLE_SERVICE_ACCOUNT = json.load(file)
                         print("Google service account credentials loaded successfully")
                         # Redact sensitive information
-                        masked_credentials = {
-                            **self.GOOGLE_SERVICE_ACCOUNT,
-                            "private_key": "[REDACTED]"
-                        } if self.GOOGLE_SERVICE_ACCOUNT else None
                         print("Google service account credentials loaded")
                 except FileNotFoundError:
                     print("Warning: google-secret.json not found. Google Calendar features will be disabled.")
@@ -106,7 +107,7 @@ class Config:
                 except Exception as e:
                     print(f"Warning: Error loading Google credentials: {e}. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None
-                    
+
                 self.NOTION_API_KEY = os.environ["NOTION_API_KEY"]
                 self.NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
                 self.GOOGLE_CALENDAR_ID = os.environ["GOOGLE_CALENDAR_ID"]
@@ -134,5 +135,5 @@ class Config:
         return {
             "service_account": self.GOOGLE_SERVICE_ACCOUNT,
             "calendar_id": self.GOOGLE_CALENDAR_ID,
-            "user_email": self.GOOGLE_USER_EMAIL
+            "user_email": self.GOOGLE_USER_EMAIL,
         }
