@@ -104,10 +104,7 @@ class HelperCog(commands.Cog):
         name (str): The name of the role.
         colour (discord.Colour, optional): The colour of the role.
         """
-        if colour is None:
-            role = await guild.create_role(name=name)
-        else:
-            role = await guild.create_role(name=name, colour=colour)
+        role = await guild.create_role(name=name, colour=colour)
         logger.debug(f"Created role '{name}' in guild {guild.name}")
         return role
 
