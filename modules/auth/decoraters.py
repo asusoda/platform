@@ -9,6 +9,88 @@ from shared import config, tokenManger
 logger = logging.getLogger(__name__)
 
 
+def dual_auth_required(f):
+    """
+    A decorator that accepts both Clerk tokens and Discord OAuth tokens.
+    Tries Clerk authentication first, then falls back to Discord OAuth.
+    Sets request.clerk_user_email on successful authentication (Clerk or Discord OAuth).
+    """
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        token = None
+
+        # Extract token from Authorization header
+        if auth_header.startswith("Bearer "):
+            parts = auth_header.split(" ", 1)
+            if len(parts) >= 2 and parts[1].strip():
+                token = parts[1].strip()
+
+        # Try Clerk authentication first if we have a Bearer token
+        if token:
+            try:
+                from modules.utils.clerk_auth import verify_clerk_token
+
+                email = verify_clerk_token(token)
+                if email:
+                    # Clerk authentication successful
+                    logger.debug(f"Dual auth: Clerk authentication successful for {email}")
+                    request.clerk_user_email = email
+                    return f(*args, **kwargs)
+                else:
+                    logger.debug("Dual auth: Clerk token verification failed, trying Discord OAuth")
+            except Exception as e:
+                logger.debug(f"Dual auth: Clerk verification error: {e}, trying Discord OAuth")
+
+        # Fall back to Discord OAuth authentication
+        # Check session cookie first
+        if session.get("token"):
+            try:
+                if not tokenManger.is_token_valid(session["token"]):
+                    session.pop("token", None)
+                    return jsonify({"message": "Session token is invalid!"}), 401
+                elif tokenManger.is_token_expired(session["token"]):
+                    session.pop("token", None)
+                    return jsonify({"message": "Session token has expired!"}), 401
+
+                # Discord OAuth session authentication successful
+                logger.debug("Dual auth: Discord OAuth session authentication successful")
+                # Set clerk_user_email from session if available for compatibility
+                username = tokenManger.retrieve_username(session["token"])
+                if username:
+                    request.clerk_user_email = username
+                return f(*args, **kwargs)
+            except Exception as e:
+                logger.debug(f"Dual auth: Session authentication error: {e}")
+                session.pop("token", None)
+
+        # Check Authorization header for Discord OAuth token
+        if not token:
+            return jsonify({"message": "Authentication required!"}), 401
+
+        try:
+            if not tokenManger.is_token_valid(token):
+                logger.debug("Dual auth: Discord OAuth token is invalid")
+                return jsonify({"message": "Token is invalid!"}), 401
+            elif tokenManger.is_token_expired(token):
+                logger.debug("Dual auth: Discord OAuth token is expired")
+                return jsonify({"message": "Token is expired!"}), 403
+
+            # Discord OAuth token authentication successful
+            logger.debug("Dual auth: Discord OAuth token authentication successful")
+            # Set clerk_user_email from token for compatibility
+            username = tokenManger.retrieve_username(token)
+            if username:
+                request.clerk_user_email = username
+            return f(*args, **kwargs)
+        except Exception as e:
+            logger.debug(f"Dual auth: Discord OAuth token authentication error: {e}")
+            return jsonify({"message": "Authentication failed due to an internal error."}), 401
+
+    return wrapper
+
+
 def auth_required(f):
     """
     A decorator for Flask endpoints to ensure the user is authenticated.
