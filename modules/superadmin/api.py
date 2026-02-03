@@ -77,14 +77,14 @@ def get_dashboard():
             print("❌ [DEBUG] Auth bot not found in Flask app context!")
             return jsonify({"error": "Bot not available"}), 503
 
-        if not auth_bot.is_ready():
+        if not auth_bot.is_ready():  # type: ignore[attr-defined]
             print("❌ [DEBUG] Auth bot is not ready!")
             return jsonify({"error": "Bot not available"}), 503
 
         print("✅ [DEBUG] Auth bot is ready")
 
         # Get all guilds where the bot is a member
-        guilds = auth_bot.guilds
+        guilds = auth_bot.guilds  # type: ignore[attr-defined]
         print(f"🔍 [DEBUG] Bot is in {len(guilds)} guilds")
 
         # Get existing organizations from the database
@@ -119,7 +119,7 @@ def get_dashboard():
         if officer_id:
             for org in existing_orgs:
                 try:
-                    guild = auth_bot.get_guild(int(org.guild_id))
+                    guild = auth_bot.get_guild(int(org.guild_id))  # type: ignore[attr-defined]
                     if guild and guild.get_member(int(officer_id)):
                         officer_orgs.append(org)
                         print(f"🔍 [DEBUG] User is officer in organization: {org.name}")
@@ -163,7 +163,7 @@ def get_guild_roles(guild_id):
             print("❌ [DEBUG] Auth bot not found in Flask app context!")
             return jsonify({"error": "Bot not available"}), 503
 
-        if not auth_bot.is_ready():
+        if not auth_bot.is_ready():  # type: ignore[attr-defined]
             print("❌ [DEBUG] Auth bot is not ready!")
             return jsonify({"error": "Bot not available"}), 503
 
@@ -179,7 +179,7 @@ def get_guild_roles(guild_id):
 
         # Get the guild
         print(f"🔍 [DEBUG] Getting guild with ID: {guild_id_int}")
-        guild = auth_bot.get_guild(guild_id_int)
+        guild = auth_bot.get_guild(guild_id_int)  # type: ignore[attr-defined]
         if not guild:
             print(f"❌ [DEBUG] Guild not found for ID: {guild_id_int}")
             return jsonify({"error": "Guild not found"}), 404
@@ -241,7 +241,7 @@ def update_officer_role(org_id):
             print("❌ [DEBUG] Auth bot not found in Flask app context!")
             return jsonify({"error": "Bot not available"}), 503
 
-        if not auth_bot.is_ready():
+        if not auth_bot.is_ready():  # type: ignore[attr-defined]
             print("❌ [DEBUG] Auth bot is not ready!")
             return jsonify({"error": "Bot not available"}), 503
 
@@ -261,7 +261,7 @@ def update_officer_role(org_id):
         # Verify the role exists in the guild
         try:
             print("🔍 [DEBUG] Getting guild for verification...")
-            guild = auth_bot.get_guild(int(org.guild_id))
+            guild = auth_bot.get_guild(int(org.guild_id))  # type: ignore[attr-defined]
             if not guild:
                 print(f"❌ [DEBUG] Guild not found for ID: {org.guild_id}")
                 return jsonify({"error": "Guild not found"}), 404
@@ -309,8 +309,8 @@ def add_organization(guild_id):
     """Add a new organization to the system"""
     try:
         # Get the auth bot from Flask app context
-        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-        if not auth_bot or not auth_bot.is_ready():
+        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+        if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
             return jsonify({"error": "Bot not available"}), 503
 
         # Convert guild_id to int for comparison with guild.id
@@ -320,7 +320,7 @@ def add_organization(guild_id):
             return jsonify({"error": "Invalid guild ID format"}), 400
 
         # Find the guild
-        guild = next((g for g in auth_bot.guilds if g.id == guild_id_int), None)
+        guild = next((g for g in auth_bot.guilds if g.id == guild_id_int), None)  # type: ignore[attr-defined]
         if not guild:
             return jsonify({"error": "Guild not found"}), 404
 

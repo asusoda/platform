@@ -23,7 +23,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
 # Initialize multi-organization calendar service
 multi_org_calendar_service = MultiOrgCalendarService(logger)
-app.multi_org_calendar_service = multi_org_calendar_service  # type: ignore[attr-defined]
+app.multi_org_calendar_service = multi_org_calendar_service
 
 
 # Health endpoint
