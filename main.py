@@ -4,7 +4,6 @@ import subprocess  # nosec B404 - subprocess needed for git commit hash retrieva
 import threading
 
 import discord
-from apscheduler.schedulers.background import BackgroundScheduler
 from flask import jsonify  # Import current_app
 
 from modules.auth.api import auth_blueprint
@@ -77,24 +76,6 @@ app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
 #     else:
 #         return send_from_directory('web/dist', path)
 
-# --- Scheduler Setup ---
-scheduler = BackgroundScheduler(daemon=True)
-
-
-def calendar_sync_job():
-    """Job function to sync Notion to Google Calendar."""
-    with app.app_context():
-        logger.info("Running scheduled calendar sync...")
-        try:
-            sync_result = multi_org_calendar_service.sync_all_organizations()
-            logger.info(f"Calendar sync result: {sync_result}")
-            if sync_result.get("status") in ["success", "partial_success"]:
-                logger.info(f"Scheduled calendar sync completed: {sync_result.get('message')}")
-            else:
-                logger.error(f"Scheduled calendar sync failed: {sync_result.get('message')}")
-        except Exception as e:
-            logger.error(f"Error during scheduled calendar sync: {e}", exc_info=True)
-
 
 # --- Bot Thread Functions ---
 def run_auth_bot_in_thread():
@@ -130,11 +111,6 @@ def initialize_app():
     auth_thread.daemon = True
     auth_thread.start()
     logger.info("Auth bot thread initiated")
-
-    # Run sync job every 120 minutes
-    scheduler.add_job(calendar_sync_job, "interval", minutes=120, id="calendar_sync_job")
-    scheduler.start()
-    logger.info("APScheduler started for Notion-Google Calendar sync.")
 
     # Start Flask app
     # Enable debug and reloader based on IS_PROD environment variable
