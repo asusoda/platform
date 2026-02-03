@@ -91,10 +91,7 @@ class HelperCog(commands.Cog):
         category (discord.CategoryChannel): The category to create the channel in.
         overwrites (dict, optional): A dictionary of role overwrites.
         """
-        if overwrites is None:
-            channel = await guild.create_voice_channel(name, category=category)
-        else:
-            channel = await guild.create_voice_channel(name, category=category, overwrites=overwrites)
+        channel = await guild.create_voice_channel(name, category=category, overwrites=overwrites)
         logger.debug(f"Created voice channel '{name}' in guild {guild.name}")
         return channel
 
