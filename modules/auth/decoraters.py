@@ -290,12 +290,12 @@ def member_required(f):
                     logger.debug("Discord bot not available")
                     return jsonify({"message": "Discord bot not available"}), 503
 
-                logger.debug(f"Checking if user is member of guild")
+                logger.debug("Checking if user is member of guild")
 
                 # Use bot's method to check membership
                 is_member = auth_bot.check_user_membership(int(user_discord_id), int(organization.guild_id))
                 if not is_member:
-                    logger.debug(f"User is not a member of guild")
+                    logger.debug("User is not a member of guild")
                     return jsonify(
                         {"message": "You must be a member of this organization to access this resource"}
                     ), 403
