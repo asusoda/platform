@@ -24,9 +24,9 @@ class TokenManager:
         if os.path.exists(self.private_key_file) and os.path.exists(self.public_key_file):
             try:
                 # Load existing keys
-                with open(self.private_key_file) as f:
+                with open(self.private_key_file, encoding="utf-8") as f:
                     private_key = f.read()
-                with open(self.public_key_file) as f:
+                with open(self.public_key_file, encoding="utf-8") as f:
                     public_key = f.read()
                 print(f"Loaded existing RSA keys from {self.keys_path}")
                 return private_key, public_key
