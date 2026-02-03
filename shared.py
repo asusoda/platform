@@ -53,8 +53,10 @@ if config.SENTRY_DSN:
         integrations=[FlaskIntegration()],
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
+        # Enable logs to be sent to Sentry
+        enable_logs=True,
     )
-    logger.info("Sentry initialized.")
+    logger.info("Sentry initialized with logging enabled.")
 else:
     logger.warning("SENTRY_DSN not found in environment. Sentry not initialized.")
 
