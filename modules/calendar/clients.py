@@ -321,7 +321,11 @@ class GoogleCalendarClient:
             return successful, failed
 
     def create_calendar(
-        self, calendar_name: str, description: str | None = None, timezone: str = "America/Phoenix", parent_transaction=None
+        self,
+        calendar_name: str,
+        description: str | None = None,
+        timezone: str = "America/Phoenix",
+        parent_transaction=None,
     ) -> dict | None:
         """Create a new Google Calendar with error handling."""
         op_name = "create_calendar"
@@ -492,7 +496,9 @@ class NotionCalendarClient:
                     transaction, op="api_call", description="notion.databases.query", logger=self.logger
                 ) as span:
                     all_events = collect_paginated_api(
-                        self.notion.databases.query, database_id=database_id, filter=query_filter  # type: ignore[attr-defined]
+                        self.notion.databases.query,
+                        database_id=database_id,
+                        filter=query_filter,  # type: ignore[attr-defined]
                     )
                     span.set_data("event_count", len(all_events))
 

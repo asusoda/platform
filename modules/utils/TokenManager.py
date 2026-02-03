@@ -1,7 +1,6 @@
 import datetime
 import os
 import secrets
-from datetime import timezone
 
 import jwt
 from cryptography.hazmat.primitives import serialization
@@ -109,7 +108,7 @@ class TokenManager:
             str: JWT token
         """
         payload = {
-            "exp": datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=exp_minutes),
+            "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=exp_minutes),
             "username": username,
             "type": "access",  # Token type for security
         }
@@ -134,14 +133,14 @@ class TokenManager:
         """
         # Generate a cryptographically secure random token
         refresh_token = secrets.token_urlsafe(32)
-        expires_at = datetime.datetime.now(timezone.utc) + datetime.timedelta(days=exp_days)
+        expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=exp_days)
 
         # Store refresh token metadata
         self.refresh_tokens[refresh_token] = {
             "username": username,
             "discord_id": str(discord_id) if discord_id else None,
             "expires_at": expires_at,
-            "created_at": datetime.datetime.now(timezone.utc),
+            "created_at": datetime.datetime.now(datetime.UTC),
         }
 
         return refresh_token
@@ -163,7 +162,7 @@ class TokenManager:
         token_data = self.refresh_tokens[refresh_token]
 
         # Check if refresh token is expired
-        if datetime.datetime.now(timezone.utc) > token_data["expires_at"]:
+        if datetime.datetime.now(datetime.UTC) > token_data["expires_at"]:
             # Remove expired refresh token
             del self.refresh_tokens[refresh_token]
             return None
@@ -196,7 +195,7 @@ class TokenManager:
         """
         Remove expired refresh tokens from storage.
         """
-        current_time = datetime.datetime.now(timezone.utc)
+        current_time = datetime.datetime.now(datetime.UTC)
         expired_tokens = [token for token, data in self.refresh_tokens.items() if current_time > data["expires_at"]]
 
         for token in expired_tokens:
@@ -276,7 +275,7 @@ class TokenManager:
 
     def genreate_app_token(self, name, app_name):
         payload = {
-            "exp": datetime.datetime.now(timezone.utc) + datetime.timedelta(days=120),
+            "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=120),
             "name": name,
             "app_name": app_name,
         }

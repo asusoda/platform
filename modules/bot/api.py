@@ -160,7 +160,7 @@ def upload_game():
     try:
         # Read the file content first since FileStorage is not directly compatible with json.load
         file_content = file.read()
-        game_data = json.loads(file_content.decode('utf-8'))
+        game_data = json.loads(file_content.decode("utf-8"))
         if not is_valid_game_json(game_data):
             logger.warning("Invalid game JSON format")
             return jsonify({"error": "Invalid game JSON format"}), 400

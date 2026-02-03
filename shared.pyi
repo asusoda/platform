@@ -1,14 +1,16 @@
 """Type stubs for shared module."""
-from typing import Any
+
+import asyncio
+
 from flask import Flask
+from notion_client import Client as NotionClient
+
 from modules.bot.discord_modules.bot import BotFork
 from modules.calendar.service import MultiOrgCalendarService
-from modules.utils.TokenManager import TokenManager
-from modules.utils.db import DBConnect
 from modules.utils.config import Config
+from modules.utils.db import DBConnect
 from modules.utils.logging_config import logger as logger
-from notion_client import Client as NotionClient
-import asyncio
+from modules.utils.TokenManager import TokenManager
 
 # Extended Flask app with custom attributes
 class ExtendedFlask(Flask):
