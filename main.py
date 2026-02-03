@@ -36,10 +36,14 @@ def get_git_commit_hash():
         return "unknown"
 
 
+# Cache the commit hash at startup since it won't change during runtime
+COMMIT_HASH = get_git_commit_hash()
+
+
 # Health endpoint
 @app.route("/health")
 def health():
-    return jsonify({"status": "healthy", "service": "soda-internal-api", "commit": get_git_commit_hash()}), 200
+    return jsonify({"status": "healthy", "service": "soda-internal-api", "commit": COMMIT_HASH}), 200
 
 
 # Register Blueprints
