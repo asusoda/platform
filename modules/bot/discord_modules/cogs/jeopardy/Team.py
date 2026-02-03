@@ -21,7 +21,7 @@ class Team:
     def __str__(self) -> str:
         return f"Team(name={self.name}, members={self.members}, score={self.score})"
 
-    def attach_role(self, role: discord.role) -> None:
+    def attach_role(self, role: discord.Role) -> None:
         if self.role is None:
             self.role = role
         else:

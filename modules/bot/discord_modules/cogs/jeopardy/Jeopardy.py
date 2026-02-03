@@ -136,10 +136,12 @@ class JeopardyGame:
         Returns:
             bool: True if the question was successfully marked as answered, False otherwise.
         """
-        question = self.get_question(category, value)
-        if question:
-            question.answered = True
-            return True
+        # Find question by category and value
+        if category in self.questions:
+            for question in self.questions[category]:
+                if question.value == value:
+                    question.answered = True
+                    return True
         return False
 
     def add_member_to_team(self, team_name, member):
@@ -209,7 +211,7 @@ class JeopardyGame:
                 return question
         return None
 
-    def answer_question(self, uuid: str) -> bool:
+    def answer_question(self, uuid: str) -> tuple[bool, JeopardyQuestion | None]:
         """
         Marks a question as answered in a specific category and value.
 
@@ -217,13 +219,13 @@ class JeopardyGame:
             uuid (uuid.UUID): The UUID of the question.
 
         Returns:
-            bool: True if the question was successfully marked as answered, False otherwise.
+            tuple[bool, JeopardyQuestion | None]: A tuple of (success, question) where success is True if the question was successfully marked as answered, False otherwise, and question is the answered question or None.
         """
         question = self.get_question_by_uuid(uuid)
         if question:
             question.answered = True
             return True, question
-        return False
+        return False, None
 
     def get_winners(self) -> list[str]:
         """
@@ -238,6 +240,7 @@ class JeopardyGame:
             if team.points == max_points:
                 for member in team.members:
                     winners.append(member)
+        return winners
 
     def attach_roles(self, roles: list[discord.Role]) -> None:
         """
