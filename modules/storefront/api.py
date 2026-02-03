@@ -286,8 +286,11 @@ def get_order(org_prefix, order_id):
 def create_order(org_prefix):
     """Create a new order for an organization with dual authentication"""
     data = request.get_json()
-    user_email = request.clerk_user_email
+    user_email = getattr(request, "clerk_user_email", None)
 
+    # Ensure we received a valid email identifier from authentication
+    if not user_email or "@" not in user_email:
+        return jsonify({"error": "Authenticated user email is missing or invalid"}), 400
     # Validate required fields
     if not data.get("total_amount"):
         return jsonify({"error": "Total amount is required"}), 400
