@@ -1,7 +1,22 @@
+from typing import Protocol
+
 import discord
 
-from modules.bot.discord_modules.cogs.GameCog import GameCog
 from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
+
+
+class GameCogProtocol(Protocol):
+    """Protocol defining the interface that UI components need from GameCog.
+
+    This decouples UI components from the concrete GameCog implementation,
+    avoiding circular imports while maintaining type safety.
+    """
+
+    question_post: dict
+
+    def get_member_role(self, member: discord.User | discord.Member | None) -> discord.Role | None:
+        """Get the game role assigned to a member."""
+        pass
 
 
 class QuestionPost(discord.ui.View):
@@ -9,7 +24,7 @@ class QuestionPost(discord.ui.View):
         self,
         question: JeopardyQuestion,
         voice: discord.StageChannel,
-        cog: GameCog,
+        cog: GameCogProtocol,
         question_uuid: str | None,
         avoid,
     ):
@@ -19,7 +34,7 @@ class QuestionPost(discord.ui.View):
         Args:
             question (JeopardyQuestion): The question to display.
             voice (discord.StageChannel): The voice channel to move the user to.
-            cog (GameCog): The GameCog instance.
+            cog (GameCogProtocol): Any object implementing the GameCogProtocol interface.
             question_uuid (Optional[str]): The UUID of the question.
             avoid (Optional[str]): The roles to avoid.
         """
