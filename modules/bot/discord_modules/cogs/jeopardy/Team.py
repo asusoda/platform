@@ -1,20 +1,12 @@
 from typing import (
-    List,
-    Dict,
-    Tuple,
-    Set,
-    Union,
-    Optional,
     Any,
-    Callable,
-    TypeVar,
-    Generic,
 )
+
 import discord
 
 
 class Team:
-    def __init__(self, name: str, role: Optional[discord.Role] = None) -> None:
+    def __init__(self, name: str, role: discord.Role | None = None) -> None:
         if role is None:
             self.name = name
             self.role = None
@@ -48,7 +40,7 @@ class Team:
     def add_team_member(self, member_id: int) -> None:
         self.members.append(member_id)
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         return {"name": self.name, "members": self.members, "score": self.score}
 
     def get_name(self) -> str:
