@@ -13,7 +13,7 @@ def dual_auth_required(f):
     """
     A decorator that accepts both Clerk tokens and Discord OAuth tokens.
     Tries Clerk authentication first, then falls back to Discord OAuth.
-    Sets request.clerk_user_email if Clerk auth is used.
+    Sets request.clerk_user_email on successful authentication (Clerk or Discord OAuth).
     """
 
     @wraps(f)
