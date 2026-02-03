@@ -119,7 +119,7 @@ class GoogleCalendarClient:
                     self.logger.debug(
                         f"Attempting to create Google Calendar event for Notion ID {notion_page_id} with data: {event_data}"
                     )
-                    created_event = service.events().insert(calendarId=calendar_id, body=event_data).execute()
+                    created_event = service.events().insert(calendarId=calendar_id, body=event_data).execute()  # type: ignore[attr-defined]
 
                     gcal_event_id = created_event["id"]
                     jump_url = created_event.get("htmlLink")
@@ -185,7 +185,7 @@ class GoogleCalendarClient:
                         f"Attempting to update Google Calendar event {event_id} for Notion ID {notion_page_id} with data: {event_data}"
                     )
                     updated_event = (
-                        service.events().update(calendarId=calendar_id, eventId=event_id, body=event_data).execute()
+                        service.events().update(calendarId=calendar_id, eventId=event_id, body=event_data).execute()  # type: ignore[attr-defined]
                     )
 
                     jump_url = updated_event.get("htmlLink")
@@ -244,7 +244,7 @@ class GoogleCalendarClient:
                         transaction, op="list_page", description="events.list page", logger=self.logger
                     ) as span:
                         events_result = (
-                            service.events()
+                            service.events()  # type: ignore[attr-defined]
                             .list(
                                 calendarId=calendar_id,
                                 singleEvents=True,  # Expand recurring events
@@ -321,7 +321,7 @@ class GoogleCalendarClient:
             return successful, failed
 
     def create_calendar(
-        self, calendar_name: str, description: str = None, timezone: str = "America/Phoenix", parent_transaction=None
+        self, calendar_name: str, description: str | None = None, timezone: str = "America/Phoenix", parent_transaction=None
     ) -> dict | None:
         """Create a new Google Calendar with error handling."""
         op_name = "create_calendar"
@@ -347,7 +347,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendars.insert", logger=self.logger
                 ) as span:
-                    created_calendar = service.calendars().insert(body=calendar_body).execute()
+                    created_calendar = service.calendars().insert(body=calendar_body).execute()  # type: ignore[attr-defined]
 
                     calendar_id = created_calendar["id"]
                     span.set_data(
@@ -387,7 +387,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendars.get", logger=self.logger
                 ) as span:
-                    calendar = service.calendars().get(calendarId=calendar_id).execute()
+                    calendar = service.calendars().get(calendarId=calendar_id).execute()  # type: ignore[attr-defined]
                     span.set_data("calendar_id", calendar_id)
                     return calendar
 
@@ -416,7 +416,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendarList.list", logger=self.logger
                 ) as span:
-                    calendar_list = service.calendarList().list().execute()
+                    calendar_list = service.calendarList().list().execute()  # type: ignore[attr-defined]
                     calendars = calendar_list.get("items", [])
                     span.set_data("calendar_count", len(calendars))
                     return calendars
@@ -446,7 +446,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendars.delete", logger=self.logger
                 ) as span:
-                    service.calendars().delete(calendarId=calendar_id).execute()
+                    service.calendars().delete(calendarId=calendar_id).execute()  # type: ignore[attr-defined]
                     span.set_data("calendar_id", calendar_id)
                     self.logger.warning(f"Successfully deleted calendar: {calendar_id}")
                     return True
@@ -492,7 +492,7 @@ class NotionCalendarClient:
                     transaction, op="api_call", description="notion.databases.query", logger=self.logger
                 ) as span:
                     all_events = collect_paginated_api(
-                        self.notion.databases.query, database_id=database_id, filter=query_filter
+                        self.notion.databases.query, database_id=database_id, filter=query_filter  # type: ignore[attr-defined]
                     )
                     span.set_data("event_count", len(all_events))
 

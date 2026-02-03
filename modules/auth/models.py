@@ -1,4 +1,4 @@
-from shared.db import Base
+from modules.utils.base import Base
 from sqlalchemy import JSON, Column, DateTime, Integer, String
 from sqlalchemy.sql import func
 

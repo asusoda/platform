@@ -23,7 +23,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
 # Initialize multi-organization calendar service
 multi_org_calendar_service = MultiOrgCalendarService(logger)
-app.multi_org_calendar_service = multi_org_calendar_service
+app.multi_org_calendar_service = multi_org_calendar_service  # type: ignore[attr-defined]
 
 
 # Health endpoint
@@ -77,7 +77,7 @@ def run_auth_bot_in_thread():
     # Create bot instance inside the thread, using the thread's loop
     auth_bot_instance = create_auth_bot(loop)
     # Store the auth_bot instance on the Flask app context for API use
-    app.auth_bot = auth_bot_instance
+    app.auth_bot = auth_bot_instance  # type: ignore[attr-defined]
     try:
         logger.info("Starting auth bot thread...")
         auth_bot_token = config.BOT_TOKEN

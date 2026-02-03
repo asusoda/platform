@@ -36,7 +36,7 @@ def dual_auth_required(f):
                 if email:
                     # Clerk authentication successful
                     logger.debug(f"Dual auth: Clerk authentication successful for {email}")
-                    request.clerk_user_email = email
+                    request.clerk_user_email = email  # type: ignore[attr-defined]
                     return f(*args, **kwargs)
                 else:
                     logger.debug("Dual auth: Clerk token verification failed, trying Discord OAuth")
@@ -59,7 +59,7 @@ def dual_auth_required(f):
                 # Set clerk_user_email from session if available for compatibility
                 username = tokenManger.retrieve_username(session["token"])
                 if username:
-                    request.clerk_user_email = username
+                    request.clerk_user_email = username  # type: ignore[attr-defined]
                 return f(*args, **kwargs)
             except Exception as e:
                 logger.debug(f"Dual auth: Session authentication error: {e}")
@@ -82,7 +82,7 @@ def dual_auth_required(f):
             # Set clerk_user_email from token for compatibility
             username = tokenManger.retrieve_username(token)
             if username:
-                request.clerk_user_email = username
+                request.clerk_user_email = username  # type: ignore[attr-defined]
             return f(*args, **kwargs)
         except Exception as e:
             logger.debug(f"Dual auth: Discord OAuth token authentication error: {e}")
@@ -220,7 +220,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot from Flask app context...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
                     if not auth_bot:
                         logger.debug("Auth bot not found in Flask app context!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -260,7 +260,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot for username lookup...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
                     if not auth_bot or not auth_bot.is_ready():
                         logger.debug("Auth bot not available for username lookup!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -366,7 +366,7 @@ def member_required(f):
 
             # Check if user is a member using the bot (same pattern as auth_required)
             try:
-                from shared import auth_bot
+                auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
 
                 if not auth_bot:
                     logger.debug("Discord bot not available")

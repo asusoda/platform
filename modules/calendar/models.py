@@ -1,6 +1,6 @@
 # modules/calendar/models.py
 from dataclasses import dataclass, field  # Added field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
@@ -136,8 +136,8 @@ class CalendarEventLink(Base):
     __tablename__ = "calendar_event_links"
 
     id = Column(Integer, primary_key=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     event_metadata = Column(JSON)  # Store additional metadata if needed
 
     # Organization relationship

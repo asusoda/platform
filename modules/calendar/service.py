@@ -377,7 +377,7 @@ class MultiOrgCalendarService:
                     db.query(Organization).filter(Organization.is_active, Organization.calendar_sync_enabled).all()
                 )
                 self.logger.info(f"Found {len(organizations)} organizations with calendar sync enabled")
-                results = {
+                results: dict[str, Any] = {
                     "status": "success",
                     "total_organizations": len(organizations),
                     "organizations_processed": 0,

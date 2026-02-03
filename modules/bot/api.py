@@ -52,7 +52,7 @@ def game_index():
 def get_available_games():
     logger.info("Getting available games")
     try:
-        games = db.get_all_games()
+        games = db.get_all_games()  # type: ignore[attr-defined]
         game_data = []
         for game in games:
             game_ = game["game"]
@@ -103,7 +103,7 @@ def start_game():
     game_name = request.form["name"]
     logger.info(f"Starting game: {game_name}")
     try:
-        db.get_game(game_name)
+        db.get_game(game_name)  # type: ignore[attr-defined]
         # Implement game start logic here
         return jsonify({"message": f"Game {game_name} started", "status": "success"}), 200
     except Exception as e:
@@ -158,12 +158,14 @@ def upload_game():
 
     logger.info(f"Uploading game file: {file.filename}")
     try:
-        game_data = json.load(file)
+        # Read the file content first since FileStorage is not directly compatible with json.load
+        file_content = file.read()
+        game_data = json.loads(file_content)
         if not is_valid_game_json(game_data):
             logger.warning("Invalid game JSON format")
             return jsonify({"error": "Invalid game JSON format"}), 400
 
-        db.add_or_update_game(game_data)
+        db.add_or_update_game(game_data)  # type: ignore[attr-defined]
         logger.info(f"Game {game_data['game']['name']} uploaded successfully")
         return jsonify({"message": "File uploaded and validated successfully"}), 200
 
@@ -180,7 +182,7 @@ def get_game():
     name = request.args.get("name")
     logger.info(f"Getting game data for: {name}")
     try:
-        games = db.get_all_games()
+        games = db.get_all_games()  # type: ignore[attr-defined]
         data = {}
         for game_doc in games:  # renamed to avoid conflict with blueprint name
             if game_doc["game"]["name"] == name:
@@ -196,7 +198,7 @@ def get_game():
 
 @game_blueprint.route("/setactivegame", methods=["POST"])
 async def set_active_game():
-    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
+    bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
     if not bot or not bot.is_ready():
         logger.warning("Auth bot not ready or not available for /setactivegame")
         return jsonify({"error": "Auth bot is not available or not ready."}), 503
@@ -207,7 +209,7 @@ async def set_active_game():
     logger.info(f"Setting active game: {name} for date: {date}, time: {time}")
 
     try:
-        games = db.get_all_games()
+        games = db.get_all_games()  # type: ignore[attr-defined]
         game_to_set = None
         for g in games:
             if g["game"]["name"] == name:

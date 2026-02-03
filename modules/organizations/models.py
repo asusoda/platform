@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -20,8 +20,8 @@ class Organization(Base):
     icon_url = Column(String(255))
     is_active = Column(Boolean, default=True)
     config = Column(JSON, default=dict)  # Store organization-specific settings
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     officer_role_id = Column(String(50), nullable=True)  # Changed to String since Discord role IDs are strings
     points_per_message = Column(Integer, default=1)  # Default points per message
     points_cooldown = Column(Integer, default=60)  # Default cooldown in seconds

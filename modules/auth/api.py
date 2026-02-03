@@ -25,7 +25,10 @@ def login():
 @auth_blueprint.route("/validToken", methods=["GET"])
 @auth_required
 def validToken():
-    token = request.headers.get("Authorization").split(" ")[1]
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
+    token = auth_header.split(" ")[1]
     if tokenManger.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
@@ -35,7 +38,7 @@ def validToken():
 @auth_blueprint.route("/callback", methods=["GET"])
 def callback():
     # Get the auth bot from Flask app context (the one actually running in thread)
-    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
+    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
     if not auth_bot or not auth_bot.is_ready():
         logger.error("Auth bot is not available or not ready for /callback")
         return jsonify({"error": "Authentication service temporarily unavailable. Bot not ready."}), 503
@@ -144,8 +147,10 @@ def revoke_token():
         # Revoke the refresh token
         if tokenManger.revoke_refresh_token(refresh_token):
             # Also blacklist the current access token
-            current_token = request.headers.get("Authorization").split(" ")[1]
-            tokenManger.delete_token(current_token)
+            auth_header = request.headers.get("Authorization")
+            if auth_header:
+                current_token = auth_header.split(" ")[1]
+                tokenManger.delete_token(current_token)
 
             return jsonify({"message": "Token revoked successfully"}), 200
         else:
@@ -157,7 +162,10 @@ def revoke_token():
 
 @auth_blueprint.route("/validateToken", methods=["GET"])
 def valid_token():
-    token = request.headers.get("Authorization").split(" ")[1]
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
+    token = auth_header.split(" ")[1]
     if tokenManger.is_token_valid(token):
         if tokenManger.is_token_expired(token):
             logger.info("Token is valid but expired.")
@@ -174,7 +182,10 @@ def valid_token():
 @auth_required
 @error_handler
 def get_app_token():
-    token = request.headers.get("Authorization").split(" ")[1]
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return jsonify({"error": "No authorization header"}), 401
+    token = auth_header.split(" ")[1]
     appname = request.args.get("appname")
     if not appname:
         return jsonify({"error": "appname query parameter is required"}), 400
@@ -191,7 +202,10 @@ def get_app_token():
 @auth_blueprint.route("/name", methods=["GET"])
 @auth_required
 def get_name():
-    autorisation = request.headers.get("Authorization").split(" ")[1]
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return jsonify({"error": "No authorization header"}), 401
+    autorisation = auth_header.split(" ")[1]
 
     return jsonify({"name": tokenManger.retrieve_username(autorisation)}), 200
 
