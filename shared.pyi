@@ -7,6 +7,7 @@ from modules.utils.TokenManager import TokenManager
 from modules.utils.db import DBConnect
 from modules.utils.config import Config
 from modules.utils.logging_config import logger as logger
+from notion_client import Client as NotionClient
 import asyncio
 
 # Extended Flask app with custom attributes
@@ -18,5 +19,6 @@ app: ExtendedFlask
 config: Config
 db_connect: DBConnect
 tokenManger: TokenManager
+notion: NotionClient
 
 def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork: ...

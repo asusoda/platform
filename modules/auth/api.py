@@ -39,7 +39,7 @@ def validToken():
 def callback():
     # Get the auth bot from Flask app context (the one actually running in thread)
     auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
-    if not auth_bot or not auth_bot.is_ready():
+    if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
         logger.error("Auth bot is not available or not ready for /callback")
         return jsonify({"error": "Authentication service temporarily unavailable. Bot not ready."}), 503
 
@@ -73,10 +73,10 @@ def callback():
         user_response = requests.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=30)
         user_info = user_response.json()
         user_id = user_info["id"]
-        officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)
+        officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
         print(f"Officer guilds: {officer_guilds}")
         if officer_guilds:  # If user is officer in at least one organization
-            name = auth_bot.get_name(user_id)
+            name = auth_bot.get_name(user_id)  # type: ignore[attr-defined]
             # Generate token pair with both access and refresh tokens
             access_token, refresh_token = tokenManger.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7

@@ -309,7 +309,7 @@ def add_organization(guild_id):
     """Add a new organization to the system"""
     try:
         # Get the auth bot from Flask app context
-        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
         if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
             return jsonify({"error": "Bot not available"}), 503
 

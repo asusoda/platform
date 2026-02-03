@@ -225,13 +225,13 @@ def superadmin_required(f):
                         logger.debug("Auth bot not found in Flask app context!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
 
-                    if not auth_bot.is_ready():
+                    if not auth_bot.is_ready():  # type: ignore[attr-defined]
                         logger.debug("Auth bot is not ready!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
 
                     logger.debug("Auth bot is ready, checking officer status...")
                     logger.debug("Checking if user is officer in any guild...")
-                    officer_guilds = auth_bot.check_officer(str(discord_id), config.SUPERADMIN_USER_ID)
+                    officer_guilds = auth_bot.check_officer(str(discord_id), config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
                     logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
 
                     if not officer_guilds:  # If user is not officer in any organization
@@ -261,12 +261,12 @@ def superadmin_required(f):
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot for username lookup...")
                     auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
-                    if not auth_bot or not auth_bot.is_ready():
+                    if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
                         logger.debug("Auth bot not available for username lookup!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
 
                     logger.debug("Searching through guild members for username")
-                    for guild in auth_bot.guilds:
+                    for guild in auth_bot.guilds:  # type: ignore[attr-defined]
                         logger.debug(f"Checking guild: {guild.name}")
                         for member in guild.members:
                             display_name = member.nick if member.nick else member.name
@@ -283,7 +283,7 @@ def superadmin_required(f):
 
                     logger.debug("Checking officer status for user")
                     # Check if user is still an officer using the bot's check_officer method
-                    officer_guilds = auth_bot.check_officer(str(user_discord_id))
+                    officer_guilds = auth_bot.check_officer(str(user_discord_id))  # type: ignore[attr-defined]
                     logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
                     if not officer_guilds:  # If user is not officer in any organization
                         logger.debug("User is not an officer in any organization!")
@@ -375,7 +375,7 @@ def member_required(f):
                 logger.debug("Checking if user is member of guild")
 
                 # Use bot's method to check membership
-                is_member = auth_bot.check_user_membership(int(user_discord_id), int(organization.guild_id))
+                is_member = auth_bot.check_user_membership(int(user_discord_id), int(organization.guild_id))  # type: ignore[attr-defined]
                 if not is_member:
                     logger.debug("User is not a member of guild")
                     return jsonify(
