@@ -806,7 +806,7 @@ def get_user_points_public(org_prefix, **kwargs):
 
 
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
-@dual_auth_required
+@require_clerk_auth
 @error_handler
 def get_user_wallet_clerk(org_prefix, user_email):
     """Get user wallet/points using dual authentication"""
