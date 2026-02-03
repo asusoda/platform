@@ -815,7 +815,7 @@ def get_user_orders_clerk(org_prefix, user_email):
     """Get user's orders using dual authentication"""
     db = next(db_connect.get_db())
     try:
-        if request.clerk_user_email != user_email:
+        if request.clerk_user_email != user_email:  # type: ignore[attr-defined]
             return jsonify({"error": "Unauthorized: Email mismatch"}), 403
 
         from modules.organizations.models import Organization

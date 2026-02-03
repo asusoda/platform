@@ -82,19 +82,20 @@ class JeopardyGame:
             dict: Organized questions by category.
         """
         print(questions_data)
-        queations = []
-        for categoory in questions_data.keys():
-            for question in questions_data[categoory]:
-                queations.append(
+        questions_dict = {}
+        for category in questions_data.keys():
+            questions_dict[category] = []
+            for question in questions_data[category]:
+                questions_dict[category].append(
                     JeopardyQuestion(
-                        categoory,
+                        category,
                         question["question"],
                         question["answer"],
                         question["value"],
                     )
                 )
-                self.category_name = categoory
-        return queations
+                self.category_name = category
+        return questions_dict
 
     def _create_teams(self, data):
         """
