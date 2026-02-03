@@ -1,9 +1,8 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
-from modules.auth.decoraters import auth_required, error_handler, member_required
+from modules.auth.decoraters import auth_required, dual_auth_required, error_handler, member_required
 from modules.storefront.models import Order, OrderItem, Product
-from modules.utils.clerk_auth import require_clerk_auth
 from modules.utils.db import DBConnect
 
 storefront_blueprint = Blueprint("storefront", __name__)
@@ -202,7 +201,7 @@ def delete_product(org_prefix, product_id):
 
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
-@auth_required
+@dual_auth_required
 @error_handler
 def get_orders(org_prefix):
     """Get all orders for an organization"""
@@ -282,13 +281,16 @@ def get_order(org_prefix, order_id):
 
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def create_order(org_prefix):
-    """Create a new order for an organization with Clerk authentication"""
+    """Create a new order for an organization with dual authentication"""
     data = request.get_json()
-    user_email = request.clerk_user_email
+    user_email = getattr(request, "clerk_user_email", None)
 
+    # Ensure we received a valid email identifier from authentication
+    if not user_email or "@" not in user_email:
+        return jsonify({"error": "Authenticated user email is missing or invalid"}), 400
     # Validate required fields
     if not data.get("total_amount"):
         return jsonify({"error": "Total amount is required"}), 400
@@ -508,9 +510,14 @@ def get_store_products(org_prefix):
 
 
 @storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
+@auth_required
 @error_handler
 def purchase_products(org_prefix):
-    """Public endpoint for customers to purchase products"""
+    """Public endpoint for customers to purchase products (Discord auth)"""
+    # Ensure create_order's expectation of request.clerk_user_email is met even for Discord-auth flows
+    if not hasattr(request, "clerk_user_email"):
+        # For Discord-authenticated users, there may be no Clerk email; use None as a safe default.
+        request.clerk_user_email = None
     return create_order(org_prefix)  # Reuse the create_order function
 
 
@@ -802,10 +809,10 @@ def get_user_points_public(org_prefix, **kwargs):
 
 
 @storefront_blueprint.route("/<string:org_prefix>/wallet/<string:user_email>", methods=["GET"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def get_user_wallet_clerk(org_prefix, user_email):
-    """Get user wallet/points using Clerk authentication"""
+    """Get user wallet/points using dual authentication"""
     db = next(db_connect.get_db())
     try:
         if request.clerk_user_email != user_email:
@@ -857,10 +864,10 @@ def get_user_wallet_clerk(org_prefix, user_email):
 
 
 @storefront_blueprint.route("/<string:org_prefix>/checkout", methods=["POST"])
-@require_clerk_auth
+@dual_auth_required
 @error_handler
 def clerk_checkout(org_prefix):
-    """Checkout endpoint using Clerk authentication"""
+    """Checkout endpoint using dual authentication"""
     data = request.get_json()
     user_email = request.clerk_user_email
 
