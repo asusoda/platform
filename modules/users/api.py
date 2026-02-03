@@ -4,6 +4,9 @@ from sqlalchemy import func
 from modules.auth.decoraters import auth_required, error_handler
 from modules.points.models import Points, User
 from shared import db_connect
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Flask Blueprint for users
 users_blueprint = Blueprint("users", __name__, template_folder=None, static_folder=None)
@@ -309,7 +312,8 @@ def handle_form_submission_in_org(org_prefix):
         role = data.get("role")
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error while handling form submission for org_prefix=%s", org_prefix)
+        return jsonify({"error": "An internal error occurred while processing the form."}), 500
 
     return jsonify({"message": "recieved id: " + discordID + " and role: " + role}), 200
 
