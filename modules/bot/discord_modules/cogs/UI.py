@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import discord
 
-from modules.bot.discord_modules.cogs.GameCog import GameCog
 from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
+
+if TYPE_CHECKING:
+    from modules.bot.discord_modules.cogs.GameCog import GameCog
 
 
 class QuestionPost(discord.ui.View):
