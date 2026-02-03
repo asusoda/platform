@@ -33,7 +33,7 @@ def get_git_commit_hash():
     commit_hash = os.environ.get("GIT_COMMIT_HASH")
     if commit_hash and commit_hash != "unknown":
         return commit_hash
-    
+
     # Fall back to git command (for local development)
     try:
         result = subprocess.run(
