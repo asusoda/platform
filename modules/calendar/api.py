@@ -87,8 +87,6 @@ def get_organization_events(org_prefix):
         route_error_handler.transaction = None
         if transaction:
             transaction.finish()
-        if session:
-            session.close()
 
 
 @calendar_blueprint.route("/<org_prefix>/sync", methods=["POST"])
