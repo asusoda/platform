@@ -63,15 +63,15 @@ else:
 # Initialize database connections
 db_connect = DBConnect("sqlite:///./data/user.db")
 
-# Initialize TokenManager
-tokenManger = TokenManager()
+# Intialize TokenManager
+tokenManager = TokenManager()
 
 
 # Periodic cleanup of expired refresh tokens
 def cleanup_expired_tokens():
     """Clean up expired refresh tokens periodically"""
     try:
-        tokenManger.cleanup_expired_refresh_tokens()
+        tokenManager.cleanup_expired_refresh_tokens()
         logger.info("Cleaned up expired refresh tokens")
     except Exception as e:
         logger.error(f"Error cleaning up expired tokens: {e}")

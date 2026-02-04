@@ -3,7 +3,7 @@ from flask import Blueprint, current_app, jsonify, request, session
 from modules.auth.decoraters import superadmin_required
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
-from shared import config, db_connect, tokenManger
+from shared import config, db_connect, tokenManager
 
 superadmin_blueprint = Blueprint("superadmin", __name__)
 
@@ -28,7 +28,7 @@ def check_superadmin():
 
         # Decode the token to get user information
         print("🔍 [DEBUG] Decoding token...")
-        token_data = tokenManger.decode_token(token)
+        token_data = tokenManager.decode_token(token)
         if not token_data:
             print("❌ [DEBUG] Failed to decode token")
             return jsonify({"error": "Invalid token"}), 401
