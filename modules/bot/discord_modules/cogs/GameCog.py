@@ -157,8 +157,6 @@ class GameCog(commands.Cog):
         if team_count == 0:
             raise ValueError("No teams are set up in the game.")
 
-        player_count // team_count
-
         # Clear current members from each team
         for team in self.game.teams:
             team.members.clear()
