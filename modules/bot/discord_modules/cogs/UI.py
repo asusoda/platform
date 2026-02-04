@@ -51,6 +51,12 @@ class QuestionPost(discord.ui.View):
         if member_role in self.avoid:
             await interaction.response.send_message("You are not allowed to buzz in!", ephemeral=True)
         else:
+            if self.question_uuid is None:
+                await interaction.response.send_message(
+                    "This question is no longer available to buzz in.",
+                    ephemeral=True,
+                )
+                return
             self.cog.question_post[self.question_uuid]["rolesAnswered"].append(member_role)
             button.disabled = True
             user = interaction.user
