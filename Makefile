@@ -89,8 +89,8 @@ deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."
 	@if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
 		echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
-		cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1); \
 	fi
+	@cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..."
 	@git pull || (echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."
