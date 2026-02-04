@@ -26,7 +26,7 @@ class QuestionPost(discord.ui.View):
         voice: discord.StageChannel,
         cog: GameCogProtocol,
         question_uuid: str | None,
-        avoid,
+        excluded_roles,
     ):
         """
         Initializes the QuestionPost instance.
@@ -36,19 +36,19 @@ class QuestionPost(discord.ui.View):
             voice (discord.StageChannel): The voice channel to move the user to.
             cog (GameCogProtocol): Any object implementing the GameCogProtocol interface.
             question_uuid (Optional[str]): The UUID of the question.
-            avoid (Optional[str]): The roles to avoid.
+            excluded_roles (Optional[Iterable[discord.Role]]): The roles that are not allowed to buzz in.
         """
         super().__init__(timeout=None)
         self.question = question
         self.voice = voice
         self.cog = cog
-        self.avoid = avoid
+        self.excluded_roles = excluded_roles
         self.question_uuid = question_uuid
 
     @discord.ui.button(label="Buzz In", style=discord.ButtonStyle.blurple)
     async def button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
         member_role = self.cog.get_member_role(interaction.user)
-        if member_role in self.avoid:
+        if member_role in self.excluded_roles:
             await interaction.response.send_message("You are not allowed to buzz in!", ephemeral=True)
         else:
             if self.question_uuid is None:
