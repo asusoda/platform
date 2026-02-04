@@ -27,7 +27,7 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
     print(f"--- Testing: {description} ({method.upper()} {endpoint}) ---")
     # Removed verbose request details printing here to reduce noise for passed tests
 
-    test_passed_this_call = False
+    test_passed = False
     status_code_for_report = None
     response_preview_for_report = "N/A"
 
@@ -73,7 +73,7 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
             else:
                 # nosec B101 - Assert used in test script, not production code
                 assert response.status_code < 400, f"Expected success status code (<400), got {response.status_code}"  # nosec B101
-            test_passed_this_call = True
+            test_passed = True
         except AssertionError as ae:
             # Detailed print only on assertion failure
             print(f"Request: {method.upper()} {url}")
