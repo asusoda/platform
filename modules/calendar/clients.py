@@ -184,9 +184,7 @@ class GoogleCalendarClient:
                     self.logger.debug(
                         f"Attempting to update Google Calendar event {event_id} for Notion ID {notion_page_id} with data: {event_data}"
                     )
-                    updated_event = (
-                        service.events().update(calendarId=calendar_id, eventId=event_id, body=event_data).execute()  # type: ignore[attr-defined]
-                    )
+                    updated_event = service.events().update(calendarId=calendar_id, eventId=event_id, body=event_data).execute()  # type: ignore[attr-defined]
 
                     jump_url = updated_event.get("htmlLink")
                     span.set_data(
