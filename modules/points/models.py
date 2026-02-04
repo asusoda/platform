@@ -27,8 +27,6 @@ class User(Base):
     points = relationship("Points", back_populates="user")
     orders = relationship("Order", back_populates="user")
     memberships = relationship("UserOrganizationMembership", back_populates="user")
-    orders = relationship("Order", back_populates="user")
-    memberships = relationship("UserOrganizationMembership", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, discord_id={self.discord_id}, username={self.username})>"
