@@ -23,7 +23,6 @@ class User(Base):
 
     # Relationships
 
-    # Relationships
     points = relationship("Points", back_populates="user")
     orders = relationship("Order", back_populates="user")
     memberships = relationship("UserOrganizationMembership", back_populates="user")
