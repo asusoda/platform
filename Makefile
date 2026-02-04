@@ -94,9 +94,9 @@ deploy:
 	fi
 	@cd $(PROJECT_DIR) && \
 	echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..." && \
-	git pull && \
+	git pull || { echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..." && \
-	git checkout $(BRANCH) && \
+	git checkout $(BRANCH) || { echo -e "$(RED)[ERROR]$(NC) Failed to checkout $(BRANCH)"; exit 1; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..." && \
 	mkdir -p data && \
 	chmod -R 755 data && \
@@ -105,11 +105,11 @@ deploy:
 	$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true && \
 	echo -e "$(GREEN)[INFO]$(NC) Building container image..." && \
 	export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build && \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || { echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Stopping existing containers..." && \
 	$(COMPOSE_CMD) -f docker-compose.yml down && \
 	echo -e "$(GREEN)[INFO]$(NC) Starting containers..." && \
-	$(COMPOSE_CMD) -f docker-compose.yml up -d && \
+	$(COMPOSE_CMD) -f docker-compose.yml up -d || { echo -e "$(RED)[ERROR]$(NC) Failed to start containers"; exit 1; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Waiting for container to be healthy..." && \
 	for i in $$(seq 1 $(HEALTH_CHECK_MAX_RETRIES)); do \
 		if $(COMPOSE_CMD) ps | grep -q "healthy"; then \
