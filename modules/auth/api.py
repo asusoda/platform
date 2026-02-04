@@ -195,7 +195,7 @@ def get_app_token():
         return jsonify({"error": "Invalid user token"}), 401
 
     logger.info(f"Generating app token for user {username}, app: {appname}")
-    app_token_value = tokenManager.genreate_app_token(username, appname)
+    app_token_value = tokenManager.generate_app_token(username, appname)
     return jsonify({"app_token": app_token_value}), 200
 
 
