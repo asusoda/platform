@@ -273,7 +273,7 @@ class TokenManager:
         discord_id = self.retrieve_discord_id(token)
         return self.generate_token(username, discord_id)
 
-    def genreate_app_token(self, name, app_name):
+    def generate_app_token(self, name, app_name):
         payload = {
             "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=120),
             "name": name,
