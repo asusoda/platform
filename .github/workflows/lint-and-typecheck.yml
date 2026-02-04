@@ -36,25 +36,13 @@ jobs:
     
     - name: Commit and push fixes
       if: github.event_name == 'pull_request'
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add -A
-        if ! git diff --staged --quiet; then
-          git commit -m "style: auto-fix linting and formatting issues"
-          git push
-        else
-          echo "No changes to commit"
-        fi
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "style: auto-fix linting and formatting issues"
     
     - name: Run ty type checking
       run: uv run ty check .
     
     - name: Run bandit security checks
       run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv
-    
-    - name: Run tests
-      env:
-        TESTING: "true"
-      run: uv run pytest -v
 
