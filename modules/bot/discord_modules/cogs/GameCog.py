@@ -231,7 +231,7 @@ class GameCog(commands.Cog):
         if uuid in self.question_post.keys():
             question_data = self.game.get_question_by_uuid(uuid)
             if question_data is None or self.stage is None:
-                return
+                return False
             embed = discord.Embed(
                 title="🌟QUESTION🌟",
                 description="Here is the question again! \n",
@@ -248,10 +248,11 @@ class GameCog(commands.Cog):
                 question_uuid=uuid,
             )
             await self.question_post[uuid]["message_id"].edit(embed=embed, view=question)
+            return True
         else:
             question_data = self.game.get_question_by_uuid(uuid)
             if question_data is None or self.stage is None:
-                return
+                return False
             embed = discord.Embed(
                 title="🌟QUESTION🌟",
                 description="Here is the question! \n",
