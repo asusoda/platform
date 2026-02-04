@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes
+.PHONY: help build up down logs logs-follow shell clean deploy dev prod rollback status health discard-local-changes
 
 # Use bash as the shell for all commands
 SHELL := /bin/bash
