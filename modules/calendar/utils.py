@@ -291,7 +291,6 @@ def extract_property(properties: dict, name: str, prop_type: str) -> Any | None:
         # If you want to enforce type matches in the future, you can compare the property's
         # stored `"type"` with `prop_type` here and decide whether to log or early-return.
 
-
         if prop_type == "title":
             title_array = prop_data.get("title", [])
             if not isinstance(title_array, list):
