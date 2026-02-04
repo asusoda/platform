@@ -296,7 +296,8 @@ def superadmin_required(f):
                     import traceback
 
                     traceback.print_exc()
-                    return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
+                    # Do not expose internal error details to the client
+                    return jsonify({"message": "Error verifying superadmin status."}), 401
 
             logger.debug("Superadmin authentication successful!")
             return f(*args, **kwargs)
@@ -305,7 +306,8 @@ def superadmin_required(f):
             import traceback
 
             traceback.print_exc()
-            return jsonify({"message": str(e)}), 401
+            # Return a generic error message to avoid leaking exception details
+            return jsonify({"message": "An internal error occurred while verifying superadmin access."}), 401
 
     return wrapper
 
