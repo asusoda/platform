@@ -7,6 +7,7 @@ SHELL := /bin/bash
 PROJECT_DIR ?= /var/www/soda-internal-api
 BRANCH ?= main
 COMPOSE_CMD := $(shell if command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; elif docker compose version > /dev/null 2>&1; then echo "docker compose"; else echo "docker-compose"; fi)
+CONTAINER_CMD := $(shell if command -v podman > /dev/null 2>&1; then echo "podman"; else echo "docker"; fi)
 
 # Colors for output
 RED := \033[0;31m
@@ -123,6 +124,8 @@ deploy:
 	@$(COMPOSE_CMD) ps
 	@echo -e "$(GREEN)[INFO]$(NC) Recent logs:"
 	@$(COMPOSE_CMD) logs --tail=20
+	@echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."
+	@$(CONTAINER_CMD) image prune -f 2>/dev/null || true
 	@echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
