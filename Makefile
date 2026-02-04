@@ -99,7 +99,7 @@ deploy:
 	chmod -R 755 data && \
 	chown -R $(APP_UID):$(APP_GID) data && \
 	echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..." && \
-	$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true && \
+	{ $(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Building container image..." && \
 	export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
 		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || { echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1; } && \
