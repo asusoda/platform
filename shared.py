@@ -67,7 +67,6 @@ db_connect = DBConnect("sqlite:///./data/user.db")
 tokenManger = TokenManager()
 
 
-
 # Periodic cleanup of expired refresh tokens
 def cleanup_expired_tokens():
     """Clean up expired refresh tokens periodically"""
