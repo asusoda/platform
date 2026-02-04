@@ -78,14 +78,7 @@ app.register_blueprint(game_blueprint, url_prefix="/api/bot")
 app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
 app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
 app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
-# # Configure static file serving
-# @app.route('/', defaults={'path': ''})
-# @app.route('/<path:path>')
-# def serve(path):
-#     if path == "":
-#         return send_from_directory('web/dist', 'index.html')
-#     else:
-#         return send_from_directory('web/dist', path)
+# Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 
 # --- Bot Thread Functions ---
