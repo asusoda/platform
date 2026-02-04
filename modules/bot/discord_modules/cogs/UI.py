@@ -72,7 +72,6 @@ class AnsweredQuestion(discord.ui.View):
         super().__init__(timeout=None)
         self.question = question
         self.answer = answer
-        self.add_item(discord.ui.Button(label="Reveal Answer", style=discord.ButtonStyle.blurple))
 
     @discord.ui.button(label="Reveal Answer", style=discord.ButtonStyle.blurple)
     async def reveal_answer(self, button: discord.ui.Button, interaction: discord.Interaction):
