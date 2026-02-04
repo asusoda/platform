@@ -20,7 +20,7 @@ class ExtendedFlask(Flask):
 app: ExtendedFlask
 config: Config
 db_connect: DBConnect
-tokenManger: TokenManager
+tokenManager: TokenManager
 notion: NotionClient
 
 def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork: ...
