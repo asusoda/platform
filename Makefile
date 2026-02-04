@@ -52,7 +52,8 @@ build-web:
 # Start services in development mode
 up:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting services..."
-	@$(COMPOSE_CMD) up -d
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		$(COMPOSE_CMD) up -d
 
 # Stop services
 down:
@@ -129,7 +130,8 @@ deploy:
 # Development environment
 dev:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting development environment with hot reloading..."
-	@$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
 
 
 # Rollback to previous version
