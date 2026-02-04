@@ -2,12 +2,14 @@ import json
 import time
 
 import requests
+import os
 
 # --- Configuration ---
 BASE_URL = "http://127.0.0.1:8000"  # ADJUST IF YOUR APP RUNS ON A DIFFERENT PORT/URL
-TEST_TOKEN = "YOUR_VALID_TEST_TOKEN"  # nosec B105 - Placeholder, not actual password
+TEST_TOKEN = os.environ.get("API_TEST_TOKEN", "")
 # To get a test token, you might need to manually go through the login flow once
 # and extract the token your frontend receives, or have a debug endpoint to generate one.
+# Set it for this script via the API_TEST_TOKEN environment variable.
 
 DEFAULT_HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {TEST_TOKEN}"}
 
