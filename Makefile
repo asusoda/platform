@@ -92,26 +92,26 @@ deploy:
 	@if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
 		echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
 	fi
-	@cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..."
-	@git pull || (echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."
-	@git checkout $(BRANCH) || (echo -e "$(RED)[ERROR]$(NC) Failed to checkout $(BRANCH)"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."
-	@mkdir -p data
-	@chmod -R 755 data
-	@chown -R $(APP_UID):$(APP_GID) data
-	@echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..."
-	@$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true
-	@echo -e "$(GREEN)[INFO]$(NC) Building container image..."
-	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Stopping existing containers..."
-	@$(COMPOSE_CMD) -f docker-compose.yml down
-	@echo -e "$(GREEN)[INFO]$(NC) Starting containers..."
-	@$(COMPOSE_CMD) -f docker-compose.yml up -d || (echo -e "$(RED)[ERROR]$(NC) Failed to start containers"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Waiting for container to be healthy..."
-	@for i in $$(seq 1 $(HEALTH_CHECK_MAX_RETRIES)); do \
+	@cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1); \
+	echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..."; \
+	git pull || (echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1); \
+	echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."; \
+	git checkout $(BRANCH) || (echo -e "$(RED)[ERROR]$(NC) Failed to checkout $(BRANCH)"; exit 1); \
+	echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."; \
+	mkdir -p data; \
+	chmod -R 755 data; \
+	chown -R $(APP_UID):$(APP_GID) data; \
+	echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..."; \
+	$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true; \
+	echo -e "$(GREEN)[INFO]$(NC) Building container image..."; \
+	export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1); \
+	echo -e "$(GREEN)[INFO]$(NC) Stopping existing containers..."; \
+	$(COMPOSE_CMD) -f docker-compose.yml down; \
+	echo -e "$(GREEN)[INFO]$(NC) Starting containers..."; \
+	$(COMPOSE_CMD) -f docker-compose.yml up -d || (echo -e "$(RED)[ERROR]$(NC) Failed to start containers"; exit 1); \
+	echo -e "$(GREEN)[INFO]$(NC) Waiting for container to be healthy..."; \
+	for i in $$(seq 1 $(HEALTH_CHECK_MAX_RETRIES)); do \
 		if $(COMPOSE_CMD) ps | grep -q "healthy"; then \
 			echo -e "$(GREEN)[INFO]$(NC) Container is healthy!"; \
 			break; \
@@ -121,15 +121,15 @@ deploy:
 			printf "."; \
 			sleep 2; \
 		fi; \
-	done
-	@echo
-	@echo -e "$(GREEN)[INFO]$(NC) Container status:"
-	@$(COMPOSE_CMD) ps
-	@echo -e "$(GREEN)[INFO]$(NC) Recent logs:"
-	@$(COMPOSE_CMD) logs --tail=20
-	@echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."
-	@$(CONTAINER_CMD) image prune -f 2>/dev/null || true
-	@echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
+	done; \
+	echo; \
+	echo -e "$(GREEN)[INFO]$(NC) Container status:"; \
+	$(COMPOSE_CMD) ps; \
+	echo -e "$(GREEN)[INFO]$(NC) Recent logs:"; \
+	$(COMPOSE_CMD) logs --tail=20; \
+	echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."; \
+	$(CONTAINER_CMD) image prune -f 2>/dev/null || true; \
+	echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
 dev:
