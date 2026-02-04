@@ -287,10 +287,10 @@ def extract_property(properties: dict, name: str, prop_type: str) -> Any | None:
             return None
 
         # Check the actual type stored in Notion data if available. Currently this is
-        # only retrieved for potential logging/diagnostics and does not affect control flow.
-        actual_type = prop_data.get("type")
-        # If you want to enforce type matches in the future, you can compare
-        # `actual_type` with `prop_type` here and decide whether to log or early-return.
+        # only relevant for potential logging/diagnostics and does not affect control flow.
+        # If you want to enforce type matches in the future, you can compare the property's
+        # stored `"type"` with `prop_type` here and decide whether to log or early-return.
+
 
         if prop_type == "title":
             title_array = prop_data.get("title", [])
