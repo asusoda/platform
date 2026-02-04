@@ -52,4 +52,9 @@ jobs:
     
     - name: Run bandit security checks
       run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv
+    
+    - name: Run tests
+      env:
+        TESTING: "true"
+      run: uv run pytest -v
 
