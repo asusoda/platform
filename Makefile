@@ -135,7 +135,6 @@ dev:
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
 		$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
 
-
 # Rollback to previous version
 rollback:
 	@echo -e "$(YELLOW)[WARNING]$(NC) Rolling back to previous version..."
