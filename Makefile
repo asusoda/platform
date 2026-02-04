@@ -89,10 +89,7 @@ discard-local-changes:
 # Deploy to production
 deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."
-	@if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
-		echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
-	fi
-	@cd $(PROJECT_DIR) && \
+	@cd $(PROJECT_DIR) || { echo -e "$(RED)[ERROR]$(NC) Failed to change directory to $(PROJECT_DIR)"; exit 1; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..." && \
 	git pull || { echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..." && \
@@ -128,7 +125,7 @@ deploy:
 	echo -e "$(GREEN)[INFO]$(NC) Recent logs:" && \
 	$(COMPOSE_CMD) logs --tail=20 && \
 	echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..." && \
-	$(CONTAINER_CMD) image prune -f 2>/dev/null || true && \
+	{ $(CONTAINER_CMD) image prune -f 2>/dev/null || true; } && \
 	echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
