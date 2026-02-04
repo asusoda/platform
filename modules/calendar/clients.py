@@ -243,18 +243,15 @@ class GoogleCalendarClient:
                     with operation_span(
                         transaction, op="list_page", description="events.list page", logger=self.logger
                     ) as span:
-                        events_result = (
-                            service.events()  # type: ignore[attr-defined]
-                            .list(
-                                calendarId=calendar_id,
-                                singleEvents=True,  # Expand recurring events
-                                showDeleted=False,  # Don't include deleted events
-                                pageToken=page_token,
-                                timeMin=time_min,
-                                maxResults=250,  # Fetch in batches
-                            )
-                            .execute()
+                        list_request = service.events().list(  # type: ignore[attr-defined]
+                            calendarId=calendar_id,
+                            singleEvents=True,  # Expand recurring events
+                            showDeleted=False,  # Don't include deleted events
+                            pageToken=page_token,
+                            timeMin=time_min,
+                            maxResults=250,  # Fetch in batches
                         )
+                        events_result = list_request.execute()
 
                         items = events_result.get("items", [])
                         all_events.extend(items)
