@@ -250,6 +250,7 @@ class GameCog(commands.Cog):
                 question_uuid=uuid,
             )
             await self.question_post[uuid]["message_id"].edit(embed=embed, view=question)
+            return True
         else:
             question_data = self.game.get_question_by_uuid(uuid)
             if question_data is None or self.stage is None:
