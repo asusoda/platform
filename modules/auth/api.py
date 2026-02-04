@@ -3,7 +3,7 @@ from flask import Blueprint, current_app, jsonify, redirect, request, session
 
 from modules.auth.decoraters import auth_required, error_handler
 from modules.utils.logging_config import logger
-from shared import config, tokenManger
+from shared import config, tokenManager
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)
 CLIENT_ID = config.CLIENT_ID
@@ -29,7 +29,7 @@ def validToken():
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
     token = auth_header.split(" ")[1]
-    if tokenManger.is_token_valid(token):
+    if tokenManager.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
         return jsonify({"status": "error", "valid": False}), 401
@@ -78,7 +78,7 @@ def callback():
         if officer_guilds:  # If user is officer in at least one organization
             name = auth_bot.get_name(user_id)  # type: ignore[attr-defined]
             # Generate token pair with both access and refresh tokens
-            access_token, refresh_token = tokenManger.generate_token_pair(
+            access_token, refresh_token = tokenManager.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
             )
             # Store user info in session with officer guilds
@@ -114,7 +114,7 @@ def refresh_token():
         refresh_token = data["refresh_token"]
 
         # Generate new access token
-        new_access_token = tokenManger.refresh_access_token(refresh_token)
+        new_access_token = tokenManager.refresh_access_token(refresh_token)
 
         if new_access_token:
             return jsonify(
@@ -145,12 +145,12 @@ def revoke_token():
         refresh_token = data["refresh_token"]
 
         # Revoke the refresh token
-        if tokenManger.revoke_refresh_token(refresh_token):
+        if tokenManager.revoke_refresh_token(refresh_token):
             # Also blacklist the current access token
             auth_header = request.headers.get("Authorization")
             if auth_header:
                 current_token = auth_header.split(" ")[1]
-                tokenManger.delete_token(current_token)
+                tokenManager.delete_token(current_token)
 
             return jsonify({"message": "Token revoked successfully"}), 200
         else:
@@ -166,8 +166,8 @@ def valid_token():
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
     token = auth_header.split(" ")[1]
-    if tokenManger.is_token_valid(token):
-        if tokenManger.is_token_expired(token):
+    if tokenManager.is_token_valid(token):
+        if tokenManager.is_token_expired(token):
             logger.info("Token is valid but expired.")
             return jsonify({"status": "success", "valid": True, "expired": True}), 200
         else:
@@ -190,12 +190,12 @@ def get_app_token():
     if not appname:
         return jsonify({"error": "appname query parameter is required"}), 400
 
-    username = tokenManger.retrieve_username(token)
+    username = tokenManager.retrieve_username(token)
     if not username:
         return jsonify({"error": "Invalid user token"}), 401
 
     logger.info(f"Generating app token for user {username}, app: {appname}")
-    app_token_value = tokenManger.genreate_app_token(username, appname)
+    app_token_value = tokenManager.generate_app_token(username, appname)
     return jsonify({"app_token": app_token_value}), 200
 
 
@@ -207,7 +207,7 @@ def get_name():
         return jsonify({"error": "No authorization header"}), 401
     autorisation = auth_header.split(" ")[1]
 
-    return jsonify({"name": tokenManger.retrieve_username(autorisation)}), 200
+    return jsonify({"name": tokenManager.retrieve_username(autorisation)}), 200
 
 
 @auth_blueprint.route("/logout", methods=["POST"])
@@ -219,12 +219,12 @@ def logout():
         data = request.get_json()
         if data and "refresh_token" in data:
             # Revoke refresh token
-            tokenManger.revoke_refresh_token(data["refresh_token"])
+            tokenManager.revoke_refresh_token(data["refresh_token"])
 
         # Also blacklist current access token if provided
         if "Authorization" in request.headers:
             token = request.headers["Authorization"].split(" ")[1]
-            tokenManger.delete_token(token)
+            tokenManager.delete_token(token)
 
         # Clear session
         session.clear()
