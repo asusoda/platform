@@ -301,6 +301,9 @@ def user_in_org(org_prefix):
     finally:
         db.close()
 
+    # Fallback response to avoid implicit None return on unexpected paths
+    return jsonify({"error": "An unexpected error occurred while processing the request."}), 500
+
 
 @users_blueprint.route("/<string:org_prefix>/submit-form", methods=["POST"])
 def handle_form_submission_in_org(org_prefix):
