@@ -40,7 +40,7 @@ function SetupButton() {
                 Create Channels and Announce Game
             </button>
         );
-    } else if (setup && !start) {
+    } else if (!start) {
         return (
             <button disabled className="bg-green-500 text-white p-2 rounded mt-2">
                 Starting Game...
