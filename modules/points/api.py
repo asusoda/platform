@@ -196,7 +196,7 @@ def link_or_create_user(organization_id, user_data, discord_id=None):
         user, success, message = manage_user_in_organization(db, organization_id, user_data, discord_id=discord_id)
 
         if success:
-            print(f"✅ [DEBUG] {message} - User {user.id if user else 'None'} for org {organization_id}")
+            logger.debug(f"✅ [DEBUG] {message} - User {user.id if user else 'None'} for org {organization_id}")
             return user
         else:
             print(f"❌ [DEBUG] Error: {message}")
