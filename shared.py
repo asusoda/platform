@@ -63,7 +63,7 @@ else:
 # Initialize database connections
 db_connect = DBConnect("sqlite:///./data/user.db")
 
-# Intialize TokenManager
+# Initialize TokenManager
 tokenManger = TokenManager()
 
 
