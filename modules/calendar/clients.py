@@ -30,6 +30,15 @@ class GoogleCalendarClient:
         self._service: Resource | None = None  # Type hint for service
         self.error_handler = APIErrorHandler(self.logger, "GoogleCalendarClient")
 
+    def _get_or_start_transaction(self, parent_transaction, op_name: str):
+        """
+        Use the provided parent transaction if available, otherwise start a new independent one.
+        This centralizes transaction-creation logic to avoid duplication across methods.
+        """
+        if parent_transaction is not None:
+            return parent_transaction
+        return start_transaction(op="google", name=f"{op_name}_independent")
+
     def get_service(self, parent_transaction=None) -> Resource | None:  # Accept parent transaction
         """Get authenticated Google Calendar service with error handling."""
         if self._service:
@@ -39,7 +48,7 @@ class GoogleCalendarClient:
         self.error_handler.operation_name = op_name
 
         # Use parent transaction if available, otherwise start a new one (though ideally it's always passed)
-        current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
+        current_transaction = self._get_or_start_transaction(parent_transaction, op_name)
 
         # Use operation_span within the current transaction
         with operation_span(
