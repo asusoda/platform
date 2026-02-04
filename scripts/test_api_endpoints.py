@@ -123,7 +123,7 @@ def make_request(method, endpoint, headers=None, params=None, data=None, descrip
 
 def test_health_endpoint():
     print("\n========== Testing Health Endpoint ==========")
-    make_request("GET", "/health", headers=NO_AUTH_HEADERS, description="Health Check - Includes commit hash")
+    make_request("GET", "/health", headers=NO_AUTH_HEADERS, description="Health Check - Includes commit hash and started_at")
 
 
 def test_auth_endpoints():

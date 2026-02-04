@@ -2,6 +2,7 @@ import asyncio
 import os
 import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
+from datetime import UTC, datetime
 
 import discord
 from flask import jsonify  # Import current_app
@@ -50,11 +51,21 @@ def get_git_commit_hash():
 # Cache the commit hash at startup since it won't change during runtime
 COMMIT_HASH = get_git_commit_hash()
 
+# Record the startup time (container creation/start time)
+STARTUP_TIME = datetime.now(UTC)
+
 
 # Health endpoint
 @app.route("/health")
 def health():
-    return jsonify({"status": "healthy", "service": "soda-internal-api", "commit": COMMIT_HASH}), 200
+    return jsonify(
+        {
+            "status": "healthy",
+            "service": "soda-internal-api",
+            "commit": COMMIT_HASH,
+            "started_at": STARTUP_TIME.isoformat(),
+        }
+    ), 200
 
 
 # Register Blueprints
