@@ -361,7 +361,7 @@ def test_calendar_endpoints():
         "points": 2,
         "role": "Participant",
     }
-    make_request(
+    add_contrib_response = make_request(
         "POST",
         f"{ocp_prefix}/add-contribution",
         headers=NO_AUTH_HEADERS,
@@ -369,22 +369,32 @@ def test_calendar_endpoints():
         description="OCP Add Contribution",
     )
 
-    # For update/delete, you'd need a valid point_id from a previously created contribution
-    test_point_id = 1  # Replace with a real ID from your DB after an add
-    update_contrib_data = {"points": 3, "event": "Updated OCP Event"}
-    make_request(
-        "PUT",
-        f"{ocp_prefix}/contribution/{test_point_id}",
-        headers=NO_AUTH_HEADERS,
-        data=update_contrib_data,
-        description=f"OCP Update Contribution ID {test_point_id} (ensure ID exists)",
-    )
-    make_request(
-        "DELETE",
-        f"{ocp_prefix}/contribution/{test_point_id}",
-        headers=NO_AUTH_HEADERS,
-        description=f"OCP Delete Contribution ID {test_point_id} (ensure ID exists)",
-    )
+    # For update/delete, we need a valid point_id from the previously created contribution.
+    test_point_id = None
+    if add_contrib_response is not None:
+        try:
+            resp_json = add_contrib_response.json()
+            # Adjust key as needed to match API response schema.
+            test_point_id = resp_json.get("id") or resp_json.get("point_id")
+        except (ValueError, AttributeError):
+            # Response has no JSON or unexpected structure; leave test_point_id as None.
+            test_point_id = None
+
+    if test_point_id is not None:
+        update_contrib_data = {"points": 3, "event": "Updated OCP Event"}
+        make_request(
+            "PUT",
+            f"{ocp_prefix}/contribution/{test_point_id}",
+            headers=NO_AUTH_HEADERS,
+            data=update_contrib_data,
+            description=f"OCP Update Contribution ID {test_point_id} (ensure ID exists)",
+        )
+        make_request(
+            "DELETE",
+            f"{ocp_prefix}/contribution/{test_point_id}",
+            headers=NO_AUTH_HEADERS,
+            description=f"OCP Delete Contribution ID {test_point_id} (ensure ID exists)",
+        )
 
     test_officer_id_ocp = "some_officer_uuid_or_email"  # Use a valid identifier for an officer
     make_request(
