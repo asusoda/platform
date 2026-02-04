@@ -66,8 +66,6 @@ db_connect = DBConnect("sqlite:///./data/user.db")
 # Intialize TokenManager
 tokenManger = TokenManager()
 
-# Initialize database connection
-db_connect = DBConnect()
 
 
 # Periodic cleanup of expired refresh tokens
