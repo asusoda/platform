@@ -124,7 +124,7 @@ deploy:
 	@$(COMPOSE_CMD) ps
 	@echo -e "$(GREEN)[INFO]$(NC) Recent logs:"
 	@$(COMPOSE_CMD) logs --tail=20
-	@echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused Docker images..."
+	@echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."
 	@$(CONTAINER_CMD) image prune -f 2>/dev/null || true
 	@echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
