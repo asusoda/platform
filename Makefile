@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes
+.PHONY: help build up down logs logs-follow shell clean deploy dev prod rollback status health discard-local-changes
 
 # Use bash as the shell for all commands
 SHELL := /bin/bash
@@ -6,9 +6,11 @@ SHELL := /bin/bash
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
 BRANCH ?= main
+APP_UID ?= 1000
+APP_GID ?= 1000
 COMPOSE_CMD := $(shell if command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; elif docker compose version > /dev/null 2>&1; then echo "docker compose"; else echo "docker-compose"; fi)
 CONTAINER_CMD := $(shell if command -v podman > /dev/null 2>&1; then echo "podman"; else echo "docker"; fi)
-
+HEALTH_CHECK_MAX_RETRIES ?= 30
 # Colors for output
 RED := \033[0;31m
 GREEN := \033[0;32m
@@ -89,8 +91,8 @@ deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."
 	@if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
 		echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
-		cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1); \
 	fi
+	@cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..."
 	@git pull || (echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."
@@ -98,7 +100,7 @@ deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."
 	@mkdir -p data
 	@chmod -R 755 data
-	@chown -R 1000:1000 data
+	@chown -R $(APP_UID):$(APP_GID) data
 	@echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..."
 	@$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true
 	@echo -e "$(GREEN)[INFO]$(NC) Building container image..."
@@ -109,11 +111,11 @@ deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting containers..."
 	@$(COMPOSE_CMD) -f docker-compose.yml up -d || (echo -e "$(RED)[ERROR]$(NC) Failed to start containers"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Waiting for container to be healthy..."
-	@for i in $$(seq 1 30); do \
+	@for i in $$(seq 1 $(HEALTH_CHECK_MAX_RETRIES)); do \
 		if $(COMPOSE_CMD) ps | grep -q "healthy"; then \
 			echo -e "$(GREEN)[INFO]$(NC) Container is healthy!"; \
 			break; \
-		elif [ $$i -eq 30 ]; then \
+		elif [ $$i -eq $(HEALTH_CHECK_MAX_RETRIES) ]; then \
 			echo -e "$(YELLOW)[WARNING]$(NC) Container health check timed out"; \
 		else \
 			printf "."; \
@@ -134,7 +136,6 @@ dev:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting development environment with hot reloading..."
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
 		$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
-
 
 # Rollback to previous version
 rollback:
