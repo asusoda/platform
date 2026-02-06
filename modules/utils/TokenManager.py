@@ -6,6 +6,10 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from modules.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class TokenManager:
     def __init__(self, algorithm="RS256", keys_path="./data") -> None:
@@ -28,10 +32,10 @@ class TokenManager:
                     private_key = f.read()
                 with open(self.public_key_file, encoding="utf-8") as f:
                     public_key = f.read()
-                print(f"Loaded existing RSA keys from {self.keys_path}")
+                logger.info(f"Loaded existing RSA keys from {self.keys_path}")
                 return private_key, public_key
             except Exception as e:
-                print(f"Error loading keys: {e}. Generating new keys...")
+                logger.error(f"Error loading keys: {e}. Generating new keys...")
 
         # Generate new keys if loading failed or files don't exist
         private_key, public_key = self.generate_keys()
@@ -45,9 +49,9 @@ class TokenManager:
                 f.write(public_key)
             # Set restrictive permissions on private key
             os.chmod(self.private_key_file, 0o600)
-            print(f"Generated and saved new RSA keys to {self.keys_path}")
+            logger.info(f"Generated and saved new RSA keys to {self.keys_path}")
         except Exception as e:
-            print(f"Warning: Could not save keys to disk: {e}")
+            logger.warning(f"Could not save keys to disk: {e}")
 
         return private_key, public_key
 

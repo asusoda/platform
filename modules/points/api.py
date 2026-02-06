@@ -173,14 +173,14 @@ def get_or_create_user(discord_id, organization_id, username=None):
         user, success, message = manage_user_in_organization(db, organization_id, user_data, discord_id=discord_id)
 
         if success:
-            print(f"✅ [DEBUG] {message} - User {user.id} in org {organization_id}")
+            logger.debug(f"{message} - User {user.id} in org {organization_id}")
             return user
         else:
-            print(f"❌ [DEBUG] Error: {message}")
+            logger.debug(f"Error: {message}")
             return None
 
     except Exception as e:
-        print(f"❌ [DEBUG] Error creating user: {e}")
+        logger.error(f"Error creating user: {e}")
         return None
     finally:
         db.close()
@@ -196,14 +196,14 @@ def link_or_create_user(organization_id, user_data, discord_id=None):
         user, success, message = manage_user_in_organization(db, organization_id, user_data, discord_id=discord_id)
 
         if success:
-            print(f"✅ [DEBUG] {message} - User {user.id if user else 'None'} for org {organization_id}")
+            logger.debug(f"{message} - User {user.id if user else 'None'} for org {organization_id}")
             return user
         else:
-            print(f"❌ [DEBUG] Error: {message}")
+            logger.debug(f"Error: {message}")
             return None
 
     except Exception as e:
-        print(f"❌ [DEBUG] Error linking/creating user: {e}")
+        logger.error(f"Error linking/creating user: {e}")
         return None
     finally:
         db.close()
@@ -271,11 +271,11 @@ def process_csv_in_background(file_content, event_name, event_points, org_prefix
     finally:
         db.close()
 
-    print(
+    logger.info(
         f"CSV processing finished for org '{org_prefix}'. Awarded points to {success_count} users. Errors: {len(errors)}"
     )
     if errors:
-        print("Errors encountered:", errors)
+        logger.warning(f"Errors encountered: {errors}")
 
 
 # API Routes

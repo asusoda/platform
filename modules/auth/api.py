@@ -74,7 +74,7 @@ def callback():
         user_info = user_response.json()
         user_id = user_info["id"]
         officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
-        print(f"Officer guilds: {officer_guilds}")
+        logger.debug(f"Officer guilds: {officer_guilds}")
         if officer_guilds:  # If user is officer in at least one organization
             name = auth_bot.get_name(user_id)  # type: ignore[attr-defined]
             # Generate token pair with both access and refresh tokens
