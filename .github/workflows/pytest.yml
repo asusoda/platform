@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main, master]
 
-env:
-  DOCKER_BUILDKIT: 1
-  COMPOSE_DOCKER_CLI_BUILD: 1
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -28,9 +24,6 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
-    - name: Run tests
-      env:
-        TESTING: "true"
-      run: |
-        uv run pytest -v
+    - name: Run checks
+      run: make check
 

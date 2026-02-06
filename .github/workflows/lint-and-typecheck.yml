@@ -40,8 +40,8 @@ jobs:
       with:
         commit_message: "style: auto-fix linting and formatting issues"
     
-    - name: Run ty type checking
-      run: uv run ty check .
+    - name: Run all checks
+      run: make check
     
     - name: Run bandit security checks
       run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv

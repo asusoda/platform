@@ -79,7 +79,7 @@ make deploy
 
 ## Code Quality
 
-This project uses ruff for linting/formatting and ty for type checking. Git hooks via pre-commit run these automatically.
+This project uses ruff for linting/formatting and ty for type checking. All checks are bundled into a single `make check` command that runs linting, format verification, type checking, and tests. Git hooks via pre-commit run `make check` automatically.
 
 **Setup:**
 ```bash
@@ -89,9 +89,7 @@ uv run pre-commit install  # Install git hooks
 
 **Manual runs:**
 ```bash
-uv run ruff check --fix .  # Lint and auto-fix
-uv run ruff format .       # Format code
-uv run ty check .          # Type check
+make check                 # Run all checks (lint, format, typecheck, tests)
 ```
 
 
