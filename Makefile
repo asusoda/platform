@@ -31,7 +31,7 @@ help:
 	@echo "  make rollback               - Rollback to previous version"
 	@echo "  make status                 - Show container status"
 	@echo "  make health                 - Check container health"
-	@echo "  make check                  - Run lint, format check, type check, and tests"
+	@echo "  make check                  - Run lint (auto-fix), format, type check, and tests"
 
 # Build container images
 build:
@@ -157,12 +157,12 @@ status:
 	@echo -e "$(GREEN)[INFO]$(NC) Container status:"
 	@$(COMPOSE_CMD) ps
 
-# Run lint, format check, type check, and tests
+# Run lint (with auto-fix), format, type check, and tests
 check:
-	@echo -e "$(GREEN)[INFO]$(NC) Running ruff linting..."
-	@uv run ruff check .
-	@echo -e "$(GREEN)[INFO]$(NC) Running ruff format check..."
-	@uv run ruff format --check .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff linting with auto-fix..."
+	@uv run ruff check --fix .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff formatting..."
+	@uv run ruff format .
 	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
 	@uv run ty check .
 	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
