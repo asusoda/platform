@@ -7,8 +7,10 @@ from sqlalchemy.orm import sessionmaker
 # Create a centralized Base for all models
 from .base import Base
 
+from modules.utils.logging_config import get_logger
+
 # Set up logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DBConnect:
@@ -37,13 +39,13 @@ class DBConnect:
             # If there's a directory component and it doesn't exist, create it
             if db_dir and not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
-                print(f"Created database directory: {db_dir}")
+                logger.info(f"Created database directory: {db_dir}")
 
     def check_and_create_tables(self):
         """Create all tables if they don't exist"""
-        print("Creating database tables...")
+        logger.info("Creating database tables...")
         Base.metadata.create_all(bind=self.engine)
-        print("Database tables created successfully")
+        logger.info("Database tables created successfully")
         """Check if database file exists and create tables if needed"""
         try:
             # Ensure data directory exists

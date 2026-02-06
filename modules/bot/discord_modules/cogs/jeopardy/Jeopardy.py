@@ -4,6 +4,9 @@ import discord
 
 from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
 from modules.bot.discord_modules.cogs.jeopardy.Team import Team
+from modules.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class JeopardyGame:
@@ -81,7 +84,7 @@ class JeopardyGame:
         Returns:
             dict: Organized questions by category.
         """
-        print(questions_data)
+        logger.debug(questions_data)
         questions_dict = {}
         for category in questions_data.keys():
             questions_dict[category] = []

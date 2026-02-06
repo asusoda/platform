@@ -3,6 +3,10 @@ import os
 
 from dotenv import load_dotenv
 
+from modules.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class Config:
     """Centralized configuration management for the application"""
@@ -96,16 +100,16 @@ class Config:
 
                 try:
                     with open("google-secret.json") as file:
-                        print("Loading Google service account credentials")
+                        logger.info("Loading Google service account credentials")
                         self.GOOGLE_SERVICE_ACCOUNT = json.load(file)
-                        print("Google service account credentials loaded successfully")
+                        logger.info("Google service account credentials loaded successfully")
                         # Redact sensitive information
-                        print("Google service account credentials loaded")
+                        logger.info("Google service account credentials loaded")
                 except FileNotFoundError:
-                    print("Warning: google-secret.json not found. Google Calendar features will be disabled.")
+                    logger.warning("Warning: google-secret.json not found. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None
                 except Exception as e:
-                    print(f"Warning: Error loading Google credentials: {e}. Google Calendar features will be disabled.")
+                    logger.warning(f"Warning: Error loading Google credentials: {e}. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None
 
                 self.NOTION_API_KEY = os.environ["NOTION_API_KEY"]
