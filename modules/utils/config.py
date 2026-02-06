@@ -100,11 +100,8 @@ class Config:
 
                 try:
                     with open("google-secret.json") as file:
-                        logger.info("Loading Google service account credentials")
                         self.GOOGLE_SERVICE_ACCOUNT = json.load(file)
                         logger.info("Google service account credentials loaded successfully")
-                        # Redact sensitive information
-                        logger.info("Google service account credentials loaded")
                 except FileNotFoundError:
                     logger.warning("google-secret.json not found. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None

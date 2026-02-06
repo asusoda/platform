@@ -84,7 +84,7 @@ class JeopardyGame:
         Returns:
             dict: Organized questions by category.
         """
-        logger.debug(questions_data)
+        logger.debug(f"Questions data structure: {questions_data}")
         questions_dict = {}
         for category in questions_data.keys():
             questions_dict[category] = []
