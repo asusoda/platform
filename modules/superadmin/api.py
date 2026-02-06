@@ -81,7 +81,7 @@ def get_dashboard():
             return jsonify({"error": "Bot not available"}), 503
 
         if not auth_bot.is_ready():  # type: ignore[attr-defined]
-            logger.error("Auth bot is not ready!")
+            logger.warning("Auth bot is not ready!")
             return jsonify({"error": "Bot not available"}), 503
 
         logger.debug("Auth bot is ready")
@@ -167,7 +167,7 @@ def get_guild_roles(guild_id):
             return jsonify({"error": "Bot not available"}), 503
 
         if not auth_bot.is_ready():  # type: ignore[attr-defined]
-            logger.error("Auth bot is not ready!")
+            logger.warning("Auth bot is not ready!")
             return jsonify({"error": "Bot not available"}), 503
 
         logger.debug("Auth bot is ready")
@@ -245,7 +245,7 @@ def update_officer_role(org_id):
             return jsonify({"error": "Bot not available"}), 503
 
         if not auth_bot.is_ready():  # type: ignore[attr-defined]
-            logger.error("Auth bot is not ready!")
+            logger.warning("Auth bot is not ready!")
             return jsonify({"error": "Bot not available"}), 503
 
         logger.debug("Auth bot is ready")
