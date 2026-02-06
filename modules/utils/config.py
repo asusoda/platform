@@ -106,10 +106,10 @@ class Config:
                         # Redact sensitive information
                         logger.info("Google service account credentials loaded")
                 except FileNotFoundError:
-                    logger.warning("Warning: google-secret.json not found. Google Calendar features will be disabled.")
+                    logger.warning("google-secret.json not found. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None
                 except Exception as e:
-                    logger.warning(f"Warning: Error loading Google credentials: {e}. Google Calendar features will be disabled.")
+                    logger.warning(f"Error loading Google credentials: {e}. Google Calendar features will be disabled.")
                     self.GOOGLE_SERVICE_ACCOUNT = None
 
                 self.NOTION_API_KEY = os.environ["NOTION_API_KEY"]

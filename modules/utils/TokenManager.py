@@ -51,7 +51,7 @@ class TokenManager:
             os.chmod(self.private_key_file, 0o600)
             logger.info(f"Generated and saved new RSA keys to {self.keys_path}")
         except Exception as e:
-            logger.warning(f"Warning: Could not save keys to disk: {e}")
+            logger.warning(f"Could not save keys to disk: {e}")
 
         return private_key, public_key
 
