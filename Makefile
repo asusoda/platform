@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes
+.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check
 
 # Use bash as the shell for all commands
 SHELL := /bin/bash
@@ -31,6 +31,7 @@ help:
 	@echo "  make rollback               - Rollback to previous version"
 	@echo "  make status                 - Show container status"
 	@echo "  make health                 - Check container health"
+	@echo "  make check                  - Run lint (auto-fix), format, type check, and tests"
 
 # Build container images
 build:
@@ -155,6 +156,18 @@ rollback:
 status:
 	@echo -e "$(GREEN)[INFO]$(NC) Container status:"
 	@$(COMPOSE_CMD) ps
+
+# Run lint (with auto-fix), format, type check, and tests
+check:
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff linting with auto-fix..."
+	@uv run ruff check --fix .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff formatting..."
+	@uv run ruff format .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
+	@uv run ty check .
+	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
+	@TESTING=true uv run pytest -v
+	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
 
 # Health check
 health:

@@ -1,4 +1,4 @@
-name: Lint & Type Check
+name: Check
 
 on:
   push:
@@ -28,20 +28,14 @@ jobs:
     - name: Install dependencies
       run: uv sync
     
-    - name: Run ruff linting with auto-fix
-      run: uv run ruff check --fix .
-    
-    - name: Run ruff formatting
-      run: uv run ruff format .
+    - name: Run all checks
+      run: make check
     
     - name: Commit and push fixes
       if: github.event_name == 'pull_request'
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: "style: auto-fix linting and formatting issues"
-    
-    - name: Run ty type checking
-      run: uv run ty check .
     
     - name: Run bandit security checks
       run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv

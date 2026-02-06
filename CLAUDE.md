@@ -30,8 +30,8 @@ make build
 
 ### Testing
 ```bash
-# Run all tests
-uv run pytest -v
+# Run all checks (lint, format, typecheck, tests)
+make check
 
 # Run specific test file
 uv run pytest tests/test_filename.py -v
@@ -45,12 +45,8 @@ uv sync
 # Install pre-commit hooks
 uv run pre-commit install
 
-# Run linting and formatting
-uv run ruff check --fix .
-uv run ruff format .
-
-# Run type checking
-uv run ty check .
+# Run all checks (lint, format, typecheck, tests)
+make check
 
 # Run all pre-commit hooks manually
 uv run pre-commit run --all-files
@@ -148,6 +144,6 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
 
 ### Pre-commit Hooks
 - Configured via `.pre-commit-config.yaml`
-- Runs ruff (lint + format) and ty automatically on commits
+- Runs `make check` (lint, format, typecheck, tests) automatically on commits
 - Install with `uv run pre-commit install`
 - All checks also run in CI on every push/PR
