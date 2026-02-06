@@ -1,13 +1,12 @@
-import logging
 import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from modules.utils.logging_config import get_logger
+
 # Create a centralized Base for all models
 from .base import Base
-
-from modules.utils.logging_config import get_logger
 
 # Set up logger
 logger = get_logger(__name__)
