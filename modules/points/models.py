@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -19,14 +19,11 @@ class User(Base):
     academic_standing = Column(String)
     major = Column(String)
     uuid = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
 
-    # Relationships
     points = relationship("Points", back_populates="user")
-    orders = relationship("Order", back_populates="user")
-    memberships = relationship("UserOrganizationMembership", back_populates="user")
     orders = relationship("Order", back_populates="user")
     memberships = relationship("UserOrganizationMembership", back_populates="user")
 
@@ -43,7 +40,7 @@ class UserOrganizationMembership(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    joined_at = Column(DateTime, default=datetime.utcnow)
+    joined_at = Column(DateTime, default=lambda: datetime.now(UTC))
     is_active = Column(Boolean, default=True)
 
     # Relationships
@@ -66,8 +63,8 @@ class Points(Base):
     points = Column(Float, default=0.0)
     event = Column(String, nullable=True)  # Event name/description
     awarded_by_officer = Column(String, nullable=True)  # Officer who awarded the points
-    timestamp = Column(DateTime, default=datetime.utcnow)  # When points were awarded
-    last_updated = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(UTC))  # When points were awarded
+    last_updated = Column(DateTime, default=lambda: datetime.now(UTC))
     user = relationship("User", back_populates="points")
     organization = relationship("Organization", backref="points")
 

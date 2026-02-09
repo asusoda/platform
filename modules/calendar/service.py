@@ -357,8 +357,8 @@ class MultiOrgCalendarService:
             parsed_dto = CalendarEventDTO.from_notion(event_data)
             if parsed_dto:
                 parsed_events.append(parsed_dto)
-        else:
-            failed_count += 1
+            else:
+                failed_count += 1
 
         self.logger.info(f"Successfully parsed {len(parsed_events)} events, failed to parse {failed_count}.")
         return parsed_events

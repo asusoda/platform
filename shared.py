@@ -53,26 +53,25 @@ if config.SENTRY_DSN:
         integrations=[FlaskIntegration()],
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
+        # Enable logs to be sent to Sentry
+        enable_logs=True,
     )
-    logger.info("Sentry initialized.")
+    logger.info("Sentry initialized with logging enabled.")
 else:
     logger.warning("SENTRY_DSN not found in environment. Sentry not initialized.")
 
 # Initialize database connections
 db_connect = DBConnect("sqlite:///./data/user.db")
 
-# Intialize TokenManager
-tokenManger = TokenManager()
-
-# Initialize database connection
-db_connect = DBConnect()
+# Initialize TokenManager
+tokenManager = TokenManager()
 
 
 # Periodic cleanup of expired refresh tokens
 def cleanup_expired_tokens():
     """Clean up expired refresh tokens periodically"""
     try:
-        tokenManger.cleanup_expired_refresh_tokens()
+        tokenManager.cleanup_expired_refresh_tokens()
         logger.info("Cleaned up expired refresh tokens")
     except Exception as e:
         logger.error(f"Error cleaning up expired tokens: {e}")

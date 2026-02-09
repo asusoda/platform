@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes
+.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check
 
 # Use bash as the shell for all commands
 SHELL := /bin/bash
@@ -7,6 +7,7 @@ SHELL := /bin/bash
 PROJECT_DIR ?= /var/www/soda-internal-api
 BRANCH ?= main
 COMPOSE_CMD := $(shell if command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; elif docker compose version > /dev/null 2>&1; then echo "docker compose"; else echo "docker-compose"; fi)
+CONTAINER_CMD := $(shell if command -v podman > /dev/null 2>&1; then echo "podman"; else echo "docker"; fi)
 
 # Colors for output
 RED := \033[0;31m
@@ -30,16 +31,19 @@ help:
 	@echo "  make rollback               - Rollback to previous version"
 	@echo "  make status                 - Show container status"
 	@echo "  make health                 - Check container health"
+	@echo "  make check                  - Run lint (auto-fix), format, type check, and tests"
 
 # Build container images
 build:
 	@echo -e "$(GREEN)[INFO]$(NC) Building container images with BuildKit..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build
 
 # Build only API
 build-api:
 	@echo -e "$(GREEN)[INFO]$(NC) Building API image..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build api
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build api
 
 # Build only web
 build-web:
@@ -49,7 +53,8 @@ build-web:
 # Start services in development mode
 up:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting services..."
-	@$(COMPOSE_CMD) up -d
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		$(COMPOSE_CMD) up -d
 
 # Stop services
 down:
@@ -98,7 +103,8 @@ deploy:
 	@echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..."
 	@$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true
 	@echo -e "$(GREEN)[INFO]$(NC) Building container image..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1)
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1)
 	@echo -e "$(GREEN)[INFO]$(NC) Stopping existing containers..."
 	@$(COMPOSE_CMD) -f docker-compose.yml down
 	@echo -e "$(GREEN)[INFO]$(NC) Starting containers..."
@@ -120,12 +126,15 @@ deploy:
 	@$(COMPOSE_CMD) ps
 	@echo -e "$(GREEN)[INFO]$(NC) Recent logs:"
 	@$(COMPOSE_CMD) logs --tail=20
+	@echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."
+	@$(CONTAINER_CMD) image prune -f 2>/dev/null || true
 	@echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
 dev:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting development environment with hot reloading..."
-	@$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
+	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
+		$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
 
 
 # Rollback to previous version
@@ -147,6 +156,18 @@ rollback:
 status:
 	@echo -e "$(GREEN)[INFO]$(NC) Container status:"
 	@$(COMPOSE_CMD) ps
+
+# Run lint (with auto-fix), format, type check, and tests
+check:
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff linting with auto-fix..."
+	@uv run ruff check --fix .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff formatting..."
+	@uv run ruff format .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
+	@uv run ty check .
+	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
+	@TESTING=true uv run pytest -v
+	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
 
 # Health check
 health:

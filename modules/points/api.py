@@ -5,12 +5,12 @@ import uuid
 from io import StringIO
 
 from flask import Blueprint, jsonify, request, session
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
 from modules.utils.logging_config import logger
-from shared import db_connect, tokenManger
+from shared import db_connect, tokenManager
 
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
 
@@ -173,14 +173,14 @@ def get_or_create_user(discord_id, organization_id, username=None):
         user, success, message = manage_user_in_organization(db, organization_id, user_data, discord_id=discord_id)
 
         if success:
-            print(f"✅ [DEBUG] {message} - User {user.id} in org {organization_id}")
+            logger.debug(f"{message} - User {user.id} in org {organization_id}")
             return user
         else:
-            print(f"❌ [DEBUG] Error: {message}")
+            logger.debug(f"Error: {message}")
             return None
 
     except Exception as e:
-        print(f"❌ [DEBUG] Error creating user: {e}")
+        logger.error(f"Error creating user: {e}")
         return None
     finally:
         db.close()
@@ -196,14 +196,14 @@ def link_or_create_user(organization_id, user_data, discord_id=None):
         user, success, message = manage_user_in_organization(db, organization_id, user_data, discord_id=discord_id)
 
         if success:
-            print(f"✅ [DEBUG] {message} - User {user.id if user else 'None'} for org {organization_id}")
+            logger.debug(f"{message} - User {user.id if user else 'None'} for org {organization_id}")
             return user
         else:
-            print(f"❌ [DEBUG] Error: {message}")
+            logger.debug(f"Error: {message}")
             return None
 
     except Exception as e:
-        print(f"❌ [DEBUG] Error linking/creating user: {e}")
+        logger.error(f"Error linking/creating user: {e}")
         return None
     finally:
         db.close()
@@ -271,11 +271,11 @@ def process_csv_in_background(file_content, event_name, event_points, org_prefix
     finally:
         db.close()
 
-    print(
+    logger.info(
         f"CSV processing finished for org '{org_prefix}'. Awarded points to {success_count} users. Errors: {len(errors)}"
     )
     if errors:
-        print("Errors encountered:", errors)
+        logger.warning(f"Errors encountered: {errors}")
 
 
 # API Routes
@@ -679,9 +679,9 @@ def get_org_leaderboard(org_prefix):
     if token:
         try:
             # Check if the token is valid and not expired
-            if tokenManger.is_token_valid(token) and not tokenManger.is_token_expired(token):
+            if tokenManager.is_token_valid(token) and not tokenManager.is_token_expired(token):
                 show_email = True  # If valid, set to show email
-            elif tokenManger.is_token_expired(token):
+            elif tokenManager.is_token_expired(token):
                 return jsonify({"message": "Token is expired!"}), 403  # Expired token
         except Exception as e:
             return jsonify({"message": str(e)}), 401  # Token is invalid or some error occurred
@@ -709,9 +709,7 @@ def get_org_leaderboard(org_prefix):
                 User.name,
                 User.email,
                 User.uuid,
-                func.coalesce(func.sum(func.case((Points.points > 0, Points.points), else_=0)), 0).label(
-                    "total_points"
-                ),
+                func.coalesce(func.sum(case((Points.points > 0, Points.points), else_=0)), 0).label("total_points"),
             )
             .select_from(User)
             .outerjoin(
@@ -732,7 +730,7 @@ def get_org_leaderboard(org_prefix):
             .filter(or_(Points.id.isnot(None), UserOrganizationMembership.id.isnot(None)))
             .group_by(User.id, User.name, User.email, User.uuid)
             .order_by(
-                func.coalesce(func.sum(func.case((Points.points > 0, Points.points), else_=0)), 0).desc(),
+                func.coalesce(func.sum(case((Points.points > 0, Points.points), else_=0)), 0).desc(),
                 User.name.asc(),
             )
             .all()

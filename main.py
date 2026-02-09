@@ -1,9 +1,10 @@
 import asyncio
 import os
+import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
+from datetime import UTC, datetime
 
 import discord
-from apscheduler.schedulers.background import BackgroundScheduler
 from flask import jsonify  # Import current_app
 
 from modules.auth.api import auth_blueprint
@@ -26,10 +27,45 @@ multi_org_calendar_service = MultiOrgCalendarService(logger)
 app.multi_org_calendar_service = multi_org_calendar_service
 
 
+def get_git_commit_hash():
+    """Get the current git commit hash."""
+    # First check if commit hash is provided via environment variable (set during Docker build)
+    commit_hash = os.environ.get("GIT_COMMIT_HASH")
+    if commit_hash:
+        return commit_hash
+
+    # Fall back to git command (for local development)
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],  # nosec B603, B607 - hardcoded git command with no user input
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+# Cache the commit hash at startup since it won't change during runtime
+COMMIT_HASH = get_git_commit_hash()
+
+# Record the startup time (container creation/start time)
+STARTUP_TIME = datetime.now(UTC)
+
+
 # Health endpoint
 @app.route("/health")
 def health():
-    return jsonify({"status": "healthy", "service": "soda-internal-api"}), 200
+    return jsonify(
+        {
+            "status": "healthy",
+            "service": "soda-internal-api",
+            "commit": COMMIT_HASH,
+            "started_at": STARTUP_TIME.isoformat(),
+        }
+    ), 200
 
 
 # Register Blueprints
@@ -42,32 +78,7 @@ app.register_blueprint(game_blueprint, url_prefix="/api/bot")
 app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
 app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
 app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
-# # Configure static file serving
-# @app.route('/', defaults={'path': ''})
-# @app.route('/<path:path>')
-# def serve(path):
-#     if path == "":
-#         return send_from_directory('web/dist', 'index.html')
-#     else:
-#         return send_from_directory('web/dist', path)
-
-# --- Scheduler Setup ---
-scheduler = BackgroundScheduler(daemon=True)
-
-
-def calendar_sync_job():
-    """Job function to sync Notion to Google Calendar."""
-    with app.app_context():
-        logger.info("Running scheduled calendar sync...")
-        try:
-            sync_result = multi_org_calendar_service.sync_all_organizations()
-            logger.info(f"Calendar sync result: {sync_result}")
-            if sync_result.get("status") in ["success", "partial_success"]:
-                logger.info(f"Scheduled calendar sync completed: {sync_result.get('message')}")
-            else:
-                logger.error(f"Scheduled calendar sync failed: {sync_result.get('message')}")
-        except Exception as e:
-            logger.error(f"Error during scheduled calendar sync: {e}", exc_info=True)
+# Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 
 # --- Bot Thread Functions ---
@@ -77,7 +88,7 @@ def run_auth_bot_in_thread():
     # Create bot instance inside the thread, using the thread's loop
     auth_bot_instance = create_auth_bot(loop)
     # Store the auth_bot instance on the Flask app context for API use
-    app.auth_bot = auth_bot_instance  # type: ignore[attr-defined]
+    app.auth_bot = auth_bot_instance
     try:
         logger.info("Starting auth bot thread...")
         auth_bot_token = config.BOT_TOKEN
@@ -104,11 +115,6 @@ def initialize_app():
     auth_thread.daemon = True
     auth_thread.start()
     logger.info("Auth bot thread initiated")
-
-    # Run sync job every 120 minutes
-    scheduler.add_job(calendar_sync_job, "interval", minutes=120, id="calendar_sync_job")
-    scheduler.start()
-    logger.info("APScheduler started for Notion-Google Calendar sync.")
 
     # Start Flask app
     # Enable debug and reloader based on IS_PROD environment variable

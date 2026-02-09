@@ -493,12 +493,12 @@ class NotionCalendarClient:
 
                 # Use collect_paginated_api to handle pagination automatically
                 with operation_span(
-                    transaction, op="api_call", description="notion.databases.query", logger=self.logger
+                    transaction, op="api_call", description="notion.data_sources.query", logger=self.logger
                 ) as span:
                     all_events = collect_paginated_api(
-                        self.notion.databases.query,
-                        database_id=database_id,
-                        filter=query_filter,  # type: ignore[attr-defined]
+                        self.notion.data_sources.query,
+                        data_source_id=database_id,
+                        filter=query_filter,
                     )
                     span.set_data("event_count", len(all_events))
 

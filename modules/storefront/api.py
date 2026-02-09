@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
@@ -366,8 +368,6 @@ def create_order(org_prefix):
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
 
         # Deduct points by creating negative point entry
-        from datetime import datetime
-
         from modules.points.models import Points
 
         point_deduction = Points(
@@ -375,7 +375,7 @@ def create_order(org_prefix):
             organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             awarded_by_officer="System",
         )
         db.add(point_deduction)
@@ -815,7 +815,7 @@ def get_user_orders_clerk(org_prefix, user_email):
     """Get user's orders using dual authentication"""
     db = next(db_connect.get_db())
     try:
-        if request.clerk_user_email != user_email:
+        if request.clerk_user_email != user_email:  # type: ignore[attr-defined]
             return jsonify({"error": "Unauthorized: Email mismatch"}), 403
 
         from modules.organizations.models import Organization
@@ -991,14 +991,12 @@ def clerk_checkout(org_prefix):
         new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
 
-        from datetime import datetime
-
         point_deduction = Points(
             user_id=user.id,
             organization_id=org.id,
             points=-int(total_amount),
             event=f"Storefront Purchase - Order #{created_order.id}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             awarded_by_officer="System",
         )
         db.add(point_deduction)

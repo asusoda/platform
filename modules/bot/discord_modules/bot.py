@@ -5,6 +5,10 @@ import discord
 import nest_asyncio
 from discord.ext import commands
 
+from modules.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class BotFork(commands.Bot):
     """
@@ -33,11 +37,11 @@ class BotFork(commands.Bot):
 
     async def on_ready(self):
         """Event that fires when the bot is ready."""
-        print(f"Logged in as {self.user} (ID: {self.user.id})")
-        print("------")
+        logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
+        logger.info("------")
 
         # For py-cord, commands should sync automatically
-        print("Discord connection established. Commands should be registered automatically.")
+        logger.info("Discord connection established. Commands should be registered automatically.")
 
     def set_token(self, token):
         """
@@ -52,7 +56,7 @@ class BotFork(commands.Bot):
         """
         Starts the bot with the provided token.
         """
-        print("Running bot")
+        logger.info("Running bot")
         if token:
             self.token = token
         if not self.token:
@@ -108,97 +112,97 @@ class BotFork(commands.Bot):
         from modules.organizations.models import Organization
         from shared import db_connect
 
-        print(f"🔍 [DEBUG] check_officer called for user_id: {user_id}, superadmin_user_id: {superadmin_user_id}")
+        logger.debug(f"check_officer called for user_id: {user_id}, superadmin_user_id: {superadmin_user_id}")
         guild_ids_with_officer_role = []
 
         try:
             # Check if the user is a superadmin first (with proper type conversion)
             if str(user_id) == str(superadmin_user_id):
-                print("👑 [DEBUG] User is superadmin, returning all guild IDs")
+                logger.debug("User is superadmin, returning all guild IDs")
                 all_guild_ids = [guild.id for guild in self.get_guilds()]
-                print(f"�� [DEBUG] Superadmin guild IDs: {all_guild_ids}")
+                logger.debug(f"Superadmin guild IDs: {all_guild_ids}")
                 return all_guild_ids
 
             # Get database connection
-            print("📊 [DEBUG] Getting database connection...")
+            logger.debug("Getting database connection...")
             db = next(db_connect.get_db())
-            print("✅ [DEBUG] Database connection established")
+            logger.debug("Database connection established")
 
             # Get all organizations from the database
-            print("🏢 [DEBUG] Querying active organizations...")
+            logger.debug("Querying active organizations...")
             organizations = db.query(Organization).filter_by(is_active=True).all()
-            print(f"�� [DEBUG] Found {len(organizations)} active organizations")
+            logger.debug(f"Found {len(organizations)} active organizations")
 
             for i, org in enumerate(organizations):
-                print(f"\n�� [DEBUG] Processing organization {i + 1}/{len(organizations)}: {org.name}")
-                print("   📊 [DEBUG] Organization details:")
-                print(f"      - Guild ID: {org.guild_id}")
-                print(f"      - Officer Role ID: {org.officer_role_id}")
-                print(f"      - Is Active: {org.is_active}")
+                logger.debug(f"Processing organization {i + 1}/{len(organizations)}: {org.name}")
+                logger.debug("Organization details:")
+                logger.debug(f"   - Guild ID: {org.guild_id}")
+                logger.debug(f"   - Officer Role ID: {org.officer_role_id}")
+                logger.debug(f"   - Is Active: {org.is_active}")
 
                 # Skip organizations without officer role configured
                 if not org.officer_role_id:
-                    print(f"   ⚠️  [DEBUG] Skipping {org.name} - no officer role configured")
+                    logger.debug(f"Skipping {org.name} - no officer role configured")
                     continue
 
                 try:
                     # Get the guild
-                    print(f"   🏛️  [DEBUG] Getting guild with ID: {org.guild_id}")
+                    logger.debug(f"Getting guild with ID: {org.guild_id}")
                     guild = super().get_guild(int(org.guild_id))
                     if not guild:
-                        print(f"   ❌ [DEBUG] Guild not found for ID: {org.guild_id}")
+                        logger.debug(f"Guild not found for ID: {org.guild_id}")
                         continue
-                    print(f"   ✅ [DEBUG] Found guild: {guild.name}")
+                    logger.debug(f"Found guild: {guild.name}")
 
                     # Get the officer role
-                    print(f"   👑 [DEBUG] Getting officer role with ID: {org.officer_role_id}")
+                    logger.debug(f"Getting officer role with ID: {org.officer_role_id}")
                     officer_role = guild.get_role(int(org.officer_role_id))
                     if not officer_role:
-                        print(f"   ❌ [DEBUG] Officer role not found for ID: {org.officer_role_id}")
+                        logger.debug(f"Officer role not found for ID: {org.officer_role_id}")
                         continue
-                    print(f"   ✅ [DEBUG] Found officer role: {officer_role.name}")
+                    logger.debug(f"Found officer role: {officer_role.name}")
 
                     # Check if the user has the officer role
-                    print(f"   👤 [DEBUG] Getting member with user_id: {user_id}")
+                    logger.debug(f"Getting member with user_id: {user_id}")
                     member = guild.get_member(int(user_id))
                     if not member:
-                        print(f"   ❌ [DEBUG] Member not found in guild for user_id: {user_id}")
+                        logger.debug(f"Member not found in guild for user_id: {user_id}")
                         continue
-                    print(f"   ✅ [DEBUG] Found member: {member.display_name}")
+                    logger.debug(f"Found member: {member.display_name}")
 
                     # Check if user has the officer role
                     has_officer_role = officer_role in member.roles
-                    print(f"   🔍 [DEBUG] Checking if member has officer role: {has_officer_role}")
+                    logger.debug(f"Checking if member has officer role: {has_officer_role}")
 
                     if has_officer_role:
-                        print(f"   🎉 [DEBUG] User has officer role! Adding guild_id: {org.guild_id}")
+                        logger.debug(f"User has officer role! Adding guild_id: {org.guild_id}")
                         guild_ids_with_officer_role.append(org.guild_id)
                     else:
-                        print("   ❌ [DEBUG] User does not have officer role")
+                        logger.debug("User does not have officer role")
                         # Debug: show all roles the user has
                         user_roles = [role.name for role in member.roles]
-                        print(f"   📋 [DEBUG] User's roles: {user_roles}")
+                        logger.debug(f"User's roles: {user_roles}")
 
                 except (ValueError, AttributeError) as e:
                     # Skip if guild_id or role_id is invalid
-                    print(f"   ❌ [DEBUG] Error checking organization {org.name}: {e}")
-                    print(f"   �� [DEBUG] Error type: {type(e).__name__}")
+                    logger.debug(f"Error checking organization {org.name}: {e}")
+                    logger.debug(f"Error type: {type(e).__name__}")
                     continue
 
         except Exception as e:
-            print(f"❌ [DEBUG] Error in check_officer: {e}")
-            print(f"�� [DEBUG] Error type: {type(e).__name__}")
+            logger.error(f"Error in check_officer: {e}")
+            logger.debug(f"Error type: {type(e).__name__}")
             import traceback
 
-            print("�� [DEBUG] Full traceback:")
+            logger.debug("Full traceback:")
             traceback.print_exc()
         finally:
             if "db" in locals():
-                print("🔒 [DEBUG] Closing database connection...")
+                logger.debug("Closing database connection...")
                 db.close()
-                print("✅ [DEBUG] Database connection closed")
+                logger.debug("Database connection closed")
 
-        print(f"🎯 [DEBUG] Final result - Guild IDs with officer role: {guild_ids_with_officer_role}")
+        logger.debug(f"Final result - Guild IDs with officer role: {guild_ids_with_officer_role}")
         return guild_ids_with_officer_role
 
     def get_name(self, user_id):
@@ -232,23 +236,23 @@ class BotFork(commands.Bot):
         Returns True if the user is a member, False otherwise.
         """
         try:
-            print(f"🔍 [DEBUG] check_user_membership called for user_id: {user_id}, guild_id: {guild_id}")
+            logger.debug(f"check_user_membership called for user_id: {user_id}, guild_id: {guild_id}")
 
             guild = super().get_guild(guild_id)
             if not guild:
-                print(f"❌ [DEBUG] Guild not found: {guild_id}")
+                logger.debug(f"Guild not found: {guild_id}")
                 return False
 
             member = guild.get_member(user_id)
             if not member:
-                print(f"❌ [DEBUG] User {user_id} is not a member of guild {guild_id}")
+                logger.debug(f"User {user_id} is not a member of guild {guild_id}")
                 return False
 
-            print(f"✅ [DEBUG] User {member.display_name} is a member of {guild.name}")
+            logger.debug(f"User {member.display_name} is a member of {guild.name}")
             return True
 
         except Exception as e:
-            print(f"❌ [DEBUG] Error checking membership: {e}")
+            logger.error(f"Error checking membership: {e}")
             import traceback
 
             traceback.print_exc()

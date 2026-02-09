@@ -4,7 +4,7 @@ from functools import wraps
 
 from flask import current_app, jsonify, request, session
 
-from shared import config, tokenManger
+from shared import config, tokenManager
 
 logger = logging.getLogger(__name__)
 
@@ -47,17 +47,17 @@ def dual_auth_required(f):
         # Check session cookie first
         if session.get("token"):
             try:
-                if not tokenManger.is_token_valid(session["token"]):
+                if not tokenManager.is_token_valid(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManger.is_token_expired(session["token"]):
+                elif tokenManager.is_token_expired(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
 
                 # Discord OAuth session authentication successful
                 logger.debug("Dual auth: Discord OAuth session authentication successful")
                 # Set clerk_user_email from session if available for compatibility
-                username = tokenManger.retrieve_username(session["token"])
+                username = tokenManager.retrieve_username(session["token"])
                 if username:
                     request.clerk_user_email = username  # type: ignore[attr-defined]
                 return f(*args, **kwargs)
@@ -70,17 +70,17 @@ def dual_auth_required(f):
             return jsonify({"message": "Authentication required!"}), 401
 
         try:
-            if not tokenManger.is_token_valid(token):
+            if not tokenManager.is_token_valid(token):
                 logger.debug("Dual auth: Discord OAuth token is invalid")
                 return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManger.is_token_expired(token):
+            elif tokenManager.is_token_expired(token):
                 logger.debug("Dual auth: Discord OAuth token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
 
             # Discord OAuth token authentication successful
             logger.debug("Dual auth: Discord OAuth token authentication successful")
             # Set clerk_user_email from token for compatibility
-            username = tokenManger.retrieve_username(token)
+            username = tokenManager.retrieve_username(token)
             if username:
                 request.clerk_user_email = username  # type: ignore[attr-defined]
             return f(*args, **kwargs)
@@ -102,10 +102,10 @@ def auth_required(f):
         # Check session cookie first
         if session.get("token"):
             try:
-                if not tokenManger.is_token_valid(session["token"]):
+                if not tokenManager.is_token_valid(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManger.is_token_expired(session["token"]):
+                elif tokenManager.is_token_expired(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
                 return f(*args, **kwargs)
@@ -122,10 +122,10 @@ def auth_required(f):
             return jsonify({"message": "Authentication required!"}), 401
 
         try:
-            if not tokenManger.is_token_valid(token):
+            if not tokenManager.is_token_valid(token):
                 logger.debug("Token is invalid")
                 return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManger.is_token_expired(token):
+            elif tokenManager.is_token_expired(token):
                 logger.debug("Token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
             return f(*args, **kwargs)
@@ -156,10 +156,10 @@ def superadmin_required(f):
             logger.debug("Found session token")
             try:
                 logger.debug("Validating session token...")
-                if not tokenManger.is_token_valid(token):
+                if not tokenManager.is_token_valid(token):
                     logger.debug("Session token is invalid!")
                     return jsonify({"message": "Token is invalid!"}), 401
-                elif tokenManger.is_token_expired(token):
+                elif tokenManager.is_token_expired(token):
                     logger.debug("Session token is expired!")
                     return jsonify({"message": "Token is expired!"}), 403
 
@@ -196,16 +196,16 @@ def superadmin_required(f):
 
         try:
             logger.debug("Validating API token...")
-            if not tokenManger.is_token_valid(token):
+            if not tokenManager.is_token_valid(token):
                 logger.debug("API token is invalid!")
                 return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManger.is_token_expired(token):
+            elif tokenManager.is_token_expired(token):
                 logger.debug("API token is expired!")
                 return jsonify({"message": "Token is expired!"}), 403
 
             logger.debug("API token is valid, decoding...")
             # For API calls, we need to verify superadmin status from the token
-            token_data = tokenManger.decode_token(token)
+            token_data = tokenManager.decode_token(token)
             if not token_data:
                 logger.debug("Failed to decode token data!")
                 return jsonify({"message": "Invalid token data!"}), 401
@@ -220,7 +220,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot from Flask app context...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot:
                         logger.debug("Auth bot not found in Flask app context!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -260,7 +260,7 @@ def superadmin_required(f):
                 try:
                     # Get the auth bot from Flask app context
                     logger.debug("Getting auth bot for username lookup...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
                     if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
                         logger.debug("Auth bot not available for username lookup!")
                         return jsonify({"message": "Bot not available for verification!"}), 503
@@ -366,7 +366,7 @@ def member_required(f):
 
             # Check if user is a member using the bot (same pattern as auth_required)
             try:
-                auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None  # type: ignore[attr-defined]
+                auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
 
                 if not auth_bot:
                     logger.debug("Discord bot not available")
@@ -391,19 +391,15 @@ def member_required(f):
                 logger.debug("Member authentication successful!")
                 return f(*args, **kwargs)
 
-            except Exception as e:
-                logger.error(f"Error checking guild membership: {e}")
-                import traceback
+            except Exception:
+                # Log full exception details server-side without exposing them to the client
+                logger.exception("Error checking guild membership")
+                return jsonify({"message": "Error verifying membership"}), 500
 
-                traceback.print_exc()
-                return jsonify({"message": f"Error verifying membership: {str(e)}"}), 500
-
-        except Exception as e:
-            logger.error(f"General error in member_required: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return jsonify({"message": str(e)}), 500
+        except Exception:
+            # Log full exception details server-side without exposing them to the client
+            logger.exception("General error in member_required")
+            return jsonify({"message": "Internal server error"}), 500
 
     return wrapper
 
