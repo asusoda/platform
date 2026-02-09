@@ -808,7 +808,7 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 
-@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET", "OPTIONS"])
 @dual_auth_required
 @error_handler
 def get_user_orders_clerk(org_prefix, user_email):
