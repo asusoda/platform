@@ -84,7 +84,7 @@ def verify_clerk_token(token):
             return None
 
         logger.info(f"Successfully verified token for: {email}")
-        return email
+        return email, user
 
     except Exception as e:
         logger.error(f"Error verifying token: {e}")
@@ -110,13 +110,15 @@ def require_clerk_auth(f):
         token = parts[1].strip()
 
         # Verify token
-        email = verify_clerk_token(token)
+        result = verify_clerk_token(token)
 
-        if not email:
+        if not result:
             return jsonify({"error": "Invalid token", "message": "Token is invalid!"}), 401
 
-        # Add user email to request context
+        email, clerk_user = result
+        # Add user email and clerk user to request context
         request.clerk_user_email = email  # type: ignore[attr-defined]
+        request.clerk_user = clerk_user  # type: ignore[attr-defined]
 
         return f(*args, **kwargs)
 

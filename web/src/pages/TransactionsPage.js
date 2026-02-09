@@ -257,7 +257,12 @@ const TransactionsPage = () => {
                           <div className="font-medium text-white">
                             {transaction.user_name || `User ${transaction.user_id}`}
                           </div>
-                          <div className="text-xs text-gray-400">
+                          {transaction.user_email && (
+                            <div className="text-xs text-gray-400">
+                              {transaction.user_email}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500">
                             ID: {transaction.user_id}
                           </div>
                         </div>

@@ -32,11 +32,13 @@ def dual_auth_required(f):
             try:
                 from modules.utils.clerk_auth import verify_clerk_token
 
-                email = verify_clerk_token(token)
-                if email:
+                result = verify_clerk_token(token)
+                if result:
+                    email, clerk_user = result
                     # Clerk authentication successful
                     logger.debug(f"Dual auth: Clerk authentication successful for {email}")
                     request.clerk_user_email = email  # type: ignore[attr-defined]
+                    request.clerk_user = clerk_user  # type: ignore[attr-defined]
                     return f(*args, **kwargs)
                 else:
                     logger.debug("Dual auth: Clerk token verification failed, trying Discord OAuth")
