@@ -226,6 +226,7 @@ def get_orders(org_prefix):
                     "updated_at": o.updated_at.isoformat() if o.updated_at else None,
                     "organization_id": o.organization_id,
                     "user_name": o.user.name if o.user else "Unknown User",
+                    "user_email": o.user.email if o.user else None,
                     "items": [
                         {
                             "id": item.id,
@@ -826,8 +827,14 @@ def get_user_orders_clerk(org_prefix, user_email):
             return jsonify({"error": "Organization not found"}), 404
 
         user = db.query(User).filter_by(email=user_email).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+
+        # Auto-create user if they don't exist and we have Clerk user data
+        if not user and hasattr(request, "clerk_user"):
+            from modules.points.api import get_or_create_user_from_clerk
+
+            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
+            if not user:
+                return jsonify({"error": "Failed to create user account"}), 500
 
         orders = (
             db.query(Order)
@@ -881,8 +888,14 @@ def get_user_wallet_clerk(org_prefix, user_email):
             return jsonify({"error": "Organization not found"}), 404
 
         user = db.query(User).filter_by(email=user_email).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+
+        # Auto-create user if they don't exist and we have Clerk user data
+        if not user and hasattr(request, "clerk_user"):
+            from modules.points.api import get_or_create_user_from_clerk
+
+            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
+            if not user:
+                return jsonify({"error": "Failed to create user account"}), 500
 
         total_points = (
             db.query(func.sum(Points.points))
@@ -940,8 +953,14 @@ def clerk_checkout(org_prefix):
         from modules.points.models import Points, User, UserOrganizationMembership
 
         user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+
+        # Auto-create user if they don't exist and we have Clerk user data
+        if not user and hasattr(request, "clerk_user"):
+            from modules.points.api import get_or_create_user_from_clerk
+
+            user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
+            if not user:
+                return jsonify({"error": "Failed to create user account"}), 500
 
         membership = (
             db.query(UserOrganizationMembership)

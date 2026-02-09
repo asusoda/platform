@@ -209,6 +209,54 @@ def link_or_create_user(organization_id, user_data, discord_id=None):
         db.close()
 
 
+def get_or_create_user_from_clerk(db, organization_id, clerk_user, email):
+    """
+    Get existing user or create new user from Clerk authentication.
+    Reuses existing manage_user_in_organization logic.
+
+    Args:
+        db: Database session
+        organization_id: ID of the organization
+        clerk_user: Clerk user object from authentication
+        email: User's email address
+
+    Returns:
+        User object or None if creation fails
+    """
+    # Extract user info from Clerk user object
+    first_name = getattr(clerk_user, "first_name", None) or ""
+    last_name = getattr(clerk_user, "last_name", None) or ""
+    name = f"{first_name} {last_name}".strip()
+
+    # Fallback to email username if no name provided
+    if not name:
+        name = email.split("@")[0]
+        logger.debug(f"No name from Clerk, using email username: {name}")
+    else:
+        logger.debug(f"Extracted name from Clerk: {name}")
+
+    user_data = {
+        "email": email,
+        "name": name,
+        "username": None,
+        "discord_id": None,
+        "asu_id": None,
+        "academic_standing": "N/A",
+        "major": "N/A",
+    }
+
+    user, success, message = manage_user_in_organization(db, organization_id, user_data, user_identifier=email)
+
+    if success:
+        logger.info(
+            f"Clerk auth: {message} - User {user.id if user else 'None'} (name: {user.name if user else 'None'}) for org {organization_id}"
+        )
+        return user
+    else:
+        logger.error(f"Failed to create/get user from Clerk: {message}")
+        return None
+
+
 def process_csv_in_background(file_content, event_name, event_points, org_prefix):
     """Process CSV in background for a specific organization"""
     csv_file = StringIO(file_content)

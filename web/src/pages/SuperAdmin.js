@@ -86,6 +86,7 @@ const SuperAdmin = () => {
       notion_database_id: org.notion_database_id || '',
       calendar_sync_enabled: org.calendar_sync_enabled || false,
       google_calendar_id: org.google_calendar_id || '',
+      ocp_sync_enabled: org.ocp_sync_enabled || false
     });
     setShowCalendarModal(true);
   };
