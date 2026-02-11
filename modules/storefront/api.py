@@ -1,11 +1,17 @@
+import threading
 from datetime import UTC, datetime
 
+import requests as http_requests
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
 from modules.auth.decoraters import auth_required, dual_auth_required, error_handler, member_required
 from modules.storefront.models import Order, OrderItem, Product
+from modules.utils.config import Config
 from modules.utils.db import DBConnect
+from modules.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
@@ -29,6 +35,54 @@ def normalize_category(value):
         if value == "":
             return None
     return value
+
+
+def send_purchase_webhook(order_id, user_email, items, total_amount, org_name):
+    """Send a Discord webhook notification for a storefront purchase.
+
+    Runs in a background thread so the API response is not delayed.
+    """
+
+    def _send():
+        try:
+            config = Config(testing=False)
+            webhook_url = getattr(config, "DISCORD_STORE_WEBHOOK_URL", "")
+        except Exception:
+            webhook_url = ""
+
+        if not webhook_url:
+            logger.debug("DISCORD_STORE_WEBHOOK_URL not configured, skipping purchase webhook")
+            return
+
+        item_lines = "\n".join(
+            f"• {item['name']} x{item['quantity']} — {int(item['price'])} pts each" for item in items
+        )
+
+        payload = {
+            "embeds": [
+                {
+                    "title": "🛒 New Storefront Purchase",
+                    "color": 0x57F287,
+                    "fields": [
+                        {"name": "Order", "value": f"#{order_id}", "inline": True},
+                        {"name": "Buyer", "value": user_email, "inline": True},
+                        {"name": "Organization", "value": org_name, "inline": True},
+                        {"name": "Items", "value": item_lines, "inline": False},
+                        {"name": "Total", "value": f"{int(total_amount)} pts", "inline": True},
+                    ],
+                }
+            ]
+        }
+
+        try:
+            resp = http_requests.post(webhook_url, json=payload, timeout=5)
+            if resp.status_code >= 400:
+                logger.warning("Discord purchase webhook returned status %s", resp.status_code)
+        except Exception:
+            logger.exception("Failed to send Discord purchase webhook")
+
+    thread = threading.Thread(target=_send, daemon=True)
+    thread.start()
 
 
 # PRODUCT ENDPOINTS
@@ -401,6 +455,15 @@ def create_order(org_prefix):
         )
         db.add(point_deduction)
         db.commit()
+
+        # Send Discord webhook notification (non-blocking)
+        webhook_items = [
+            {"name": p.name, "quantity": oi.quantity, "price": oi.price_at_time}
+            for oi in created_order.items
+            for p in [db_connect.get_storefront_product(db, oi.product_id, org.id)]
+            if p
+        ]
+        send_purchase_webhook(created_order.id, user_email, webhook_items, total_amount, org.name)
 
         return jsonify(
             {
@@ -1040,6 +1103,15 @@ def clerk_checkout(org_prefix):
         )
         db.add(point_deduction)
         db.commit()
+
+        # Send Discord webhook notification (non-blocking)
+        checkout_webhook_items = [
+            {"name": p.name, "quantity": oi.quantity, "price": oi.price_at_time}
+            for oi in created_order.items
+            for p in [db_connect.get_storefront_product(db, oi.product_id, org.id)]
+            if p
+        ]
+        send_purchase_webhook(created_order.id, user_email, checkout_webhook_items, total_amount, org.name)
 
         return jsonify(
             {

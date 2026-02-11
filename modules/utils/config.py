@@ -59,6 +59,7 @@ class Config:
                 # Optional configs
                 self.SENTRY_DSN = None
                 self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "test-gemini-key")
+                self.DISCORD_STORE_WEBHOOK_URL = os.environ.get("DISCORD_STORE_WEBHOOK_URL", "")
 
                 # Superadmin config
                 self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN", "test-superadmin-id")
@@ -73,6 +74,7 @@ class Config:
                 self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ["OPEN_ROUTER_CLAUDE_API_KEY"]
                 self.DISCORD_OFFICER_WEBHOOK_URL = os.environ["DISCORD_OFFICER_WEBHOOK_URL"]
                 self.DISCORD_POST_WEBHOOK_URL = os.environ["DISCORD_POST_WEBHOOK_URL"]
+                self.DISCORD_STORE_WEBHOOK_URL = os.environ.get("DISCORD_STORE_WEBHOOK_URL", "")
                 self.ONEUP_PASSWORD = os.environ["ONEUP_PASSWORD"]
                 self.ONEUP_EMAIL = os.environ["ONEUP_EMAIL"]
                 self.PROD = os.environ.get("PROD", "false").lower() == "true"
