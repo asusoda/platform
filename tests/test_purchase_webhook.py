@@ -61,7 +61,7 @@ send_purchase_webhook = _make_send_purchase_webhook()
 class TestSendPurchaseWebhook:
     """Tests for the send_purchase_webhook helper function."""
 
-    @patch("modules.storefront.api.http_requests.post")
+    @patch.object(send_purchase_webhook.__globals__["http_requests"], "post")
     @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": "https://discord.com/api/webhooks/test"})
     def test_webhook_sends_correct_payload(self, mock_post):
         """Webhook should POST a Discord embed with order details."""
@@ -92,7 +92,7 @@ class TestSendPurchaseWebhook:
         assert "Sticker" in fields["Items"]  # nosec B101
         assert "110" in fields["Total"]  # nosec B101
 
-    @patch("modules.storefront.api.http_requests.post")
+    @patch.object(send_purchase_webhook.__globals__["http_requests"], "post")
     @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": ""})
     def test_webhook_skipped_when_url_not_configured(self, mock_post):
         """Webhook should not fire when DISCORD_STORE_WEBHOOK_URL is empty."""
@@ -101,7 +101,7 @@ class TestSendPurchaseWebhook:
 
         mock_post.assert_not_called()
 
-    @patch("modules.storefront.api.http_requests.post")
+    @patch.object(send_purchase_webhook.__globals__["http_requests"], "post")
     @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": "https://discord.com/api/webhooks/test"})
     def test_webhook_does_not_raise_on_http_error(self, mock_post):
         """Webhook failures should be logged, not raised."""
@@ -113,7 +113,7 @@ class TestSendPurchaseWebhook:
         )
         webhook_thread.join(timeout=5)
 
-    @patch("modules.storefront.api.http_requests.post")
+    @patch.object(send_purchase_webhook.__globals__["http_requests"], "post")
     @patch.dict("os.environ", {}, clear=False)
     def test_webhook_skipped_when_env_var_missing(self, mock_post):
         """Webhook should not fire when env var is not set at all."""
@@ -126,7 +126,7 @@ class TestSendPurchaseWebhook:
 
         mock_post.assert_not_called()
 
-    @patch("modules.storefront.api.http_requests.post")
+    @patch.object(send_purchase_webhook.__globals__["http_requests"], "post")
     @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": "https://discord.com/api/webhooks/test"})
     def test_items_field_is_truncated_to_discord_limit(self, mock_post):
         """Item field should stay within Discord's 1024 char embed field limit."""
