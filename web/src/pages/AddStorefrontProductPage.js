@@ -25,7 +25,17 @@ const AddStorefrontProductPage = () => {
   // Load custom categories from localStorage
   const [customCategories, setCustomCategories] = useState(() => {
     const saved = localStorage.getItem('customCategories');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error('Failed to parse customCategories from localStorage:', error);
+      return [];
+    }
   });
 
   const allCategories = [...predefinedCategories, ...customCategories];
