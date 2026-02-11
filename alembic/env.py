@@ -5,6 +5,7 @@ import types
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import make_url
 
 from alembic import context
 
@@ -51,6 +52,30 @@ if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
 
+def _ensure_sqlite_parent_dir_exists() -> None:
+    """Create the parent directory for SQLite databases before connecting."""
+    url = config.get_main_option("sqlalchemy.url")
+    if not url:
+        return
+
+    try:
+        parsed_url = make_url(url)
+    except Exception:
+        return
+
+    if parsed_url.get_backend_name() != "sqlite":
+        return
+
+    database = parsed_url.database
+    if not database or database == ":memory:":
+        return
+
+    db_path = database if os.path.isabs(database) else os.path.abspath(database)
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -83,6 +108,8 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    _ensure_sqlite_parent_dir_exists()
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
