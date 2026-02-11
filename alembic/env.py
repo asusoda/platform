@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import types
+from importlib import import_module
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -36,12 +37,15 @@ if "shared" not in sys.modules:
 # Base.metadata is fully populated for autogenerate support.
 from modules.utils.base import Base  # noqa: E402
 
-import modules.auth.models  # noqa: E402, F401
-import modules.bot.models  # noqa: E402, F401
-import modules.calendar.models  # noqa: E402, F401
-import modules.organizations.models  # noqa: E402, F401
-import modules.points.models  # noqa: E402, F401
-import modules.storefront.models  # noqa: E402, F401
+for model_module in (
+    "modules.auth.models",
+    "modules.bot.models",
+    "modules.calendar.models",
+    "modules.organizations.models",
+    "modules.points.models",
+    "modules.storefront.models",
+):
+    import_module(model_module)
 
 target_metadata = Base.metadata
 
