@@ -17,15 +17,8 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
-  // Predefined categories
-  const predefinedCategories = [
-    "hoodies",
-    "t-shirts",
-    "stickers",
-    "water-bottles",
-    "discord-perks",
-    "coffee-chats"
-  ];
+  // Predefined categories (shared)
+  const predefinedCategories = PRODUCT_CATEGORIES;
 
   // Load custom categories from localStorage
   const [customCategories, setCustomCategories] = useState(() => {
