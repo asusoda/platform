@@ -16,6 +16,9 @@ logger = get_logger(__name__)
 storefront_blueprint = Blueprint("storefront", __name__)
 db_connect = DBConnect()
 
+DISCORD_EMBED_FIELD_VALUE_LIMIT = 1024
+PURCHASE_WEBHOOK_THREAD_NAME = "storefront-purchase-webhook"
+
 
 # Helper function to get organization by prefix
 def get_organization_by_prefix(db, org_prefix):
@@ -37,6 +40,37 @@ def normalize_category(value):
     return value
 
 
+def _build_item_lines_for_discord(items):
+    """Build a Discord-safe item list value for an embed field (max 1024 chars)."""
+    if not items:
+        return "No items"
+
+    lines = [f"• {item['name']} x{item['quantity']} — {int(item['price'])} pts each" for item in items]
+    item_lines = "\n".join(lines)
+    if len(item_lines) <= DISCORD_EMBED_FIELD_VALUE_LIMIT:
+        return item_lines
+
+    kept_lines = []
+    for index, line in enumerate(lines):
+        remaining = len(lines) - (index + 1)
+        suffix = f"\n...and {remaining} more" if remaining else ""
+        candidate = "\n".join([*kept_lines, line]) + suffix
+        if len(candidate) > DISCORD_EMBED_FIELD_VALUE_LIMIT:
+            break
+        kept_lines.append(line)
+
+    omitted_count = len(lines) - len(kept_lines)
+    suffix = f"\n...and {omitted_count} more" if omitted_count else ""
+    base_value = "\n".join(kept_lines)
+
+    if not base_value:
+        max_prefix_len = max(DISCORD_EMBED_FIELD_VALUE_LIMIT - len(suffix), 0)
+        truncated_prefix = lines[0][:max_prefix_len]
+        return f"{truncated_prefix}{suffix}"[:DISCORD_EMBED_FIELD_VALUE_LIMIT]
+
+    return f"{base_value}{suffix}"[:DISCORD_EMBED_FIELD_VALUE_LIMIT]
+
+
 def send_purchase_webhook(order_id, user_email, items, total_amount, org_name):
     """Send a Discord webhook notification for a storefront purchase.
 
@@ -50,9 +84,7 @@ def send_purchase_webhook(order_id, user_email, items, total_amount, org_name):
             logger.debug("DISCORD_STORE_WEBHOOK_URL not configured, skipping purchase webhook")
             return
 
-        item_lines = "\n".join(
-            f"• {item['name']} x{item['quantity']} — {int(item['price'])} pts each" for item in items
-        )
+        item_lines = _build_item_lines_for_discord(items)
 
         payload = {
             "embeds": [
@@ -77,8 +109,9 @@ def send_purchase_webhook(order_id, user_email, items, total_amount, org_name):
         except Exception:
             logger.exception("Failed to send Discord purchase webhook")
 
-    thread = threading.Thread(target=_send, daemon=True)
+    thread = threading.Thread(target=_send, daemon=True, name=PURCHASE_WEBHOOK_THREAD_NAME)
     thread.start()
+    return thread
 
 
 # PRODUCT ENDPOINTS
@@ -413,6 +446,7 @@ def create_order(org_prefix):
 
         # Prepare order items and validate stock
         order_items = []
+        webhook_items = []
         for item in data["items"]:
             if not all(k in item for k in ["product_id", "quantity", "price"]):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
@@ -424,15 +458,18 @@ def create_order(org_prefix):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
 
             # Update stock
-            product.stock -= int(item["quantity"])
+            quantity = int(item["quantity"])
+            price_at_time = float(item["price"])
+            product.stock -= quantity
 
             order_items.append(
                 OrderItem(
                     product_id=int(item["product_id"]),
-                    quantity=int(item["quantity"]),
-                    price_at_time=float(item["price"]),
+                    quantity=quantity,
+                    price_at_time=price_at_time,
                 )
             )
+            webhook_items.append({"name": product.name, "quantity": quantity, "price": price_at_time})
 
         # Create order
         new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
@@ -453,11 +490,6 @@ def create_order(org_prefix):
         db.commit()
 
         # Send Discord webhook notification (non-blocking)
-        webhook_items = [
-            {"name": oi.product.name, "quantity": oi.quantity, "price": oi.price_at_time}
-            for oi in created_order.items
-            if oi.product
-        ]
         send_purchase_webhook(created_order.id, user_email, webhook_items, total_amount, org.name)
 
         return jsonify(
@@ -1065,6 +1097,7 @@ def clerk_checkout(org_prefix):
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
 
         order_items = []
+        checkout_webhook_items = []
         for item in data["items"]:
             if not all(k in item for k in ["product_id", "quantity", "price"]):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
@@ -1075,15 +1108,18 @@ def clerk_checkout(org_prefix):
             if product.stock < int(item["quantity"]):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
 
-            product.stock -= int(item["quantity"])
+            quantity = int(item["quantity"])
+            price_at_time = float(item["price"])
+            product.stock -= quantity
 
             order_items.append(
                 OrderItem(
                     product_id=int(item["product_id"]),
-                    quantity=int(item["quantity"]),
-                    price_at_time=float(item["price"]),
+                    quantity=quantity,
+                    price_at_time=price_at_time,
                 )
             )
+            checkout_webhook_items.append({"name": product.name, "quantity": quantity, "price": price_at_time})
 
         new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
@@ -1100,11 +1136,6 @@ def clerk_checkout(org_prefix):
         db.commit()
 
         # Send Discord webhook notification (non-blocking)
-        checkout_webhook_items = [
-            {"name": oi.product.name, "quantity": oi.quantity, "price": oi.price_at_time}
-            for oi in created_order.items
-            if oi.product
-        ]
         send_purchase_webhook(created_order.id, user_email, checkout_webhook_items, total_amount, org.name)
 
         return jsonify(
