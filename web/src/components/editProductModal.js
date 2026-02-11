@@ -205,7 +205,12 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
                   type="text"
                   value={newCategoryInput}
                   onChange={(e) => setNewCategoryInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNewCategory())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddNewCategory();
+                    }
+                  }}
                   placeholder="e.g., Accessories"
                   className="flex-1 shadow appearance-none border rounded py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
                   autoFocus
