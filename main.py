@@ -2,6 +2,7 @@ import asyncio
 import os
 import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
+import time
 from datetime import UTC, datetime
 
 import discord
@@ -17,7 +18,7 @@ from modules.public.api import public_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
-from shared import app, config, create_auth_bot, logger
+from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Set a secret key for session management
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
@@ -111,6 +112,19 @@ def run_auth_bot_in_thread():
 
 # --- App Initialization ---
 def initialize_app():
+    # Start token cleanup scheduler in background thread
+    def run_cleanup_scheduler():
+        while True:
+            try:
+                tokenManager.cleanup_expired_refresh_tokens()
+                logger.info("Cleaned up expired refresh tokens")
+            except Exception as e:
+                logger.error(f"Error cleaning up expired tokens: {e}")
+            time.sleep(3600)
+
+    cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
+    cleanup_thread.start()
+
     auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
     auth_thread.daemon = True
     auth_thread.start()
