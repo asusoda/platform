@@ -14,8 +14,9 @@ ALTER TABLE products ADD COLUMN category VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 
 -- Optional: Update existing products with default categories based on name patterns
--- This is a best-effort migration - admins should review and update categories manually
--- Only updates products that don't already have a category (idempotent)
+-- These updates only apply to products without a category (category IS NULL)
+-- This prevents overwriting any manually set categories
+-- Admins should review and update categories manually for edge cases
 UPDATE products SET category = 'hoodies' WHERE category IS NULL AND LOWER(name) LIKE '%hoodie%';
 UPDATE products SET category = 't-shirts' WHERE category IS NULL AND (LOWER(name) LIKE '%shirt%' OR LOWER(name) LIKE '%tshirt%' OR LOWER(name) LIKE '%t-shirt%');
 UPDATE products SET category = 'stickers' WHERE category IS NULL AND (LOWER(name) LIKE '%sticker%' OR LOWER(name) LIKE '%decal%');
