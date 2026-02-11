@@ -1,5 +1,7 @@
+import logging
 import os
 import sys
+import types
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -18,15 +20,27 @@ if config.config_file_name is not None:
 # Ensure the project root is on sys.path so module imports work.
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 
+# Stub out ``shared`` before importing model modules.  The calendar models
+# import ``shared`` transitively (calendar.models -> calendar.utils -> shared),
+# which would initialise Config, the database, Discord bots, background
+# threads, etc.  None of that is needed for Alembic – we only need the
+# SQLAlchemy table metadata.
+if "shared" not in sys.modules:
+    _stub = types.ModuleType("shared")
+    _stub.config = types.SimpleNamespace()  # type: ignore[attr-defined]
+    _stub.logger = logging.getLogger("alembic.stub")  # type: ignore[attr-defined]
+    sys.modules["shared"] = _stub
+
 # Import the declarative Base and all model modules so that
 # Base.metadata is fully populated for autogenerate support.
+from modules.utils.base import Base  # noqa: E402
+
 import modules.auth.models  # noqa: E402, F401
 import modules.bot.models  # noqa: E402, F401
 import modules.calendar.models  # noqa: E402, F401
 import modules.organizations.models  # noqa: E402, F401
 import modules.points.models  # noqa: E402, F401
 import modules.storefront.models  # noqa: E402, F401
-from modules.utils.base import Base  # noqa: E402
 
 target_metadata = Base.metadata
 

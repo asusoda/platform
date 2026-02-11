@@ -220,6 +220,9 @@ check:
 	@uv run ty check .
 	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
 	@TESTING=true uv run pytest -v
+	@echo -e "$(GREEN)[INFO]$(NC) Checking alembic migrations are up to date..."
+	@uv run alembic upgrade head
+	@uv run alembic check
 	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
 
 # Health check
