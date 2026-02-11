@@ -9,6 +9,7 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
     price: "",
     stock: "",
     image_url: "",
+    category: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -22,6 +23,7 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
         price: product.price,
         stock: product.stock,
         image_url: product.image_url,
+        category: product.category || "",
       });
     }
   }, [product]);
@@ -109,6 +111,29 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
               onChange={handleChange}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 h-24"
             ></textarea>
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="category"
+              className="block text-gray-300 text-sm font-bold mb-2"
+            >
+              Category:
+            </label>
+            <select
+              id="category"
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
+            >
+              <option value="">Select a category (optional)</option>
+              <option value="hoodies">Hoodies</option>
+              <option value="t-shirts">T-Shirts</option>
+              <option value="stickers">Stickers</option>
+              <option value="water-bottles">Water Bottles</option>
+              <option value="accessories">Accessories</option>
+              <option value="other">Other</option>
+            </select>
           </div>
           <div className="mb-4">
             <label
