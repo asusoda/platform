@@ -42,6 +42,7 @@ def get_products(org_prefix):
                     "price": p.price,
                     "stock": p.stock,
                     "image_url": p.image_url,
+                    "category": p.category,
                     "organization_id": p.organization_id,
                     "created_at": p.created_at.isoformat() if p.created_at else None,
                     "updated_at": p.updated_at.isoformat() if p.updated_at else None,
@@ -75,6 +76,7 @@ def get_product(org_prefix, product_id):
                 "price": product.price,
                 "stock": product.stock,
                 "image_url": product.image_url,
+                "category": product.category,
                 "organization_id": product.organization_id,
                 "created_at": product.created_at.isoformat() if product.created_at else None,
                 "updated_at": product.updated_at.isoformat() if product.updated_at else None,
@@ -105,6 +107,7 @@ def create_product(org_prefix):
         price=float(data["price"]),
         stock=int(data["stock"]),
         image_url=data.get("image_url", ""),
+        category=data.get("category"),
     )
 
     db = next(db_connect.get_db())
@@ -125,6 +128,7 @@ def create_product(org_prefix):
                     "price": created_product.price,
                     "stock": created_product.stock,
                     "image_url": created_product.image_url,
+                    "category": created_product.category,
                     "organization_id": created_product.organization_id,
                 },
             }
@@ -161,6 +165,8 @@ def update_product(org_prefix, product_id):
             product.stock = int(data["stock"])
         if "image_url" in data:
             product.image_url = data["image_url"]
+        if "category" in data:
+            product.category = data["category"]
 
         db.commit()
         return jsonify(
@@ -173,6 +179,7 @@ def update_product(org_prefix, product_id):
                     "price": product.price,
                     "stock": product.stock,
                     "image_url": product.image_url,
+                    "category": product.category,
                     "organization_id": product.organization_id,
                 },
             }
@@ -809,7 +816,7 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 
-@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET", "OPTIONS"])
 @dual_auth_required
 @error_handler
 def get_user_orders_clerk(org_prefix, user_email):

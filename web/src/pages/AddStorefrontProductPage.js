@@ -14,6 +14,7 @@ const AddStorefrontProductPage = () => {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState(1);
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,6 +31,7 @@ const AddStorefrontProductPage = () => {
       price: parseFloat(price), // Use parseFloat for decimal prices
       stock: parseInt(stock),
       image_url: imageUrl,
+      category: category || null,
     };
 
     try {
@@ -42,6 +44,7 @@ const AddStorefrontProductPage = () => {
       setPrice("");
       setStock(1);
       setDescription("");
+      setCategory("");
     } catch (error) {
       console.error("Error submitting form:", error);
       const errorMessage = error.response?.data?.error || 
@@ -103,6 +106,25 @@ const AddStorefrontProductPage = () => {
                 placeholder="A brief description of the product."
                 rows="3"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:border-green-500"
+              >
+                <option value="">Select a category (optional)</option>
+                <option value="hoodies">Hoodies</option>
+                <option value="t-shirts">T-Shirts</option>
+                <option value="stickers">Stickers</option>
+                <option value="water-bottles">Water Bottles</option>
+                <option value="accessories">Accessories</option>
+                <option value="other">Other</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

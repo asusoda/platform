@@ -17,6 +17,7 @@ class Product(Base):
     price = Column(Float, nullable=False)
     stock = Column(Integer, nullable=False)
     image_url = Column(String(255))
+    category = Column(String(50), nullable=True)  # Category for product grouping
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
