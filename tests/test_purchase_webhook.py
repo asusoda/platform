@@ -60,17 +60,17 @@ class TestSendPurchaseWebhook:
         call_kwargs = mock_post.call_args
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1]["json"]
 
-        assert len(payload["embeds"]) == 1
+        assert len(payload["embeds"]) == 1  # nosec B101
         embed = payload["embeds"][0]
-        assert "New Storefront Purchase" in embed["title"]
+        assert "New Storefront Purchase" in embed["title"]  # nosec B101
 
         fields = {f["name"]: f["value"] for f in embed["fields"]}
-        assert fields["Order"] == "#42"
-        assert fields["Buyer"] == "buyer@example.com"
-        assert fields["Organization"] == "TestOrg"
-        assert "T-Shirt" in fields["Items"]
-        assert "Sticker" in fields["Items"]
-        assert "110" in fields["Total"]
+        assert fields["Order"] == "#42"  # nosec B101
+        assert fields["Buyer"] == "buyer@example.com"  # nosec B101
+        assert fields["Organization"] == "TestOrg"  # nosec B101
+        assert "T-Shirt" in fields["Items"]  # nosec B101
+        assert "Sticker" in fields["Items"]  # nosec B101
+        assert "110" in fields["Total"]  # nosec B101
 
     @patch("modules.storefront.api.http_requests.post")
     @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": ""})
