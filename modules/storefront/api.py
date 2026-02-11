@@ -21,6 +21,16 @@ def get_organization_by_prefix(db, org_prefix):
     return org
 
 
+# Helper function to normalize category values
+def normalize_category(value):
+    """Normalize category value: strip whitespace and convert empty string to None"""
+    if isinstance(value, str):
+        value = value.strip()
+        if value == "":
+            return None
+    return value
+
+
 # PRODUCT ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
 @error_handler
@@ -102,11 +112,7 @@ def create_product(org_prefix):
         return jsonify({"error": "Product stock is required"}), 400
 
     # Normalize category: convert empty string to None
-    category = data.get("category")
-    if isinstance(category, str):
-        category = category.strip()
-        if category == "":
-            category = None
+    category = normalize_category(data.get("category"))
 
     new_product = Product(
         name=data["name"],
@@ -173,12 +179,7 @@ def update_product(org_prefix, product_id):
         if "image_url" in data:
             product.image_url = data["image_url"]
         if "category" in data:
-            category = data["category"]
-            if isinstance(category, str):
-                category = category.strip()
-                if category == "":
-                    category = None
-            product.category = category
+            product.category = normalize_category(data["category"])
 
         db.commit()
         return jsonify(
