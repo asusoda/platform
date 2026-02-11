@@ -5,8 +5,8 @@ from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 from flask import jsonify, request
 
+from modules.utils.config import config
 from modules.utils.logging_config import get_logger
-from shared import config
 
 logger = get_logger("utils.clerk_auth")
 

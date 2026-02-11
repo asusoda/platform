@@ -81,7 +81,7 @@ organizations/
 ```python
 from modules.organizations.models import Organization
 from modules.organizations.config import OrganizationSettings
-from shared import db_connect
+from modules.utils.db import db_connect
 
 # Create a new organization
 with db_connect.get_session() as session:

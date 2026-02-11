@@ -3,8 +3,8 @@ import os
 
 from flask import Blueprint, current_app, jsonify, request
 
+from modules.utils.db import db_connect as db
 from modules.utils.logging_config import get_logger
-from shared import db_connect as db
 
 # Get module logger
 logger = get_logger("bot.api")
