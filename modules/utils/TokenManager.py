@@ -150,7 +150,7 @@ class TokenManager:
 
         # Generate a cryptographically secure random token
         refresh_token = secrets.token_urlsafe(32)
-        expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=exp_days)
+        expires_at = datetime.datetime.utcnow() + datetime.timedelta(days=exp_days)
 
         # Store refresh token in database
         db = self._get_db_session()
@@ -191,8 +191,11 @@ class TokenManager:
             if not db_token:
                 return None
 
-            # Check if refresh token is expired
-            if datetime.datetime.now(datetime.UTC) > db_token.expires_at.replace(tzinfo=datetime.UTC):
+            # Check if refresh token is expired (both datetimes are UTC, compare as naive)
+            expires_at = db_token.expires_at
+            if expires_at.tzinfo is not None:
+                expires_at = expires_at.replace(tzinfo=None)
+            if datetime.datetime.utcnow() > expires_at:
                 db.delete(db_token)
                 db.commit()
                 return None
@@ -246,7 +249,7 @@ class TokenManager:
 
         db = self._get_db_session()
         try:
-            current_time = datetime.datetime.now(datetime.UTC)
+            current_time = datetime.datetime.utcnow()
             deleted = db.query(RefreshToken).filter(RefreshToken.expires_at < current_time).delete()
             db.commit()
             if deleted:
