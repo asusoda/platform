@@ -5,6 +5,7 @@ import OrganizationNavbar from "../components/shared/OrganizationNavbar";
 import { FaBox, FaPlus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useAuth } from "../components/auth/AuthContext";
+import { PRODUCT_CATEGORIES } from "../constants/productCategories";
 
 const AddStorefrontProductPage = () => {
   const { orgPrefix } = useParams();
@@ -117,13 +118,11 @@ const AddStorefrontProductPage = () => {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:border-green-500"
               >
-                <option value="">Select a category (optional)</option>
-                <option value="hoodies">Hoodies</option>
-                <option value="t-shirts">T-Shirts</option>
-                <option value="stickers">Stickers</option>
-                <option value="water-bottles">Water Bottles</option>
-                <option value="accessories">Accessories</option>
-                <option value="other">Other</option>
+                {PRODUCT_CATEGORIES.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
               </select>
             </div>
 

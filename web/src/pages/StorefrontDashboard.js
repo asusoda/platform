@@ -157,7 +157,7 @@ const StorefrontDashboard = () => {
           </p>
           <div className="mt-4 flex justify-center space-x-4">
             <Link
-              to={`/${orgPrefix || currentOrg?.prefix}/add-storefront`}
+              to={`/${orgPrefix || currentOrg?.prefix}/add-storefront-product`}
               className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md transition-colors flex items-center"
             >
               <FaPlus className="mr-2" /> Add Product
@@ -239,7 +239,7 @@ const StorefrontDashboard = () => {
 
               {products.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  No products found. <Link to={`/${orgPrefix || currentOrg?.prefix}/add-storefront`} className="text-blue-400 hover:underline">Add your first product</Link>
+                  No products found. <Link to={`/${orgPrefix || currentOrg?.prefix}/add-storefront-product`} className="text-blue-400 hover:underline">Add your first product</Link>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
