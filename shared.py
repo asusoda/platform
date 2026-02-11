@@ -91,6 +91,9 @@ def run_cleanup_scheduler():
 cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
 cleanup_thread.start()
 
+# Import models so their tables are registered with Base.metadata before create_all
+import modules.auth.models  # noqa: F401, E402
+
 # Ensure all tables are created after all models are imported
 Base.metadata.create_all(bind=db_connect.engine)
 
