@@ -44,7 +44,11 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
       // Format: lowercase and replace spaces with hyphens
       const formatted = newCategoryInput.trim().toLowerCase().replace(/\s+/g, '-');
       
-      if (!allCategories.includes(formatted)) {
+      const categoryExists = allCategories.some(cat =>
+        typeof cat === "string" ? cat === formatted : cat && cat.value === formatted
+      );
+
+      if (!categoryExists) {
         const updated = [...customCategories, formatted];
         setCustomCategories(updated);
         localStorage.setItem('customCategories', JSON.stringify(updated));
@@ -183,11 +187,25 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
                 >
                   <option value="">Select a category (optional)</option>
                   <optgroup label="Standard Categories">
-                    {predefinedCategories.map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                      </option>
-                    ))}
+                    {predefinedCategories.map((cat, index) => {
+                      const rawValue =
+                        typeof cat === "string"
+                          ? cat
+                          : (cat && (cat.value || cat.name)) || "";
+                      const labelSource =
+                        typeof cat === "string"
+                          ? cat
+                          : (cat && (cat.label || cat.name || rawValue)) || "";
+                      const formattedLabel = labelSource
+                        .split("-")
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ");
+                      return (
+                        <option key={rawValue || index} value={rawValue}>
+                          {formattedLabel}
+                        </option>
+                      );
+                    })}
                   </optgroup>
                   {customCategories.length > 0 && (
                     <optgroup label="Custom Categories">

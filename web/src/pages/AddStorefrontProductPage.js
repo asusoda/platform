@@ -176,8 +176,8 @@ const AddStorefrontProductPage = () => {
                     <option value="">Select a category (optional)</option>
                     <optgroup label="Standard Categories">
                       {predefinedCategories.map(cat => (
-                        <option key={cat} value={cat}>
-                          {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        <option key={cat.value} value={cat.value}>
+                          {cat.value.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                         </option>
                       ))}
                     </optgroup>
