@@ -13,6 +13,47 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+
+  // Predefined categories
+  const predefinedCategories = [
+    "hoodies",
+    "t-shirts",
+    "stickers",
+    "water-bottles",
+    "discord-perks",
+    "coffee-chats"
+  ];
+
+  // Load custom categories from localStorage
+  const [customCategories, setCustomCategories] = useState(() => {
+    const saved = localStorage.getItem('customCategories');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const allCategories = [...predefinedCategories, ...customCategories];
+
+  const handleAddNewCategory = () => {
+    if (newCategoryInput.trim()) {
+      // Format: lowercase and replace spaces with hyphens
+      const formatted = newCategoryInput.trim().toLowerCase().replace(/\s+/g, '-');
+      
+      if (!allCategories.includes(formatted)) {
+        const updated = [...customCategories, formatted];
+        setCustomCategories(updated);
+        localStorage.setItem('customCategories', JSON.stringify(updated));
+        setFormData(prev => ({ ...prev, category: formatted }));
+        toast.success(`Category "${formatted}" added!`);
+      } else {
+        toast.info("Category already exists");
+        setFormData(prev => ({ ...prev, category: formatted }));
+      }
+      
+      setNewCategoryInput("");
+      setIsAddingNewCategory(false);
+    }
+  };
 
   useEffect(() => {
     // Populate form data when the product prop changes (i.e., when modal opens for a new product)
@@ -119,21 +160,72 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
             >
               Category:
             </label>
-            <select
-              id="category"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
-            >
-              <option value="">Select a category (optional)</option>
-              <option value="hoodies">Hoodies</option>
-              <option value="t-shirts">T-Shirts</option>
-              <option value="stickers">Stickers</option>
-              <option value="water-bottles">Water Bottles</option>
-              <option value="accessories">Accessories</option>
-              <option value="other">Other</option>
-            </select>
+            
+            {!isAddingNewCategory ? (
+              <div className="flex gap-2">
+                <select
+                  id="category"
+                  name="category"
+                  value={formData.category}
+                  onChange={(e) => {
+                    if (e.target.value === "__add_new__") {
+                      setIsAddingNewCategory(true);
+                    } else {
+                      handleChange(e);
+                    }
+                  }}
+                  className="flex-1 shadow appearance-none border rounded py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
+                >
+                  <option value="">Select a category (optional)</option>
+                  <optgroup label="Standard Categories">
+                    {predefinedCategories.map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {customCategories.length > 0 && (
+                    <optgroup label="Custom Categories">
+                      {customCategories.map(cat => (
+                        <option key={cat} value={cat}>
+                          {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <option value="__add_new__" className="text-green-400">+ Add New Category</option>
+                </select>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCategoryInput}
+                  onChange={(e) => setNewCategoryInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNewCategory())}
+                  placeholder="e.g., Accessories"
+                  className="flex-1 shadow appearance-none border rounded py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleAddNewCategory}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingNewCategory(false);
+                    setNewCategoryInput("");
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
           <div className="mb-4">
             <label

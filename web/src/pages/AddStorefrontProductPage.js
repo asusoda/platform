@@ -15,6 +15,47 @@ const AddStorefrontProductPage = () => {
   const [stock, setStock] = useState(1);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+
+  // Predefined categories
+  const predefinedCategories = [
+    "hoodies",
+    "t-shirts",
+    "stickers",
+    "water-bottles",
+    "discord-perks",
+    "coffee-chats"
+  ];
+
+  // Load custom categories from localStorage
+  const [customCategories, setCustomCategories] = useState(() => {
+    const saved = localStorage.getItem('customCategories');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const allCategories = [...predefinedCategories, ...customCategories];
+
+  const handleAddNewCategory = () => {
+    if (newCategoryInput.trim()) {
+      // Format: lowercase and replace spaces with hyphens
+      const formatted = newCategoryInput.trim().toLowerCase().replace(/\s+/g, '-');
+      
+      if (!allCategories.includes(formatted)) {
+        const updated = [...customCategories, formatted];
+        setCustomCategories(updated);
+        localStorage.setItem('customCategories', JSON.stringify(updated));
+        setCategory(formatted);
+        toast.success(`Category "${formatted}" added!`);
+      } else {
+        toast.info("Category already exists");
+        setCategory(formatted);
+      }
+      
+      setNewCategoryInput("");
+      setIsAddingNewCategory(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,19 +153,76 @@ const AddStorefrontProductPage = () => {
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Category
               </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:border-green-500"
-              >
-                <option value="">Select a category (optional)</option>
-                <option value="hoodies">Hoodies</option>
-                <option value="t-shirts">T-Shirts</option>
-                <option value="stickers">Stickers</option>
-                <option value="water-bottles">Water Bottles</option>
-                <option value="accessories">Accessories</option>
-                <option value="other">Other</option>
-              </select>
+              
+              {!isAddingNewCategory ? (
+                <div className="flex gap-2">
+                  <select
+                    value={category}
+                    onChange={(e) => {
+                      if (e.target.value === "__add_new__") {
+                        setIsAddingNewCategory(true);
+                      } else {
+                        setCategory(e.target.value);
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white focus:outline-none focus:border-green-500"
+                  >
+                    <option value="">Select a category (optional)</option>
+                    <optgroup label="Standard Categories">
+                      {predefinedCategories.map(cat => (
+                        <option key={cat} value={cat}>
+                          {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {customCategories.length > 0 && (
+                      <optgroup label="Custom Categories">
+                        {customCategories.map(cat => (
+                          <option key={cat} value={cat}>
+                            {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <option value="__add_new__" className="text-green-400">+ Add New Category</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCategoryInput}
+                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNewCategory())}
+                    placeholder="e.g., Accessories"
+                    className="flex-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-green-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddNewCategory}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingNewCategory(false);
+                      setNewCategoryInput("");
+                    }}
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              
+              {category && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Selected: <span className="text-white">{category}</span>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
