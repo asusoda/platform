@@ -19,15 +19,8 @@ const AddStorefrontProductPage = () => {
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
-  // Predefined categories
-  const predefinedCategories = [
-    "hoodies",
-    "t-shirts",
-    "stickers",
-    "water-bottles",
-    "discord-perks",
-    "coffee-chats"
-  ];
+  // Predefined categories (shared constant)
+  const predefinedCategories = PRODUCT_CATEGORIES;
 
   // Load custom categories from localStorage
   const [customCategories, setCustomCategories] = useState(() => {
