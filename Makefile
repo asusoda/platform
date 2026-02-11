@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check
+.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check migrate
 
 # Use bash as the shell for all commands
 SHELL := /usr/bin/env bash
@@ -32,6 +32,7 @@ help:
 	@echo "  make status                 - Show container status"
 	@echo "  make health                 - Check container health"
 	@echo "  make check                  - Run lint (auto-fix), format, type check, and tests"
+	@echo "  make migrate                - Run alembic database migrations"
 
 # Build container images
 build:
@@ -131,6 +132,8 @@ deploy:
 		mkdir -p data; \
 		chmod -R 755 data; \
 		chown -R 1000:1000 data; \
+		echo -e "$(GREEN)[INFO]$(NC) Running database migrations..."; \
+		uv run alembic upgrade head || { echo -e "$(RED)[ERROR]$(NC) Database migration failed!"; exit 1; }; \
 		if [ "$$BUILD_API" -eq 1 ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Tagging API image as previous..."; \
 			$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true; \
@@ -210,6 +213,12 @@ status:
 	@echo -e "$(GREEN)[INFO]$(NC) Container status:"
 	@$(COMPOSE_CMD) ps
 
+# Run database migrations
+migrate:
+	@echo -e "$(GREEN)[INFO]$(NC) Running database migrations..."
+	@uv run alembic upgrade head
+	@echo -e "$(GREEN)[INFO]$(NC) Database migrations complete!"
+
 # Run lint (with auto-fix), format, type check, and tests
 check:
 	@echo -e "$(GREEN)[INFO]$(NC) Running ruff linting with auto-fix..."
@@ -220,6 +229,9 @@ check:
 	@uv run ty check .
 	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
 	@uv run pytest -v
+	@echo -e "$(GREEN)[INFO]$(NC) Checking alembic migrations are up to date..."
+	@uv run alembic upgrade head
+	@uv run alembic check
 	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
 
 # Health check
