@@ -5,11 +5,13 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   check:
     permissions:
       contents: write
+      actions: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
@@ -32,6 +34,7 @@ jobs:
       run: make check
     
     - name: Commit and push fixes
+      id: autofix
       if: github.event_name == 'pull_request'
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
@@ -40,3 +43,14 @@ jobs:
     - name: Run bandit security checks
       run: uv run bandit -c pyproject.toml -r . -f json
 
+    - name: Re-run check on autofix commit
+      if: github.event_name == 'pull_request' && steps.autofix.outputs.changes_detected == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: "check.yml",
+            ref: context.payload.pull_request.head.ref,
+          });
