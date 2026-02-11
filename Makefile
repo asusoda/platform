@@ -1,7 +1,7 @@
 .PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check migrate
 
 # Use bash as the shell for all commands
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
@@ -228,7 +228,7 @@ check:
 	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
 	@uv run ty check .
 	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
-	@TESTING=true uv run pytest -v
+	@uv run pytest -v
 	@echo -e "$(GREEN)[INFO]$(NC) Checking alembic migrations are up to date..."
 	@uv run alembic upgrade head
 	@uv run alembic check

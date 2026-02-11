@@ -1,13 +1,19 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import Orb from "../components/ui/Orb"; // Import the Orb component
 import StarBorder from "../components/ui/StarBorder"; // Import the StarBorder component
 import Logo from "../assets/logo-dark.svg"; // Updated import path for the logo
 import { FaDiscord, FaRocket, FaUsers, FaCog } from "react-icons/fa"; // Import icons
 import config from "../config";
+import { useAuth } from "../components/auth/AuthContext";
 
 const LoginPage = () => {
-  const navigate = useNavigate();
+  const { token, loading } = useAuth();
+
+  // Redirect already-authenticated users to the organization selector
+  if (!loading && token) {
+    return <Navigate to="/select-organization" replace />;
+  }
 
   // Function to handle login
   const handleLogin = () => {
