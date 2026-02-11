@@ -19,8 +19,10 @@ const AddStorefrontProductPage = () => {
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
-  // Predefined categories (shared constant)
-  const predefinedCategories = PRODUCT_CATEGORIES;
+  // Predefined categories (shared constant) - extract values only
+  const predefinedCategories = PRODUCT_CATEGORIES
+    .map((cat) => cat.value)
+    .filter(Boolean); // Remove empty string option
 
   // Load custom categories from localStorage
   const [customCategories, setCustomCategories] = useState(() => {

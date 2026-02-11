@@ -114,7 +114,7 @@ def create_product(org_prefix):
         price=float(data["price"]),
         stock=int(data["stock"]),
         image_url=data.get("image_url", ""),
-        category=data.get("category"),
+        category=category,
     )
 
     db = next(db_connect.get_db())
@@ -173,7 +173,12 @@ def update_product(org_prefix, product_id):
         if "image_url" in data:
             product.image_url = data["image_url"]
         if "category" in data:
-            product.category = data["category"]
+            category = data["category"]
+            if isinstance(category, str):
+                category = category.strip()
+                if category == "":
+                    category = None
+            product.category = category
 
         db.commit()
         return jsonify(
@@ -823,7 +828,7 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 
-@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET", "OPTIONS"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET"])
 @dual_auth_required
 @error_handler
 def get_user_orders_clerk(org_prefix, user_email):
