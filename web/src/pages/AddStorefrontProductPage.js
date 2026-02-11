@@ -175,19 +175,39 @@ const AddStorefrontProductPage = () => {
                   >
                     <option value="">Select a category (optional)</option>
                     <optgroup label="Standard Categories">
-                      {predefinedCategories.map(cat => (
-                        <option key={cat.value} value={cat.value}>
-                          {cat.value.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                        </option>
-                      ))}
+                      {predefinedCategories.map(cat => {
+                        const value = typeof cat === 'string' ? cat : (cat && cat.value) ? cat.value : '';
+                        const labelSource = typeof cat === 'string'
+                          ? cat
+                          : (cat && (cat.label || cat.value)) ? (cat.label || cat.value) : '';
+                        const label = labelSource
+                          .split('-')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ');
+                        return (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        );
+                      })}
                     </optgroup>
                     {customCategories.length > 0 && (
                       <optgroup label="Custom Categories">
-                        {customCategories.map(cat => (
-                          <option key={cat} value={cat}>
-                            {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                          </option>
-                        ))}
+                        {customCategories.map(cat => {
+                          const value = typeof cat === 'string' ? cat : (cat && cat.value) ? cat.value : '';
+                          const labelSource = typeof cat === 'string'
+                            ? cat
+                            : (cat && (cat.label || cat.value)) ? (cat.label || cat.value) : '';
+                          const label = labelSource
+                            .split('-')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                          return (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          );
+                        })}
                       </optgroup>
                     )}
                     <option value="__add_new__" className="text-green-400">+ Add New Category</option>
