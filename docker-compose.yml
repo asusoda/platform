@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile.api
       cache_from:
         - soda-internal-api:latest
+        - soda-internal-api:previous
       args:
         - COMMIT_HASH=${COMMIT_HASH:-unknown}
     image: soda-internal-api:latest
@@ -39,6 +40,7 @@ services:
       dockerfile: Dockerfile.web
       cache_from:
         - soda-web:latest
+        - soda-web:previous
       args:
         - REACT_APP_API_URL=${REACT_APP_API_URL}
     image: soda-web:latest

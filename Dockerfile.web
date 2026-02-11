@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # Build stage
 FROM node:18-alpine AS builder
 
@@ -11,7 +13,9 @@ WORKDIR /app
 COPY web/package.json web/pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile --prefer-offline
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm install --frozen-lockfile --prefer-offline
 
 # Copy source code
 COPY web/ ./

@@ -6,6 +6,8 @@ SHELL := /bin/bash
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
 BRANCH ?= main
+PRUNE_UNUSED_IMAGES ?= weekly
+PRUNE_MAX_AGE ?= 168h
 COMPOSE_CMD := $(shell if command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; elif docker compose version > /dev/null 2>&1; then echo "docker compose"; else echo "docker-compose"; fi)
 CONTAINER_CMD := $(shell if command -v podman > /dev/null 2>&1; then echo "podman"; else echo "docker"; fi)
 
@@ -179,8 +181,22 @@ deploy:
 		$(COMPOSE_CMD) ps; \
 		echo -e "$(GREEN)[INFO]$(NC) Recent logs:"; \
 		$(COMPOSE_CMD) logs --tail=20; \
-		echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."; \
-		$(CONTAINER_CMD) image prune -f 2>/dev/null || true; \
+		case "$(PRUNE_UNUSED_IMAGES)" in \
+			always) \
+				echo -e "$(GREEN)[INFO]$(NC) Pruning unused container images (mode=always, age=$(PRUNE_MAX_AGE))..."; \
+				$(CONTAINER_CMD) image prune -f --filter "until=$(PRUNE_MAX_AGE)" 2>/dev/null || true ;; \
+			weekly) \
+				if [ "$$(date +%u)" -eq 7 ]; then \
+					echo -e "$(GREEN)[INFO]$(NC) Pruning unused container images (mode=weekly, age=$(PRUNE_MAX_AGE))..."; \
+					$(CONTAINER_CMD) image prune -f --filter "until=$(PRUNE_MAX_AGE)" 2>/dev/null || true; \
+				else \
+					echo -e "$(GREEN)[INFO]$(NC) Skipping image prune (mode=weekly, today is not Sunday)."; \
+				fi ;; \
+			never) \
+				echo -e "$(GREEN)[INFO]$(NC) Skipping image prune (mode=never).";; \
+			*) \
+				echo -e "$(YELLOW)[WARNING]$(NC) Unknown PRUNE_UNUSED_IMAGES=$(PRUNE_UNUSED_IMAGES), skipping image prune.";; \
+		esac; \
 		echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
