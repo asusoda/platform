@@ -62,8 +62,6 @@ make status
 # Run all checks (lint, format, typecheck, tests)
 make check
 
-### Customizing Deployment
-
 # Open shell in API container
 make shell
 

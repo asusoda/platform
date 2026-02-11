@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiClient from "./utils/axios"; // Adjust path if necessary
 import { toast } from "react-toastify";
+import { PRODUCT_CATEGORIES } from "../constants/productCategories";
 
 const EditProductModal = ({ product, onClose, onProductUpdated, organizationPrefix }) => {
   const [formData, setFormData] = useState({

@@ -5,6 +5,7 @@ import OrganizationNavbar from "../components/shared/OrganizationNavbar";
 import { FaBox, FaPlus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useAuth } from "../components/auth/AuthContext";
+import { PRODUCT_CATEGORIES } from "../constants/productCategories";
 
 const AddStorefrontProductPage = () => {
   const { orgPrefix } = useParams();

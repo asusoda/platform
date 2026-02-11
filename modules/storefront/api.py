@@ -101,6 +101,13 @@ def create_product(org_prefix):
     if not data.get("stock"):
         return jsonify({"error": "Product stock is required"}), 400
 
+    # Normalize category: convert empty string to None
+    category = data.get("category")
+    if isinstance(category, str):
+        category = category.strip()
+        if category == "":
+            category = None
+
     new_product = Product(
         name=data["name"],
         description=data.get("description", ""),
