@@ -87,48 +87,101 @@ discard-local-changes:
 
 # Deploy to production
 deploy:
-	@echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."
-	@if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
-		echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
-		cd $(PROJECT_DIR) || (echo -e "$(RED)[ERROR]$(NC) Failed to change directory"; exit 1); \
-	fi
-	@echo -e "$(GREEN)[INFO]$(NC) Pulling latest changes from repository..."
-	@git pull || (echo -e "$(RED)[ERROR]$(NC) Failed to pull from repository"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."
-	@git checkout $(BRANCH) || (echo -e "$(RED)[ERROR]$(NC) Failed to checkout $(BRANCH)"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."
-	@mkdir -p data
-	@chmod -R 755 data
-	@chown -R 1000:1000 data
-	@echo -e "$(GREEN)[INFO]$(NC) Tagging current version as previous..."
-	@$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true
-	@echo -e "$(GREEN)[INFO]$(NC) Building container image..."
-	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build || (echo -e "$(RED)[ERROR]$(NC) Failed to build container image"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Stopping existing containers..."
-	@$(COMPOSE_CMD) -f docker-compose.yml down
-	@echo -e "$(GREEN)[INFO]$(NC) Starting containers..."
-	@$(COMPOSE_CMD) -f docker-compose.yml up -d || (echo -e "$(RED)[ERROR]$(NC) Failed to start containers"; exit 1)
-	@echo -e "$(GREEN)[INFO]$(NC) Waiting for container to be healthy..."
-	@for i in $$(seq 1 30); do \
-		if $(COMPOSE_CMD) ps | grep -q "healthy"; then \
-			echo -e "$(GREEN)[INFO]$(NC) Container is healthy!"; \
-			break; \
-		elif [ $$i -eq 30 ]; then \
-			echo -e "$(YELLOW)[WARNING]$(NC) Container health check timed out"; \
-		else \
-			printf "."; \
-			sleep 2; \
+	@set -e; \
+		echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."; \
+		if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
+			echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
+			cd $(PROJECT_DIR); \
 		fi; \
-	done
-	@echo
-	@echo -e "$(GREEN)[INFO]$(NC) Container status:"
-	@$(COMPOSE_CMD) ps
-	@echo -e "$(GREEN)[INFO]$(NC) Recent logs:"
-	@$(COMPOSE_CMD) logs --tail=20
-	@echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."
-	@$(CONTAINER_CMD) image prune -f 2>/dev/null || true
-	@echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
+		OLD_HEAD=$$(git rev-parse HEAD 2>/dev/null || echo ""); \
+		echo -e "$(GREEN)[INFO]$(NC) Fetching latest changes from repository..."; \
+		git fetch origin $(BRANCH); \
+		echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."; \
+		git checkout $(BRANCH); \
+		git reset --hard origin/$(BRANCH); \
+		NEW_HEAD=$$(git rev-parse HEAD 2>/dev/null || echo ""); \
+		CHANGED_FILES=""; \
+		if [ -n "$$OLD_HEAD" ] && [ -n "$$NEW_HEAD" ] && [ "$$OLD_HEAD" != "$$NEW_HEAD" ]; then \
+			CHANGED_FILES=$$(git diff --name-only "$$OLD_HEAD" "$$NEW_HEAD"); \
+		fi; \
+		BUILD_API=0; \
+		BUILD_WEB=0; \
+		if [ -n "$$CHANGED_FILES" ]; then \
+			echo -e "$(GREEN)[INFO]$(NC) Changed files since last deploy commit:"; \
+			printf "%s\n" "$$CHANGED_FILES"; \
+			while IFS= read -r FILE; do \
+				case "$$FILE" in \
+					web/*|Dockerfile.web) \
+						BUILD_WEB=1 ;; \
+					docker-compose.yml|docker-compose.dev.yml|Makefile) \
+						BUILD_API=1; BUILD_WEB=1 ;; \
+					.github/*|*.md|CLAUDE.md|AGENTS.md|.pre-commit-config.yaml) \
+						;; \
+					*) \
+						BUILD_API=1 ;; \
+				esac; \
+			done <<< "$$CHANGED_FILES"; \
+		else \
+			echo -e "$(GREEN)[INFO]$(NC) No new commit detected on $(BRANCH)."; \
+		fi; \
+		SERVICES_TO_BUILD=""; \
+		if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD api"; fi; \
+		if [ "$$BUILD_WEB" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD web"; fi; \
+		echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."; \
+		mkdir -p data; \
+		chmod -R 755 data; \
+		chown -R 1000:1000 data; \
+		if [ "$$BUILD_API" -eq 1 ]; then \
+			echo -e "$(GREEN)[INFO]$(NC) Tagging API image as previous..."; \
+			$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true; \
+		fi; \
+		if [ "$$BUILD_WEB" -eq 1 ]; then \
+			echo -e "$(GREEN)[INFO]$(NC) Tagging web image as previous..."; \
+			$(CONTAINER_CMD) tag soda-web:latest soda-web:previous 2>/dev/null || true; \
+		fi; \
+		if [ -n "$$SERVICES_TO_BUILD" ]; then \
+			echo -e "$(GREEN)[INFO]$(NC) Building changed service images:$$SERVICES_TO_BUILD"; \
+			export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
+			BUILDAH_LAYERS=true DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build $$SERVICES_TO_BUILD; \
+			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_BUILD"; \
+			$(COMPOSE_CMD) -f docker-compose.yml up -d $$SERVICES_TO_BUILD; \
+		else \
+			echo -e "$(YELLOW)[WARNING]$(NC) No deploy-impacting service changes detected. Skipping build/restart."; \
+		fi; \
+		wait_for_health() { \
+			CONTAINER_NAME="$$1"; \
+			MAX_SECONDS="$$2"; \
+			ELAPSED=0; \
+			echo -e "$(GREEN)[INFO]$(NC) Waiting for $$CONTAINER_NAME to become healthy..."; \
+			while [ "$$ELAPSED" -lt "$$MAX_SECONDS" ]; do \
+				STATUS=$$($(CONTAINER_CMD) inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$$CONTAINER_NAME" 2>/dev/null || echo "missing"); \
+				case "$$STATUS" in \
+					healthy|running) \
+						echo -e "$(GREEN)[INFO]$(NC) $$CONTAINER_NAME is $$STATUS."; \
+						return 0 ;; \
+					unhealthy|exited|dead) \
+						echo -e "$(RED)[ERROR]$(NC) $$CONTAINER_NAME reported $$STATUS."; \
+						return 1 ;; \
+				esac; \
+				sleep 2; \
+				ELAPSED=$$((ELAPSED + 2)); \
+			done; \
+			echo -e "$(YELLOW)[WARNING]$(NC) Timed out waiting for $$CONTAINER_NAME health."; \
+			return 1; \
+		}; \
+		if [ "$$BUILD_API" -eq 1 ]; then \
+			wait_for_health soda-internal-api 60; \
+		fi; \
+		if [ "$$BUILD_WEB" -eq 1 ]; then \
+			wait_for_health soda-web 60; \
+		fi; \
+		echo -e "$(GREEN)[INFO]$(NC) Container status:"; \
+		$(COMPOSE_CMD) ps; \
+		echo -e "$(GREEN)[INFO]$(NC) Recent logs:"; \
+		$(COMPOSE_CMD) logs --tail=20; \
+		echo -e "$(GREEN)[INFO]$(NC) Cleaning up unused container images..."; \
+		$(CONTAINER_CMD) image prune -f 2>/dev/null || true; \
+		echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
 dev:
