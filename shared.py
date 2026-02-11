@@ -67,6 +67,13 @@ db_connect = DBConnect("sqlite:///./data/user.db")
 tokenManager = TokenManager()
 
 
+# Import models so their tables are registered with Base.metadata before create_all
+import modules.auth.models  # noqa: F401, E402
+
+# Ensure all tables are created after all models are imported
+Base.metadata.create_all(bind=db_connect.engine)
+
+
 # Periodic cleanup of expired refresh tokens
 def cleanup_expired_tokens():
     """Clean up expired refresh tokens periodically"""
@@ -90,12 +97,6 @@ def run_cleanup_scheduler():
 # Start cleanup scheduler in background thread
 cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
 cleanup_thread.start()
-
-# Import models so their tables are registered with Base.metadata before create_all
-import modules.auth.models  # noqa: F401, E402
-
-# Ensure all tables are created after all models are imported
-Base.metadata.create_all(bind=db_connect.engine)
 
 
 def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:

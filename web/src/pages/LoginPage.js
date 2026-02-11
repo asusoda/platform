@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import Orb from "../components/ui/Orb"; // Import the Orb component
 import StarBorder from "../components/ui/StarBorder"; // Import the StarBorder component
 import Logo from "../assets/logo-dark.svg"; // Updated import path for the logo
@@ -8,7 +8,6 @@ import config from "../config";
 import { useAuth } from "../components/auth/AuthContext";
 
 const LoginPage = () => {
-  const navigate = useNavigate();
   const { token, loading } = useAuth();
 
   // Redirect already-authenticated users to the organization selector
