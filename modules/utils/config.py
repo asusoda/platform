@@ -24,6 +24,7 @@ class Config:
             self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ.get("OPEN_ROUTER_CLAUDE_API_KEY", "")
             self.DISCORD_OFFICER_WEBHOOK_URL = os.environ.get("DISCORD_OFFICER_WEBHOOK_URL", "")
             self.DISCORD_POST_WEBHOOK_URL = os.environ.get("DISCORD_POST_WEBHOOK_URL", "")
+            self.DISCORD_STORE_WEBHOOK_URL = os.environ.get("DISCORD_STORE_WEBHOOK_URL", "")
             self.ONEUP_PASSWORD = os.environ.get("ONEUP_PASSWORD", "")
             self.ONEUP_EMAIL = os.environ.get("ONEUP_EMAIL", "")
             self.PROD = os.environ.get("PROD", "false").lower() == "true"
