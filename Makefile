@@ -219,7 +219,7 @@ check:
 	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
 	@uv run ty check .
 	@echo -e "$(GREEN)[INFO]$(NC) Running tests..."
-	@TESTING=true uv run pytest -v
+	@uv run pytest -v
 	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
 
 # Health check
