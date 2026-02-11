@@ -8,9 +8,9 @@ from notion_client import Client as NotionClient  # Alias to avoid confusion
 from notion_client.helpers import collect_paginated_api
 from sentry_sdk import capture_exception, set_context, start_transaction
 
-# Assuming shared resources are correctly set up
-from shared import config, logger
-from shared import notion as notion_shared_client
+from modules.utils.config import config
+from modules.utils.logging_config import logger
+from modules.utils.notion import notion as notion_shared_client
 
 # Import custom modules
 from .errors import APIErrorHandler

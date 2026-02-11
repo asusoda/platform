@@ -7,7 +7,8 @@ from typing import Any
 import pytz
 from sentry_sdk import capture_exception, set_context
 
-from shared import config, logger  # Assuming logger and config are available in shared
+from modules.utils.config import config
+from modules.utils.logging_config import logger
 
 # If logger is not in shared, initialize it here:
 # logger = logging.getLogger(__name__)

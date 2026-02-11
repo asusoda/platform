@@ -190,3 +190,8 @@ class DBConnect:
             logger.error(f"Error deleting storefront product: {str(e)}")
             db.rollback()
             return False
+
+
+import modules.auth.models  # noqa: F401, E402
+
+db_connect = DBConnect("sqlite:///./data/user.db")

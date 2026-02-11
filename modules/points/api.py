@@ -9,8 +9,9 @@ from sqlalchemy import and_, case, func, or_
 
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
+from modules.utils.db import db_connect
 from modules.utils.logging_config import logger
-from shared import db_connect, tokenManager
+from modules.utils.TokenManager import token_manager
 
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
 
@@ -727,9 +728,9 @@ def get_org_leaderboard(org_prefix):
     if token:
         try:
             # Check if the token is valid and not expired
-            if tokenManager.is_token_valid(token) and not tokenManager.is_token_expired(token):
+            if token_manager.is_token_valid(token) and not token_manager.is_token_expired(token):
                 show_email = True  # If valid, set to show email
-            elif tokenManager.is_token_expired(token):
+            elif token_manager.is_token_expired(token):
                 return jsonify({"message": "Token is expired!"}), 403  # Expired token
         except Exception as e:
             return jsonify({"message": str(e)}), 401  # Token is invalid or some error occurred

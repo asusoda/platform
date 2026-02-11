@@ -25,7 +25,7 @@ class TokenManager:
     def _get_db_connect(self):
         """Lazily import db_connect to avoid circular imports"""
         if self._db_connect is None:
-            from shared import db_connect
+            from modules.utils.db import db_connect
 
             self._db_connect = db_connect
         return self._db_connect
@@ -352,3 +352,6 @@ class TokenManager:
 
     def delete_token(self, token):
         self.blacklist.add(token)
+
+
+token_manager = TokenManager()

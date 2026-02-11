@@ -5,6 +5,5 @@ services:
       - ./data:/app/data
       - ./modules:/app/modules
       - ./main.py:/app/main.py
-      - ./shared.py:/app/shared.py
     environment:
       - IS_PROD=false

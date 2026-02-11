@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization
-from shared import db_connect
+from modules.utils.db import db_connect
 
 organizations_blueprint = Blueprint("organizations", __name__)
 

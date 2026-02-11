@@ -4,7 +4,8 @@ from functools import wraps
 
 from flask import current_app, jsonify, request, session
 
-from shared import config, tokenManager
+from modules.utils.config import config
+from modules.utils.TokenManager import token_manager
 
 logger = logging.getLogger(__name__)
 
@@ -49,17 +50,17 @@ def dual_auth_required(f):
         # Check session cookie first
         if session.get("token"):
             try:
-                if not tokenManager.is_token_valid(session["token"]):
+                if not token_manager.is_token_valid(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManager.is_token_expired(session["token"]):
+                elif token_manager.is_token_expired(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
 
                 # Discord OAuth session authentication successful
                 logger.debug("Dual auth: Discord OAuth session authentication successful")
                 # Set clerk_user_email from session if available for compatibility
-                username = tokenManager.retrieve_username(session["token"])
+                username = token_manager.retrieve_username(session["token"])
                 if username:
                     request.clerk_user_email = username  # type: ignore[attr-defined]
                 return f(*args, **kwargs)
@@ -72,17 +73,17 @@ def dual_auth_required(f):
             return jsonify({"message": "Authentication required!"}), 401
 
         try:
-            if not tokenManager.is_token_valid(token):
+            if not token_manager.is_token_valid(token):
                 logger.debug("Dual auth: Discord OAuth token is invalid")
                 return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManager.is_token_expired(token):
+            elif token_manager.is_token_expired(token):
                 logger.debug("Dual auth: Discord OAuth token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
 
             # Discord OAuth token authentication successful
             logger.debug("Dual auth: Discord OAuth token authentication successful")
             # Set clerk_user_email from token for compatibility
-            username = tokenManager.retrieve_username(token)
+            username = token_manager.retrieve_username(token)
             if username:
                 request.clerk_user_email = username  # type: ignore[attr-defined]
             return f(*args, **kwargs)
@@ -104,10 +105,10 @@ def auth_required(f):
         # Check session cookie first
         if session.get("token"):
             try:
-                if not tokenManager.is_token_valid(session["token"]):
+                if not token_manager.is_token_valid(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token is invalid!"}), 401
-                elif tokenManager.is_token_expired(session["token"]):
+                elif token_manager.is_token_expired(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
                 return f(*args, **kwargs)
@@ -124,10 +125,10 @@ def auth_required(f):
             return jsonify({"message": "Authentication required!"}), 401
 
         try:
-            if not tokenManager.is_token_valid(token):
+            if not token_manager.is_token_valid(token):
                 logger.debug("Token is invalid")
                 return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManager.is_token_expired(token):
+            elif token_manager.is_token_expired(token):
                 logger.debug("Token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
             return f(*args, **kwargs)
@@ -158,10 +159,10 @@ def superadmin_required(f):
             logger.debug("Found session token")
             try:
                 logger.debug("Validating session token...")
-                if not tokenManager.is_token_valid(token):
+                if not token_manager.is_token_valid(token):
                     logger.debug("Session token is invalid!")
                     return jsonify({"message": "Token is invalid!"}), 401
-                elif tokenManager.is_token_expired(token):
+                elif token_manager.is_token_expired(token):
                     logger.debug("Session token is expired!")
                     return jsonify({"message": "Token is expired!"}), 403
 
@@ -198,16 +199,16 @@ def superadmin_required(f):
 
         try:
             logger.debug("Validating API token...")
-            if not tokenManager.is_token_valid(token):
+            if not token_manager.is_token_valid(token):
                 logger.debug("API token is invalid!")
                 return jsonify({"message": "Token is invalid!"}), 401
-            elif tokenManager.is_token_expired(token):
+            elif token_manager.is_token_expired(token):
                 logger.debug("API token is expired!")
                 return jsonify({"message": "Token is expired!"}), 403
 
             logger.debug("API token is valid, decoding...")
             # For API calls, we need to verify superadmin status from the token
-            token_data = tokenManager.decode_token(token)
+            token_data = token_manager.decode_token(token)
             if not token_data:
                 logger.debug("Failed to decode token data!")
                 return jsonify({"message": "Invalid token data!"}), 401
@@ -342,7 +343,7 @@ def member_required(f):
             # Get organization from database
             try:
                 from modules.organizations.models import Organization
-                from shared import db_connect
+                from modules.utils.db import db_connect
 
                 logger.debug("Getting database connection...")
                 db = next(db_connect.get_db())

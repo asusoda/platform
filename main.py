@@ -2,13 +2,17 @@ import asyncio
 import os
 import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
+import time
 from datetime import UTC, datetime
 
 import discord
+import sentry_sdk
 from flask import jsonify  # Import current_app
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 from modules.auth.api import auth_blueprint
 from modules.bot.api import game_blueprint
+from modules.bot.discord_modules.bot import BotFork
 from modules.calendar.api import calendar_blueprint
 from modules.calendar.service import MultiOrgCalendarService
 from modules.organizations.api import organizations_blueprint
@@ -17,7 +21,23 @@ from modules.public.api import public_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
-from shared import app, config, create_auth_bot, logger
+from modules.utils.app import app
+from modules.utils.config import config
+from modules.utils.logging_config import logger
+from modules.utils.TokenManager import token_manager
+
+# Initialize Sentry if configured
+if config.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=config.SENTRY_DSN,
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+        enable_logs=True,
+    )
+    logger.info("Sentry initialized with logging enabled.")
+else:
+    logger.warning("SENTRY_DSN not found in environment. Sentry not initialized.")
 
 # Set a secret key for session management
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
@@ -81,6 +101,29 @@ app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
 # Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 
+# --- Bot Setup ---
+def create_auth_bot(loop):
+    """Create and configure the auth bot (BotFork) instance with a specific event loop."""
+    import discord
+
+    logger.info("Creating auth bot instance (BotFork)...")
+    intents = discord.Intents.default()
+    intents.members = True
+    intents.guilds = True
+
+    auth_bot_instance = BotFork(intents=intents, loop=loop)
+    try:
+        from modules.bot.discord_modules.cogs.GameCog import GameCog
+        from modules.bot.discord_modules.cogs.HelperCog import HelperCog
+
+        auth_bot_instance.add_cog(HelperCog(auth_bot_instance))
+        auth_bot_instance.add_cog(GameCog(auth_bot_instance))
+        logger.info("Auth bot cogs (HelperCog, GameCog) registered with BotFork instance.")
+    except Exception as e:
+        logger.error(f"Error registering auth bot cogs: {e}", exc_info=True)
+    return auth_bot_instance
+
+
 # --- Bot Thread Functions ---
 def run_auth_bot_in_thread():
     loop = asyncio.new_event_loop()
@@ -111,6 +154,19 @@ def run_auth_bot_in_thread():
 
 # --- App Initialization ---
 def initialize_app():
+    # Start token cleanup scheduler in background thread
+    def run_cleanup_scheduler():
+        while True:
+            try:
+                token_manager.cleanup_expired_refresh_tokens()
+                logger.info("Cleaned up expired refresh tokens")
+            except Exception as e:
+                logger.error(f"Error cleaning up expired tokens: {e}")
+            time.sleep(3600)
+
+    cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
+    cleanup_thread.start()
+
     auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
     auth_thread.daemon = True
     auth_thread.start()
