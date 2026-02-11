@@ -9,8 +9,10 @@ ALTER TABLE products ADD COLUMN category VARCHAR(50);
 CREATE INDEX idx_products_category ON products(category);
 
 -- Optional: Update existing products with default categories based on name patterns
--- This is a best-effort migration - admins should review and update categories manually
-UPDATE products SET category = 'hoodies' WHERE LOWER(name) LIKE '%hoodie%';
-UPDATE products SET category = 't-shirts' WHERE LOWER(name) LIKE '%shirt%' OR LOWER(name) LIKE '%tshirt%' OR LOWER(name) LIKE '%t-shirt%';
-UPDATE products SET category = 'stickers' WHERE LOWER(name) LIKE '%sticker%' OR LOWER(name) LIKE '%decal%';
-UPDATE products SET category = 'water-bottles' WHERE LOWER(name) LIKE '%bottle%' OR LOWER(name) LIKE '%flask%' OR LOWER(name) LIKE '%hydro%';
+-- These updates only apply to products without a category (category IS NULL)
+-- This prevents overwriting any manually set categories
+-- Admins should review and update categories manually for edge cases
+UPDATE products SET category = 'hoodies' WHERE category IS NULL AND LOWER(name) LIKE '%hoodie%';
+UPDATE products SET category = 't-shirts' WHERE category IS NULL AND (LOWER(name) LIKE '%shirt%' OR LOWER(name) LIKE '%tshirt%' OR LOWER(name) LIKE '%t-shirt%');
+UPDATE products SET category = 'stickers' WHERE category IS NULL AND (LOWER(name) LIKE '%sticker%' OR LOWER(name) LIKE '%decal%');
+UPDATE products SET category = 'water-bottles' WHERE category IS NULL AND (LOWER(name) LIKE '%bottle%' OR LOWER(name) LIKE '%flask%' OR LOWER(name) LIKE '%hydro%');
