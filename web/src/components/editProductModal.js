@@ -30,7 +30,16 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
   // Load custom categories from localStorage
   const [customCategories, setCustomCategories] = useState(() => {
     const saved = localStorage.getItem('customCategories');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Failed to parse customCategories from localStorage', e);
+      return [];
+    }
   });
 
   const allCategories = [...predefinedCategories, ...customCategories];
