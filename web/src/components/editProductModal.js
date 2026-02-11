@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiClient from "./utils/axios"; // Adjust path if necessary
 import { toast } from "react-toastify";
+import { PRODUCT_CATEGORIES } from "../constants/productCategories";
 
 const EditProductModal = ({ product, onClose, onProductUpdated, organizationPrefix }) => {
   const [formData, setFormData] = useState({
@@ -126,13 +127,11 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
               onChange={handleChange}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
             >
-              <option value="">Select a category (optional)</option>
-              <option value="hoodies">Hoodies</option>
-              <option value="t-shirts">T-Shirts</option>
-              <option value="stickers">Stickers</option>
-              <option value="water-bottles">Water Bottles</option>
-              <option value="accessories">Accessories</option>
-              <option value="other">Other</option>
+              {PRODUCT_CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="mb-4">
