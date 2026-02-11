@@ -20,14 +20,13 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), ".."
 
 # Import the declarative Base and all model modules so that
 # Base.metadata is fully populated for autogenerate support.
-from modules.utils.base import Base  # noqa: E402
-
 import modules.auth.models  # noqa: E402, F401
 import modules.bot.models  # noqa: E402, F401
 import modules.calendar.models  # noqa: E402, F401
 import modules.organizations.models  # noqa: E402, F401
 import modules.points.models  # noqa: E402, F401
 import modules.storefront.models  # noqa: E402, F401
+from modules.utils.base import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
