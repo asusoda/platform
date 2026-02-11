@@ -1,3 +1,4 @@
+import os
 import threading
 from datetime import UTC, datetime
 
@@ -7,7 +8,6 @@ from sqlalchemy import func
 
 from modules.auth.decoraters import auth_required, dual_auth_required, error_handler, member_required
 from modules.storefront.models import Order, OrderItem, Product
-from modules.utils.config import Config
 from modules.utils.db import DBConnect
 from modules.utils.logging_config import get_logger
 
@@ -44,11 +44,7 @@ def send_purchase_webhook(order_id, user_email, items, total_amount, org_name):
     """
 
     def _send():
-        try:
-            config = Config(testing=False)
-            webhook_url = getattr(config, "DISCORD_STORE_WEBHOOK_URL", "")
-        except Exception:
-            webhook_url = ""
+        webhook_url = os.environ.get("DISCORD_STORE_WEBHOOK_URL", "")
 
         if not webhook_url:
             logger.debug("DISCORD_STORE_WEBHOOK_URL not configured, skipping purchase webhook")
@@ -458,10 +454,9 @@ def create_order(org_prefix):
 
         # Send Discord webhook notification (non-blocking)
         webhook_items = [
-            {"name": p.name, "quantity": oi.quantity, "price": oi.price_at_time}
+            {"name": oi.product.name, "quantity": oi.quantity, "price": oi.price_at_time}
             for oi in created_order.items
-            for p in [db_connect.get_storefront_product(db, oi.product_id, org.id)]
-            if p
+            if oi.product
         ]
         send_purchase_webhook(created_order.id, user_email, webhook_items, total_amount, org.name)
 
@@ -1106,10 +1101,9 @@ def clerk_checkout(org_prefix):
 
         # Send Discord webhook notification (non-blocking)
         checkout_webhook_items = [
-            {"name": p.name, "quantity": oi.quantity, "price": oi.price_at_time}
+            {"name": oi.product.name, "quantity": oi.quantity, "price": oi.price_at_time}
             for oi in created_order.items
-            for p in [db_connect.get_storefront_product(db, oi.product_id, org.id)]
-            if p
+            if oi.product
         ]
         send_purchase_webhook(created_order.id, user_email, checkout_webhook_items, total_amount, org.name)
 

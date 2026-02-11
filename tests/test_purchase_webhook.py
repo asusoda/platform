@@ -43,12 +43,9 @@ class TestSendPurchaseWebhook:
     """Tests for the send_purchase_webhook helper function."""
 
     @patch("modules.storefront.api.http_requests.post")
-    @patch("modules.storefront.api.Config")
-    def test_webhook_sends_correct_payload(self, mock_config_cls, mock_post):
+    @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": "https://discord.com/api/webhooks/test"})
+    def test_webhook_sends_correct_payload(self, mock_post):
         """Webhook should POST a Discord embed with order details."""
-        mock_config = MagicMock()
-        mock_config.DISCORD_STORE_WEBHOOK_URL = "https://discord.com/api/webhooks/test"
-        mock_config_cls.return_value = mock_config
         mock_post.return_value = MagicMock(status_code=204)
 
         items = [
@@ -76,25 +73,18 @@ class TestSendPurchaseWebhook:
         assert "110" in fields["Total"]
 
     @patch("modules.storefront.api.http_requests.post")
-    @patch("modules.storefront.api.Config")
-    def test_webhook_skipped_when_url_not_configured(self, mock_config_cls, mock_post):
+    @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": ""})
+    def test_webhook_skipped_when_url_not_configured(self, mock_post):
         """Webhook should not fire when DISCORD_STORE_WEBHOOK_URL is empty."""
-        mock_config = MagicMock()
-        mock_config.DISCORD_STORE_WEBHOOK_URL = ""
-        mock_config_cls.return_value = mock_config
-
         send_purchase_webhook(1, "user@example.com", [], 0, "Org")
         _wait_for_daemon_threads()
 
         mock_post.assert_not_called()
 
     @patch("modules.storefront.api.http_requests.post")
-    @patch("modules.storefront.api.Config")
-    def test_webhook_does_not_raise_on_http_error(self, mock_config_cls, mock_post):
+    @patch.dict("os.environ", {"DISCORD_STORE_WEBHOOK_URL": "https://discord.com/api/webhooks/test"})
+    def test_webhook_does_not_raise_on_http_error(self, mock_post):
         """Webhook failures should be logged, not raised."""
-        mock_config = MagicMock()
-        mock_config.DISCORD_STORE_WEBHOOK_URL = "https://discord.com/api/webhooks/test"
-        mock_config_cls.return_value = mock_config
         mock_post.side_effect = Exception("connection error")
 
         # Should not raise
@@ -102,10 +92,12 @@ class TestSendPurchaseWebhook:
         _wait_for_daemon_threads()
 
     @patch("modules.storefront.api.http_requests.post")
-    @patch("modules.storefront.api.Config")
-    def test_webhook_skipped_when_config_fails(self, mock_config_cls, mock_post):
-        """Webhook should not fire when Config() raises an exception."""
-        mock_config_cls.side_effect = RuntimeError("missing env vars")
+    @patch.dict("os.environ", {}, clear=False)
+    def test_webhook_skipped_when_env_var_missing(self, mock_post):
+        """Webhook should not fire when env var is not set at all."""
+        import os
+
+        os.environ.pop("DISCORD_STORE_WEBHOOK_URL", None)
 
         send_purchase_webhook(1, "user@example.com", [], 0, "Org")
         _wait_for_daemon_threads()
