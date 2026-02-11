@@ -1,7 +1,7 @@
 .PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check
 
 # Use bash as the shell for all commands
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
