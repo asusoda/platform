@@ -30,7 +30,7 @@ class RefreshToken(Base):
     username = Column(String(255), nullable=False)
     discord_id = Column(String(255), nullable=True)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC))
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.UTC).replace(tzinfo=None))
 
     def __repr__(self):
         return f"<RefreshToken {self.token[:8]}...>"
