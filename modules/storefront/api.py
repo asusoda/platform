@@ -992,11 +992,10 @@ def clerk_checkout(org_prefix):
         # Ensure user is resolved before proceeding to membership and points queries
         if not user:
             return jsonify({"error": "User not found"}), 404
-        # Ensure user is resolved before proceeding to membership and points queries
-        if not user:
-            return jsonify({"error": "User not found"}), 404
 
         membership = (
+            db.query(UserOrganizationMembership)
+            .filter(
             db.query(UserOrganizationMembership)
             .filter(
                 UserOrganizationMembership.user_id == user.id,
