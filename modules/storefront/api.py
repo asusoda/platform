@@ -923,9 +923,6 @@ def get_user_wallet_clerk(org_prefix, user_email):
         # If the user still does not exist, return an appropriate error
         if not user:
             return jsonify({"error": "User not found"}), 404
-        # If the user still does not exist, return an appropriate error
-        if not user:
-            return jsonify({"error": "User not found"}), 404
 
         total_points = (
             db.query(func.sum(Points.points))
