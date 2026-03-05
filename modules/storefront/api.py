@@ -829,7 +829,7 @@ def get_user_points_public(org_prefix, **kwargs):
         db.close()
 
 
-@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET", "OPTIONS"])
+@storefront_blueprint.route("/<string:org_prefix>/orders/<string:user_email>", methods=["GET"])
 @dual_auth_required
 @error_handler
 def get_user_orders_clerk(org_prefix, user_email):
@@ -852,9 +852,13 @@ def get_user_orders_clerk(org_prefix, user_email):
         if not user and hasattr(request, "clerk_user"):
             from modules.points.api import get_or_create_user_from_clerk
 
-            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)
+            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
+
+        # If the user still does not exist, return an appropriate error
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
         orders = (
             db.query(Order)
@@ -913,9 +917,13 @@ def get_user_wallet_clerk(org_prefix, user_email):
         if not user and hasattr(request, "clerk_user"):
             from modules.points.api import get_or_create_user_from_clerk
 
-            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)
+            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
+
+        # If the user still does not exist, return an appropriate error
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
         total_points = (
             db.query(func.sum(Points.points))
@@ -978,9 +986,13 @@ def clerk_checkout(org_prefix):
         if not user and hasattr(request, "clerk_user"):
             from modules.points.api import get_or_create_user_from_clerk
 
-            user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)
+            user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
+
+        # Ensure user is resolved before proceeding to membership and points queries
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
         membership = (
             db.query(UserOrganizationMembership)
