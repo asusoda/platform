@@ -223,9 +223,21 @@ def get_or_create_user_from_clerk(db, organization_id, clerk_user, email):
     Returns:
         User object or None if creation fails
     """
+    # Guard: both clerk_user and a valid email are required
+    if not clerk_user:
+        logger.error("get_or_create_user_from_clerk called with no clerk_user")
+        return None
+
+    if not email or not isinstance(email, str) or "@" not in email:
+        logger.error(f"get_or_create_user_from_clerk called with invalid email: {email!r}")
+        return None
+
     # Extract user info from Clerk user object
-    first_name = getattr(clerk_user, "first_name", None) or ""
-    last_name = getattr(clerk_user, "last_name", None) or ""
+    # Clerk SDK may return the field as a str, None, or some other type — coerce safely
+    raw_first = getattr(clerk_user, "first_name", None)
+    raw_last = getattr(clerk_user, "last_name", None)
+    first_name = str(raw_first).strip() if raw_first not in (None, "", "None") else ""
+    last_name = str(raw_last).strip() if raw_last not in (None, "", "None") else ""
     name = f"{first_name} {last_name}".strip()
 
     # Fallback to email username if no name provided
@@ -567,8 +579,21 @@ def add_points_to_org(org_prefix):
         if not organization:
             return jsonify({"error": "Organization not found"}), 400
 
-        # Check if the user exists by discord_id
-        user = db.query(User).filter_by(discord_id=data["user_discord_id"]).first()
+        # Resolve user: try discord_id first, then fall back to email/uuid/username
+        user = None
+        discord_id = data.get("user_discord_id")
+        user_identifier = data.get("user_identifier")  # email, uuid, or username
+
+        if discord_id:
+            user = db.query(User).filter_by(discord_id=discord_id).first()
+
+        if not user and user_identifier:
+            user = db.query(User).filter_by(email=user_identifier).first()
+            if not user:
+                user = db.query(User).filter_by(uuid=user_identifier).first()
+            if not user:
+                user = db.query(User).filter_by(username=user_identifier).first()
+
         if not user:
             return jsonify({"error": "User does not exist"}), 404
 
@@ -988,7 +1013,7 @@ def assign_points_to_org(org_prefix):
 
         user_identifier = data["user_identifier"]
 
-        # Try to find user by email first, then UUID, then username
+        # Try to find user by email, UUID, or username
         user = db.query(User).filter_by(email=user_identifier).first()
         if not user:
             user = db.query(User).filter_by(uuid=user_identifier).first()

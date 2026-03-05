@@ -38,5 +38,5 @@ jobs:
         commit_message: "style: auto-fix linting and formatting issues"
     
     - name: Run bandit security checks
-      run: uv run bandit -r . -f json -x ./web,./node_modules,./.venv
+      run: uv run bandit -c pyproject.toml -r . -f json
 

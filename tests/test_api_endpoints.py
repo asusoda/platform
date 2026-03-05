@@ -1,121 +1,46 @@
-import json
+import os
 import time
 
+import pytest
 import requests
 
+pytestmark = pytest.mark.skipif(
+    not all(os.environ.get(v) for v in ("BASE_URL", "TEST_TOKEN")),
+    reason="API integration tests require BASE_URL and TEST_TOKEN environment variables",
+)
+
 # --- Configuration ---
-BASE_URL = "http://127.0.0.1:8000"  # ADJUST IF YOUR APP RUNS ON A DIFFERENT PORT/URL
-TEST_TOKEN = "YOUR_VALID_TEST_TOKEN"  # nosec B105 - Placeholder, not actual password
-# To get a test token, you might need to manually go through the login flow once
-# and extract the token your frontend receives, or have a debug endpoint to generate one.
+BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8000")
+TEST_TOKEN = os.environ.get("TEST_TOKEN", "")  # nosec B105
 
 DEFAULT_HEADERS = {"Content-Type": "application/json", "Authorization": f"Bearer {TEST_TOKEN}"}
 
 NO_AUTH_HEADERS = {"Content-Type": "application/json"}
 
-# --- Global Test Counters & Details ---
-passed_tests = 0
-failed_tests = 0
-failed_test_details = []  # Stores info about failed tests
-created_users_for_points = []  # Helper to pass created user emails between tests
-
 
 # --- Helper Function ---
 def make_request(method, endpoint, headers=None, params=None, data=None, description=""):
-    global passed_tests, failed_tests, failed_test_details
     url = f"{BASE_URL}{endpoint}"
     print(f"--- Testing: {description} ({method.upper()} {endpoint}) ---")
-    # Removed verbose request details printing here to reduce noise for passed tests
 
-    test_passed_this_call = False
-    status_code_for_report = None
-    response_preview_for_report = "N/A"
+    response = requests.request(
+        method,
+        url,
+        headers=headers,
+        params=params,
+        json=data if isinstance(data, dict) else None,
+        data=data if not isinstance(data, dict) else None,
+        timeout=10,
+    )
 
-    try:
-        response = requests.request(
-            method,
-            url,
-            headers=headers,
-            params=params,
-            json=data if isinstance(data, dict) else None,
-            data=data if not isinstance(data, dict) else None,
-            timeout=10,
-        )
-        status_code_for_report = response.status_code
+    if "error" in description.lower() or "invalid" in description.lower() or "unauthorized" in description.lower():
+        assert response.status_code >= 400, f"Expected error status code (>=400), got {response.status_code}"
+    elif endpoint == "/auth/login":
+        assert response.status_code in (200, 302), f"Expected 200 or 302 for /auth/login, got {response.status_code}"
+    else:
+        assert response.status_code < 400, f"Expected success status code (<400), got {response.status_code}"
 
-        try:
-            response_json = response.json()
-            response_preview_for_report = json.dumps(response_json)[:200]  # Preview of JSON
-            # Only print detailed response if test might fail or has warning
-            if response.status_code >= 400 and "error" not in response_json and "message" not in response_json:
-                # This warning will still print for failed tests if condition met
-                pass  # Detailed print will happen if assertion fails
-        except ValueError:
-            response_preview_for_report = response.text[:200]  # Preview of text
-            if response.status_code < 400:
-                # This warning will still print for failed tests if condition met
-                pass  # Detailed print will happen if assertion fails
-
-        # Assertion logic
-        try:
-            if (
-                "error" in description.lower()
-                or "invalid" in description.lower()
-                or "unauthorized" in description.lower()
-            ):
-                # nosec B101 - Assert used in test script, not production code
-                assert response.status_code >= 400, f"Expected error status code (>=400), got {response.status_code}"  # nosec B101
-            elif endpoint == "/auth/login":
-                # nosec B101 - Assert used in test script, not production code
-                assert response.status_code == 200 or response.status_code == 302, (  # nosec B101
-                    f"Expected 200 or 302 for /auth/login, got {response.status_code}"
-                )
-            else:
-                # nosec B101 - Assert used in test script, not production code
-                assert response.status_code < 400, f"Expected success status code (<400), got {response.status_code}"  # nosec B101
-            test_passed_this_call = True
-        except AssertionError as ae:
-            # Detailed print only on assertion failure
-            print(f"Request: {method.upper()} {url}")
-            if params:
-                print(f"Params: {params}")
-            if data:
-                print(f"Data: {json.dumps(data) if isinstance(data, dict) else data}")
-            print(f"Status Code: {status_code_for_report}")
-            try:
-                print(f"Response JSON: {json.dumps(response.json(), indent=2)}")
-            except Exception:
-                print(f"Response Text: {response.text}")
-            print(f"Assertion FAILED: {ae}")
-
-    except requests.exceptions.RequestException as e:
-        # Detailed print only on request exception
-        print(f"Request: {method.upper()} {url}")
-        if params:
-            print(f"Params: {params}")
-        if data:
-            print(f"Data: {json.dumps(data) if isinstance(data, dict) else data}")
-        print(f"Request FAILED: {e}")
-        response_preview_for_report = str(e)[:200]
-    finally:
-        if test_passed_this_call:
-            passed_tests += 1
-            print("Status: PASSED")
-        else:
-            failed_tests += 1
-            print("Status: FAILED")
-            failed_test_details.append(
-                {
-                    "description": description,
-                    "method": method.upper(),
-                    "url": url,
-                    "status_code": status_code_for_report,
-                    "response_preview": response_preview_for_report
-                    + ("..." if len(response_preview_for_report) == 200 else ""),
-                }
-            )
-        print("----------------------------")  # Removed newline for cleaner summary
-        time.sleep(0.05)  # Reduced sleep time slightly
+    time.sleep(0.05)
 
 
 # --- Test Functions for Each Module ---
@@ -310,14 +235,16 @@ def test_calendar_endpoints():
     )
     make_request("GET", "/calendar/events", headers=NO_AUTH_HEADERS, description="Calendar Get Events for Frontend")
 
-    # Destructive operation - call with caution or ensure ALLOW_DELETE_ALL is false for safety in prod/staging
-    make_request(
-        "POST",
-        "/calendar/delete-all-events",
-        headers=NO_AUTH_HEADERS,
-        data={},
-        description="Calendar Delete All Events (Potentially Destructive - expect error if not configured/allowed)",
-    )
+    if os.environ.get("ALLOW_DESTRUCTIVE_TESTS", "").lower() == "true":
+        make_request(
+            "POST",
+            "/calendar/delete-all-events",
+            headers=NO_AUTH_HEADERS,
+            data={},
+            description="Calendar Delete All Events (Potentially Destructive - expect error if not configured/allowed)",
+        )
+    else:
+        print("Skipping /calendar/delete-all-events (set ALLOW_DESTRUCTIVE_TESTS=true to enable)")
 
     # OCP Endpoints (prefixed with /ocp)
     ocp_prefix = "/ocp"
@@ -429,21 +356,6 @@ def test_users_endpoints():
         "GET", "/users/", headers=NO_AUTH_HEADERS, description="Users Index"
     )  # Auth not specified, assuming public or adjust
 
-    # Using the email from points test for consistency, assuming it was created
-    # You might need to ensure this user exists or use a known one
-    # For /viewUser, use the email of the user created in points section for better chance of success
-    created_user_email_from_points = [d["email"] for d in created_users_for_points if "email" in d]  # Helper to get it
-    if created_user_email_from_points:
-        existing_user_email = created_user_email_from_points[0]
-        make_request(
-            "GET",
-            "/users/viewUser",
-            headers=DEFAULT_HEADERS,
-            params={"user_identifier": existing_user_email},
-            description="Users View User by Email",
-        )
-    else:
-        print("Skipping /users/viewUser with specific email as no user was tracked from points creation.")
     make_request(
         "GET",
         "/users/viewUser",
@@ -507,91 +419,3 @@ def test_users_endpoints():
     # /submit-form
     form_data = {"discordID": "TestDiscord123", "role": "Tester"}
     make_request("POST", "/users/submit-form", headers=NO_AUTH_HEADERS, data=form_data, description="Users Submit Form")
-
-
-# --- Main Execution ---
-if __name__ == "__main__":
-    start_time = time.time()
-    # nosec B105 - Checking if placeholder token is still set, not using it as password
-    if TEST_TOKEN == "YOUR_VALID_TEST_TOKEN":  # nosec B105
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("!!! WARNING: TEST_TOKEN is not set. Authenticated endpoints will likely fail. !!!")
-        print("!!! Please replace 'YOUR_VALID_TEST_TOKEN' in the script with a valid token.  !!!")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
-
-    # Example of how to store created user info if needed by other tests
-    # This is a simplified way; a proper test setup might use fixtures or a shared context.
-    # For now, just running tests sequentially.
-
-    test_health_endpoint()
-    test_auth_endpoints()
-    test_points_endpoints()  # This function now uses a dynamic email
-    test_public_endpoints()
-    test_calendar_endpoints()
-    test_summarizer_endpoints()
-    test_users_endpoints()  # This function can try to use email from points test
-
-    end_time = time.time()
-    print(f"\n--- Test Execution Finished in {end_time - start_time:.2f} seconds ---")
-
-    print("\n========== Test Summary ==========")
-    total_tests = passed_tests + failed_tests
-    print(f"Total tests attempted: {total_tests}")
-    print(f"Passed tests: {passed_tests}")
-    print(f"Failed tests: {failed_tests}")
-    print("===============================")
-
-    if failed_test_details:
-        print("\n========== Failed Test Cases Details ==========")
-        # Determine column widths
-        desc_width = (
-            max(
-                len("Test Description"),
-                max(len(f["description"]) for f in failed_test_details) if failed_test_details else 0,
-            )
-            + 2
-        )
-        method_width = (
-            max(len("Method"), max(len(f["method"]) for f in failed_test_details) if failed_test_details else 0) + 2
-        )
-        # url_width = max(len("URL"), max(len(f['url']) for f in failed_test_details) if failed_test_details else 0) + 2 # URL can be very long
-        status_width = max(len("Status"), 6) + 2
-        preview_width = max(len("Response Preview"), 50) + 2  # Fixed width for preview for now
-
-        header = f"| {'Test Description':<{desc_width}} | {'Method':<{method_width}} | {'Status':<{status_width}} | {'Response Preview':<{preview_width}} | URL"
-        print(header)
-        print(
-            "|-"
-            + "-" * desc_width
-            + "-+- "
-            + "-" * method_width
-            + "-+- "
-            + "-" * status_width
-            + "-+- "
-            + "-" * preview_width
-            + "-|-----"
-        )
-
-        for f_test in failed_test_details:
-            status_str = str(f_test["status_code"]) if f_test["status_code"] is not None else "N/A"
-            # Truncate long descriptions/previews if necessary for table, actual data is in failed_test_details list
-            desc_display = (
-                (f_test["description"][: desc_width - 3] + "...")
-                if len(f_test["description"]) > desc_width - 1
-                else f_test["description"]
-            )
-            preview_display = (
-                (f_test["response_preview"][: preview_width - 3] + "...")
-                if len(f_test["response_preview"]) > preview_width - 1
-                else f_test["response_preview"]
-            )
-
-            print(
-                f"| {desc_display:<{desc_width}} | {f_test['method']:<{method_width}} | {status_str:<{status_width}} | {preview_display:<{preview_width}} | {f_test['url']}"
-            )
-        print("=============================================")
-
-    print("\nReview the output above for detailed status codes and responses for each test.")
-    print(
-        "A FAILED status indicates either a request exception or an assertion failure based on expected status codes."
-    )

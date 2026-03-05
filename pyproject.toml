@@ -76,6 +76,7 @@ dependencies = [
     "anthropic>=0.64.0",
     "openai>=1.102.0",
     "clerk-backend-api>=4.2.0",
+    "alembic>=1.18.4",
 ]
 
 [tool.pytest.ini_options]
@@ -121,3 +122,6 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.bandit]
+exclude_dirs = ["tests", "web", "node_modules", ".venv"]

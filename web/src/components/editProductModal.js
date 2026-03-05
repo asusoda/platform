@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiClient from "./utils/axios"; // Adjust path if necessary
 import { toast } from "react-toastify";
+import { PRODUCT_CATEGORIES } from "../constants/productCategories";
 
 const EditProductModal = ({ product, onClose, onProductUpdated, organizationPrefix }) => {
   const [formData, setFormData] = useState({
@@ -16,20 +17,24 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
-  // Predefined categories
-  const predefinedCategories = [
-    "hoodies",
-    "t-shirts",
-    "stickers",
-    "water-bottles",
-    "discord-perks",
-    "coffee-chats"
-  ];
+  // Predefined categories (shared) - extract values only
+  const predefinedCategories = PRODUCT_CATEGORIES
+    .map((cat) => cat.value)
+    .filter(Boolean); // Remove empty string option
 
   // Load custom categories from localStorage
   const [customCategories, setCustomCategories] = useState(() => {
     const saved = localStorage.getItem('customCategories');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Failed to parse customCategories from localStorage', e);
+      return [];
+    }
   });
 
   const allCategories = [...predefinedCategories, ...customCategories];
@@ -39,7 +44,11 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
       // Format: lowercase and replace spaces with hyphens
       const formatted = newCategoryInput.trim().toLowerCase().replace(/\s+/g, '-');
       
-      if (!allCategories.includes(formatted)) {
+      const categoryExists = allCategories.some(cat =>
+        typeof cat === "string" ? cat === formatted : cat && cat.value === formatted
+      );
+
+      if (!categoryExists) {
         const updated = [...customCategories, formatted];
         setCustomCategories(updated);
         localStorage.setItem('customCategories', JSON.stringify(updated));
@@ -178,11 +187,25 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
                 >
                   <option value="">Select a category (optional)</option>
                   <optgroup label="Standard Categories">
-                    {predefinedCategories.map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                      </option>
-                    ))}
+                    {predefinedCategories.map((cat, index) => {
+                      const rawValue =
+                        typeof cat === "string"
+                          ? cat
+                          : (cat && (cat.value || cat.name)) || "";
+                      const labelSource =
+                        typeof cat === "string"
+                          ? cat
+                          : (cat && (cat.label || cat.name || rawValue)) || "";
+                      const formattedLabel = labelSource
+                        .split("-")
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ");
+                      return (
+                        <option key={rawValue || index} value={rawValue}>
+                          {formattedLabel}
+                        </option>
+                      );
+                    })}
                   </optgroup>
                   {customCategories.length > 0 && (
                     <optgroup label="Custom Categories">
@@ -202,7 +225,12 @@ const EditProductModal = ({ product, onClose, onProductUpdated, organizationPref
                   type="text"
                   value={newCategoryInput}
                   onChange={(e) => setNewCategoryInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNewCategory())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddNewCategory();
+                    }
+                  }}
                   placeholder="e.g., Accessories"
                   className="flex-1 shadow appearance-none border rounded py-2 px-3 text-white leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600"
                   autoFocus

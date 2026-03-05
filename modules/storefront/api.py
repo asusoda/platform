@@ -21,6 +21,16 @@ def get_organization_by_prefix(db, org_prefix):
     return org
 
 
+# Helper function to normalize category values
+def normalize_category(value):
+    """Normalize category value: strip whitespace and convert empty string to None"""
+    if isinstance(value, str):
+        value = value.strip()
+        if value == "":
+            return None
+    return value
+
+
 # PRODUCT ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
 @error_handler
@@ -101,13 +111,16 @@ def create_product(org_prefix):
     if not data.get("stock"):
         return jsonify({"error": "Product stock is required"}), 400
 
+    # Normalize category: convert empty string to None
+    category = normalize_category(data.get("category"))
+
     new_product = Product(
         name=data["name"],
         description=data.get("description", ""),
         price=float(data["price"]),
         stock=int(data["stock"]),
         image_url=data.get("image_url", ""),
-        category=data.get("category"),
+        category=category,
     )
 
     db = next(db_connect.get_db())
@@ -166,7 +179,7 @@ def update_product(org_prefix, product_id):
         if "image_url" in data:
             product.image_url = data["image_url"]
         if "category" in data:
-            product.category = data["category"]
+            product.category = normalize_category(data["category"])
 
         db.commit()
         return jsonify(
@@ -839,7 +852,7 @@ def get_user_orders_clerk(org_prefix, user_email):
         if not user and hasattr(request, "clerk_user"):
             from modules.points.api import get_or_create_user_from_clerk
 
-            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
+            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
 
@@ -900,7 +913,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
         if not user and hasattr(request, "clerk_user"):
             from modules.points.api import get_or_create_user_from_clerk
 
-            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
+            user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
 
@@ -965,7 +978,7 @@ def clerk_checkout(org_prefix):
         if not user and hasattr(request, "clerk_user"):
             from modules.points.api import get_or_create_user_from_clerk
 
-            user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
+            user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
 

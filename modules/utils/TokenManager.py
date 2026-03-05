@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import os
 import secrets
 
@@ -19,8 +20,25 @@ class TokenManager:
         self.public_key_file = os.path.join(keys_path, "jwt_public.pem")
         self.private_key, self.public_key = self.load_or_generate_keys()
         self.blacklist = set()
-        # Store refresh tokens with their metadata
-        self.refresh_tokens = {}  # refresh_token -> {user_id, username, expires_at}
+        self._db_connect = None
+
+    def _get_db_connect(self):
+        """Lazily import db_connect to avoid circular imports"""
+        if self._db_connect is None:
+            from shared import db_connect
+
+            self._db_connect = db_connect
+        return self._db_connect
+
+    def _get_db_session(self):
+        """Get a database session"""
+        db_connect = self._get_db_connect()
+        return db_connect.SessionLocal()
+
+    @staticmethod
+    def _hash_token(token):
+        """Hash a refresh token using SHA-256 for secure storage"""
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     def load_or_generate_keys(self):
         """Load keys from disk if they exist, otherwise generate and save new ones"""
@@ -125,7 +143,7 @@ class TokenManager:
 
     def generate_refresh_token(self, username, discord_id=None, exp_days=7):
         """
-        Generate a refresh token and store it securely.
+        Generate a refresh token and store its hash in the database.
 
         Args:
             username (str): The user's display name
@@ -133,77 +151,124 @@ class TokenManager:
             exp_days (int): Refresh token expiration time in days
 
         Returns:
-            str: Refresh token
+            str: Refresh token (raw, returned only once)
         """
+        from modules.auth.models import RefreshToken
+
         # Generate a cryptographically secure random token
-        refresh_token = secrets.token_urlsafe(32)
-        expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=exp_days)
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = self._hash_token(raw_token)
+        expires_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) + datetime.timedelta(days=exp_days)
 
-        # Store refresh token metadata
-        self.refresh_tokens[refresh_token] = {
-            "username": username,
-            "discord_id": str(discord_id) if discord_id else None,
-            "expires_at": expires_at,
-            "created_at": datetime.datetime.now(datetime.UTC),
-        }
+        # Store hashed refresh token in database
+        db = self._get_db_session()
+        try:
+            db_token = RefreshToken(
+                token=token_hash,
+                username=username,
+                discord_id=str(discord_id) if discord_id else None,
+                expires_at=expires_at,
+            )
+            db.add(db_token)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error storing refresh token: {e}")
+            raise
+        finally:
+            db.close()
 
-        return refresh_token
+        return raw_token
 
     def refresh_access_token(self, refresh_token):
         """
         Generate a new access token using a valid refresh token.
 
         Args:
-            refresh_token (str): The refresh token
+            refresh_token (str): The raw refresh token
 
         Returns:
             str: New access token, or None if refresh token is invalid
         """
-        # Check if refresh token exists and is not expired
-        if refresh_token not in self.refresh_tokens:
+        from modules.auth.models import RefreshToken
+
+        token_hash = self._hash_token(refresh_token)
+        db = self._get_db_session()
+        try:
+            db_token = db.query(RefreshToken).filter(RefreshToken.token == token_hash).first()
+
+            if not db_token:
+                return None
+
+            # Check if refresh token is expired (both datetimes are UTC, compare as naive)
+            expires_at = db_token.expires_at
+            if expires_at.tzinfo is not None:
+                expires_at = expires_at.replace(tzinfo=None)
+            if datetime.datetime.now(datetime.UTC).replace(tzinfo=None) > expires_at:
+                db.delete(db_token)
+                db.commit()
+                return None
+
+            # Generate new access token
+            new_access_token = self.generate_token(
+                username=db_token.username,
+                discord_id=db_token.discord_id,
+                exp_minutes=30,
+            )
+
+            return new_access_token
+        except Exception as e:
+            logger.error(f"Error refreshing access token: {e}")
             return None
-
-        token_data = self.refresh_tokens[refresh_token]
-
-        # Check if refresh token is expired
-        if datetime.datetime.now(datetime.UTC) > token_data["expires_at"]:
-            # Remove expired refresh token
-            del self.refresh_tokens[refresh_token]
-            return None
-
-        # Generate new access token
-        new_access_token = self.generate_token(
-            username=token_data["username"],
-            discord_id=token_data["discord_id"],
-            exp_minutes=30,  # Short-lived access token
-        )
-
-        return new_access_token
+        finally:
+            db.close()
 
     def revoke_refresh_token(self, refresh_token):
         """
         Revoke a refresh token.
 
         Args:
-            refresh_token (str): The refresh token to revoke
+            refresh_token (str): The raw refresh token to revoke
 
         Returns:
             bool: True if token was revoked, False if not found
         """
-        if refresh_token in self.refresh_tokens:
-            del self.refresh_tokens[refresh_token]
-            return True
-        return False
+        from modules.auth.models import RefreshToken
+
+        token_hash = self._hash_token(refresh_token)
+        db = self._get_db_session()
+        try:
+            db_token = db.query(RefreshToken).filter(RefreshToken.token == token_hash).first()
+            if db_token:
+                db.delete(db_token)
+                db.commit()
+                return True
+            return False
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error revoking refresh token: {e}")
+            return False
+        finally:
+            db.close()
 
     def cleanup_expired_refresh_tokens(self):
         """
-        Remove expired refresh tokens from storage.
+        Remove expired refresh tokens from the database.
         """
-        current_time = datetime.datetime.now(datetime.UTC)
-        expired_tokens = [token for token, data in self.refresh_tokens.items() if current_time > data["expires_at"]]
+        from modules.auth.models import RefreshToken
 
-        for token in expired_tokens:
-            del self.refresh_tokens[token]
+        db = self._get_db_session()
+        try:
+            current_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            deleted = db.query(RefreshToken).filter(RefreshToken.expires_at < current_time).delete()
+            db.commit()
+            if deleted:
+                logger.info(f"Cleaned up {deleted} expired refresh tokens")
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error cleaning up expired refresh tokens: {e}")
+        finally:
+            db.close()
 
     def retrieve_username(self, token):
         try:
