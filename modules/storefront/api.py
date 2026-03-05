@@ -858,9 +858,6 @@ def get_user_orders_clerk(org_prefix, user_email):
 
         if not user:
             return jsonify({"error": "User not found"}), 404
-        # If the user still does not exist, return an appropriate error
-        if not user:
-            return jsonify({"error": "User not found"}), 404
 
         orders = (
             db.query(Order)
