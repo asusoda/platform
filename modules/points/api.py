@@ -584,6 +584,16 @@ def add_points_to_org(org_prefix):
         discord_id = data.get("user_discord_id")
         user_identifier = data.get("user_identifier")  # email, uuid, or username
 
+        # Require at least one identifier to be provided
+        if not discord_id and not user_identifier:
+            return (
+                jsonify(
+                    {
+                        "error": "Either 'user_discord_id' or 'user_identifier' must be provided"
+                    }
+                ),
+                400,
+            )
         if discord_id:
             user = db.query(User).filter_by(discord_id=discord_id).first()
 
