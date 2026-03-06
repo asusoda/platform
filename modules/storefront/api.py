@@ -986,16 +986,11 @@ def clerk_checkout(org_prefix):
             from modules.points.api import get_or_create_user_from_clerk
 
             user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
-            if not user:
-                return jsonify({"error": "Failed to create user account"}), 500
 
-        # Ensure user is resolved before proceeding to membership and points queries
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         membership = (
-            db.query(UserOrganizationMembership)
-            .filter(
             db.query(UserOrganizationMembership)
             .filter(
                 UserOrganizationMembership.user_id == user.id,
