@@ -587,11 +587,7 @@ def add_points_to_org(org_prefix):
         # Require at least one identifier to be provided
         if not discord_id and not user_identifier:
             return (
-                jsonify(
-                    {
-                        "error": "Either 'user_discord_id' or 'user_identifier' must be provided"
-                    }
-                ),
+                jsonify({"error": "Either 'user_discord_id' or 'user_identifier' must be provided"}),
                 400,
             )
         if discord_id:
