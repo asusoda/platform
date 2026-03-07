@@ -1019,7 +1019,7 @@ def assign_points_to_org(org_prefix):
 
         user_identifier = data["user_identifier"]
 
-        # Try to find user by email, UUID, or username
+        # Try to find user by email, UUID, or username.
         user = db.query(User).filter_by(email=user_identifier).first()
         if not user:
             user = db.query(User).filter_by(uuid=user_identifier).first()
