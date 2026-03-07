@@ -856,6 +856,9 @@ def get_user_orders_clerk(org_prefix, user_email):
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
 
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
         orders = (
             db.query(Order)
             .filter(Order.organization_id == organization.id, Order.user_id == user.id)
@@ -916,6 +919,10 @@ def get_user_wallet_clerk(org_prefix, user_email):
             user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
+
+        # If the user still does not exist, return an appropriate error
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
         total_points = (
             db.query(func.sum(Points.points))
@@ -979,8 +986,9 @@ def clerk_checkout(org_prefix):
             from modules.points.api import get_or_create_user_from_clerk
 
             user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
-            if not user:
-                return jsonify({"error": "Failed to create user account"}), 500
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
         membership = (
             db.query(UserOrganizationMembership)
