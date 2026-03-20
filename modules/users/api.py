@@ -174,9 +174,24 @@ def create_user_in_org(org_prefix):
             major="N/A",
             uuid=str(uuid.uuid4()),
         )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        try:
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+        except Exception as db_error:
+            db.rollback()
+            # If duplicate email error, find and return the existing user instead of failing
+            if "UNIQUE constraint failed" in str(db_error) and "email" in str(db_error):
+                from modules.utils.logging_config import get_logger
+                logger_module = get_logger(__name__)
+                logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
+                existing_user = db.query(User).filter_by(email=user_email).first()
+                if existing_user:
+                    new_membership = UserOrganizationMembership(user_id=existing_user.id, organization_id=organization.id)
+                    db.add(new_membership)
+                    db.commit()
+                    return jsonify({"message": "Existing user added to organization successfully."}), 200
+            raise
 
         # Add membership to organization
         membership = UserOrganizationMembership(user_id=new_user.id, organization_id=organization.id)
@@ -283,10 +298,23 @@ def user_in_org(org_prefix):
                     major=data.get("major", "N/A"),
                     uuid=str(uuid.uuid4()),
                 )
-
-                db.add(new_user)
-                db.commit()
-                db.refresh(new_user)
+                try:
+                    db.add(new_user)
+                    db.commit()
+                    db.refresh(new_user)
+                except Exception as db_error:
+                    db.rollback()
+                    if "UNIQUE constraint failed" in str(db_error) and "email" in str(db_error):
+                        from modules.utils.logging_config import get_logger
+                        logger_module = get_logger(__name__)
+                        logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
+                        existing_user = db.query(User).filter_by(email=user_email).first()
+                        if existing_user:
+                            membership = UserOrganizationMembership(user_id=existing_user.id, organization_id=organization.id)
+                            db.add(membership)
+                            db.commit()
+                            return jsonify({"message": "User created and added to organization successfully."}), 201
+                    raise
 
                 # Add membership to organization
                 membership = UserOrganizationMembership(user_id=new_user.id, organization_id=organization.id)

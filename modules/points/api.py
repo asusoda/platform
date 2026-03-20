@@ -158,6 +158,29 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
 
     except Exception as e:
         db.rollback()
+        
+        # If duplicate email error, find and return the existing user instead of failing
+        if "UNIQUE constraint failed" in str(e) and "email" in str(e) and user_data.get("email"):
+            logger.warning(f"Duplicate email: {user_data.get('email')}, returning existing user.")
+
+            try:
+                existing_user = db.query(User).filter_by(email=user_data.get("email")).first()
+                if existing_user:
+                    membership = (
+                        db.query(UserOrganizationMembership)
+                        .filter_by(user_id=existing_user.id, organization_id=organization_id, is_active=True)
+                        .first()
+                    )
+                    if not membership:
+                        new_membership = UserOrganizationMembership(
+                            user_id=existing_user.id, organization_id=organization_id
+                        )
+                        db.add(new_membership)
+                        db.commit()
+                    logger.info(f"Recovered existing user {existing_user.id}")
+                    return existing_user, True, "User already existed (recovered from duplicate email error)"
+            except Exception as recovery_error:
+                logger.error(f"Recovery failed: {recovery_error}")
         return None, False, str(e)
 
 
