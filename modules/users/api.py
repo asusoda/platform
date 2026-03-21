@@ -2,6 +2,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from modules.auth.decoraters import auth_required, error_handler
 from modules.points.models import Points, User
@@ -178,14 +179,15 @@ def create_user_in_org(org_prefix):
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
-        except Exception as db_error:
+        except IntegrityError as db_error:
             db.rollback()
-            # If duplicate email error, find and return the existing user instead of failing
-            if "UNIQUE constraint failed" in str(db_error) and "email" in str(db_error):
+
+            # If email already exists, return the existing user instead of failing
+            if user_email:
                 from modules.utils.logging_config import get_logger
 
                 logger_module = get_logger(__name__)
-                logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
+                logger_module.warning(f"Duplicate email found for {user_email}, returning existing user.")
                 existing_user = db.query(User).filter_by(email=user_email).first()
                 if existing_user:
                     new_membership = UserOrganizationMembership(
@@ -305,13 +307,15 @@ def user_in_org(org_prefix):
                     db.add(new_user)
                     db.commit()
                     db.refresh(new_user)
-                except Exception as db_error:
+                except IntegrityError as db_error:
                     db.rollback()
-                    if "UNIQUE constraint failed" in str(db_error) and "email" in str(db_error):
+
+                    # If email already exists, return the existing user instead of failing
+                    if user_email:
                         from modules.utils.logging_config import get_logger
 
                         logger_module = get_logger(__name__)
-                        logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
+                        logger_module.warning(f"Duplicate email found for {user_email}, returning existing user.")
                         existing_user = db.query(User).filter_by(email=user_email).first()
                         if existing_user:
                             membership = (
