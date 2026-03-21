@@ -168,10 +168,15 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                 if existing_user:
                     membership = (
                         db.query(UserOrganizationMembership)
-                        .filter_by(user_id=existing_user.id, organization_id=organization_id, is_active=True)
+                        .filter_by(user_id=existing_user.id, organization_id=organization_id)
                         .first()
                     )
-                    if not membership:
+                    if membership:
+                        # Reactivate existing membership if it is inactive
+                        if hasattr(membership, "is_active") and not membership.is_active:
+                            membership.is_active = True
+                            db.commit()
+                    else:
                         new_membership = UserOrganizationMembership(
                             user_id=existing_user.id, organization_id=organization_id
                         )
