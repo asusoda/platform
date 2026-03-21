@@ -314,10 +314,20 @@ def user_in_org(org_prefix):
                         logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
                         existing_user = db.query(User).filter_by(email=user_email).first()
                         if existing_user:
-                            membership = UserOrganizationMembership(
-                                user_id=existing_user.id, organization_id=organization.id
+                            membership = (
+                                db.query(UserOrganizationMembership)
+                                .filter_by(user_id=existing_user.id, organization_id=organization.id)
+                                .first()
                             )
-                            db.add(membership)
+                            if not membership:
+                                membership = UserOrganizationMembership(
+                                    user_id=existing_user.id, organization_id=organization.id
+                                )
+                                db.add(membership)
+                            else:
+                                # Reactivate membership if it supports soft-deactivation
+                                if hasattr(membership, "is_active") and not membership.is_active:
+                                    membership.is_active = True
                             db.commit()
                             return jsonify({"message": "User created and added to organization successfully."}), 201
                     raise
