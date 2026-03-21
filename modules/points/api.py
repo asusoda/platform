@@ -180,6 +180,7 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                     logger.info(f"Recovered existing user {existing_user.id}")
                     return existing_user, True, "User already existed (recovered from duplicate email error)"
             except Exception as recovery_error:
+                db.rollback()
                 logger.error(f"Recovery failed: {recovery_error}")
         return None, False, str(e)
 
