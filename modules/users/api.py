@@ -183,11 +183,14 @@ def create_user_in_org(org_prefix):
             # If duplicate email error, find and return the existing user instead of failing
             if "UNIQUE constraint failed" in str(db_error) and "email" in str(db_error):
                 from modules.utils.logging_config import get_logger
+
                 logger_module = get_logger(__name__)
                 logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
                 existing_user = db.query(User).filter_by(email=user_email).first()
                 if existing_user:
-                    new_membership = UserOrganizationMembership(user_id=existing_user.id, organization_id=organization.id)
+                    new_membership = UserOrganizationMembership(
+                        user_id=existing_user.id, organization_id=organization.id
+                    )
                     db.add(new_membership)
                     db.commit()
                     return jsonify({"message": "Existing user added to organization successfully."}), 200
@@ -306,11 +309,14 @@ def user_in_org(org_prefix):
                     db.rollback()
                     if "UNIQUE constraint failed" in str(db_error) and "email" in str(db_error):
                         from modules.utils.logging_config import get_logger
+
                         logger_module = get_logger(__name__)
                         logger_module.warning(f"Duplicate email: {user_email}, returning existing user.")
                         existing_user = db.query(User).filter_by(email=user_email).first()
                         if existing_user:
-                            membership = UserOrganizationMembership(user_id=existing_user.id, organization_id=organization.id)
+                            membership = UserOrganizationMembership(
+                                user_id=existing_user.id, organization_id=organization.id
+                            )
                             db.add(membership)
                             db.commit()
                             return jsonify({"message": "User created and added to organization successfully."}), 201

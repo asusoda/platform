@@ -158,7 +158,7 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
 
     except Exception as e:
         db.rollback()
-        
+
         # If duplicate email error, find and return the existing user instead of failing
         if "UNIQUE constraint failed" in str(e) and "email" in str(e) and user_data.get("email"):
             logger.warning(f"Duplicate email: {user_data.get('email')}, returning existing user.")
