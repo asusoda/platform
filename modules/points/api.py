@@ -166,7 +166,7 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                 existing_user = db.query(User).filter_by(email=user_data.get("email")).first()
                 if existing_user:
                     logger.warning(f"Duplicate email found for {user_data.get('email')}, returning existing user.")
-                    
+
                     membership = (
                         db.query(UserOrganizationMembership)
                         .filter_by(user_id=existing_user.id, organization_id=organization_id)
@@ -183,16 +183,16 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                         )
                         db.add(new_membership)
                         db.commit()
-                    
+
                     logger.info(f"Successfully recovered existing user {existing_user.id}")
                     return existing_user, True, "User already existed (recovered from duplicate email error)"
             except Exception as recovery_error:
                 db.rollback()
                 logger.error(f"Failed to recover from IntegrityError: {recovery_error}")
-        
+
         logger.error(f"IntegrityError in manage_user_in_organization: {e}")
         return None, False, str(e)
-    
+
     except Exception as e:
         db.rollback()
         logger.error(f"Unexpected error in manage_user_in_organization: {e}")

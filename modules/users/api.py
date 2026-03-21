@@ -179,7 +179,7 @@ def create_user_in_org(org_prefix):
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
-        except IntegrityError as db_error:
+        except IntegrityError:
             db.rollback()
 
             # If email already exists, return the existing user instead of failing
@@ -307,7 +307,7 @@ def user_in_org(org_prefix):
                     db.add(new_user)
                     db.commit()
                     db.refresh(new_user)
-                except IntegrityError as db_error:
+                except IntegrityError:
                     db.rollback()
 
                     # If email already exists, return the existing user instead of failing
