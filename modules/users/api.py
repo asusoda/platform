@@ -2,6 +2,7 @@ import logging
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from modules.auth.decoraters import auth_required, error_handler
 from modules.points.models import Points, User
@@ -174,9 +175,28 @@ def create_user_in_org(org_prefix):
             major="N/A",
             uuid=str(uuid.uuid4()),
         )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        try:
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+        except IntegrityError:
+            db.rollback()
+
+            # If email already exists, return the existing user instead of failing
+            if user_email:
+                from modules.utils.logging_config import get_logger
+
+                logger_module = get_logger(__name__)
+                logger_module.warning(f"Duplicate email found for {user_email}, returning existing user.")
+                existing_user = db.query(User).filter_by(email=user_email).first()
+                if existing_user:
+                    new_membership = UserOrganizationMembership(
+                        user_id=existing_user.id, organization_id=organization.id
+                    )
+                    db.add(new_membership)
+                    db.commit()
+                    return jsonify({"message": "Existing user added to organization successfully."}), 200
+            raise
 
         # Add membership to organization
         membership = UserOrganizationMembership(user_id=new_user.id, organization_id=organization.id)
@@ -283,10 +303,38 @@ def user_in_org(org_prefix):
                     major=data.get("major", "N/A"),
                     uuid=str(uuid.uuid4()),
                 )
+                try:
+                    db.add(new_user)
+                    db.commit()
+                    db.refresh(new_user)
+                except IntegrityError:
+                    db.rollback()
 
-                db.add(new_user)
-                db.commit()
-                db.refresh(new_user)
+                    # If email already exists, return the existing user instead of failing
+                    if user_email:
+                        from modules.utils.logging_config import get_logger
+
+                        logger_module = get_logger(__name__)
+                        logger_module.warning(f"Duplicate email found for {user_email}, returning existing user.")
+                        existing_user = db.query(User).filter_by(email=user_email).first()
+                        if existing_user:
+                            membership = (
+                                db.query(UserOrganizationMembership)
+                                .filter_by(user_id=existing_user.id, organization_id=organization.id)
+                                .first()
+                            )
+                            if not membership:
+                                membership = UserOrganizationMembership(
+                                    user_id=existing_user.id, organization_id=organization.id
+                                )
+                                db.add(membership)
+                            else:
+                                # Reactivate membership if it supports soft-deactivation
+                                if hasattr(membership, "is_active") and not membership.is_active:
+                                    membership.is_active = True
+                            db.commit()
+                            return jsonify({"message": "User created and added to organization successfully."}), 201
+                    raise
 
                 # Add membership to organization
                 membership = UserOrganizationMembership(user_id=new_user.id, organization_id=organization.id)
