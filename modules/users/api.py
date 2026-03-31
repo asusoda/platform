@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from modules.auth.decoraters import auth_required, error_handler
 from modules.points.models import Points, User
-from shared import db_connect
+from modules.utils.db import db_connect
 
 logger = logging.getLogger(__name__)
 

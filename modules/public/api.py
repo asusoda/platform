@@ -6,7 +6,7 @@ from sqlalchemy import and_, case, func
 
 from modules.auth.decoraters import error_handler
 from modules.points.models import Points, User
-from shared import db_connect
+from modules.utils.db import db_connect
 
 # Update the blueprint to include the static folder
 public_blueprint = Blueprint(

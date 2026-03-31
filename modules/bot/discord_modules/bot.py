@@ -110,7 +110,7 @@ class BotFork(commands.Bot):
         Returns a list of guild IDs where the user has the officer role.
         """
         from modules.organizations.models import Organization
-        from shared import db_connect
+        from modules.utils.db import db_connect
 
         logger.debug(f"check_officer called for user_id: {user_id}, superadmin_user_id: {superadmin_user_id}")
         guild_ids_with_officer_role = []

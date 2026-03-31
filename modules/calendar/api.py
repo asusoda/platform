@@ -4,9 +4,8 @@ from sentry_sdk import set_tag, start_transaction
 
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization
-
-# Assuming shared resources are correctly set up
-from shared import db_connect, logger  # Remove calendar_service import
+from modules.utils.db import db_connect
+from modules.utils.logging_config import logger
 
 # Import the new service and error handler
 from .errors import APIErrorHandler

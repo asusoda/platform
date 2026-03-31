@@ -90,3 +90,6 @@ class Config:
             "calendar_id": self.GOOGLE_CALENDAR_ID,
             "user_email": self.GOOGLE_USER_EMAIL,
         }
+
+
+config = Config()

@@ -7,9 +7,9 @@ from sentry_sdk import start_transaction
 
 # Import organization models
 from modules.organizations.models import Organization
-
-# Assuming shared resources are correctly set up
-from shared import config, db_connect, logger
+from modules.utils.config import config
+from modules.utils.db import db_connect
+from modules.utils.logging_config import logger
 
 # Import custom modules
 from .clients import GoogleCalendarClient, NotionCalendarClient
