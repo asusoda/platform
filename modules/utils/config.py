@@ -79,6 +79,11 @@ class Config:
             # Superadmin config
             self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
 
+            # LeetCode Daily Bot
+            self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")
+            self.LEETCODE_ROLE_PING = os.environ.get("LEETCODE_ROLE_PING")
+            self.LEETCODE_DAILY_TIME = os.environ.get("LEETCODE_DAILY_TIME", "09:00")
+
         except json.JSONDecodeError as e:
             raise RuntimeError(f"Configuration error: {str(e)}") from e
 
