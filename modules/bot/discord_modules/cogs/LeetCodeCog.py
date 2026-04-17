@@ -1,4 +1,5 @@
 import datetime
+from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import discord
@@ -41,7 +42,9 @@ def build_question_embed(question: dict, is_daily: bool = False) -> discord.Embe
 
 
 class LeetCodeCog(commands.Cog):
-    def __init__(self, bot: commands.Bot, channel_id: int | None, role_ping: int | None, daily_time: str, timezone: str):
+    def __init__(
+        self, bot: commands.Bot, channel_id: int | None, role_ping: int | None, daily_time: str, timezone: str
+    ):
         self.bot = bot
         self.channel_id = channel_id
         self.role_ping = role_ping
@@ -69,7 +72,11 @@ class LeetCodeCog(commands.Cog):
             logger.warning(f"Invalid LEETCODE_DAILY_TIME '{self.daily_time}', defaulting to 09:00")
             hour, minute = 9, 0
 
-        post_time = datetime.time(hour=hour, minute=minute, tzinfo=tz)
+        try:
+            post_time = datetime.time(hour=hour, minute=minute, tzinfo=tz)
+        except ValueError:
+            logger.warning(f"Invalid LEETCODE_DAILY_TIME '{self.daily_time}', defaulting to 09:00")
+            post_time = datetime.time(hour=9, minute=0, tzinfo=tz)
         self.post_daily.change_interval(time=post_time)
         self.post_daily.start()
         self._daily_task_started = True
@@ -85,8 +92,15 @@ class LeetCodeCog(commands.Cog):
             return
 
         channel = self.bot.get_channel(self.channel_id)
-        if not channel:
-            logger.error(f"LeetCode channel {self.channel_id} not found")
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(self.channel_id)
+            except Exception:
+                logger.error(f"LeetCode channel {self.channel_id} not found")
+                return
+
+        if not callable(getattr(channel, "send", None)):
+            logger.error(f"LeetCode channel {self.channel_id} is not a text-capable channel")
             return
 
         try:
@@ -114,13 +128,16 @@ class LeetCodeCog(commands.Cog):
     async def random(
         self,
         ctx: discord.ApplicationContext,
-        difficulty: discord.Option(
-            str,
-            description="Filter by difficulty",
-            choices=["Easy", "Medium", "Hard"],
-            required=False,
-            default=None,
-        ),
+        difficulty: Annotated[
+            str | None,
+            discord.Option(
+                str,
+                description="Filter by difficulty",
+                choices=["Easy", "Medium", "Hard"],
+                required=False,
+                default=None,
+            ),
+        ] = None,
     ):
         await ctx.defer()
         try:

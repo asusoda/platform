@@ -13,6 +13,9 @@ HEADERS = {
 }
 
 
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+
 async def fetch_daily_question() -> dict:
     query = """
     query questionOfToday {
@@ -34,12 +37,17 @@ async def fetch_daily_question() -> dict:
       }
     }
     """
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
         async with session.post(LEETCODE_GRAPHQL, json={"query": query}, headers=HEADERS) as resp:
             if resp.status != 200:
                 raise RuntimeError(f"LeetCode API error: {resp.status}")
             data = await resp.json()
-    return data["data"]["activeDailyCodingChallengeQuestion"]["question"]
+    if "errors" in data:
+        raise RuntimeError(f"LeetCode GraphQL errors: {data['errors']}")
+    try:
+        return data["data"]["activeDailyCodingChallengeQuestion"]["question"]
+    except (KeyError, TypeError) as exc:
+        raise RuntimeError(f"Unexpected LeetCode API response: {data}") from exc
 
 
 async def fetch_random_question(difficulty: str | None = None) -> dict:
@@ -71,7 +79,7 @@ async def fetch_random_question(difficulty: str | None = None) -> dict:
     if difficulty:
         filters["difficulty"] = difficulty.upper()
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=REQUEST_TIMEOUT) as session:
         # First request: get total count
         async with session.post(
             LEETCODE_GRAPHQL,
@@ -90,7 +98,12 @@ async def fetch_random_question(difficulty: str | None = None) -> dict:
                 raise RuntimeError(f"LeetCode API error: {resp.status}")
             count_data = await resp.json()
 
-        total = count_data["data"]["problemsetQuestionList"]["total"]
+        if "errors" in count_data:
+            raise RuntimeError(f"LeetCode GraphQL errors: {count_data['errors']}")
+        try:
+            total = count_data["data"]["problemsetQuestionList"]["total"]
+        except (KeyError, TypeError) as exc:
+            raise RuntimeError(f"Unexpected LeetCode API response: {count_data}") from exc
         random_skip = random.randint(0, total - 1)
 
         # Second request: fetch the random problem
@@ -111,4 +124,9 @@ async def fetch_random_question(difficulty: str | None = None) -> dict:
                 raise RuntimeError(f"LeetCode API error: {resp.status}")
             data = await resp.json()
 
-    return data["data"]["problemsetQuestionList"]["questions"][0]
+    if "errors" in data:
+        raise RuntimeError(f"LeetCode GraphQL errors: {data['errors']}")
+    try:
+        return data["data"]["problemsetQuestionList"]["questions"][0]
+    except (KeyError, TypeError, IndexError) as exc:
+        raise RuntimeError(f"Unexpected LeetCode API response: {data}") from exc
