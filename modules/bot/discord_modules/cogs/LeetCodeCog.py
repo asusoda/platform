@@ -96,11 +96,11 @@ class LeetCodeCog(commands.Cog):
             try:
                 channel = await self.bot.fetch_channel(self.channel_id)
             except Exception:
-                logger.error(f"LeetCode channel {self.channel_id} not found")
+                logger.error(f"LeetCode channel {self.channel_id} not found", exc_info=True)
                 return
 
         if not callable(getattr(channel, "send", None)):
-            logger.error(f"LeetCode channel {self.channel_id} is not a text-capable channel")
+            logger.error(f"LeetCode channel {self.channel_id} does not support sending messages")
             return
 
         try:
