@@ -1,4 +1,4 @@
-import random
+import secrets
 
 import aiohttp
 
@@ -104,7 +104,7 @@ async def fetch_random_question(difficulty: str | None = None) -> dict:
             total = count_data["data"]["problemsetQuestionList"]["total"]
         except (KeyError, TypeError) as exc:
             raise RuntimeError(f"Unexpected LeetCode API response: {count_data}") from exc
-        random_skip = random.randint(0, total - 1)
+        random_skip = secrets.randbelow(total)
 
         # Second request: fetch the random problem
         async with session.post(
