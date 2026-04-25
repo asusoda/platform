@@ -69,6 +69,7 @@ tokenManager = TokenManager()
 
 # Import models so their tables are registered with Base.metadata before create_all
 import modules.auth.models  # noqa: F401, E402
+import modules.bot.models  # noqa: F401, E402
 
 # Ensure all tables are created after all models are imported
 Base.metadata.create_all(bind=db_connect.engine)
@@ -118,6 +119,7 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
         auth_bot_instance.add_cog(
             LeetCodeCog(
                 bot=auth_bot_instance,
+                db_connect=db_connect,
                 channel_id=int(config.LEETCODE_CHANNEL_ID) if config.LEETCODE_CHANNEL_ID else None,
                 role_ping=int(config.LEETCODE_ROLE_PING) if config.LEETCODE_ROLE_PING else None,
                 daily_time=config.LEETCODE_DAILY_TIME,

@@ -112,3 +112,28 @@ async def fetch_random_question(difficulty: str | None = None) -> dict:
             data = await resp.json()
 
     return data["data"]["problemsetQuestionList"]["questions"][0]
+
+
+async def fetch_recent_ac_submissions(username: str, limit: int = 20) -> list[dict]:
+    """Fetch a user's recent accepted submissions. Returns list of {titleSlug, timestamp, ...}."""
+    query = """
+    query recentAcSubmissions($username: String!, $limit: Int!) {
+      recentAcSubmissionList(username: $username, limit: $limit) {
+        id
+        title
+        titleSlug
+        timestamp
+      }
+    }
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            LEETCODE_GRAPHQL,
+            json={"query": query, "variables": {"username": username, "limit": limit}},
+            headers=HEADERS,
+        ) as resp:
+            if resp.status != 200:
+                raise RuntimeError(f"LeetCode API error: {resp.status}")
+            data = await resp.json()
+
+    return data.get("data", {}).get("recentAcSubmissionList") or []
