@@ -4,14 +4,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import discord
 from discord.ext import commands, tasks
+from sqlalchemy import func as sa_func
 
 from modules.bot.discord_modules.utils.leetcode import (
     fetch_daily_question,
     fetch_random_question,
     fetch_recent_ac_submissions,
 )
-from sqlalchemy import func as sa_func
-
 from modules.bot.models import LeetCodeLink, LeetCodeSolve
 from modules.utils.logging_config import get_logger
 
@@ -255,11 +254,7 @@ class LeetCodeCog(commands.Cog):
     def _record_solve(self, discord_id: str, title_slug: str, solved_date: datetime.date):
         db = next(self.db_connect.get_db())
         try:
-            existing = (
-                db.query(LeetCodeSolve)
-                .filter_by(discord_id=discord_id, solved_date=solved_date)
-                .first()
-            )
+            existing = db.query(LeetCodeSolve).filter_by(discord_id=discord_id, solved_date=solved_date).first()
             if existing:
                 return
             db.add(LeetCodeSolve(discord_id=discord_id, title_slug=title_slug, solved_date=solved_date))
@@ -295,9 +290,7 @@ class LeetCodeCog(commands.Cog):
         try:
             total_linked = db.query(LeetCodeLink).count()
             total_solves = db.query(LeetCodeSolve).count()
-            distinct_solvers = (
-                db.query(sa_func.count(sa_func.distinct(LeetCodeSolve.discord_id))).scalar() or 0
-            )
+            distinct_solvers = db.query(sa_func.count(sa_func.distinct(LeetCodeSolve.discord_id))).scalar() or 0
             return {
                 "total_linked": total_linked,
                 "total_solves": total_solves,
@@ -409,7 +402,9 @@ class LeetCodeCog(commands.Cog):
     async def leaderboard(
         self,
         ctx: discord.ApplicationContext,
-        limit: Annotated[int, discord.Option(int, description="How many entries to show (1-25)", required=False, default=10)] = 10,
+        limit: Annotated[
+            int, discord.Option(int, description="How many entries to show (1-25)", required=False, default=10)
+        ] = 10,
     ):
         await ctx.defer()
         limit = max(1, min(int(limit), 25))
