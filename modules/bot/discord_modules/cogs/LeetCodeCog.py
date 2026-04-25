@@ -1,4 +1,5 @@
 import datetime
+from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import discord
@@ -98,7 +99,12 @@ class LeetCodeCog(commands.Cog):
             logger.warning(f"Invalid LEETCODE_DAILY_TIME '{self.daily_time}', defaulting to 09:00")
             hour, minute = 9, 0
 
-        post_time = datetime.time(hour=hour, minute=minute, tzinfo=self._tz)
+        try:
+            post_time = datetime.time(hour=hour, minute=minute, tzinfo=self._tz)
+        except ValueError:
+            logger.warning(f"Invalid LEETCODE_DAILY_TIME '{self.daily_time}', defaulting to 09:00")
+            post_time = datetime.time(hour=9, minute=0, tzinfo=self._tz)
+
         self.post_daily.change_interval(time=post_time)
         self.post_daily.start()
         self._daily_task_started = True
@@ -116,8 +122,15 @@ class LeetCodeCog(commands.Cog):
             return
 
         channel = self.bot.get_channel(self.channel_id)
-        if not channel:
-            logger.error(f"LeetCode channel {self.channel_id} not found")
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(self.channel_id)
+            except Exception:
+                logger.error(f"LeetCode channel {self.channel_id} not found", exc_info=True)
+                return
+
+        if not callable(getattr(channel, "send", None)):
+            logger.error(f"LeetCode channel {self.channel_id} does not support sending messages")
             return
 
         try:
@@ -322,13 +335,16 @@ class LeetCodeCog(commands.Cog):
     async def random(
         self,
         ctx: discord.ApplicationContext,
-        difficulty: discord.Option(
-            str,
-            description="Filter by difficulty",
-            choices=["Easy", "Medium", "Hard"],
-            required=False,
-            default=None,
-        ),
+        difficulty: Annotated[
+            str | None,
+            discord.Option(
+                str,
+                description="Filter by difficulty",
+                choices=["Easy", "Medium", "Hard"],
+                required=False,
+                default=None,
+            ),
+        ] = None,
     ):
         await ctx.defer()
         try:
@@ -351,15 +367,19 @@ class LeetCodeCog(commands.Cog):
             await ctx.followup.send("❌ Username cannot be empty.", ephemeral=True)
             return
 
-        # Validate by hitting the recentAcSubmissionList endpoint — empty-but-no-error means valid handle
+        # Validate by fetching recent AC submissions — raises RuntimeError for invalid usernames
         try:
             await fetch_recent_ac_submissions(username, limit=1)
-        except Exception:
-            logger.error(f"Failed to validate LeetCode handle '{username}'", exc_info=True)
-            await ctx.followup.send(
-                f"❌ Couldn't reach LeetCode to verify `{username}`. Try again later.",
-                ephemeral=True,
-            )
+        except RuntimeError as exc:
+            msg = str(exc)
+            if "not found" in msg.lower():
+                await ctx.followup.send(f"❌ LeetCode username `{username}` not found.", ephemeral=True)
+            else:
+                logger.error(f"Failed to validate LeetCode handle '{username}'", exc_info=True)
+                await ctx.followup.send(
+                    f"❌ Couldn't reach LeetCode to verify `{username}`. Try again later.",
+                    ephemeral=True,
+                )
             return
 
         discord_id = str(ctx.author.id)
