@@ -359,7 +359,7 @@ class LeetCodeCog(commands.Cog):
     async def link(
         self,
         ctx: discord.ApplicationContext,
-        username: discord.Option(str, description="Your LeetCode username"),
+        username: Annotated[str, discord.Option(str, description="Your LeetCode username")],
     ):
         await ctx.defer(ephemeral=True)
         username = username.strip()
@@ -409,7 +409,7 @@ class LeetCodeCog(commands.Cog):
     async def leaderboard(
         self,
         ctx: discord.ApplicationContext,
-        limit: discord.Option(int, description="How many entries to show (1-25)", required=False, default=10),
+        limit: Annotated[int, discord.Option(int, description="How many entries to show (1-25)", required=False, default=10)] = 10,
     ):
         await ctx.defer()
         limit = max(1, min(int(limit), 25))
