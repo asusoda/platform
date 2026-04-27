@@ -133,6 +133,7 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
         auth_bot_instance.add_cog(
             LeetCodeCog(
                 bot=auth_bot_instance,
+                db_connect=db_connect,
                 channel_id=lc_channel_id,
                 role_ping=lc_role_ping,
                 daily_time=config.LEETCODE_DAILY_TIME,
