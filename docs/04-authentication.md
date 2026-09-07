@@ -73,12 +73,9 @@ Key methods: `generate_token_pair`, `refresh_access_token`, `revoke_refresh_toke
 The decorators distinguish these deliberately, and the frontend depends on it:
 
 - **401** — token invalid, missing, or malformed → the client should log out.
-- **403** — token valid but **expired** → the client should refresh and retry.
+- **403** — token valid but **expired (Authorization-header path)** → the client should refresh and retry.
 
-The axios interceptors in `web/src/components/utils/axios.js` and `AuthContext.js` retry on **403**,
-not 401. If you "fix" an expired-token response to return 401, silent token refresh stops working
-and users get logged out every 30 minutes.
-
+Note: when the token comes from the Flask session (`session["token"]`), the current `@auth_required` implementation clears the session token and returns **401** on expiry, so 403-based refresh logic only applies to header-authenticated requests.
 ---
 
 ## System 2: Clerk (the member storefront)
