@@ -32,9 +32,8 @@ For requests authenticated via the `Authorization: Bearer ...` header, an expire
 |--------|------|------|-------------|
 | GET | `/login` | — | 302 to Discord's OAuth consent screen (`scope=identify guilds`) |
 | GET | `/callback` | — | OAuth callback. Exchanges the code, checks officer status via the bot, issues an access + refresh token pair, and redirects to `{CLIENT_URL}/auth/?access_token=…&refresh_token=…`. Non-officers get `?error=Unauthorized Access`. 503 if the bot is not ready. |
-| GET | `/validToken` | JWT | `{status, valid, expired}` |
-| GET | `/validateToken` | — | Same shape, but does its own header check instead of using the decorator. Returns `valid:true, expired:true` for a valid-but-expired token. |
-| POST | `/refresh` | — | Body `{refresh_token}` → `{access_token, token_type, expires_in: 1800}`. 401 if the refresh token is invalid or expired. |
+|| GET | `/validToken` | JWT | `{status, valid}` — note: expired tokens are rejected by `@auth_required` before this handler runs |
+|| GET | `/validateToken` | — | `{status, valid, expired}` — does its own header parsing and returns `valid:true, expired:true` for a valid-but-expired token |
 | POST | `/revoke` | JWT | Body `{refresh_token}`. Revokes the refresh token and blacklists the current access token. |
 | POST | `/logout` | — | Body `{refresh_token}` (optional). Revokes, blacklists the header token, clears the Flask session. |
 | GET | `/name` | JWT | `{name}` — the display name stored in the token |
