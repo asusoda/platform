@@ -14,7 +14,7 @@ Base URL: `http://localhost:8000` in dev, `https://api.thesoda.io` in production
 
 Anything marked `JWT` returns **401** for an invalid/missing token.
 
-For requests authenticated via the `Authorization: Bearer ...` header, an expired token returns **403** so the frontend can refresh and retry. For the Flask-session token path (`session["token"]`), the current decorators clear the session token and return **401** on expiry.
+For requests authenticated via the `Authorization: Bearer <access_token>` header, an expired token returns **403** so the frontend can refresh and retry. For the Flask-session token path (`session["token"]`), the current decorators clear the session token and return **401** on expiry.
 
 ---
 
