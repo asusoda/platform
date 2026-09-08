@@ -10,6 +10,7 @@ Base URL: `http://localhost:8000` in dev, `https://api.thesoda.io` in production
 | `JWT` | `@auth_required` — valid Discord-OAuth-issued JWT (session cookie or `Authorization: Bearer`) |
 | `DUAL` | `@dual_auth_required` — Clerk token **or** JWT |
 | `MEMBER` | `@member_required` — Flask session `discord_id` + guild membership |
+| `SESSION` | Member-login Flask session (`member_user_id` + `member_org_id`) |
 | `SUPER` | `@superadmin_required` — valid JWT **and** officer in ≥1 org |
 
 Anything marked `JWT` returns **401** for an invalid/missing token.
@@ -78,7 +79,7 @@ All keyed by **numeric org id**, not prefix.
 |--------|------|------|-------------|
 | GET | `/` | — | `{message: "Points"}` liveness stub |
 | POST | `/<org_prefix>/member_login` | — | Body: `{name, username, email, asu_id, academic_standing, major}`. Links or creates a user, stores `member_user_id`/`member_org_id` in the session. |
-| GET | `/<org_prefix>/member_profile` | session | Profile + memberships + points for the session's member |
+| GET | `/<org_prefix>/member_profile` | SESSION | Profile + memberships + points for the session's member |
 | GET | `/<org_prefix>/leaderboard` | — | Public points leaderboard for the org |
 | POST | `/<org_prefix>/users` | JWT | Create or link a user into the org |
 | GET | `/<org_prefix>/users` | JWT | All users in the org, with point totals |
