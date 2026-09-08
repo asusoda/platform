@@ -111,16 +111,25 @@ def run_auth_bot_in_thread():
 
 # --- App Initialization ---
 def initialize_app():
-    auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
-    auth_thread.daemon = True
-    auth_thread.start()
-    logger.info("Auth bot thread initiated")
-
-    # Start Flask app
     # Enable debug and reloader based on IS_PROD environment variable
     is_prod = os.environ.get("IS_PROD", "").lower() == "true"
+    use_reloader = not is_prod
+
+    # With the reloader on, Werkzeug executes this file in both a parent (watcher) and a child
+    # (server) process. Starting the bot in both logs the same token in twice, so every scheduled
+    # post -- the daily LeetCode question in particular -- goes out twice. Only the child, marked
+    # by WERKZEUG_RUN_MAIN, owns the bot.
+    if not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
+        auth_thread.daemon = True
+        auth_thread.start()
+        logger.info("Auth bot thread initiated")
+    else:
+        logger.info("Reloader parent process; auth bot will start in the reloaded child process")
+
+    # Start Flask app
     # Binding to 0.0.0.0 is required for Docker container accessibility
-    app.run(host="0.0.0.0", port=8000, debug=not is_prod, use_reloader=not is_prod)  # nosec B104
+    app.run(host="0.0.0.0", port=8000, debug=not is_prod, use_reloader=use_reloader)  # nosec B104
 
 
 if __name__ == "__main__":

@@ -19,6 +19,9 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
+      # Turns off the Werkzeug debugger and reloader. docker-compose.dev.yml overrides this to
+      # false for local hot reloading.
+      - IS_PROD=true
     logging:
       driver: json-file
       options:

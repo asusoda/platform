@@ -27,7 +27,9 @@ VERIFY_INTERVAL_MINUTES = 10
 
 def build_question_embed(question: dict, is_daily: bool = False) -> discord.Embed:
     url = f"https://leetcode.com/problems/{question['titleSlug']}/"
-    tags = " ".join(f"`{t['name']}`" for t in question.get("topicTags", [])) or "None"
+    # Topics give away the intended approach, so hide them behind a spoiler.
+    tags = " ".join(f"`{t['name']}`" for t in question.get("topicTags", []))
+    tags = f"||{tags}||" if tags else "None"
     color = DIFFICULTY_COLORS.get(question.get("difficulty", ""), 0x5865F2)
     title_prefix = "Daily Challenge" if is_daily else "Random Problem"
 
