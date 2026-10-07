@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check migrate
+.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check ci backup migrate
 
 # Use bash as the shell for all commands
 SHELL := /usr/bin/env bash
@@ -32,6 +32,8 @@ help:
 	@echo "  make status                 - Show container status"
 	@echo "  make health                 - Check container health"
 	@echo "  make check                  - Run lint (auto-fix), format, type check, and tests"
+	@echo "  make ci                     - Run the same checks without changing files (what CI runs)"
+	@echo "  make backup                 - Copy the SQLite database to data/backups (keeps the last 14)"
 	@echo "  make migrate                - Run alembic database migrations"
 
 # Build container images
@@ -233,6 +235,35 @@ check:
 	@uv run alembic upgrade head
 	@uv run alembic check
 	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
+
+# Run every check without changing files. CI runs this; a failure blocks the merge.
+ci:
+	@echo -e "$(GREEN)[INFO]$(NC) Running ruff linting..."
+	@uv run ruff check .
+	@echo -e "$(GREEN)[INFO]$(NC) Checking ruff formatting..."
+	@uv run ruff format --check .
+	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
+	@uv run ty check .
+	@echo -e "$(GREEN)[INFO]$(NC) Running tests, including the API contract tests..."
+	@uv run pytest -v
+	@echo -e "$(GREEN)[INFO]$(NC) Checking alembic migrations against a fresh database..."
+	@TMP_DB=$$(mktemp -d) && \
+		DATABASE_URL=sqlite:///$$TMP_DB/ci.db uv run alembic upgrade head && \
+		DATABASE_URL=sqlite:///$$TMP_DB/ci.db uv run alembic check; \
+		STATUS=$$?; rm -rf $$TMP_DB; exit $$STATUS
+	@echo -e "$(GREEN)[INFO]$(NC) All checks passed!"
+
+# Copy the SQLite database before a deploy. Uses SQLite's online backup, so it is safe while the API runs.
+backup:
+	@mkdir -p data/backups
+	@if [ -f data/user.db ]; then \
+		BACKUP=data/backups/user-$$(date +%Y%m%d-%H%M%S).db; \
+		uv run python -c 'import sqlite3, sys; src = sqlite3.connect("data/user.db"); dst = sqlite3.connect(sys.argv[1]); src.backup(dst); dst.close(); src.close()' "$$BACKUP" && \
+		echo -e "$(GREEN)[INFO]$(NC) Database copied to $$BACKUP"; \
+	else \
+		echo -e "$(YELLOW)[WARNING]$(NC) data/user.db not found, nothing to back up"; \
+	fi
+	@ls -1t data/backups/user-*.db 2>/dev/null | tail -n +15 | xargs -r rm -f
 
 # Health check
 health:

@@ -17,7 +17,8 @@ from modules.public.api import public_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
-from shared import app, config, create_auth_bot, logger
+from modules.utils.request_log import register_request_logging
+from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Set a secret key for session management
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
@@ -67,6 +68,9 @@ def health():
         }
     ), 200
 
+
+# Log one structured line per API request
+register_request_logging(app, tokenManager)
 
 # Register Blueprints
 app.register_blueprint(public_blueprint, url_prefix="/api/public")
