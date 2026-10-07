@@ -185,16 +185,10 @@ game state. Any move to gunicorn has to solve that first.
 
 `.env.template` and `docker-compose.yml` set `IS_PROD`. `PROD` is dead.
 
-### D4. `SYS_ADMIN` vs `ADMIN_USER_ID` — crossed wires
+### D4. `SYS_ADMIN` names the superadmin
 
-```python
-self.SYS_ADMIN            = os.environ.get("ADMIN_USER_ID")   # config.py:74
-self.SUPERADMIN_USER_ID   = os.environ.get("SYS_ADMIN")       # config.py:80
-```
-
-The attribute named `SYS_ADMIN` reads the env var `ADMIN_USER_ID`, and the attribute used for
-superadmin checks reads the env var `SYS_ADMIN`. **Set `SYS_ADMIN` in `.env`.** `config.SYS_ADMIN`
-is unused.
+`config.SUPERADMIN_USER_ID` reads the env var `SYS_ADMIN`. **Set `SYS_ADMIN` in `.env`.** The unused
+`config.SYS_ADMIN` attribute (which read `ADMIN_USER_ID`) was removed.
 
 ### D5. Database URL config is fiction
 
@@ -307,7 +301,7 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 | `web/src/components/GameTable.js` | zero-byte file |
 | Commented-out `BotFork.setup_game` | `bot.py:261+` |
 | Dependencies with no usage | `gunicorn`, `psycopg2-binary`, `pymongo`, `flask-socketio`, `python-socketio`, `flask-discord`, `selenium`, `webdriver-manager`, `gspread`, `oauth2client`, `anthropic`, `openai`, `google-genai`, `google-generativeai`, `dateparser`, `timefhuman` |
-| Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD`, `SYS_ADMIN` (the attribute) |
+| Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD` |
 
 That dependency list is worth a cleanup pass on its own — it inflates image size and the
 vulnerability surface that Dependabot reports against.

@@ -342,12 +342,16 @@ class TokenManager:
         discord_id = self.retrieve_discord_id(token)
         return self.generate_token(username, discord_id)
 
-    def generate_app_token(self, name, app_name):
+    def generate_app_token(self, name, app_name, discord_id=None):
         payload = {
             "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=120),
             "name": name,
             "app_name": app_name,
+            "type": "app",
         }
+        # The issuing officer, so the app is scoped to that officer's organizations
+        if discord_id:
+            payload["discord_id"] = str(discord_id)
         return jwt.encode(payload, self.private_key, algorithm=self.algorithm)
 
     def delete_token(self, token):

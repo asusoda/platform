@@ -136,10 +136,9 @@ else Authorization header?
   └─ ok       → proceed
 ```
 
-Note it does **not** check org membership or officer status. It only proves "you hold a valid token
-this API issued". Since tokens are only issued to officers at `/callback`, that is the de-facto
-officer gate — but it is not re-checked per request, so an officer who loses their Discord role
-keeps working access until their 30-minute token expires (and can refresh for up to 7 days).
+After the token checks it runs the org scope check (see "Access checks" below): if the route names an
+org (`org_prefix` or `org_id`), the caller must hold that org's officer role or be the superadmin.
+Routes without an org in the URL (`/api/users/*`, `/api/calendar/sync-all`) only check the token.
 
 ### `@dual_auth_required`
 
@@ -149,6 +148,9 @@ so downstream code has one field to read regardless of which system authenticate
 
 Used by the storefront endpoints that both officers and Clerk members hit: `get_orders`,
 `create_order`, `get_user_orders_clerk`, `get_user_wallet_clerk`, `clerk_checkout`.
+
+`get_orders` lists every order in the org with names and emails, and only the officer app calls it,
+so it also carries `@org_officer_required`, which applies the org scope check after dual auth.
 
 > Careful: in the JWT branch `clerk_user_email` is set to a Discord **username**, not an email. Any
 > handler that treats that value as an email (as `clerk_checkout` does with
@@ -161,13 +163,34 @@ Validates the token, then:
 - **Session path**: requires `session["user"]["role"] == "admin"`. But `/callback` sets that role to
   `"officer"` — so this branch never passes. In practice everything goes through the header path.
 - **Header path**: decodes the token, takes `discord_id`, calls `auth_bot.check_officer(discord_id,
-  SUPERADMIN_USER_ID)`, and requires a non-empty result.
+  SUPERADMIN_USER_ID)`, and requires a non-empty result. Then it runs the superadmin check: the
+  `discord_id` must equal `config.SUPERADMIN_USER_ID` (env `SYS_ADMIN`).
 
-So `@superadmin_required` in effect means "**is an officer in at least one org**", not "is the
-superadmin". The only endpoint that checks true superadmin identity is `GET /api/superadmin/check`,
-which compares `discord_id` against `config.SUPERADMIN_USER_ID` inside the handler body.
+Before the access checks, `@superadmin_required` meant "is an officer in at least one org". With
+`ACCESS_ENFORCE=true` it means the superadmin, matching `GET /api/superadmin/check`, which the web app
+already uses to decide whether to show the superadmin pages.
 
 Returns `503` when the bot is unavailable or not ready.
+
+### Access checks — `modules/auth/access.py`
+
+Shared by the decorators above.
+
+- Org scope: the org named in the URL is looked up; an unknown org is left to the route (usually 404).
+  The caller's officer guilds come from `auth_bot.check_officer` and are cached for 60 seconds per
+  Discord id. The superadmin passes every org.
+- Credentials: access tokens and app tokens carry `discord_id`. App tokens now carry `type: "app"`
+  and the issuing officer's `discord_id`, so they are scoped to that officer's orgs. Older app tokens
+  have no `discord_id` and are refused on org routes.
+- `GET /api/organizations/` lists only the caller's orgs when enforcing.
+- Mode: `ACCESS_ENFORCE=false` (default) lets every request through and logs one line per request
+  that would be refused:
+  `access decision=would_deny reason=not_org_officer route=... org=... credential=... discord_id=...`.
+  Reasons: `not_org_officer`, `not_superadmin`, `no_discord_id`, `no_platform_credential`,
+  `bot_unavailable`. With `ACCESS_ENFORCE=true` the same cases return 403 (503 for
+  `bot_unavailable`) and log `decision=deny`.
+
+Turn enforcement on once the log shows no `would_deny` lines from legitimate use.
 
 ### `@member_required`
 

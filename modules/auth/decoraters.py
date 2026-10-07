@@ -4,6 +4,7 @@ from functools import wraps
 
 from flask import current_app, jsonify, request, session
 
+from modules.auth.access import org_officer_denial, superadmin_denial
 from shared import config, tokenManager
 
 logger = logging.getLogger(__name__)
@@ -110,10 +111,10 @@ def auth_required(f):
                 elif tokenManager.is_token_expired(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
-                return f(*args, **kwargs)
             except Exception:
                 session.pop("token", None)
                 return jsonify({"message": "Session authentication failed!"}), 401
+            return _with_org_scope(f, *args, **kwargs)
 
         # If no session, check Authorization header (for API calls)
         token = None
@@ -130,11 +131,30 @@ def auth_required(f):
             elif tokenManager.is_token_expired(token):
                 logger.debug("Token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
-            return f(*args, **kwargs)
         except Exception as e:
             return jsonify({"message": str(e)}), 401
+        return _with_org_scope(f, *args, **kwargs)
 
     return wrapper
+
+
+def org_officer_required(f):
+    """For routes behind dual_auth_required that only officers use: refuse members and other orgs' officers."""
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return _with_org_scope(f, *args, **kwargs)
+
+    return wrapper
+
+
+def _with_org_scope(f, *args, **kwargs):
+    """Run an authenticated route, refusing callers who are not officers of the org in its URL."""
+    denial = org_officer_denial()
+    if denial:
+        message, status = denial
+        return jsonify({"message": message}), status
+    return f(*args, **kwargs)
 
 
 def superadmin_required(f):
@@ -241,6 +261,9 @@ def superadmin_required(f):
                         return jsonify({"message": "Superadmin access required!"}), 403
 
                     logger.debug(f"User is an officer in {len(officer_guilds)} guild(s)!")
+                    denial = superadmin_denial(str(discord_id))
+                    if denial:
+                        return jsonify({"message": denial[0]}), denial[1]
                 except Exception as e:
                     logger.error(f"Error verifying superadmin status: {e}")
                     import traceback
@@ -285,13 +308,16 @@ def superadmin_required(f):
 
                     logger.debug("Checking officer status for user")
                     # Check if user is still an officer using the bot's check_officer method
-                    officer_guilds = auth_bot.check_officer(str(user_discord_id))  # type: ignore[attr-defined]
+                    officer_guilds = auth_bot.check_officer(str(user_discord_id), config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
                     logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
                     if not officer_guilds:  # If user is not officer in any organization
                         logger.debug("User is not an officer in any organization!")
                         return jsonify({"message": "Superadmin access required!"}), 403
 
                     logger.debug(f"User is an officer in {len(officer_guilds)} guild(s)!")
+                    denial = superadmin_denial(str(user_discord_id))
+                    if denial:
+                        return jsonify({"message": denial[0]}), denial[1]
 
                 except Exception as e:
                     logger.error(f"Error in username lookup: {e}")

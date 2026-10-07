@@ -71,13 +71,15 @@ class Config:
 
             # Monitoring Configuration (Optional)
             self.SENTRY_DSN = os.environ.get("SENTRY_DSN")
-            self.SYS_ADMIN = os.environ.get("ADMIN_USER_ID")
 
             # AI Service Keys
             self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-            # Superadmin config
+            # Superadmin config: the Discord user id in SYS_ADMIN
             self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
+
+            # Access checks (modules/auth/access.py): false logs refusals, true enforces them
+            self.ACCESS_ENFORCE = os.environ.get("ACCESS_ENFORCE", "false").lower() == "true"
 
             # LeetCode Daily Bot
             self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")

@@ -3,7 +3,13 @@ from datetime import UTC, datetime
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
-from modules.auth.decoraters import auth_required, dual_auth_required, error_handler, member_required
+from modules.auth.decoraters import (
+    auth_required,
+    dual_auth_required,
+    error_handler,
+    member_required,
+    org_officer_required,
+)
 from modules.storefront.models import Order, OrderItem, Product
 from modules.utils.db import DBConnect
 
@@ -224,6 +230,7 @@ def delete_product(org_prefix, product_id):
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
 @dual_auth_required
+@org_officer_required
 @error_handler
 def get_orders(org_prefix):
     """Get all orders for an organization"""
