@@ -284,3 +284,65 @@ def logout():
 @auth_blueprint.route("/success")
 def success():
     return "You have successfully logged in with Discord! (This is a generic success page)"
+
+
+@auth_blueprint.route("/appTokens", methods=["GET"])
+@auth_required
+def list_app_tokens():
+    """App tokens the signed-in officer issued and has not revoked."""
+    from modules.auth.models import AppToken
+    from shared import db_connect
+
+    discord_id = _caller_discord_id()
+    db = db_connect.SessionLocal()
+    try:
+        tokens = (
+            db.query(AppToken)
+            .filter(AppToken.discord_id == discord_id, AppToken.revoked_at.is_(None))
+            .order_by(AppToken.created_at.desc())
+            .all()
+        )
+        return jsonify(
+            [
+                {
+                    "id": t.id,
+                    "app_name": t.app_name,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                    "expires_at": t.expires_at.isoformat(),
+                }
+                for t in tokens
+            ]
+        ), 200
+    finally:
+        db.close()
+
+
+@auth_blueprint.route("/appTokens/<int:token_id>", methods=["DELETE"])
+@auth_required
+def revoke_app_token(token_id):
+    """Revoke one of the signed-in officer's app tokens. The superadmin may revoke any."""
+    import datetime
+
+    from modules.auth.access import is_superadmin
+    from modules.auth.models import AppToken
+    from shared import db_connect
+
+    discord_id = _caller_discord_id()
+    db = db_connect.SessionLocal()
+    try:
+        token = db.query(AppToken).filter(AppToken.id == token_id).first()
+        if token is None or (token.discord_id != discord_id and not is_superadmin(discord_id)):
+            return jsonify({"error": "App token not found"}), 404
+        token.revoked_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        db.commit()
+        return jsonify({"message": "App token revoked"}), 200
+    finally:
+        db.close()
+
+
+def _caller_discord_id():
+    token = session.get("token")
+    if not token:
+        header = request.headers.get("Authorization", "")
+        token = header[7:].strip() if header.startswith("Bearer ") else None
+    return tokenManager.retrieve_discord_id(token) if token else None

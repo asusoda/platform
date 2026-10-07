@@ -119,12 +119,12 @@ In report mode the call goes through and logs `reason=no_platform_credential` or
 `main.py` signs sessions with `FLASK_SECRET_KEY`, else `SECRET_KEY`, else a random key per start.
 It used to default to `"dev-secret-key"`.
 
-### C4. The token blacklist is in-memory and per-process
+### C4. Token revocations are in the database
 
-`TokenManager.blacklist` is a plain `set()` (`modules/utils/TokenManager.py:22`). `delete_token()`
-adds to it. It is wiped on every restart, so "revoked" access tokens become valid again after a
-deploy — until they expire naturally (30 min). Refresh-token revocation *is* persistent (DB-backed),
-so the practical blast radius is one access-token lifetime.
+`TokenManager.delete_token()` writes a `revoked_tokens` row (a hash of the token and its expiry), so
+a revoked access token stays revoked across restarts and for every process. App tokens get a `jti`
+and an `app_tokens` row; officers list theirs with `GET /api/auth/appTokens` and revoke one with
+`DELETE /api/auth/appTokens/<id>`. The hourly cleanup drops revocations of tokens that have expired.
 
 ### C5. `DELETE /api/superadmin/remove_org/<id>` has no cascade
 

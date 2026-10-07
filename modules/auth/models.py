@@ -34,3 +34,31 @@ class RefreshToken(Base):
 
     def __repr__(self):
         return f"<RefreshToken {self.token[:8]}...>"
+
+
+def _utcnow():
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+
+class RevokedToken(Base):
+    """A revoked access or app token, kept until it would have expired anyway."""
+
+    __tablename__ = "revoked_tokens"
+    id = Column(Integer, primary_key=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class AppToken(Base):
+    """An app token an officer issued. A token whose row is missing or revoked is refused."""
+
+    __tablename__ = "app_tokens"
+    id = Column(Integer, primary_key=True)
+    jti = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    app_name = Column(String(255), nullable=False)
+    discord_id = Column(String(255), nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
