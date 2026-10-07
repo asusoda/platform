@@ -198,7 +198,10 @@ make logs           # last 50 lines, both services
 make logs-follow    # tail
 ```
 
-Logs are colour-formatted by `colorlog` at INFO. There is a lot of DEBUG-level detail in
+In compose, `LOG_FORMAT=json` makes every line a JSON object (`ts`, `level`, `logger`, `msg`, and
+for request and access lines their `key=value` fields, such as `route`, `status`, `org` and
+`reason`). Without it, logs are colour-formatted by `colorlog` at INFO; the dev override sets
+`LOG_FORMAT=text`. There is a lot of DEBUG-level detail in
 `decoraters.py` and `bot.py` that will not appear unless you lower the level in
 `modules/utils/logging_config.py`.
 

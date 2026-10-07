@@ -10,6 +10,7 @@ services:
       - ./shared.py:/app/shared.py
     environment:
       - IS_PROD=false
+      - LOG_FORMAT=text
   bot:
     volumes:
       - ./data:/app/data
@@ -18,3 +19,4 @@ services:
       - ./shared.py:/app/shared.py
     environment:
       - IS_PROD=false
+      - LOG_FORMAT=text

@@ -31,6 +31,8 @@ services:
       - IS_PROD=true
       # The bot runs in the bot service below, not in the API process
       - RUN_BOT_IN_API=false
+      # One JSON object per log line
+      - LOG_FORMAT=json
     logging:
       driver: json-file
       options:
@@ -58,6 +60,7 @@ services:
       - ./.env:/app/.env:ro
     environment:
       - IS_PROD=true
+      - LOG_FORMAT=json
     logging:
       driver: json-file
       options:
