@@ -1,5 +1,7 @@
 This project provides a modular internal API and Discord bots for the Software Developers Association (SoDA) at ASU. The server side is developed using Flask, handling API requests, Discord bot interactions, and data management across all modules.
 
+Documentation is in [docs/](docs/README.md). The plan for making platform shared infrastructure for several orgs is in [docs/roadmap.md](docs/roadmap.md).
+
 ## Getting Started
 
 ### Prerequisites
