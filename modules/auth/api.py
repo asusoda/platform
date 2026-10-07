@@ -1,6 +1,11 @@
+import secrets
+import time
+from urllib.parse import urlencode
+
 import requests
 from flask import Blueprint, current_app, jsonify, redirect, request, session
 
+from modules.auth.access import decide
 from modules.auth.decoraters import auth_required, error_handler
 from modules.utils.logging_config import logger
 from shared import config, tokenManager
@@ -14,12 +19,48 @@ GUILD_ID = 762811961238618122
 logger.info(f"Auth API using CLIENT_ID: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
 
 
+# One-time login codes: the OAuth callback hands the browser a code, not the tokens, and the
+# web app trades it for the tokens with POST /exchange. Held in memory, so this assumes one API
+# process (main.py runs one). Codes live LOGIN_CODE_SECONDS and work once.
+LOGIN_CODE_SECONDS = 60
+_login_codes: dict[str, tuple[float, str, str]] = {}
+
+
+def _issue_login_code(access_token: str, refresh_token: str) -> str:
+    now = time.monotonic()
+    for code in [c for c, entry in _login_codes.items() if entry[0] <= now]:
+        _login_codes.pop(code, None)
+    code = secrets.token_urlsafe(32)
+    _login_codes[code] = (now + LOGIN_CODE_SECONDS, access_token, refresh_token)
+    return code
+
+
 @auth_blueprint.route("/login", methods=["GET"])
 def login():
     logger.info(f"Redirecting to Discord OAuth login for client_id: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
-    return redirect(
-        f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=identify%20guilds"
+    state = secrets.token_urlsafe(24)
+    session["oauth_state"] = state
+    query = urlencode(
+        {
+            "client_id": CLIENT_ID,
+            "redirect_uri": REDIRECT_URI,
+            "response_type": "code",
+            "scope": "identify guilds",
+            "state": state,
+        }
     )
+    return redirect(f"https://discord.com/oauth2/authorize?{query}")
+
+
+@auth_blueprint.route("/exchange", methods=["POST"])
+def exchange_login_code():
+    """Trade a one-time login code from the OAuth callback for the token pair."""
+    data = request.get_json(silent=True) or {}
+    entry = _login_codes.pop(str(data.get("code", "")), None)
+    if entry is None or entry[0] <= time.monotonic():
+        return jsonify({"error": "Invalid or expired login code"}), 400
+    _, access_token, refresh_token = entry
+    return jsonify({"access_token": access_token, "refresh_token": refresh_token}), 200
 
 
 @auth_blueprint.route("/validToken", methods=["GET"])
@@ -47,6 +88,12 @@ def callback():
     if not code:
         logger.warning("No authorization code provided in /callback")
         return jsonify({"error": "No authorization code provided"}), 400
+
+    # The state must match the one /login stored, so a login started elsewhere is not accepted
+    expected_state = session.pop("oauth_state", None)
+    if not expected_state or not secrets.compare_digest(expected_state, request.args.get("state", "")):
+        if decide("oauth_state_mismatch"):
+            return redirect(f"{config.CLIENT_URL}/auth/?error=Login expired, please try again")
 
     logger.info("Received authorization code, exchanging for token.")
     token_response = requests.post(
@@ -90,9 +137,9 @@ def callback():
             }
             session["token"] = access_token
             session["refresh_token"] = refresh_token
-            # Redirect to React frontend with both tokens
-            frontend_url = f"{config.CLIENT_URL}/auth/?access_token={access_token}&refresh_token={refresh_token}"
-            return redirect(frontend_url)
+            # Redirect to the React frontend with a one-time code; the tokens stay out of the URL
+            login_code = _issue_login_code(access_token, refresh_token)
+            return redirect(f"{config.CLIENT_URL}/auth/?code={login_code}")
         else:
             full_url = f"{config.CLIENT_URL}/auth/?error=Unauthorized Access"
             return redirect(full_url)

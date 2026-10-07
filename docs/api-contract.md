@@ -32,7 +32,7 @@ Calls `config.apiUrl` with the platform JWT from login, or the session cookie.
 
 | Area | Endpoints |
 |---|---|
-| Auth | GET /api/auth/name, GET /api/auth/validToken, POST /api/auth/refresh, POST /api/auth/logout |
+| Auth | GET /api/auth/login, GET /api/auth/callback (redirects to /auth/?code=…), POST /api/auth/exchange, GET /api/auth/name, GET /api/auth/validToken, POST /api/auth/refresh, POST /api/auth/logout |
 | Organizations | GET /api/organizations/, PUT /api/organizations/{id}/settings, GET and PUT /api/organizations/{id}/calendar |
 | Points | GET and POST /api/points/{org}/users, PUT /api/points/{org}/users/{user}, GET /api/points/{org}/users/{user}/points, POST /api/points/{org}/assign_points, DELETE /api/points/{org}/delete_points, POST /api/points/{org}/uploadEventCSV, POST /api/points/{org}/member_login, GET /api/points/{org}/member_profile |
 | Public | GET /api/public/{org}/leaderboard |

@@ -3,6 +3,7 @@ import os
 
 from flask import Blueprint, current_app, jsonify, request
 
+from modules.auth.access import any_officer_denial
 from modules.utils.logging_config import get_logger
 from shared import db_connect as db
 
@@ -16,6 +17,15 @@ game_blueprint = Blueprint("game", __name__, template_folder=None, static_folder
 # but actual bot lifecycle is managed in main.py threads.
 
 logger.info("Bot API module initialized (game_blueprint)")
+
+
+@game_blueprint.before_request
+def require_officer():
+    """The game controls post to Discord and award points, so only officers may call them."""
+    denial = any_officer_denial()
+    if denial:
+        return jsonify({"message": denial[0]}), denial[1]
+    return None
 
 
 @game_blueprint.route("/", methods=["GET"])

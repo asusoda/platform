@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request, session
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.exc import IntegrityError
 
+from modules.auth.access import decide
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
 from modules.utils.logging_config import logger
@@ -383,6 +384,21 @@ def index():
     return jsonify({"message": "Points"}), 200
 
 
+def _clerk_email() -> str | None:
+    """The email of the Clerk session token on this request, or None."""
+    from modules.utils import clerk_auth
+
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer ") or not header[7:].strip():
+        return None
+    try:
+        result = clerk_auth.verify_clerk_token(header[7:].strip())
+    except Exception:
+        logger.debug("Clerk token verification failed in member_login", exc_info=True)
+        return None
+    return result[0] if result else None
+
+
 @points_blueprint.route("/<string:org_prefix>/member_login", methods=["POST"])
 def member_login(org_prefix):
     """
@@ -394,6 +410,14 @@ def member_login(org_prefix):
     # Validate required fields
     if not data:
         return jsonify({"error": "Request data is required"}), 400
+
+    # The caller must prove the email they log in as: a Clerk session token for that email.
+    # Without one, anyone could log in as any member by typing their email or ASU ID.
+    verified_email = _clerk_email()
+    claimed_email = str(data.get("email") or "").strip().lower()
+    if not verified_email or verified_email.lower() != claimed_email:
+        if decide("member_login_unverified", org=org_prefix):
+            return jsonify({"error": "Sign in to log in as this member"}), 403
 
     # Get organization
     db = next(db_connect.get_db())

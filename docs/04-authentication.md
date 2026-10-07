@@ -22,10 +22,13 @@ This is the main admin path. End to end:
 
 ```
 1. Browser        → GET  {API}/api/auth/login
-2. API            → 302 to discord.com/oauth2/authorize?...&scope=identify%20guilds
+2. API            → session["oauth_state"] = random
+                  → 302 to discord.com/oauth2/authorize?...&scope=identify%20guilds&state=…
 3. User approves on Discord
-4. Discord        → 302 to REDIRECT_URI  ({API}/api/auth/callback?code=…)
-5. API /callback  → POST discord.com/api/v10/oauth2/token   (exchange code for access token)
+4. Discord        → 302 to REDIRECT_URI  ({API}/api/auth/callback?code=…&state=…)
+5. API /callback  → state must equal session["oauth_state"] (report mode logs a mismatch,
+                    ACCESS_ENFORCE=true redirects with an error)
+                  → POST discord.com/api/v10/oauth2/token   (exchange code for access token)
                   → GET  discord.com/api/v10/users/@me      (fetch the user's id)
                   → auth_bot.check_officer(user_id, SUPERADMIN_USER_ID)
                        ├─ superadmin? return every guild id
@@ -37,18 +40,19 @@ This is the main admin path. End to end:
                                         access_exp_minutes=30, refresh_exp_days=7)
        session["user"]  = {username, discord_id, role: "officer", officer_guilds: [...]}
        session["token"] / session["refresh_token"]
-       302 → {CLIENT_URL}/auth/?access_token=…&refresh_token=…
+       302 → {CLIENT_URL}/auth/?code=…   (one-time code, valid 60 s)
 6b. Not an officer →
        302 → {CLIENT_URL}/auth/?error=Unauthorized Access
-7. React /auth page (TokenRetrival.js) reads the query params into localStorage
+7. React /auth page (TokenRetrival.js) → POST {API}/api/auth/exchange {code}
+       → {access_token, refresh_token}, stored in localStorage
 ```
 
 Two consequences worth flagging:
 
 - **The bot must be connected and its guild cache warm**, or `/callback` returns
   `503 Authentication service temporarily unavailable`.
-- **Tokens travel in the URL query string** in step 6a. They land in browser history and in any
-  proxy access log along the way.
+- **Login codes are held in the API process's memory.** This works because `main.py` runs one
+  process. Running several workers would need the codes in a shared store.
 
 ### The tokens themselves
 
@@ -110,8 +114,14 @@ Set in two places:
 `@member_required` reads `session["discord_id"]` — which, note, **nothing in the current codebase
 ever writes**. See [Gotchas](./10-gotchas-and-known-issues.md).
 
-Sessions are signed with `app.secret_key`, which comes from `FLASK_SECRET_KEY` and **defaults to
-`"dev-secret-key"`**. Set it in production.
+Sessions are signed with `app.secret_key`, from `FLASK_SECRET_KEY`, else `SECRET_KEY`. With neither
+set, a random key is generated at startup and sessions end on every restart. (It used to default to
+the public string `"dev-secret-key"`, which let anyone forge a session.)
+
+`member_login` requires a Clerk session token whose email matches the email in the body. Without
+one, anyone could log in as any member by typing their email or ASU ID. In report mode the request
+goes through and logs `reason=member_login_unverified`. The web app's MemberLoginPage sends no
+Clerk token, so it has to move to Clerk before `ACCESS_ENFORCE=true`.
 
 ---
 

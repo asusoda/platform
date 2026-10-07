@@ -98,7 +98,7 @@ def _route_org():
         db.close()
 
 
-def _decide(reason: str, principal: Principal | None, org: str | None) -> bool:
+def decide(reason: str, principal: Principal | None = None, org: str | None = None) -> bool:
     """Log a refusal. Returns True if the request must be refused."""
     enforce = enforcing()
     logger.warning(
@@ -124,19 +124,40 @@ def org_officer_denial() -> tuple[str, int] | None:
     principal = current_principal()
     if principal is None or not principal.discord_id:
         reason = "no_discord_id" if principal else "no_platform_credential"
-        if _decide(reason, principal, org.prefix):
+        if decide(reason, principal, org.prefix):
             return "This credential is not tied to a Discord user", 403
         return None
     if is_superadmin(principal.discord_id):
         return None
     guilds = officer_guild_ids(principal.discord_id)
     if guilds is None:
-        if _decide("bot_unavailable", principal, org.prefix):
+        if decide("bot_unavailable", principal, org.prefix):
             return "Bot not available for verification", 503
         return None
     if str(org.guild_id) not in guilds:
-        if _decide("not_org_officer", principal, org.prefix):
+        if decide("not_org_officer", principal, org.prefix):
             return "You are not an officer of this organization", 403
+    return None
+
+
+def any_officer_denial() -> tuple[str, int] | None:
+    """For routes not tied to one org (the Discord game controls): refuse callers who are no org's officer."""
+    principal = current_principal()
+    if principal is None or not principal.discord_id:
+        reason = "no_discord_id" if principal else "no_platform_credential"
+        if decide(reason, principal):
+            return "Authentication required!", 401
+        return None
+    if is_superadmin(principal.discord_id):
+        return None
+    guilds = officer_guild_ids(principal.discord_id)
+    if guilds is None:
+        if decide("bot_unavailable", principal):
+            return "Bot not available for verification", 503
+        return None
+    if not guilds:
+        if decide("not_officer", principal):
+            return "Officer access required", 403
     return None
 
 
@@ -145,7 +166,7 @@ def superadmin_denial(discord_id: str | None) -> tuple[str, int] | None:
     if is_superadmin(discord_id):
         return None
     principal = current_principal() or Principal("none", discord_id)
-    if _decide("not_superadmin", principal, None):
+    if decide("not_superadmin", principal, None):
         return "Superadmin access required!", 403
     return None
 

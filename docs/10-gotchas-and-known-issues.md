@@ -102,24 +102,22 @@ pattern.
 
 ## C. Security-relevant
 
-### C1. `/api/bot/*` is entirely unauthenticated
+### C1. `/api/bot/*` needs an officer
 
-Every route in `modules/bot/api.py` — ~16 endpoints including `startactivegame`, `endactivegame`,
-`uploadgame`, `awardpoints`, `cleanactivegame` — has **no auth decorator at all**. Anyone who can
-reach the API can create Discord channels and roles in the guild, start and end games, and award
-points. Since the API is publicly reachable at `api.thesoda.io`, this is exposed.
+Every route in `modules/bot/api.py` (start and end games, upload games, award points) had no auth.
+A `before_request` hook now requires an officer of any org, as does `/api/calendar/debug/organizations`.
+In report mode the call goes through and logs `reason=no_platform_credential` or `reason=not_officer`.
 
-### C2. Tokens travel in the URL query string
+### C2. Login tokens no longer travel in the URL
 
-`modules/auth/api.py:94` redirects to
-`{CLIENT_URL}/auth/?access_token=…&refresh_token=…`. Access and refresh tokens end up in browser
-history, in the `Referer` header of any subsequent request, and in every proxy and CDN access log
-on the path. A POST body or a `HttpOnly` cookie would avoid this.
+`/api/auth/callback` redirects with a one-time code that the web app trades at
+`POST /api/auth/exchange`. The OAuth `state` parameter is checked. See
+[Authentication](./04-authentication.md).
 
-### C3. `FLASK_SECRET_KEY` defaults to `"dev-secret-key"`
+### C3. Session key
 
-`main.py:23`. Sessions are signed with it. If it is not set in production, anyone can forge a
-session cookie.
+`main.py` signs sessions with `FLASK_SECRET_KEY`, else `SECRET_KEY`, else a random key per start.
+It used to default to `"dev-secret-key"`.
 
 ### C4. The token blacklist is in-memory and per-process
 
