@@ -26,7 +26,7 @@ def create_schema():
     """Create every table on a fresh test database. Production uses Alembic migrations instead."""
     from sqlalchemy import text
 
-    from modules.utils.base import Base
+    from core.base import Base
     from shared import db_connect
 
     if db_connect.engine.dialect.name == "postgresql":

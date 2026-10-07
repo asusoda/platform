@@ -3,7 +3,7 @@ import datetime
 from sqlalchemy import JSON, Column, DateTime, Integer, String
 from sqlalchemy.sql import func
 
-from modules.utils.base import Base
+from core.base import Base
 
 
 class Session(Base):

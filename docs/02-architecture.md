@@ -26,7 +26,7 @@ no database server. This is a real constraint: SQLite handles one writer at a ti
 concurrent writes will block.
 
 In production a third container, `soda-bot`, runs `bot_main.py`: the Discord bot, from the same
-image. The API reads Discord through the REST API (`modules/utils/discord_directory.py`) and does
+image. The API reads Discord through the REST API (`core/discord_directory.py`) and does
 not need the bot. The sections below describe `python3 main.py`, which still starts the bot in a
 thread for local development unless `RUN_BOT_IN_API=false`.
 
@@ -130,12 +130,24 @@ Every folder under `modules/` follows the same shape:
 ```
 modules/<name>/
 ├── api.py       Blueprint + route handlers. This is the module's public surface.
-├── models.py    SQLAlchemy models, all inheriting from modules/utils/base.py:Base
+├── models.py    SQLAlchemy models, all inheriting from core/base.py:Base
 └── README.md    Older, module-local notes (treat as historical — see Gotchas)
 ```
 
 Some modules add more: `calendar/` has `service.py`, `clients.py`, `utils.py`, `errors.py`;
 `bot/` has the whole `discord_modules/` tree; `organizations/` has `config.py`.
+
+Shared code that is not a feature lives in `core/` (database, config, tokens, logging, Discord
+REST client, Clerk). `core/` must not import from `modules/`; three existing imports are listed as
+exceptions in `pyproject.toml` until they are moved.
+
+Module logic is moving into a `service.py` per module that takes a DB session and plain values and
+does not import Flask. The REST routes, the bot, scheduled jobs and (later) MCP tools call the same
+functions. `calendar/service.py` is the first one done: `find_organization`, `list_events`,
+`sync_organization`, `setup_calendar`, `sync_all`, raising `CalendarError(message, status)`.
+
+`make ci` runs `lint-imports` (import-linter) to enforce both rules. Add a module's `service` to the
+"service modules do not import Flask" contract in `pyproject.toml` when it gets one.
 
 Blueprints are registered in `main.py` with these prefixes:
 
@@ -193,7 +205,7 @@ It also means if the bot is offline, nobody can prove they are an officer.
 | Service | Used for | Where |
 |---------|----------|-------|
 | Discord (gateway + REST) | Login, role/membership checks, the bot itself | `modules/bot/`, `modules/auth/api.py` |
-| Clerk | Auth for the public-facing member storefront | `modules/utils/clerk_auth.py` |
+| Clerk | Auth for the public-facing member storefront | `core/clerk_auth.py` |
 | Notion | Source of truth for club events | `modules/calendar/clients.py:NotionCalendarClient` |
 | Google Calendar | Destination for synced events | `modules/calendar/clients.py:GoogleCalendarClient` |
 | LeetCode GraphQL | Daily/random problems, verifying solves | `modules/bot/discord_modules/utils/leetcode.py` |

@@ -78,6 +78,7 @@ dev = [
     "ty>=0.0.14",
     "bandit>=1.7.0",
     "pre-commit>=4.0.0",
+    "import-linter>=2.15",
 ]
 
 [tool.ruff]
@@ -104,3 +105,26 @@ indent-style = "space"
 
 [tool.bandit]
 exclude_dirs = ["tests", "web", "node_modules", ".venv"]
+
+# Module boundaries, checked in CI by `lint-imports` (docs/roadmap.md, "Codebase layout").
+[tool.importlinter]
+root_packages = ["core", "modules"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "core imports no module"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["modules"]
+# Existing exceptions, to be moved into core or behind a service function:
+ignore_imports = [
+    "core.db -> modules.storefront.models",
+    "core.TokenManager -> modules.auth.models",
+    "core.discord_directory -> modules.organizations.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "service modules do not import Flask"
+type = "forbidden"
+source_modules = ["modules.calendar.service"]
+forbidden_modules = ["flask"]

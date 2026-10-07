@@ -61,7 +61,7 @@ utils/
 
 ### Configuration
 ```python
-from modules.utils.config import config
+from core.config import config
 
 # Access configuration values
 db_url = config.DB_URL
@@ -73,7 +73,7 @@ config.set('DEBUG', True)
 
 ### Database
 ```python
-from modules.utils.db import DBConnect
+from core.db import DBConnect
 
 # Create database connection
 db = DBConnect()
@@ -88,7 +88,7 @@ with db.transaction():
 
 ### Token Management
 ```python
-from modules.utils.TokenManager import TokenManager
+from core.TokenManager import TokenManager
 
 # Initialize token manager
 token_manager = TokenManager()

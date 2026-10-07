@@ -203,7 +203,7 @@ for request and access lines their `key=value` fields, such as `route`, `status`
 `reason`). Without it, logs are colour-formatted by `colorlog` at INFO; the dev override sets
 `LOG_FORMAT=text`. There is a lot of DEBUG-level detail in
 `decoraters.py` and `bot.py` that will not appear unless you lower the level in
-`modules/utils/logging_config.py`.
+`core/logging_config.py`.
 
 ### Shell into the API
 

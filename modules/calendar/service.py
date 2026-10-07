@@ -1,6 +1,6 @@
 # modules/calendar/service.py
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from cachetools import TTLCache, cached, keys
 from sentry_sdk import start_transaction
@@ -404,7 +404,9 @@ class MultiOrgCalendarService:
                             continue
                         # Ensure calendar exists
                         if not org.google_calendar_id:
-                            calendar_id = self.ensure_organization_calendar(org.id, org.name, transaction)
+                            calendar_id = self.ensure_organization_calendar(
+                                cast(int, org.id), cast(str, org.name), transaction
+                            )
                             if not calendar_id:
                                 self.logger.error(f"Failed to create calendar for organization {org.id}")
                                 results["organizations_failed"] += 1
@@ -419,7 +421,7 @@ class MultiOrgCalendarService:
                                 continue
                         # Sync organization
                         self.logger.info(f"Starting sync for organization {org.name} (ID: {org.id})")
-                        sync_result = self.sync_organization_notion_to_google(org.id, transaction)
+                        sync_result = self.sync_organization_notion_to_google(cast(int, org.id), transaction)
                         if sync_result.get("status") == "success":
                             results["organizations_processed"] += 1
                             self.logger.info(f"Successfully synced organization {org.name} (ID: {org.id})")
@@ -487,3 +489,58 @@ class CalendarService:
             "status": "error",
             "message": "This method requires organization context. Use MultiOrgCalendarService.get_organization_events_for_frontend instead.",
         }
+
+
+# Module functions: the calendar's logic for every caller (REST, MCP tools, jobs, the bot).
+# They take a database session and an organization and never read Flask's request or app.
+
+_service: MultiOrgCalendarService | None = None
+
+
+def get_service() -> MultiOrgCalendarService:
+    """The process-wide calendar service, created on first use."""
+    global _service
+    if _service is None:
+        _service = MultiOrgCalendarService(logger)
+    return _service
+
+
+class CalendarError(Exception):
+    """A calendar request that cannot be served. status is the HTTP status the API returns."""
+
+    def __init__(self, message: str, status: int):
+        super().__init__(message)
+        self.message = message
+        self.status = status
+
+
+def find_organization(db, org_prefix: str) -> Organization:
+    """The active organization with this prefix. Raises CalendarError (404, or 403 if inactive)."""
+    org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+    if org:
+        return org
+    if db.query(Organization).filter(Organization.prefix == org_prefix).first():
+        raise CalendarError(f"Organization '{org_prefix}' exists but is inactive", 403)
+    raise CalendarError(f"Organization '{org_prefix}' not found", 404)
+
+
+def list_events(db, org: Organization, transaction=None) -> dict[str, Any]:
+    """Upcoming events of the org's Notion calendar, as the website shows them."""
+    if not org.notion_database_id:
+        raise CalendarError(f"Organization '{org.prefix}' has no Notion database configured", 400)
+    return get_service().get_organization_events_for_frontend(org.id, transaction)
+
+
+def sync_organization(db, org: Organization, transaction=None) -> dict[str, Any]:
+    """Copy the org's Notion events into its Google Calendar."""
+    return get_service().sync_organization_notion_to_google(cast(int, org.id), transaction)
+
+
+def setup_calendar(db, org: Organization, transaction=None) -> str | None:
+    """Create the org's Google Calendar if it has none. Returns the calendar id."""
+    return get_service().ensure_organization_calendar(cast(int, org.id), cast(str, org.name), transaction)
+
+
+def sync_all(transaction=None) -> dict[str, Any]:
+    """Sync every active org with calendar sync turned on."""
+    return get_service().sync_all_organizations(transaction)

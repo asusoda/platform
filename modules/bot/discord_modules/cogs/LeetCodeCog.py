@@ -6,13 +6,13 @@ import discord
 from discord.ext import commands, tasks
 from sqlalchemy import func as sa_func
 
+from core.logging_config import get_logger
 from modules.bot.discord_modules.utils.leetcode import (
     fetch_daily_question,
     fetch_random_question,
     fetch_recent_ac_submissions,
 )
 from modules.bot.models import LeetCodeLink, LeetCodeSolve
-from modules.utils.logging_config import get_logger
 
 logger = get_logger("bot.leetcodecog")
 

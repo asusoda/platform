@@ -182,7 +182,7 @@ game state. Any move to gunicorn has to solve that first.
 ### D3. `IS_PROD` vs `PROD` — two different variables
 
 - `main.py:121` reads `os.environ["IS_PROD"]` to decide debug/reloader.
-- `modules/utils/config.py:29` reads `PROD` into `config.PROD`, which nothing uses.
+- `core/config.py:29` reads `PROD` into `config.PROD`, which nothing uses.
 
 `.env.template` and `docker-compose.yml` set `IS_PROD`. `PROD` is dead.
 
@@ -200,7 +200,7 @@ and `pymongo` are installed dependencies with no corresponding code. Setting `DB
 ### D6. `create_all` runs three times, and coexists awkwardly with Alembic
 
 `DBConnect.__init__` calls `check_and_create_tables()`, which calls `create_all` — and then, after a
-stray docstring at `modules/utils/db.py:48`, contains a second block of **unreachable-in-effect**
+stray docstring at `core/db.py:48`, contains a second block of **unreachable-in-effect**
 logic that calls `create_all` again. `shared.py:74` calls it a third time.
 
 The real consequence: a brand-new database gets its schema from the models, not from migrations, and

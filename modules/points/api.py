@@ -9,10 +9,10 @@ from flask import Blueprint, jsonify, request, session
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.exc import IntegrityError
 
+from core.logging_config import logger
 from modules.auth.access import awarded_by, decide
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
-from modules.utils.logging_config import logger
 from shared import db_connect, tokenManager
 
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
@@ -386,7 +386,7 @@ def index():
 
 def _clerk_email() -> str | None:
     """The email of the Clerk session token on this request, or None."""
-    from modules.utils import clerk_auth
+    from core import clerk_auth
 
     header = request.headers.get("Authorization", "")
     if not header.startswith("Bearer ") or not header[7:].strip():

@@ -3,7 +3,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from modules.utils.logging_config import get_logger
+from core.logging_config import get_logger
 
 # Set up logger
 logger = get_logger(__name__)

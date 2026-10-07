@@ -8,18 +8,18 @@ from datetime import UTC, datetime
 import discord
 from flask import jsonify  # Import current_app
 
+from core.discord_directory import DiscordDirectory
+from core.request_log import register_request_logging
 from modules.auth.api import auth_blueprint
 from modules.bot.api import game_blueprint
+from modules.calendar import service as calendar_service
 from modules.calendar.api import calendar_blueprint
-from modules.calendar.service import MultiOrgCalendarService
 from modules.organizations.api import organizations_blueprint
 from modules.points.api import points_blueprint
 from modules.public.api import public_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
-from modules.utils.discord_directory import DiscordDirectory
-from modules.utils.request_log import register_request_logging
 from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Session cookies are signed with this key. A known default would let anyone forge a session,
@@ -33,8 +33,8 @@ if not app.secret_key:
 app.discord_directory = DiscordDirectory(config.BOT_TOKEN)
 
 # Initialize multi-organization calendar service
-multi_org_calendar_service = MultiOrgCalendarService(logger)
-app.multi_org_calendar_service = multi_org_calendar_service
+# Kept on the app for code that still reads it; the same instance calendar.service uses
+app.multi_org_calendar_service = calendar_service.get_service()
 
 
 def get_git_commit_hash():

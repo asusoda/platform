@@ -1,6 +1,6 @@
 from sqlalchemy import JSON, Column, Date, DateTime, Integer, String, UniqueConstraint, func
 
-from modules.utils.base import Base
+from core.base import Base
 
 
 class JeopardyGame(Base):

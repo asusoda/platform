@@ -1,11 +1,11 @@
 from flask import Blueprint, jsonify, request, session
 
+from core.discord_directory import DiscordUnavailable
+from core.logging_config import get_logger
 from modules.auth.access import discord_directory
 from modules.auth.decoraters import superadmin_required
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
-from modules.utils.discord_directory import DiscordUnavailable
-from modules.utils.logging_config import get_logger
 from shared import config, db_connect, tokenManager
 
 logger = get_logger(__name__)

@@ -11,7 +11,7 @@ import time
 
 import requests
 
-from modules.utils.logging_config import get_logger
+from core.logging_config import get_logger
 
 logger = get_logger("discord_directory")
 

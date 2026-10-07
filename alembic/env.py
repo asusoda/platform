@@ -36,7 +36,7 @@ if "shared" not in sys.modules:
 
 # Import the declarative Base and all model modules so that
 # Base.metadata is fully populated for autogenerate support.
-from modules.utils.base import Base  # noqa: E402
+from core.base import Base  # noqa: E402
 
 for model_module in (
     "modules.auth.models",

@@ -41,7 +41,7 @@ turns on the Flask debugger and the auto-reloader, so Python edits take effect w
 
 ## Environment variables
 
-All of these live in `.env` at the repo root. `modules/utils/config.py` reads them into a single
+All of these live in `.env` at the repo root. `core/config.py` reads them into a single
 `Config` object; almost every one has a harmless default so the app boots even with an incomplete
 `.env` (features just get disabled).
 
@@ -124,7 +124,7 @@ are not set, so the tests are collected and skipped. Do not mistake a green test
 The schema comes from Alembic. The API container runs `alembic upgrade head` before it starts; outside
 the container, run `uv run alembic upgrade head` (or `make migrate`) before `python3 main.py`.
 
-1. `DBConnect.__init__` (`modules/utils/db.py`) creates `./data/` if it does not exist.
+1. `DBConnect.__init__` (`core/db.py`) creates `./data/` if it does not exist.
 2. The app uses `DATABASE_URL`, default `sqlite:///./data/user.db`. It does not create tables.
 3. `TokenManager` generates an RSA keypair at `./data/jwt_private.pem` and `./data/jwt_public.pem`
    if they are not already there, so JWTs survive restarts.

@@ -5,10 +5,10 @@ from urllib.parse import urlencode
 import requests
 from flask import Blueprint, jsonify, redirect, request, session
 
+from core.discord_directory import DiscordUnavailable
+from core.logging_config import logger
 from modules.auth.access import decide, discord_directory
 from modules.auth.decoraters import auth_required, error_handler
-from modules.utils.discord_directory import DiscordUnavailable
-from modules.utils.logging_config import logger
 from shared import config, tokenManager
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)

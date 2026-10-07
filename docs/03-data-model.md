@@ -8,11 +8,11 @@ One SQLite file: `./data/user.db`. The URL is hardcoded in `shared.py`:
 db_connect = DBConnect("sqlite:///./data/user.db")
 ```
 
-`DBConnect` (`modules/utils/db.py`) creates the engine with `check_same_thread=False` — required
+`DBConnect` (`core/db.py`) creates the engine with `check_same_thread=False` — required
 because the bot thread and the Flask threads share the same engine — and builds a `sessionmaker`
 called `SessionLocal`.
 
-All models inherit from one declarative base, `modules/utils/base.py:Base`. That single `Base` is
+All models inherit from one declarative base, `core/base.py:Base`. That single `Base` is
 what makes `Base.metadata.create_all()` and Alembic autogenerate see every table.
 
 ## Entity relationship overview

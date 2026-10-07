@@ -81,13 +81,13 @@ All core functionality is organized in `/modules/` with consistent structure:
 - `models.py` - SQLAlchemy database models  
 - `README.md` - Module documentation
 
-Active modules: auth, bot, calendar, merch, organizations, points, public, superadmin, users, utils
+Active modules: auth, bot, calendar, organizations, points, public, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
-- Base model class in `modules/utils/base.py`
+- Base model class in `core/base.py`
 - Centralized connection management via `DBConnect` class
-- Automatic table creation on startup
+- Schema managed by Alembic migrations (`alembic upgrade head`); no table creation at startup
 
 #### Discord Integration
 - **Auth Bot**: BotFork instance with HelperCog and GameCog for server management
@@ -101,7 +101,7 @@ Active modules: auth, bot, calendar, merch, organizations, points, public, super
 
 ### Configuration Management
 - Environment variables via `.env` file (not tracked in git)
-- `Config` class in `modules/utils/config.py` centralizes configuration
+- `Config` class in `core/config.py` centralizes configuration
 - Organization-specific configs stored in database
 - Sentry integration for error monitoring
 

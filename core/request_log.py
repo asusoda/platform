@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import jwt
 from flask import Flask, g, request, session
 
-from modules.utils.logging_config import get_logger
+from core.logging_config import get_logger
 
 logger = get_logger("request_log")
 

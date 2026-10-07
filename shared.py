@@ -10,12 +10,13 @@ from flask_cors import CORS
 from notion_client import Client
 from sentry_sdk.integrations.flask import FlaskIntegration
 
+from core.config import Config
+from core.db import DBConnect
+from core.logging_config import logger
+from core.TokenManager import TokenManager
+
 # Import custom BotFork class
 from modules.bot.discord_modules.bot import BotFork
-from modules.utils.config import Config
-from modules.utils.db import DBConnect
-from modules.utils.logging_config import logger
-from modules.utils.TokenManager import TokenManager
 
 # Initialize Flask app
 app = Flask(

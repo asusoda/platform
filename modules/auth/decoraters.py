@@ -37,7 +37,7 @@ def dual_auth_required(f):
         # Try Clerk authentication first if we have a Bearer token
         if token:
             try:
-                from modules.utils.clerk_auth import verify_clerk_token
+                from core.clerk_auth import verify_clerk_token
 
                 result = verify_clerk_token(token)
                 if result:

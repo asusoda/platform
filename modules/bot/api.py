@@ -3,8 +3,8 @@ import os
 
 from flask import Blueprint, current_app, jsonify, request
 
+from core.logging_config import get_logger
 from modules.auth.access import any_officer_denial
-from modules.utils.logging_config import get_logger
 from shared import db_connect as db
 
 # Get module logger
