@@ -14,6 +14,7 @@ import time
 import jwt
 from flask import current_app, request, session
 
+from modules.utils.discord_directory import DiscordUnavailable
 from modules.utils.logging_config import get_logger
 from shared import config, tokenManager
 
@@ -83,16 +84,25 @@ def is_superadmin(discord_id: str | None) -> bool:
     return bool(discord_id and superadmin and str(discord_id) == str(superadmin))
 
 
+def discord_directory():
+    """The app's DiscordDirectory: guilds, roles and members read over Discord's REST API."""
+    return getattr(current_app, "discord_directory", None)
+
+
 def officer_guild_ids(discord_id: str) -> frozenset[str] | None:
-    """Guild ids where the user holds the officer role, or None if the bot cannot tell."""
+    """Guild ids where the user holds the officer role, or None if Discord cannot tell."""
     now = time.monotonic()
     cached = _officer_cache.get(discord_id)
     if cached and cached[0] > now:
         return cached[1]
-    bot = getattr(current_app, "auth_bot", None)
-    if bot is None or not bot.is_ready():
+    directory = discord_directory()
+    if directory is None or not directory.is_ready():
         return None
-    guilds = frozenset(str(g) for g in bot.check_officer(discord_id, config.SUPERADMIN_USER_ID))
+    try:
+        guilds = frozenset(str(g) for g in directory.check_officer(discord_id, config.SUPERADMIN_USER_ID))
+    except DiscordUnavailable:
+        logger.warning("Discord unavailable while checking officer guilds", exc_info=True)
+        return None
     _officer_cache[discord_id] = (now + OFFICER_CACHE_SECONDS, guilds)
     return guilds
 

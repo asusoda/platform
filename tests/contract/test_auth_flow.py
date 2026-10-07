@@ -14,7 +14,7 @@ class LoginBot:
     def check_officer(self, user_id, superadmin_user_id):
         return [1001] if str(user_id) == OFFICER_DISCORD_ID else []
 
-    def get_name(self, user_id):
+    def get_display_name(self, guild_id, user_id):
         return "officer"
 
 
@@ -42,7 +42,7 @@ def discord(app, monkeypatch):
     """Discord's token and user endpoints, answering for the officer."""
     import modules.auth.api as auth_api
 
-    monkeypatch.setattr(app, "auth_bot", LoginBot())
+    monkeypatch.setattr(app, "discord_directory", LoginBot())
     monkeypatch.setattr(auth_api.requests, "post", lambda *a, **k: FakeResponse({"access_token": "discord-token"}))
     monkeypatch.setattr(auth_api.requests, "get", lambda *a, **k: FakeResponse({"id": OFFICER_DISCORD_ID}))
 
@@ -85,7 +85,7 @@ def test_member_login_needs_matching_clerk_session(client, clerk_headers, enforc
 
 
 def test_game_controls_need_an_officer(client, app, monkeypatch, officer_headers, enforce):
-    monkeypatch.setattr(app, "auth_bot", LoginBot())
+    monkeypatch.setattr(app, "discord_directory", LoginBot())
     assert client.post("/api/bot/awardpoints?team=a&points=5").status_code == 401
     assert client.get("/api/calendar/debug/organizations").status_code == 401
     assert client.get("/api/bot/", headers=officer_headers).status_code == 200

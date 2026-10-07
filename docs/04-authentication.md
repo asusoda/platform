@@ -30,11 +30,12 @@ This is the main admin path. End to end:
                     ACCESS_ENFORCE=true redirects with an error)
                   → POST discord.com/api/v10/oauth2/token   (exchange code for access token)
                   → GET  discord.com/api/v10/users/@me      (fetch the user's id)
-                  → auth_bot.check_officer(user_id, SUPERADMIN_USER_ID)
-                       ├─ superadmin? return every guild id
+                  → discord_directory.check_officer(user_id, SUPERADMIN_USER_ID)
+                       ├─ superadmin? return every active org's guild id
                        └─ else: for each active org with an officer_role_id,
-                                look up the guild + role + member in the bot's cache,
-                                collect guild ids where the member holds the role
+                                GET /guilds/{guild}/members/{user} over Discord's REST API
+                                (bot token, cached 60 s), collect guild ids where the
+                                member holds the role
 6a. Officer in ≥1 org →
        tokenManager.generate_token_pair(username, discord_id,
                                         access_exp_minutes=30, refresh_exp_days=7)
@@ -49,8 +50,9 @@ This is the main admin path. End to end:
 
 Two consequences worth flagging:
 
-- **The bot must be connected and its guild cache warm**, or `/callback` returns
-  `503 Authentication service temporarily unavailable`.
+- **Discord lookups use the REST API, not the bot.** `modules/utils/discord_directory.py` reads
+  guilds, roles and members with `BOT_TOKEN`, so the API answers while the bot process is down. If
+  `BOT_TOKEN` is unset or Discord is unreachable, `/callback` returns `503`.
 - **Login codes are held in the API process's memory.** This works because `main.py` runs one
   process. Running several workers would need the codes in a shared store.
 
@@ -172,7 +174,7 @@ Validates the token, then:
 
 - **Session path**: requires `session["user"]["role"] == "admin"`. But `/callback` sets that role to
   `"officer"` — so this branch never passes. In practice everything goes through the header path.
-- **Header path**: decodes the token, takes `discord_id`, calls `auth_bot.check_officer(discord_id,
+- **Header path**: decodes the token, takes `discord_id`, calls `discord_directory.check_officer(discord_id,
   SUPERADMIN_USER_ID)`, and requires a non-empty result. Then it runs the superadmin check: the
   `discord_id` must equal `config.SUPERADMIN_USER_ID` (env `SYS_ADMIN`).
 
@@ -187,7 +189,7 @@ Returns `503` when the bot is unavailable or not ready.
 Shared by the decorators above.
 
 - Org scope: the org named in the URL is looked up; an unknown org is left to the route (usually 404).
-  The caller's officer guilds come from `auth_bot.check_officer` and are cached for 60 seconds per
+  The caller's officer guilds come from `discord_directory.check_officer` and are cached for 60 seconds per
   Discord id. The superadmin passes every org.
 - Credentials: access tokens and app tokens carry `discord_id`. App tokens now carry `type: "app"`
   and the issuing officer's `discord_id`, so they are scoped to that officer's orgs. Older app tokens
@@ -208,7 +210,7 @@ Turn enforcement on once the log shows no `would_deny` lines from legitimate use
 
 For public member-facing storefront routes. Requires `org_prefix` in the URL, reads
 `session["discord_id"]`, loads the org, and calls
-`auth_bot.check_user_membership(discord_id, guild_id)`. On success it injects `user_discord_id` and
+`discord_directory.check_user_membership(discord_id, guild_id)`. On success it injects `user_discord_id` and
 `organization` into the handler's `kwargs` — which is why those handlers are declared with `**kwargs`.
 
 ### `@error_handler`

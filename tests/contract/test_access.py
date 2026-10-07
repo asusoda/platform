@@ -43,7 +43,7 @@ def scoped(app, monkeypatch):
     from shared import config
 
     access.clear_cache()
-    monkeypatch.setattr(app, "auth_bot", ScopedBot())
+    monkeypatch.setattr(app, "discord_directory", ScopedBot())
     monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
     monkeypatch.setattr(config, "ACCESS_ENFORCE", True)
     yield
@@ -130,7 +130,7 @@ def test_legacy_app_token_without_user_is_refused(client):
 
 
 def test_bot_unavailable_refuses_in_enforce_mode(client, app, monkeypatch):
-    monkeypatch.setattr(app, "auth_bot", ScopedBot(ready=False))
+    monkeypatch.setattr(app, "discord_directory", ScopedBot(ready=False))
     assert client.get("/api/points/soda/users", headers=headers_for(OFFICER_DISCORD_ID)).status_code == 503
 
 

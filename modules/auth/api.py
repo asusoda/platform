@@ -3,10 +3,11 @@ import time
 from urllib.parse import urlencode
 
 import requests
-from flask import Blueprint, current_app, jsonify, redirect, request, session
+from flask import Blueprint, jsonify, redirect, request, session
 
-from modules.auth.access import decide
+from modules.auth.access import decide, discord_directory
 from modules.auth.decoraters import auth_required, error_handler
+from modules.utils.discord_directory import DiscordUnavailable
 from modules.utils.logging_config import logger
 from shared import config, tokenManager
 
@@ -78,10 +79,9 @@ def validToken():
 
 @auth_blueprint.route("/callback", methods=["GET"])
 def callback():
-    # Get the auth bot from Flask app context (the one actually running in thread)
-    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-    if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
-        logger.error("Auth bot is not available or not ready for /callback")
+    directory = discord_directory()
+    if directory is None or not directory.is_ready():
+        logger.error("Discord directory is not configured for /callback")
         return jsonify({"error": "Authentication service temporarily unavailable. Bot not ready."}), 503
 
     code = request.args.get("code")
@@ -120,10 +120,19 @@ def callback():
         user_response = requests.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=30)
         user_info = user_response.json()
         user_id = user_info["id"]
-        officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
+        try:
+            officer_guilds = directory.check_officer(user_id, config.SUPERADMIN_USER_ID)
+        except DiscordUnavailable:
+            logger.exception("Discord unavailable during /callback")
+            return jsonify({"error": "Authentication service temporarily unavailable."}), 503
         logger.debug(f"Officer guilds: {officer_guilds}")
         if officer_guilds:  # If user is officer in at least one organization
-            name = auth_bot.get_name(user_id)  # type: ignore[attr-defined]
+            # Server nickname in the first officer guild, else the Discord display name
+            try:
+                name = directory.get_display_name(officer_guilds[0], user_id)
+            except DiscordUnavailable:
+                name = None
+            name = name or user_info.get("global_name") or user_info.get("username")
             # Generate token pair with both access and refresh tokens
             access_token, refresh_token = tokenManager.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
