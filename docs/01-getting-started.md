@@ -121,10 +121,11 @@ are not set, so the tests are collected and skipped. Do not mistake a green test
 
 ## Database on first boot
 
-You do not create the database by hand. On startup:
+The schema comes from Alembic. The API container runs `alembic upgrade head` before it starts; outside
+the container, run `uv run alembic upgrade head` (or `make migrate`) before `python3 main.py`.
 
 1. `DBConnect.__init__` (`modules/utils/db.py`) creates `./data/` if it does not exist.
-2. It creates the SQLite file `./data/user.db` and runs `Base.metadata.create_all()`.
+2. The app uses `DATABASE_URL`, default `sqlite:///./data/user.db`. It does not create tables.
 3. `TokenManager` generates an RSA keypair at `./data/jwt_private.pem` and `./data/jwt_public.pem`
    if they are not already there, so JWTs survive restarts.
 

@@ -157,6 +157,28 @@ the web image, and **it does not roll back the database** — if the failed depl
 you must reverse that migration yourself (`uv run alembic downgrade -1`) or restore the copy that
 `make backup` wrote to `data/backups/` just before the deploy.
 
+## Moving to Postgres
+
+The app reads `DATABASE_URL` (default `sqlite:///./data/user.db`). The schema comes from Alembic
+migrations only: the API container runs `alembic upgrade head` before gunicorn starts, and nothing
+calls `create_all` at startup. CI runs the tests and `alembic check` on both SQLite and Postgres 16.
+
+Steps, rehearsed on staging first:
+
+1. Add `POSTGRES_PASSWORD` to `.env` and start the database: `docker compose --profile postgres up -d postgres`.
+2. Create the schema: `DATABASE_URL=postgresql://platform:<password>@localhost:5432/platform uv run alembic upgrade head`
+   (expose the port or run it inside the network).
+3. Stop writers: `docker compose stop api bot`.
+4. Copy and verify: `uv run python scripts/copy_sqlite_to_postgres.py sqlite:///./data/user.db <postgres url>`.
+   It refuses non-empty tables and exits non-zero if any table's row count or any org's points
+   total differs.
+5. Set `DATABASE_URL=postgresql://platform:<password>@postgres:5432/platform` in `.env` and
+   `docker compose up -d`.
+6. Keep `data/user.db` for at least two weeks. Rollback is removing `DATABASE_URL` and restarting.
+
+Keep gunicorn at one worker until the switch; afterwards raise `--workers` in `docker-compose.yml`
+once login codes move to the database (they are in memory today).
+
 ## Operational recipes
 
 ### Which build is live?

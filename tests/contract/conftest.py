@@ -113,7 +113,9 @@ def _seed(db_connect):
 def app():
     import main
     from shared import db_connect
+    from tests.conftest import create_schema
 
+    create_schema()
     _seed(db_connect)
     setattr(main.app, "auth_bot", FakeBot())  # noqa: B010
     setattr(main.app, "discord_directory", FakeBot())  # noqa: B010

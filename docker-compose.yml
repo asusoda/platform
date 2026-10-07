@@ -12,7 +12,11 @@ services:
     restart: unless-stopped
     # One worker with threads: SQLite takes one writer at a time, and login codes live in memory.
     # Raise the worker count after the move to Postgres.
-    command: ["gunicorn", "--workers", "1", "--threads", "8", "--timeout", "120", "--bind", "0.0.0.0:8000", "main:app"]
+    # Migrations run first; the schema comes from Alembic, not from create_all at startup.
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec gunicorn --workers 1 --threads 8 --timeout 120 --bind 0.0.0.0:8000 main:app
     ports:
       - "8000:8000"
     volumes:
@@ -90,6 +94,27 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - soda-network
+
+  # Postgres, off unless started with --profile postgres and DATABASE_URL points at it.
+  # See docs/09-deployment-and-operations.md, "Moving to Postgres".
+  postgres:
+    image: postgres:16
+    container_name: soda-postgres
+    restart: unless-stopped
+    profiles: ["postgres"]
+    environment:
+      - POSTGRES_DB=platform
+      - POSTGRES_USER=platform
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - soda-network
 

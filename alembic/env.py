@@ -5,6 +5,7 @@ import types
 from importlib import import_module
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import make_url
 
@@ -49,8 +50,9 @@ for model_module in (
 
 target_metadata = Base.metadata
 
-# Allow overriding the database URL via the DATABASE_URL environment variable.
-# Falls back to the value in alembic.ini (sqlalchemy.url).
+# Allow overriding the database URL via the DATABASE_URL environment variable, read from .env
+# as the app does. Falls back to the value in alembic.ini (sqlalchemy.url).
+load_dotenv()
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)

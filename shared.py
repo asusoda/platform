@@ -12,7 +12,6 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 
 # Import custom BotFork class
 from modules.bot.discord_modules.bot import BotFork
-from modules.utils.base import Base
 from modules.utils.config import Config
 from modules.utils.db import DBConnect
 from modules.utils.logging_config import logger
@@ -65,13 +64,6 @@ db_connect = DBConnect(os.environ.get("DATABASE_URL", "sqlite:///./data/user.db"
 
 # Initialize TokenManager
 tokenManager = TokenManager()
-
-
-# Import models so their tables are registered with Base.metadata before create_all
-import modules.auth.models  # noqa: F401, E402
-
-# Ensure all tables are created after all models are imported
-Base.metadata.create_all(bind=db_connect.engine)
 
 
 # Periodic cleanup of expired refresh tokens

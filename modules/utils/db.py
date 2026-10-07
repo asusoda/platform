@@ -5,9 +5,6 @@ from sqlalchemy.orm import sessionmaker
 
 from modules.utils.logging_config import get_logger
 
-# Create a centralized Base for all models
-from .base import Base
-
 # Set up logger
 logger = get_logger(__name__)
 
@@ -19,9 +16,12 @@ class DBConnect:
         # Ensure the database directory exists
         self._ensure_db_directory()
 
-        self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+        # The schema comes from Alembic migrations (alembic upgrade head), not create_all at startup
+        if self.SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+            self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+        else:
+            self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-        self.check_and_create_tables()
 
     def _ensure_db_directory(self):
         """Extract the database file path and ensure its directory exists"""
@@ -39,30 +39,6 @@ class DBConnect:
             if db_dir and not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
                 logger.info(f"Created database directory: {db_dir}")
-
-    def check_and_create_tables(self):
-        """Create all tables if they don't exist"""
-        logger.info("Creating database tables...")
-        Base.metadata.create_all(bind=self.engine)
-        logger.info("Database tables created successfully")
-        """Check if database file exists and create tables if needed"""
-        try:
-            # Ensure data directory exists
-            os.makedirs(os.path.dirname(self.SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")), exist_ok=True)
-
-            # Check if the database file exists
-            db_path = self.SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
-            if not os.path.exists(db_path):
-                logger.info(f"Database file does not exist at {db_path}. Creating tables...")
-                # Import all models to register them with Base
-
-                Base.metadata.create_all(bind=self.engine)
-                logger.info("Database tables created successfully")
-            else:
-                logger.info(f"Database file already exists at {db_path}. Using existing database.")
-        except Exception as e:
-            logger.error(f"Error checking/creating database tables: {str(e)}")
-            raise
 
     def get_db(self):
         db = self.SessionLocal()
