@@ -56,6 +56,28 @@ def current_principal() -> Principal | None:
     return Principal(kind, str(discord_id) if discord_id else None)
 
 
+def awarded_by(typed_name: str | None) -> str | None:
+    """The officer name to record on a points entry.
+
+    The signed-in officer's name comes from their token. A different name typed in the form is
+    kept, with the signed-in officer appended, so the record shows who actually entered it.
+    """
+    token = session.get("token")
+    if not token:
+        header = request.headers.get("Authorization", "")
+        token = header[7:].strip() if header.startswith("Bearer ") else None
+    try:
+        signed_in = tokenManager.retrieve_username(token) if token else None
+    except jwt.InvalidTokenError:
+        signed_in = None
+    typed = (typed_name or "").strip()
+    if not signed_in:
+        return typed or None
+    if not typed or typed == signed_in:
+        return signed_in
+    return f"{typed} (entered by {signed_in})"
+
+
 def is_superadmin(discord_id: str | None) -> bool:
     superadmin = config.SUPERADMIN_USER_ID
     return bool(discord_id and superadmin and str(discord_id) == str(superadmin))
@@ -159,6 +181,21 @@ def any_officer_denial() -> tuple[str, int] | None:
         if decide("not_officer", principal):
             return "Officer access required", 403
     return None
+
+
+def member_details_allowed(org) -> bool:
+    """Whether the caller may see members' emails and ASU IDs: officers of org and the superadmin.
+
+    Anyone else is logged as member_details_hidden, and the details are left out only when enforcing.
+    """
+    principal = current_principal()
+    if principal and principal.discord_id:
+        if is_superadmin(principal.discord_id):
+            return True
+        guilds = officer_guild_ids(principal.discord_id)
+        if guilds and str(org.guild_id) in guilds:
+            return True
+    return not decide("member_details_hidden", principal, org.prefix)
 
 
 def superadmin_denial(discord_id: str | None) -> tuple[str, int] | None:

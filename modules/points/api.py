@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request, session
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.exc import IntegrityError
 
-from modules.auth.access import decide
+from modules.auth.access import awarded_by, decide
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
 from modules.utils.logging_config import logger
@@ -672,7 +672,7 @@ def add_points_to_org(org_prefix):
             user_id=user.id,
             organization_id=organization.id,
             event=data.get("event"),
-            awarded_by_officer=data.get("awarded_by_officer"),
+            awarded_by_officer=awarded_by(data.get("awarded_by_officer")),
         )
         db.add(point)
         db.commit()
@@ -1108,7 +1108,7 @@ def assign_points_to_org(org_prefix):
             user_id=user.id,
             organization_id=organization.id,
             event=data.get("event"),
-            awarded_by_officer=data.get("awarded_by_officer"),
+            awarded_by_officer=awarded_by(data.get("awarded_by_officer")),
         )
         db.add(point)
         db.commit()

@@ -141,6 +141,9 @@ inserts the negative row and commits. Nothing locks the user's rows between the 
 Two concurrent checkouts can both pass the balance check and overdraw the account. SQLite's
 single-writer model makes this hard to hit but does not prevent it.
 
+Prices and totals also came from the client. `price_mismatch()` now compares them with the catalog
+(`reason=checkout_price_mismatch`, 409 when enforcing), and quantities below 1 are refused.
+
 ### C7. `@error_handler` leaks exception text
 
 `modules/auth/decoraters.py:409` returns `{"error": str(e)}, 500`. Any exception message — including

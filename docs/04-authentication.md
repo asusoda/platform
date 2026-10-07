@@ -196,8 +196,10 @@ Shared by the decorators above.
 - Mode: `ACCESS_ENFORCE=false` (default) lets every request through and logs one line per request
   that would be refused:
   `access decision=would_deny reason=not_org_officer route=... org=... credential=... discord_id=...`.
-  Reasons: `not_org_officer`, `not_superadmin`, `no_discord_id`, `no_platform_credential`,
-  `bot_unavailable`. With `ACCESS_ENFORCE=true` the same cases return 403 (503 for
+  Reasons: `not_org_officer`, `not_officer`, `not_superadmin`, `no_discord_id`,
+  `no_platform_credential`, `bot_unavailable`, `oauth_state_mismatch`, `member_login_unverified`,
+  `checkout_price_mismatch` (409 when enforcing), `member_details_hidden` (public member lists drop
+  email and ASU ID instead of refusing). With `ACCESS_ENFORCE=true` the same cases return 403 (503 for
   `bot_unavailable`) and log `decision=deny`.
 
 Turn enforcement on once the log shows no `would_deny` lines from legitimate use.

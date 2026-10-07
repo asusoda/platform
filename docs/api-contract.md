@@ -56,7 +56,7 @@ Every /api request logs one line: method, route, status, org, credential kind (`
 
 These are recorded here, not fixed in phase 0.
 
-- `GET /api/public/{org}/leaderboard` returns every member's email and ASU ID with no authentication (contract case public-leaderboard). Phase 1 should remove those fields or require an officer.
+- `GET /api/public/{org}/leaderboard` and `GET /api/public/{org}/users` returned every member's email and ASU ID with no authentication (contract case public-leaderboard). Phase 1 leaves those fields out for anyone but the org's officers once `ACCESS_ENFORCE=true`.
 - The website's member store call (`GET .../members/store` with a Clerk token) gets 401 today, because `member_required` only accepts a Discord login session (contract case member-store-clerk). Either the website page is unused or it is broken in production.
 - `web/` calls routes that do not exist on the server, so those screens fail: `/api/getgamequestions`, `/api/startactivegame`, `/api/createchannels`, `/api/awardpoints` (the server has these under `/api/bot/`), `/games/*`, `/jeopardy/*`, `/bot/*`, `/points/leaderboard`, `/add-points`, `/remove-points`, `/auth/name`, `/auth/requestToken`. Files: components/GameBoard.js, SetupButton.js, AwardPanel.js, RequestManager.js, points/api.js, pages/GamePanel.js, ActiveGame.js, BotControlPanel.js, Jeopardy.js.
 - App tokens carried no type claim, so they passed as officer access tokens. Phase 1 types them and scopes them to the issuing officer (docs/04-authentication.md, "Access checks").
