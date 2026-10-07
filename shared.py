@@ -148,6 +148,3 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
 
 # Initialize Notion client
 notion = Client(auth=config.NOTION_API_KEY)
-
-# Initialize bot instance
-bot = create_auth_bot(asyncio.get_event_loop())

@@ -6,8 +6,8 @@
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
 │  soda-web       :5000        │        │  soda-internal-api  :8000    │
 │  node:18-alpine              │──HTTP─▶│  python:3.12-slim            │
-│  `serve -s build`            │        │  `python3 main.py`           │
-│  Static React bundle         │        │  Flask + Discord bot thread  │
+│  `serve -s build`            │        │  gunicorn main:app           │
+│  Static React bundle         │        │  Flask API                   │
 └──────────────────────────────┘        └──────────────┬───────────────┘
                                                         │
                                        ┌────────────────┼─────────────────┐
@@ -24,6 +24,11 @@ at **build time**.
 The database is a **single SQLite file** at `./data/user.db`, bind-mounted from the host. There is
 no database server. This is a real constraint: SQLite handles one writer at a time, so heavy
 concurrent writes will block.
+
+In production a third container, `soda-bot`, runs `bot_main.py`: the Discord bot, from the same
+image. The API reads Discord through the REST API (`modules/utils/discord_directory.py`) and does
+not need the bot. The sections below describe `python3 main.py`, which still starts the bot in a
+thread for local development unless `RUN_BOT_IN_API=false`.
 
 ## What runs inside the API container
 

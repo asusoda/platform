@@ -1,10 +1,20 @@
 version: '3.8'
 services:
   api:
+    # Flask's dev server with the reloader instead of gunicorn
+    command: ["python3", "main.py"]
     volumes:
       - ./data:/app/data
       - ./modules:/app/modules
       - ./main.py:/app/main.py
+      - ./shared.py:/app/shared.py
+    environment:
+      - IS_PROD=false
+  bot:
+    volumes:
+      - ./data:/app/data
+      - ./modules:/app/modules
+      - ./bot_main.py:/app/bot_main.py
       - ./shared.py:/app/shared.py
     environment:
       - IS_PROD=false

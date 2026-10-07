@@ -50,8 +50,19 @@ Stage 2: node:18-alpine
 
 ## Compose
 
-`docker-compose.yml` defines both services on a `soda-network` bridge with `restart: unless-stopped`
-and JSON log rotation (10 MB × 3 files).
+`docker-compose.yml` defines three services on a `soda-network` bridge with `restart: unless-stopped`
+and JSON log rotation (10 MB × 3 files):
+
+- `api`: gunicorn serving `main:app` with one worker and 8 threads. One worker because SQLite takes
+  one writer at a time and login codes are held in memory; raise it after the move to Postgres.
+  `RUN_BOT_IN_API=false`.
+- `bot`: `python3 bot_main.py`, the Discord bot (LeetCode daily post, helper and game cogs), from the
+  same image. Exactly one must run, or scheduled posts go out more than once.
+- `web`: the static React bundle.
+
+The game control routes (`/api/bot/*`) call the bot's cogs directly, so with the bot in its own
+process they return 503. The web app's game screens already called the wrong paths. Phase 3 moves
+the games into their own module.
 
 The API container mounts three things from the host:
 
@@ -67,8 +78,10 @@ a missing bind-mount source.
 Healthchecks: API polls `curl -f http://localhost:8000/health`; web polls `wget --spider
 http://localhost:5000`. Both: 10s interval, 5s timeout, 5 retries, 10s start period.
 
-`docker-compose.dev.yml` overlays the API service with bind mounts for `modules/`, `main.py` and
-`shared.py`, and sets `IS_PROD=false` for hot reload.
+`docker-compose.dev.yml` runs the API with `python3 main.py` (Flask's reloader) instead of gunicorn,
+adds bind mounts for `modules/`, `main.py`, `shared.py` and `bot_main.py`, and sets `IS_PROD=false`.
+Running `python3 main.py` outside compose still starts the bot in a thread unless
+`RUN_BOT_IN_API=false`.
 
 ## CI — `.github/workflows/check.yml`
 
