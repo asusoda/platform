@@ -85,6 +85,6 @@ def build_server() -> Server:
     )
 
 
-def build_app(host: str = "0.0.0.0"):
+def build_app(host: str = "0.0.0.0"):  # nosec B104 - the container binds all interfaces, as main.py does
     """The ASGI app. Stateless JSON responses, so any number of processes can serve it."""
     return build_server().streamable_http_app(stateless_http=True, json_response=True, host=host)
