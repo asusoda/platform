@@ -14,6 +14,7 @@ from modules.agents.api import agents_blueprint
 from modules.asu.api import asu_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
+from modules.compute.api import compute_blueprint
 from modules.games.api import game_blueprint
 from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint
@@ -53,6 +54,7 @@ MOUNTS = [
     Mount(accounts_blueprint, "/api/accounts"),
     Mount(apps_blueprint, "/api/apps"),
     Mount(asu_blueprint, "/api/asu"),
+    Mount(compute_blueprint, "/api/compute", module="compute"),
 ]
 
 

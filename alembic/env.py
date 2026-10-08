@@ -48,6 +48,7 @@ for model_module in (
     "modules.knowledge.models",
     "modules.leetcode.models",
     "modules.calendar.models",
+    "modules.compute.models",
     "modules.organizations.models",
     "modules.points.models",
     "modules.runpod.models",
