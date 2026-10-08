@@ -11,8 +11,8 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 | Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
 | Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete, and the history of each feed: its last 50 runs with counts and errors, and its last 50 items |
-| Apps | RunPod apps: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
-| Knowledge | Knowledge sources: sync the ASU pages, add, edit, pause and run crawls, delete sources, and test a search |
+| Apps | The org's bots, agents, sites and services, grouped by kind, with the host of each: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
+| Knowledge | Source packs to add or sync, sources filtered by domain: add, edit, pause and run crawls, delete sources, and test a search |
 | Agents | Conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
 | Activity | Two tabs: Changes, the org's audit log with pages; CI runs, the latest GitHub Actions runs for the repos the org lists |

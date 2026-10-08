@@ -11,10 +11,9 @@ from flask import Blueprint, request
 
 from core.http import audit_hook
 from core.http.responses import json_body
-from modules.asu import service as asu
 from modules.auth import access
 from modules.auth.routes import officer_route
-from modules.knowledge import crawl, embedder
+from modules.knowledge import crawl, embedder, packs
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
@@ -142,12 +141,17 @@ def run_crawl(db, org, key):
     return {"queued": True}, 202
 
 
-@_route("/knowledge/asu/sync", ["POST"])
-def sync_asu(db, org):
-    """Add or update the ASU pages as crawled sources, then start the crawl job for the sources that are due."""
+@_route("/knowledge/packs", ["GET"])
+def list_packs(db, org):
+    return {"packs": packs.list_packs(db, _org_id(org))}
+
+
+@_route("/knowledge/packs/<string:name>/sync", ["POST"])
+def sync_pack(db, org, name):
+    """Add or update the pack's sources, then start the crawl job for the sources that are due."""
     from core.jobs import defer
 
-    counts = asu.sync(db, _org_id(org), str(org.prefix))
+    counts = packs.sync(db, _org_id(org), str(org.prefix), name)
     defer("knowledge.crawl_due")
     return counts
 

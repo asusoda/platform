@@ -58,6 +58,12 @@ The `knowledge.crawl_due` job runs every 10 minutes. It crawls up to `KNOWLEDGE_
 
 A source's `crawl` field shows its schedule, `last_attempt_at` and `last_error`.
 
+## Source packs
+
+A source pack is a named set of crawled sources that a module adds in one step, such as the ASU pages of the `asu` module. A module registers a pack with `modules.knowledge.packs.register`, with a key prefix and a sync function. The pack owns the org's sources whose keys start with that prefix. The Knowledge page of the dashboard lists the packs (`GET /api/dashboard/<org>/knowledge/packs`) and syncs one (`POST /api/dashboard/<org>/knowledge/packs/<name>/sync`), which also starts the crawl job.
+
+The dashboard groups sources by domain: the part of the key before the first `/`.
+
 ## Search
 
 1. Vector search: the chunks nearest to the query vector, of the same embedding model. It drops chunks farther than `KNOWLEDGE_MAX_DISTANCE` (cosine distance).

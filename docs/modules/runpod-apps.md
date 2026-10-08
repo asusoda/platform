@@ -21,6 +21,8 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 
 ```json
 {
+  "kind": "bot",
+  "description": "The club Discord bot",
   "image": "ghcr.io/example-club/club-bot",
   "gpu": {"id": "NVIDIA RTX A5000", "count": 1},
   "cloud": "SECURE",
@@ -33,6 +35,7 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 }
 ```
 
+- `kind` is `bot`, `agent`, `site` or `service` (the default). `description` (200 characters or fewer) and `url` (https, the app's public address) are optional. The dashboard groups apps by `kind` and shows the other two. Deploys do not send these three fields to RunPod. App responses include `kind`, `description`, `url` and `host` (`runpod`).
 - `image` has no tag. The deploy gives the tag. Use `gpu` or `cpu` (`{"id": "cpu5c", "vcpuCount": 4}`), not both.
 - `gpu`, `cpu`, `cloud`, `dataCenterIds` and `mounts` apply when the pod is created. To change them, terminate the pod in RunPod, then `DELETE` and `PUT` the app again.
 - `env`, `disk`, `ports`, `args` and `registry` go with each deploy.

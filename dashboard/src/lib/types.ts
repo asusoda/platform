@@ -139,8 +139,14 @@ export type AppDeployment = {
   finished_at: string | null;
 };
 
+export type AppKind = 'bot' | 'agent' | 'site' | 'service';
+
 export type App = {
   name: string;
+  kind: AppKind;
+  description: string | null;
+  url: string | null;
+  host: 'runpod';
   manifest: AppManifest;
   repo: string | null;
   manifest_path: string | null;
