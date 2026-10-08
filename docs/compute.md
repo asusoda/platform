@@ -65,10 +65,16 @@ A member certificate has principal `gf-<pod_id>` and forces `/usr/local/bin/godf
 certificate without the forced command. Each certificate is valid from five minutes ago to twelve
 hours from now. Every connect is in the audit log.
 
+## Web pages
+
+Officers manage pods at `/<org>/compute` (create, start, stop, restart, terminate, who may
+connect) and a running pod's files at `/<org>/compute/<pod_id>/files` (browse, edit text, upload,
+download, new folder, rename, delete). Both are hidden when the module is off.
+
 ## File manager
 
 Officer routes that work on a running pod's files over SFTP, as root with the org's `backend` key.
-Paths are absolute and normalized. The API has no web page yet.
+Paths are absolute and normalized.
 
 | Route | Body | What it does |
 |-------|------|--------------|
@@ -86,7 +92,7 @@ Pod host keys are not checked, since RunPod publishes none.
 
 ## Not ported yet
 
-- The web pages for pods and the file manager.
+- A member page for connecting. Members use the routes above directly for now.
 - The godfather CLI. It signs in with Godfather's own tokens; using these routes needs a member
   credential the CLI can hold, which the platform does not issue yet.
 - The RunPod request and response field names follow RunPod's REST API and are checked against a
