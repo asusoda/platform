@@ -15,7 +15,7 @@ from modules.asu.queries import registry
 from modules.asu.settings import settings
 from modules.asu.sources import SOURCES
 from modules.asu.types import QueryError
-from modules.knowledge import crawl, extract, fetch
+from modules.knowledge import crawl, extract, fetch, packs
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import KnowledgeError, can_publish
@@ -146,3 +146,14 @@ def index_result(db, org_id: int, org_prefix: str, query_key: str, url: str, tex
     result = crawl.index_text(db, source, text, title, content_hash, embedder, previous=previous, force=True)
     logger.info("live result indexed source=%s chunks=%s", source.key, result["chunks"])
     return result
+
+
+packs.register(
+    packs.Pack(
+        name="asu",
+        title="Arizona State University",
+        description="Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.",
+        key_prefix=KEY_PREFIX,
+        sync=sync,
+    )
+)

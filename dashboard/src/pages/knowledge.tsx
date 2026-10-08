@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Database, ExternalLink, Pencil, Play, Plus, Search, Trash2, X } from 'lucide-react';
+import { Database, ExternalLink, Pencil, Play, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import {
   Badge,
@@ -59,6 +59,66 @@ function crawlBody(s: KnowledgeSource, changes: { enabled?: boolean } = {}) {
     enabled: s.crawl?.enabled ?? true,
     ...changes,
   };
+}
+
+// The domain of a source is the first part of its key, before the first slash: asu/library-hours is in asu.
+function domainOf(key: string): string {
+  const slash = key.indexOf('/');
+  return slash > 0 ? key.slice(0, slash) : 'other';
+}
+
+function countBy(values: string[]): [string, number][] {
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
+type Pack = { name: string; title: string; description: string; key_prefix: string; sources: number };
+
+function SourcePacks({ prefix, onSynced }: { prefix: string; onSynced: (message: string) => void }) {
+  const invalidate = useInvalidate(prefix);
+  const packs = useQuery({
+    queryKey: ['knowledge', prefix, 'packs'],
+    queryFn: () => api<{ packs: Pack[] }>(`/api/dashboard/${prefix}/knowledge/packs`),
+    enabled: Boolean(prefix),
+  });
+  const sync = useMutation({
+    mutationFn: (pack: Pack) =>
+      send<{ added: number; updated: number; retired: number }>(`/api/dashboard/${prefix}/knowledge/packs/${pack.name}/sync`, 'POST'),
+    onSuccess: (r, pack) => {
+      invalidate();
+      onSynced(
+        `${pack.title}: ${r.added} added, ${r.updated} updated, ${r.retired} retired. The crawl job fetches due pages in batches every 10 minutes.`,
+      );
+    },
+  });
+  if (!packs.data?.packs.length) return null;
+  return (
+    <Card className="mb-6">
+      <CardHeader title="Source packs" hint="Ready-made sets of pages a module adds in one step. Sync again to pick up changes." />
+      {packs.data.packs.map((pack) => (
+        <div key={pack.name} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-3 last:border-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              {pack.title}
+              <Badge className="font-mono font-normal">{pack.key_prefix}</Badge>
+            </div>
+            <div className="mt-0.5 text-xs text-pretty text-muted">{pack.description}</div>
+          </div>
+          <span className="text-xs text-muted tabular-nums">{pack.sources ? `${pack.sources} sources` : 'not added'}</span>
+          <Button onClick={() => sync.mutate(pack)} disabled={sync.isPending}>
+            {sync.isPending && sync.variables?.name === pack.name ? <Spinner /> : <RefreshCw className="size-4" />}
+            {pack.sources ? 'Sync' : 'Add'}
+          </Button>
+        </div>
+      ))}
+      {sync.error ? (
+        <div className="p-4 pt-0">
+          <ErrorNote error={sync.error} />
+        </div>
+      ) : null}
+    </Card>
+  );
 }
 
 function useInvalidate(prefix: string) {
@@ -346,6 +406,7 @@ export function KnowledgePage() {
   const [editing, setEditing] = useState<KnowledgeSource | 'new' | null>(null);
   const [running, setRunning] = useState<KnowledgeSource | null>(null);
   const [filter, setFilter] = useState('');
+  const [domain, setDomain] = useState('');
   const [watchUntil, setWatchUntil] = useState(0);
   const [notice, setNotice] = useState<ReactNode>(null);
   const list = useQuery({
@@ -366,7 +427,8 @@ export function KnowledgePage() {
 
   const sources = list.data?.sources ?? [];
   const categories = [...new Set(sources.map((s) => s.category))].sort();
-  const shown = filter ? sources.filter((s) => s.category === filter) : sources;
+  const domains = countBy(sources.map((s) => domainOf(s.key)));
+  const shown = sources.filter((s) => (!filter || s.category === filter) && (!domain || domainOf(s.key) === domain));
   const crawled = sources.filter((s) => s.crawl);
   const failing = crawled.filter((s) => s.crawl?.last_error);
   const chunks = sources.reduce((n, s) => n + s.chunk_count, 0);
@@ -417,7 +479,7 @@ export function KnowledgePage() {
     <>
       <PageHeader
         title="Knowledge"
-        description="The sources agents search: pages the platform crawls on a schedule, and documents that clients write."
+        description="The sources agents search, by domain: source packs, pages the platform crawls on a schedule, and documents that clients write."
         action={addCrawl}
       />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -440,6 +502,33 @@ export function KnowledgePage() {
       {list.error || actionError ? (
         <div className="mb-4">
           <ErrorNote error={list.error ?? actionError} />
+        </div>
+      ) : null}
+      <SourcePacks
+        prefix={prefix}
+        onSynced={(message) => {
+          setWatchUntil(Date.now() + WATCH_MS);
+          setNotice(message);
+        }}
+      />
+      {domains.length > 1 ? (
+        <div role="tablist" aria-label="Domains" className="mb-3 flex flex-wrap gap-1.5">
+          {[['', sources.length] as [string, number], ...domains].map(([d, n]) => (
+            <button
+              key={d || 'all'}
+              type="button"
+              role="tab"
+              aria-selected={domain === d}
+              onClick={() => setDomain(d)}
+              className={cx(
+                'flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors',
+                domain === d ? 'border-fg bg-fg text-bg' : 'border-line text-muted hover:text-fg',
+              )}
+            >
+              <span className={d ? 'font-mono' : undefined}>{d || 'All domains'}</span>
+              <span className="tabular-nums opacity-70">{n}</span>
+            </button>
+          ))}
         </div>
       ) : null}
       <Card>
@@ -537,7 +626,7 @@ export function KnowledgePage() {
           </Table>
         ) : (
           <EmptyState icon={Database} title="No sources yet" action={addCrawl}>
-            Add a page to crawl on a schedule, or write documents with a knowledge:write token.
+            Add a source pack above, add a page to crawl on a schedule, or write documents with a knowledge:write token.
           </EmptyState>
         )}
       </Card>

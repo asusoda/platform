@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, ChevronRight, GitBranch, History, Pencil, Plus, RefreshCw, Rocket, Trash2, X } from 'lucide-react';
+import { Boxes, ChevronRight, ExternalLink, GitBranch, History, Pencil, Plus, RefreshCw, Rocket, Trash2, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import {
   Badge,
@@ -28,7 +28,7 @@ import {
 import { api, send } from '../lib/api';
 import { deployTone, duration, podTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
-import type { App, AppDetail, AppManifest, DeployPreview, RunPodPod } from '../lib/types';
+import type { App, AppDetail, AppKind, AppManifest, DeployPreview, RunPodPod } from '../lib/types';
 
 const DEFAULT_MANIFEST_PATH = 'platform.app.yaml';
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -36,6 +36,8 @@ const TAG_PATTERN = /^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|sha256:[a-f0-9]{64})$/;
 const REPO_PATTERN = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
 const EXAMPLE_MANIFEST = {
+  kind: 'bot',
+  description: 'The club Discord bot',
   image: 'ghcr.io/example-club/club-bot',
   gpu: { id: 'NVIDIA RTX A5000', count: 1 },
   cloud: 'SECURE',
@@ -45,6 +47,15 @@ const EXAMPLE_MANIFEST = {
   secret_env: { DISCORD_TOKEN: 'app_club_bot_discord_token' },
   health: { port: 8080, path: '/health' },
 };
+
+// Apps are grouped by what they are for; the host is a detail of each app.
+const KINDS: { kind: AppKind; title: string; hint: string }[] = [
+  { kind: 'bot', title: 'Bots', hint: 'Discord and chat bots' },
+  { kind: 'agent', title: 'Agents', hint: 'AI agents that call the platform with a token' },
+  { kind: 'site', title: 'Sites', hint: 'Websites and web apps' },
+  { kind: 'service', title: 'Services', hint: 'APIs, workers and anything else' },
+];
+const HOSTS: Record<App['host'], string> = { runpod: 'RunPod' };
 
 const pretty = (value: unknown) => JSON.stringify(value, null, 2);
 
@@ -687,6 +698,95 @@ function AppPanel({ prefix, name, onDeleted }: { prefix: string; name: string; o
 
 // Page
 
+function AppTable({ apps, onOpen }: { apps: App[]; onOpen: (name: string) => void }) {
+  return (
+    <Table>
+      <thead>
+        <tr>
+          <Th>App</Th>
+          <Th className="hidden lg:table-cell">Host</Th>
+          <Th className="hidden sm:table-cell">Tag</Th>
+          <Th>Status</Th>
+          <Th className="hidden md:table-cell">Last deploy</Th>
+          <Th>
+            <span className="sr-only">Open</span>
+          </Th>
+        </tr>
+      </thead>
+      <tbody>
+        {apps.map((app) => {
+          const latest = app.latest_deployment;
+          const tone = deployTone(latest?.status ?? null);
+          return (
+            <Tr key={app.name} className="cursor-pointer" onClick={() => onOpen(app.name)}>
+              <Td className="w-full max-w-0">
+                <div className="flex items-center gap-2.5">
+                  <Dot tone={tone} />
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      className="block max-w-full truncate rounded-sm text-left font-medium focus-visible:outline-2 focus-visible:outline-ring"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpen(app.name);
+                      }}
+                    >
+                      {app.name}
+                    </button>
+                    {app.url ? (
+                      <a
+                        href={app.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex max-w-full items-center gap-1 truncate text-xs text-muted hover:text-fg hover:underline"
+                      >
+                        {new URL(app.url).host}
+                        <ExternalLink className="size-3 shrink-0" />
+                      </a>
+                    ) : null}
+                    <div className={cx('truncate text-xs', latest?.error ? 'text-bad' : 'text-muted')}>
+                      {latest?.status === 'failed' && latest.error
+                        ? latest.error
+                        : app.description
+                          ? app.description
+                          : app.repo
+                          ? `${app.repo}${app.manifest_path && app.manifest_path !== DEFAULT_MANIFEST_PATH ? ` · ${app.manifest_path}` : ''}`
+                          : 'inline manifest'}
+                    </div>
+                  </div>
+                </div>
+              </Td>
+              <Td className="hidden lg:table-cell">
+                <Badge>{HOSTS[app.host] ?? app.host}</Badge>
+              </Td>
+              <Td className="hidden max-w-40 sm:table-cell">
+                <Mono className="block truncate text-fg">{app.current_tag ?? '-'}</Mono>
+              </Td>
+              <Td>
+                <Badge tone={tone}>{latest?.status ?? 'not deployed'}</Badge>
+              </Td>
+              <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums md:table-cell">
+                {latest ? (
+                  <>
+                    {timeAgo(latest.started_at)}
+                    {latest.actor ? <span className="text-muted/70"> · {actorLabel(latest.actor)}</span> : null}
+                  </>
+                ) : (
+                  'never'
+                )}
+              </Td>
+              <Td className="w-8 pl-0 text-muted">
+                <ChevronRight className="size-4" />
+              </Td>
+            </Tr>
+          );
+        })}
+      </tbody>
+    </Table>
+  );
+}
+
 export function AppsPage() {
   const { prefix } = useCurrentOrg();
   const [registering, setRegistering] = useState(false);
@@ -709,7 +809,7 @@ export function AppsPage() {
     <>
       <PageHeader
         title="Apps"
-        description="The org's own apps on RunPod. Register a manifest, then deploy image tags here or from CI with an apps:deploy token."
+        description="The org's own bots, agents, sites and services. Register a manifest, then deploy image tags here or from CI with an apps:deploy token. Apps run on RunPod today; the host is shown per app."
         action={register}
       />
       {notice ? (
@@ -725,83 +825,29 @@ export function AppsPage() {
           <ErrorNote error={list.error} />
         </div>
       ) : null}
-      <Card>
-        <CardHeader title="Apps" hint={list.data ? `${apps.length} ${apps.length === 1 ? 'app' : 'apps'}` : undefined} />
-        {list.isLoading ? (
+      {list.isLoading ? (
+        <Card>
           <SkeletonRows />
-        ) : apps.length ? (
-          <Table>
-            <thead>
-              <tr>
-                <Th>App</Th>
-                <Th className="hidden sm:table-cell">Tag</Th>
-                <Th>Status</Th>
-                <Th className="hidden md:table-cell">Last deploy</Th>
-                <Th>
-                  <span className="sr-only">Open</span>
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
-              {apps.map((app) => {
-                const latest = app.latest_deployment;
-                const tone = deployTone(latest?.status ?? null);
-                return (
-                  <Tr key={app.name} className="cursor-pointer" onClick={() => setOpen(app.name)}>
-                    <Td className="w-full max-w-0">
-                      <div className="flex items-center gap-2.5">
-                        <Dot tone={tone} />
-                        <div className="min-w-0">
-                          <button
-                            type="button"
-                            className="block max-w-full truncate rounded-sm text-left font-medium focus-visible:outline-2 focus-visible:outline-ring"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpen(app.name);
-                            }}
-                          >
-                            {app.name}
-                          </button>
-                          <div className={cx('truncate text-xs', latest?.error ? 'text-bad' : 'text-muted')}>
-                            {latest?.status === 'failed' && latest.error
-                              ? latest.error
-                              : app.repo
-                                ? `${app.repo}${app.manifest_path && app.manifest_path !== DEFAULT_MANIFEST_PATH ? ` · ${app.manifest_path}` : ''}`
-                                : 'inline manifest'}
-                          </div>
-                        </div>
-                      </div>
-                    </Td>
-                    <Td className="hidden max-w-40 sm:table-cell">
-                      <Mono className="block truncate text-fg">{app.current_tag ?? '-'}</Mono>
-                    </Td>
-                    <Td>
-                      <Badge tone={tone}>{latest?.status ?? 'not deployed'}</Badge>
-                    </Td>
-                    <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums md:table-cell">
-                      {latest ? (
-                        <>
-                          {timeAgo(latest.started_at)}
-                          {latest.actor ? <span className="text-muted/70"> · {actorLabel(latest.actor)}</span> : null}
-                        </>
-                      ) : (
-                        'never'
-                      )}
-                    </Td>
-                    <Td className="w-8 pl-0 text-muted">
-                      <ChevronRight className="size-4" />
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        ) : (
+        </Card>
+      ) : apps.length ? (
+        <div className="grid gap-6">
+          {KINDS.filter((k) => apps.some((a) => a.kind === k.kind)).map((k) => {
+            const group = apps.filter((a) => a.kind === k.kind);
+            return (
+              <Card key={k.kind}>
+                <CardHeader title={k.title} hint={`${k.hint} · ${group.length} ${group.length === 1 ? 'app' : 'apps'}`} />
+                <AppTable apps={group} onOpen={setOpen} />
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card>
           <EmptyState icon={Boxes} title="No apps" action={register}>
-            Register an app with its manifest: the image, the GPU or CPU, ports, env and a health path.
+            Register a bot, agent, site or service with its manifest: what it is, the image, the GPU or CPU, ports, env and a health path.
           </EmptyState>
-        )}
-      </Card>
+        </Card>
+      )}
 
       <Dialog
         open={registering}

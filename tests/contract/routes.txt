@@ -36,6 +36,7 @@
 /api/alerts/<string:org_prefix>/feeds/<string:key> DELETE,OPTIONS alerts.delete_feed
 /api/alerts/<string:org_prefix>/feeds/<string:key> GET,HEAD,OPTIONS alerts.get_feed
 /api/alerts/<string:org_prefix>/feeds/<string:key> OPTIONS,PUT alerts.put_feed
+/api/alerts/<string:org_prefix>/feeds/<string:key>/history GET,HEAD,OPTIONS alerts.feed_history
 /api/alerts/<string:org_prefix>/feeds/<string:key>/run OPTIONS,POST alerts.run_feed
 /api/apps GET,HEAD,OPTIONS apps.list_apps
 /api/apps/<string:name> DELETE,OPTIONS apps.delete_app
@@ -119,6 +120,8 @@
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
 /api/dashboard/<string:org_prefix>/knowledge/crawls/<path:key> OPTIONS,PUT dashboard.schedule_crawl
 /api/dashboard/<string:org_prefix>/knowledge/crawls/<path:key>/run OPTIONS,POST dashboard.run_crawl
+/api/dashboard/<string:org_prefix>/knowledge/packs GET,HEAD,OPTIONS dashboard.list_packs
+/api/dashboard/<string:org_prefix>/knowledge/packs/<string:name>/sync OPTIONS,POST dashboard.sync_pack
 /api/dashboard/<string:org_prefix>/knowledge/search OPTIONS,POST dashboard.search
 /api/dashboard/<string:org_prefix>/knowledge/sources GET,HEAD,OPTIONS dashboard.list_sources
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> DELETE,OPTIONS dashboard.delete_source

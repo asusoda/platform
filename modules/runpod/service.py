@@ -48,9 +48,15 @@ HEALTH_TIMEOUT = datetime.timedelta(minutes=15)
 REDACTED = "(secret)"
 
 _PORT = {"type": "string", "pattern": r"^[0-9]{1,5}/(http|tcp)$"}
+# What an app is for. The dashboard groups apps by kind; deploys ignore it.
+APP_KINDS = ("bot", "agent", "site", "service")
+
 MANIFEST_SCHEMA: dict = {
     "type": "object",
     "properties": {
+        "kind": {"enum": list(APP_KINDS)},
+        "description": {"type": "string", "maxLength": 200},
+        "url": {"type": "string", "maxLength": 500, "pattern": r"^https://[^\s]+$"},
         "image": {"type": "string", "pattern": r"^[a-z0-9][a-z0-9._/-]{0,250}$"},
         "gpu": {
             "type": "object",
@@ -176,9 +182,14 @@ def _latest(db, app: App) -> AppDeployment | None:
 
 def _app_dict(db, app: App) -> dict:
     latest = _latest(db, app)
+    manifest = _manifest(app)
     return {
         "name": app.name,
-        "manifest": _manifest(app),
+        "kind": manifest.get("kind", "service"),
+        "description": manifest.get("description"),
+        "url": manifest.get("url"),
+        "host": "runpod",
+        "manifest": manifest,
         "repo": app.repo,
         "manifest_path": app.manifest_path,
         "pod_id": app.pod_id,

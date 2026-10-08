@@ -10,11 +10,14 @@ export function BrandingForm({ prefix, name, saved }: { prefix: string; name: st
   const client = useQueryClient();
   const [logo, setLogo] = useState(saved.logo_url ?? '');
   const [accent, setAccent] = useState(saved.accent_color ?? '');
+  const [website, setWebsite] = useState(saved.website_url ?? '');
   const logoOk = !logo || isHttpsUrl(logo);
+  const websiteOk = !website || isHttpsUrl(website);
   const accentOk = !accent || isHexColor(accent);
-  const changed = logo !== (saved.logo_url ?? '') || accent !== (saved.accent_color ?? '');
+  const changed =
+    logo !== (saved.logo_url ?? '') || accent !== (saved.accent_color ?? '') || website !== (saved.website_url ?? '');
   const save = useMutation({
-    mutationFn: () => send<Branding>(`/api/dashboard/${prefix}/branding`, 'PUT', { logo_url: logo, accent_color: accent }),
+    mutationFn: () => send<Branding>(`/api/dashboard/${prefix}/branding`, 'PUT', { logo_url: logo, accent_color: accent, website_url: website }),
     onSuccess: (data) => {
       client.setQueryData(['branding', prefix], data);
       client.invalidateQueries({ queryKey: ['overview', prefix] });
@@ -32,6 +35,9 @@ export function BrandingForm({ prefix, name, saved }: { prefix: string; name: st
       <div className="space-y-5">
         <Field label="Logo URL" hint={logoOk ? 'An https image URL. Square images fit best. Leave empty for the initial.' : 'Must be an https URL.'}>
           <Input value={logo} onChange={(e) => setLogo(e.target.value.trim())} placeholder="https://example.org/logo.png" aria-invalid={!logoOk} />
+        </Field>
+        <Field label="Website" hint={websiteOk ? "The org's main website, an https URL. The sidebar links to it." : 'Must be an https URL.'}>
+          <Input value={website} onChange={(e) => setWebsite(e.target.value.trim())} placeholder="https://example.org" aria-invalid={!websiteOk} />
         </Field>
         <Field label="Accent color" hint={accentOk ? 'Used for primary buttons and the initial when there is no logo. Leave empty for the neutral default.' : 'Must be a hex color like #1f6feb.'}>
           <div className="flex gap-2">
@@ -51,7 +57,7 @@ export function BrandingForm({ prefix, name, saved }: { prefix: string; name: st
           </div>
         </Field>
         <div className="flex items-center gap-3 border-t border-line pt-4">
-          <Button variant="primary" disabled={!changed || !logoOk || !accentOk || save.isPending}>
+          <Button variant="primary" disabled={!changed || !logoOk || !accentOk || !websiteOk || save.isPending}>
             Save branding
           </Button>
           {save.isSuccess && !changed ? <span className="text-xs text-muted">Saved</span> : null}

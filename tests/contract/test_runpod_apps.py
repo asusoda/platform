@@ -125,6 +125,18 @@ def test_first_deploy_creates_pod_then_updates_image(client, manager, deployer, 
 
     info = client.get(f"/api/apps/{name}", headers=manager).get_json()
     assert info["current_tag"] == digest and info["pod_id"] == "pod123"
+    assert (info["kind"], info["description"], info["url"], info["host"]) == ("service", None, None, "runpod")
+
+
+def test_kind_and_url_are_kept_out_of_the_pod(client, manager, deployer, fake):
+    name = _name()
+    manifest = {**MANIFEST, "kind": "bot", "description": "Club Discord bot", "url": "https://club.example.org"}
+    assert client.put(f"/api/apps/{name}", json={"manifest": manifest}, headers=manager).status_code in (200, 201)
+    info = client.get(f"/api/apps/{name}", headers=manager).get_json()
+    assert (info["kind"], info["description"], info["url"]) == ("bot", "Club Discord bot", "https://club.example.org")
+    client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer)
+    _, _, body = fake.calls[-1]
+    assert not {"kind", "description", "url"} & set(body)
 
 
 def test_deploy_token_can_only_deploy(client, manager, deployer, fake):
@@ -210,6 +222,9 @@ def test_runpod_failure_is_recorded(client, manager, deployer, fake):
         {**MANIFEST, "image": "ghcr.io/x/y:latest"},
         {**MANIFEST, "ports": ["8080"]},
         {**MANIFEST, "unknown": 1},
+        {**MANIFEST, "kind": "game"},
+        {**MANIFEST, "url": "http://club.example.org"},
+        {**MANIFEST, "description": "x" * 201},
     ],
 )
 def test_rejects_bad_manifests(client, manager, manifest):

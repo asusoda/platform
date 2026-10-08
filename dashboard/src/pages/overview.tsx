@@ -111,7 +111,7 @@ export function OverviewPage() {
             title="CI"
             hint="Latest run per repository"
             action={
-              <Link to="ci" className={quietLink}>
+              <Link to="activity?tab=ci" className={quietLink}>
                 All runs
               </Link>
             }
@@ -140,7 +140,7 @@ export function OverviewPage() {
           ) : (
             <EmptyState icon={GitBranch}>
               Add repositories in{' '}
-              <Link to="ci" className="text-fg underline underline-offset-2">
+              <Link to="activity?tab=ci" className="text-fg underline underline-offset-2">
                 CI runs
               </Link>
               .

@@ -6,7 +6,7 @@ const DAY = 24 * HOUR;
 
 export const ORG = { id: 1, name: 'Robotics Club', prefix: 'robotics', guild_id: '1290000000000000000', icon_url: null };
 
-export const BRANDING = { logo_url: null, accent_color: '#2563eb' };
+export const BRANDING = { logo_url: null, accent_color: '#2563eb', website_url: 'https://robotics.example.org' };
 
 const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
@@ -298,6 +298,10 @@ export function fixtures(now = Date.now()) {
   const appList = [
     {
       name: 'match-scout',
+      kind: 'site',
+      description: 'Scouting site for match days',
+      url: 'https://scout.robotics.example.org',
+      host: 'runpod',
       manifest: { cpu: { id: 'cpu5c', vcpuCount: 4 }, health: { path: '/healthz', port: 3000 }, image: 'ghcr.io/robotics-club/match-scout', ports: ['3000/http'] },
       repo: 'robotics-club/match-scout',
       manifest_path: 'deploy/platform.app.yaml',
@@ -308,6 +312,10 @@ export function fixtures(now = Date.now()) {
     },
     {
       name: 'parts-inventory',
+      kind: 'service',
+      description: null,
+      url: null,
+      host: 'runpod',
       manifest: { cpu: { id: 'cpu3c', vcpuCount: 2 }, health: { path: '/health', port: 8000 }, image: 'ghcr.io/robotics-club/parts-inventory', ports: ['8000/http'] },
       repo: null,
       manifest_path: null,
@@ -318,6 +326,10 @@ export function fixtures(now = Date.now()) {
     },
     {
       name: 'rover-telemetry',
+      kind: 'agent',
+      description: 'Reads rover telemetry and answers questions in Discord',
+      url: null,
+      host: 'runpod',
       manifest: telemetryManifest,
       repo: 'robotics-club/rover-telemetry',
       manifest_path: 'platform.app.yaml',
@@ -579,6 +591,17 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/pod`]: { pod: telemetryPod },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/deploy`]: preview('v1.9.0'),
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/rollback`]: preview('v1.8.0'),
+    [`/api/dashboard/${ORG.prefix}/knowledge/packs`]: {
+      packs: [
+        {
+          name: 'asu',
+          title: 'Arizona State University',
+          description: 'Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
+          key_prefix: 'asu/',
+          sources: 0,
+        },
+      ],
+    },
     [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },

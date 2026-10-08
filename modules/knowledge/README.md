@@ -12,6 +12,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 | `crawl.py` | Crawls: fetch, extract, chunk, embed, index |
 | `fetch.py` | Fetches with robots.txt, per-host pauses and public addresses only; Firecrawl if `FIRECRAWL_URL` is set |
 | `extract.py` | HTML to text, text to chunks, and the extractors that other modules register |
+| `packs.py` | Source packs: named sets of crawled sources that other modules register and officers sync |
 | `embedder.py` | The OpenAI-compatible embeddings client (`EMBEDDINGS_URL`) |
 | `models.py`, `jobs.py` | Sources, versions, chunks (pgvector on Postgres); the crawl jobs |
 

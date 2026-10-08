@@ -2,7 +2,7 @@
 
 export type Organization = { id: number; name: string; prefix: string; guild_id: string; icon_url: string | null };
 
-export type Branding = { logo_url: string | null; accent_color: string | null };
+export type Branding = { logo_url: string | null; accent_color: string | null; website_url: string | null };
 
 export type ModuleState = { name: string; description: string; enabled: boolean };
 
@@ -95,6 +95,21 @@ export type AlertFeed = {
   posted: number;
 };
 
+export type AlertRun = {
+  started_at: string;
+  duration_ms: number;
+  found: number | null;
+  new: number | null;
+  posted: number;
+  recorded: boolean;
+  error: string | null;
+};
+
+export type AlertHistory = {
+  runs: AlertRun[];
+  items: { title: string; posted: boolean; created_at: string }[];
+};
+
 export type MachineToken = {
   id: number;
   name: string;
@@ -124,8 +139,14 @@ export type AppDeployment = {
   finished_at: string | null;
 };
 
+export type AppKind = 'bot' | 'agent' | 'site' | 'service';
+
 export type App = {
   name: string;
+  kind: AppKind;
+  description: string | null;
+  url: string | null;
+  host: 'runpod';
   manifest: AppManifest;
   repo: string | null;
   manifest_path: string | null;

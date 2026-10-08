@@ -19,4 +19,4 @@ Keeps the org record (Discord server, URL prefix, officer role, config) and the 
 - Tools: `org.info` (scope `org:read`).
 - Tables: `organizations`, `organization_configs`, `officers`.
 
-Config keys: `modules` (a module name set to false for each module that is off), `branding` (`logo_url` and `accent_color`), `leetcode`, `dashboard`.
+Config keys: `modules` (a module name set to false for each module that is off), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.

@@ -10,8 +10,7 @@ import {
   EmptyState,
   ErrorNote,
   Field,
-  PageHeader,
-  PageSkeleton,
+  SkeletonRows,
   Textarea,
 } from '../components/ui';
 import { send } from '../lib/api';
@@ -19,7 +18,8 @@ import { runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import { useCi } from '../lib/queries';
 
-export function CiPage() {
+// GitHub Actions runs of the org's repositories, and the form that lists the repositories. Shown on the Activity page.
+export function CiRuns() {
   const { prefix } = useCurrentOrg();
   const client = useQueryClient();
   const ci = useCi(prefix);
@@ -35,11 +35,16 @@ export function CiPage() {
     onSuccess: () => client.invalidateQueries({ queryKey: ['ci', prefix] }),
   });
 
-  if (ci.isLoading) return <PageSkeleton />;
+  if (ci.isLoading) {
+    return (
+      <Card>
+        <SkeletonRows rows={6} />
+      </Card>
+    );
+  }
 
   return (
     <>
-      <PageHeader title="CI runs" description="Latest GitHub Actions runs for the organization's repositories." />
       {ci.error ? (
         <div className="mb-4">
           <ErrorNote error={ci.error} />
