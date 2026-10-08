@@ -24,7 +24,7 @@ core/          shared code: config, database, jobs, tools, secrets, audit, logs,
 modules/       one folder per module, not nested; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
-web/, dashboard/, site/   the web app, the officer dashboard, the docs and landing site
+dashboard/, site/   the dashboard and member store, the docs and landing site
 deploy/        the RunPod start script, the Hermes image and the SQLite to Postgres copy script
 ```
 
