@@ -7,9 +7,9 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from cryptography.fernet import Fernet
 
+from core.db import db_connect
 from modules.accounts import providers, service
 from modules.accounts.models import AccountGrant, AccountLogin
-from shared import db_connect
 from tests.contract.conftest import MEMBER_DISCORD_ID
 
 

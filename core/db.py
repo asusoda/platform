@@ -1,11 +1,13 @@
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
+from core.config import config
 from core.logging_config import get_logger
 
-# Set up logger
 logger = get_logger(__name__)
 
 
@@ -139,3 +141,20 @@ class DBConnect:
             logger.error(f"Error deleting storefront product: {str(e)}")
             db.rollback()
             return False
+
+
+db_connect = DBConnect(config.DATABASE_URL)
+
+
+@contextmanager
+def session() -> Iterator[Session]:
+    """A database session that commits on success, rolls back on an error and always closes."""
+    db = db_connect.SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

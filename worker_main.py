@@ -8,11 +8,15 @@ itself, so this exits.
 import sys
 
 from core import jobs
+from core.config import config
+from core.logging_config import get_logger, init_sentry
 from modules.registry import load_jobs
-from shared import logger
+
+logger = get_logger(__name__)
 
 
 def main() -> int:
+    init_sentry(config.SENTRY_DSN)
     if jobs.queue_backend() != "procrastinate":
         logger.error("The job worker needs Postgres (DATABASE_URL=postgresql://...); on SQLite the API runs jobs")
         return 1

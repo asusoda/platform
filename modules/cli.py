@@ -14,6 +14,9 @@ import click
 from flask import Flask
 from flask.cli import AppGroup
 
+from core.config import config
+from core.db import db_connect
+
 org_cli = AppGroup("org", help="Organizations.")
 jobs_cli = AppGroup("jobs", help="Background jobs.")
 config_cli = AppGroup("config", help="Configuration.")
@@ -21,12 +24,6 @@ config_cli = AppGroup("config", help="Configuration.")
 
 def _csv(value: str | None) -> tuple[str, ...]:
     return tuple(part.strip() for part in (value or "").split(",") if part.strip())
-
-
-def _session():
-    from shared import db_connect
-
-    return db_connect.SessionLocal()
 
 
 @org_cli.command("create")
@@ -40,7 +37,7 @@ def org_create(name, prefix, guild_id, officer_role_id, description, modules_off
     """Create an organization."""
     from modules.organizations import service
 
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         org = service.create_organization(
             db,
@@ -71,7 +68,7 @@ def org_list():
     """List organizations."""
     from modules.organizations.models import Organization
 
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         for org in db.query(Organization).order_by(Organization.id).all():
             status = "active" if org.is_active else "inactive"
@@ -89,7 +86,7 @@ def org_modules(prefix, modules_on, modules_off):
     """Show or change an organization's module switches."""
     from modules.organizations import service
 
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         org = service.find_by_prefix(db, prefix)
         if org is None:
@@ -141,8 +138,6 @@ def jobs_run(name, args):
 @config_cli.command("check")
 def config_check():
     """Check settings, the database and migrations. Exits non-zero on a failure."""
-    from shared import config
-
     failures = 0
 
     def report(level: str, message: str) -> None:
@@ -189,7 +184,6 @@ def _check_database(report) -> None:
     from alembic.script import ScriptDirectory
 
     from core import jobs
-    from shared import db_connect
 
     try:
         with db_connect.engine.connect() as conn:

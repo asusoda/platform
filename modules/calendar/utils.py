@@ -1,4 +1,3 @@
-# modules/calendar/utils.py
 import logging
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -7,7 +6,10 @@ from typing import Any
 import pytz
 from sentry_sdk import capture_exception, set_context
 
-from shared import config, logger  # Assuming logger and config are available in shared
+from core.config import config
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 @contextmanager

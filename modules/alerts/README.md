@@ -22,10 +22,6 @@ Posts new job listings and upcoming hackathons to the organization's Discord cha
 - Tables: `alert_feeds`, `alert_posts`.
 - Secrets: `alert_webhook_<feed key>`, the Discord webhook URL, encrypted with `SECRETS_KEY`.
 
-## Depends on
-
-`core.secrets`, `core.errors`, `core.jobs`, `core.logging_config`, `core.base`; `modules.auth.routes`, `modules.organizations`; `shared`.
-
 ## More
 
 [docs/alerts.md](../../docs/alerts.md)

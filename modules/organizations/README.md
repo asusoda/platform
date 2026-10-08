@@ -24,10 +24,6 @@ Holds the organization record (Discord guild, URL prefix, officer role, settings
 - `modules`: module name to false for each module turned off.
 - `branding`: `logo_url` (https) and `accent_color` (`#RRGGBB`), shown by the officer dashboard and set through `/api/dashboard/<org>/branding`.
 
-## Depends on
-
-`core.secrets`, `core.audit`, `core.tools`, `core.base`; `modules.auth` (decorators, access, machine tokens, scopes), `modules.leetcode.service`; `shared`.
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

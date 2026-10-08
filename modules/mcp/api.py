@@ -5,10 +5,10 @@ Both take a machine token (Bearer plat_...). The body of a call is the tool's ar
 
 from flask import Blueprint, jsonify, request
 
+from core.db import db_connect
 from core.tools import ToolError
 from modules.auth import machine_tokens
 from modules.mcp import runtime
-from shared import db_connect
 
 tools_blueprint = Blueprint("tools", __name__)
 

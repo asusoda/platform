@@ -22,6 +22,8 @@ class Config:
             # Officer dashboard (dashboard/). Login sends officers back here when they start from it
             self.DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "").rstrip("/")
 
+            self.DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/user.db")
+
             # Service Tokens
             self.BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
@@ -66,3 +68,6 @@ class Config:
 
         except json.JSONDecodeError as e:
             raise RuntimeError(f"Configuration error: {str(e)}") from e
+
+
+config = Config()

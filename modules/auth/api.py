@@ -5,11 +5,13 @@ from urllib.parse import urlencode
 import requests
 from flask import Blueprint, jsonify, redirect, request, session
 
+from core.config import config
+from core.db import db_connect
 from core.discord_directory import DiscordUnavailable
 from core.logging_config import logger
 from modules.auth.access import decide, discord_directory
 from modules.auth.decoraters import auth_required, error_handler
-from shared import config, tokenManager
+from modules.auth.tokens import token_manager
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)
 CLIENT_ID = config.CLIENT_ID
@@ -77,7 +79,7 @@ def validToken():
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
     token = auth_header.split(" ")[1]
-    if tokenManager.is_token_valid(token):
+    if token_manager.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
         return jsonify({"status": "error", "valid": False}), 401
@@ -141,7 +143,7 @@ def callback():
                 name = None
             name = name or user_info.get("global_name") or user_info.get("username")
             # Generate token pair with both access and refresh tokens
-            access_token, refresh_token = tokenManager.generate_token_pair(
+            access_token, refresh_token = token_manager.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
             )
             # Store user info in session with officer guilds
@@ -177,7 +179,7 @@ def refresh_token():
         refresh_token = data["refresh_token"]
 
         # Generate new access token
-        new_access_token = tokenManager.refresh_access_token(refresh_token)
+        new_access_token = token_manager.refresh_access_token(refresh_token)
 
         if new_access_token:
             return jsonify(
@@ -208,12 +210,12 @@ def revoke_token():
         refresh_token = data["refresh_token"]
 
         # Revoke the refresh token
-        if tokenManager.revoke_refresh_token(refresh_token):
+        if token_manager.revoke_refresh_token(refresh_token):
             # Also blacklist the current access token
             auth_header = request.headers.get("Authorization")
             if auth_header:
                 current_token = auth_header.split(" ")[1]
-                tokenManager.delete_token(current_token)
+                token_manager.delete_token(current_token)
 
             return jsonify({"message": "Token revoked successfully"}), 200
         else:
@@ -229,8 +231,8 @@ def valid_token():
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
     token = auth_header.split(" ")[1]
-    if tokenManager.is_token_valid(token):
-        if tokenManager.is_token_expired(token):
+    if token_manager.is_token_valid(token):
+        if token_manager.is_token_expired(token):
             logger.info("Token is valid but expired.")
             return jsonify({"status": "success", "valid": True, "expired": True}), 200
         else:
@@ -253,12 +255,12 @@ def get_app_token():
     if not appname:
         return jsonify({"error": "appname query parameter is required"}), 400
 
-    username = tokenManager.retrieve_username(token)
+    username = token_manager.retrieve_username(token)
     if not username:
         return jsonify({"error": "Invalid user token"}), 401
 
     logger.info(f"Generating app token for user {username}, app: {appname}")
-    app_token_value = tokenManager.generate_app_token(username, appname, tokenManager.retrieve_discord_id(token))
+    app_token_value = token_manager.generate_app_token(username, appname, token_manager.retrieve_discord_id(token))
     return jsonify({"app_token": app_token_value}), 200
 
 
@@ -270,7 +272,7 @@ def get_name():
         return jsonify({"error": "No authorization header"}), 401
     autorisation = auth_header.split(" ")[1]
 
-    return jsonify({"name": tokenManager.retrieve_username(autorisation)}), 200
+    return jsonify({"name": token_manager.retrieve_username(autorisation)}), 200
 
 
 @auth_blueprint.route("/logout", methods=["POST"])
@@ -282,12 +284,12 @@ def logout():
         data = request.get_json()
         if data and "refresh_token" in data:
             # Revoke refresh token
-            tokenManager.revoke_refresh_token(data["refresh_token"])
+            token_manager.revoke_refresh_token(data["refresh_token"])
 
         # Also blacklist current access token if provided
         if "Authorization" in request.headers:
             token = request.headers["Authorization"].split(" ")[1]
-            tokenManager.delete_token(token)
+            token_manager.delete_token(token)
 
         # Clear session
         session.clear()
@@ -307,7 +309,6 @@ def success():
 def list_app_tokens():
     """App tokens the signed-in officer issued and has not revoked."""
     from modules.auth.models import AppToken
-    from shared import db_connect
 
     discord_id = _caller_discord_id()
     db = db_connect.SessionLocal()
@@ -341,7 +342,6 @@ def revoke_app_token(token_id):
 
     from modules.auth.access import is_superadmin
     from modules.auth.models import AppToken
-    from shared import db_connect
 
     discord_id = _caller_discord_id()
     db = db_connect.SessionLocal()
@@ -361,7 +361,7 @@ def _caller_discord_id():
     if not token:
         header = request.headers.get("Authorization", "")
         token = header[7:].strip() if header.startswith("Bearer ") else None
-    return tokenManager.retrieve_discord_id(token) if token else None
+    return token_manager.retrieve_discord_id(token) if token else None
 
 
 @auth_blueprint.route("/machine/whoami", methods=["GET"])
@@ -369,7 +369,6 @@ def machine_whoami():
     """What a machine token is: its org, name, kind and scopes. 401 for anything else."""
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     header = request.headers.get("Authorization", "")
     token = header[7:].strip() if header.startswith("Bearer ") else None

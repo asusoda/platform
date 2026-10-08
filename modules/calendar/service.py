@@ -1,4 +1,3 @@
-# modules/calendar/service.py
 import json
 from datetime import datetime
 from typing import Any, cast
@@ -7,19 +6,18 @@ from cachetools import TTLCache, cached, keys
 from sentry_sdk import start_transaction
 
 from core import secrets
+from core.config import config
+from core.db import db_connect
 from core.errors import ServiceError
+from core.logging_config import get_logger
 from modules.auth import scopes
-
-# Import organization models
 from modules.organizations.models import Organization
 
-# Assuming shared resources are correctly set up
-from shared import config, db_connect, logger
-
-# Import custom modules
 from .clients import GoogleCalendarClient, NotionCalendarClient
 from .models import CalendarEventDTO
 from .utils import operation_span
+
+logger = get_logger(__name__)
 
 scopes.declare("calendar:read", "Read the org's upcoming events")
 secrets.declare("notion_api_key", "Notion integration token for this org's events database")

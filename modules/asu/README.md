@@ -27,10 +27,6 @@ An example campus source module, for Arizona State University. It registers publ
 - Tools: `asu.query` (scope `knowledge:read`).
 - Tables: none; writes through the knowledge tables.
 
-## Depends on
-
-`core.jobs`, `core.tools`, `core.audit_http`, `core.logging_config`; `modules.knowledge` (service, crawl, fetch, extractors, embedder, models), `modules.auth` (decorators, routes), `modules.organizations.models`; `shared`.
-
 ## More
 
 [docs/asu.md](../../docs/asu.md)

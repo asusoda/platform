@@ -127,7 +127,6 @@ forbidden_modules = ["modules"]
 # Existing exceptions, to be moved into core or behind a service function:
 ignore_imports = [
     "core.db -> modules.storefront.models",
-    "core.TokenManager -> modules.auth.models",
     "core.discord_directory -> modules.organizations.models",
 ]
 

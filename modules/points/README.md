@@ -19,10 +19,6 @@ Tracks an organization's members and the points they earn. Officers add members,
 - Tools: `points.leaderboard` (scope `points:read`, gated by `points`).
 - Tables: `users`, `user_organization_memberships`, `points`.
 
-## Depends on
-
-`core.clerk_auth`, `core.jobs`, `core.tools`, `core.logging_config`, `core.base`; `modules.auth` (decorators, access, scopes), `modules.organizations.models`; `shared` (`db_connect`, `tokenManager`).
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

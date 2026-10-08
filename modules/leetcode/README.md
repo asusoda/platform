@@ -20,10 +20,6 @@ Posts the LeetCode daily question in an organization's Discord channel, records 
 - Tools: none.
 - Tables: `leetcode_link`, `leetcode_solve`, `leetcode_daily`.
 
-## Depends on
-
-`core.discord_messages`, `core.discord_directory`, `core.jobs`, `core.logging_config`, `core.base`; `modules.organizations`; `shared`.
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

@@ -14,9 +14,11 @@ import time
 import jwt
 from flask import current_app, request, session
 
+from core.config import config
+from core.db import db_connect
 from core.discord_directory import DiscordUnavailable
 from core.logging_config import get_logger
-from shared import config, tokenManager
+from modules.auth.tokens import token_manager
 
 logger = get_logger("access")
 
@@ -46,7 +48,7 @@ def current_principal() -> Principal | None:
     if not token:
         return None
     try:
-        claims = jwt.decode(token, tokenManager.public_key, algorithms=[tokenManager.algorithm])
+        claims = jwt.decode(token, token_manager.public_key, algorithms=[token_manager.algorithm])
     except jwt.InvalidTokenError:
         return None
     if "app_name" in claims:
@@ -68,7 +70,7 @@ def awarded_by(typed_name: str | None) -> str | None:
         header = request.headers.get("Authorization", "")
         token = header[7:].strip() if header.startswith("Bearer ") else None
     try:
-        signed_in = tokenManager.retrieve_username(token) if token else None
+        signed_in = token_manager.retrieve_username(token) if token else None
     except jwt.InvalidTokenError:
         signed_in = None
     typed = (typed_name or "").strip()
@@ -114,7 +116,6 @@ def clear_cache() -> None:
 def _route_org():
     """The organization named in the URL, or None if the route names none or it does not exist."""
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     args = request.view_args or {}
     if "org_prefix" in args:

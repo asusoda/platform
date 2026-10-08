@@ -17,10 +17,6 @@ Serves the tools other modules register to apps and agents that hold a machine t
 - Tools: none of its own; it serves `core.tools.TOOLS`, filled by the modules in `TOOL_MODULES` in `modules/registry.py`.
 - Tables: none.
 
-## Depends on
-
-`core.tools`, `core.audit`, `core.errors`, `core.logging_config`; `modules.auth.machine_tokens`, `modules.organizations`; `shared`.
-
 ## More
 
 [docs/tools-and-mcp.md](../../docs/tools-and-mcp.md)

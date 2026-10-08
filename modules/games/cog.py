@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from sqlalchemy.exc import SQLAlchemyError
 
+from core.db import db_connect
 from modules.games.jeopardy.Jeopardy import JeopardyGame
 from modules.games.ui import QuestionPost
 
@@ -11,7 +12,6 @@ from modules.games.ui import QuestionPost
 def server_name(guild: discord.Guild) -> str:
     """The name of the organization on this Discord server, or the server's own name."""
     from modules.organizations.service import name_for_guild
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

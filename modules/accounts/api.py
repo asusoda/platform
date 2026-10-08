@@ -6,9 +6,10 @@ from typing import cast
 from flask import Blueprint, g, jsonify, redirect, request, session
 
 from core import audit_http
+from core.config import config
+from core.db import db_connect
 from modules.auth.decoraters import machine_scope_required, member_required
 from modules.organizations.models import Organization
-from shared import config, db_connect
 
 from . import providers, service
 

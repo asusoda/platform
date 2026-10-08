@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.exc import IntegrityError
 
 from core import discord_messages
+from core.config import config
 from core.discord_directory import DiscordUnavailable
 from core.logging_config import get_logger
 from modules.leetcode import client, service
@@ -49,8 +50,6 @@ def question_embed(question: dict, is_daily: bool = False) -> dict:
 
 
 def _config():
-    from shared import config
-
     return config
 
 

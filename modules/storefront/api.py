@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
+from core.db import db_connect
 from modules.auth.access import decide
 from modules.auth.decoraters import (
     auth_required,
@@ -12,7 +13,6 @@ from modules.auth.decoraters import (
     org_officer_required,
 )
 from modules.storefront.models import Order, OrderItem, Product
-from shared import db_connect
 
 storefront_blueprint = Blueprint("storefront", __name__)
 

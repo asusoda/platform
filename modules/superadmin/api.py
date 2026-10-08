@@ -1,12 +1,14 @@
 from flask import Blueprint, jsonify, request, session
 
+from core.config import config
+from core.db import db_connect
 from core.discord_directory import DiscordUnavailable
 from core.logging_config import get_logger
 from modules.auth.access import discord_directory
 from modules.auth.decoraters import superadmin_required
+from modules.auth.tokens import token_manager
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
-from shared import config, db_connect, tokenManager
 
 logger = get_logger(__name__)
 
@@ -33,7 +35,7 @@ def check_superadmin():
 
         # Decode the token to get user information
         logger.debug("Decoding token...")
-        token_data = tokenManager.decode_token(token)
+        token_data = token_manager.decode_token(token)
         if not token_data:
             logger.error("Failed to decode token")
             return jsonify({"error": "Invalid token"}), 401

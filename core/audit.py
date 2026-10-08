@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import JSON, Column, DateTime, Integer, String
 
 from core.base import Base
+from core.db import session
 from core.jobs import job
 from core.logging_config import get_logger
 
@@ -44,12 +45,6 @@ class AuditEntry(Base):
         }
 
 
-def _session():
-    from shared import db_connect
-
-    return db_connect.SessionLocal()
-
-
 def record(
     action: str,
     *,
@@ -61,25 +56,21 @@ def record(
     details: dict | None = None,
 ) -> None:
     """Write one audit row in its own transaction. Never raises: a failed audit write is logged."""
-    db = _session()
     try:
-        db.add(
-            AuditEntry(
-                source=source,
-                action=action[:255],
-                org=org,
-                actor_kind=actor_kind,
-                actor_id=actor_id,
-                status=status,
-                details=details,
+        with session() as db:
+            db.add(
+                AuditEntry(
+                    source=source,
+                    action=action[:255],
+                    org=org,
+                    actor_kind=actor_kind,
+                    actor_id=actor_id,
+                    status=status,
+                    details=details,
+                )
             )
-        )
-        db.commit()
     except Exception:
-        db.rollback()
         logger.exception("audit write failed action=%s", action)
-    finally:
-        db.close()
 
 
 def list_entries(db, *, org: str | None = None, limit: int = 100, before_id: int | None = None) -> list[dict]:
@@ -100,10 +91,6 @@ RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
 def prune() -> None:
     """Delete audit rows older than AUDIT_RETENTION_DAYS."""
     cutoff = datetime.now(UTC) - timedelta(days=RETENTION_DAYS)
-    db = _session()
-    try:
+    with session() as db:
         deleted = db.query(AuditEntry).filter(AuditEntry.created_at < cutoff).delete()
-        db.commit()
-        logger.info("audit pruned rows=%s", deleted)
-    finally:
-        db.close()
+    logger.info("audit pruned rows=%s", deleted)

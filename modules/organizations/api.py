@@ -3,11 +3,11 @@ import re
 
 from flask import Blueprint, jsonify, request
 
+from core.db import db_connect
 from modules.auth.access import visible_org_filter
 from modules.auth.decoraters import auth_required
 from modules.organizations import service
 from modules.organizations.models import Organization
-from shared import db_connect
 
 organizations_blueprint = Blueprint("organizations", __name__)
 

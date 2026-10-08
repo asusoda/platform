@@ -1,21 +1,21 @@
-# modules/calendar/api.py
 """HTTP routes for the calendar. The logic is in service.py; these only translate to and from HTTP."""
 
 from flask import Blueprint, jsonify
 from sentry_sdk import set_tag, start_transaction
 
+from core.db import db_connect
+from core.logging_config import get_logger
 from modules.auth.access import any_officer_denial
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization
-from shared import db_connect, logger
 
 from . import service
 from .errors import APIErrorHandler
 
-# Initialize the service and a top-level error handler for routes
+logger = get_logger(__name__)
+
 route_error_handler = APIErrorHandler(logger, "CalendarAPI_Route")
 
-# Create Flask Blueprint
 calendar_blueprint = Blueprint("calendar", __name__)
 
 

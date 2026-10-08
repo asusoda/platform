@@ -30,7 +30,7 @@ def create_schema():
     from sqlalchemy import text
 
     from core.base import Base
-    from shared import db_connect
+    from core.db import db_connect
 
     # The same model modules alembic/env.py loads, so every table is in Base.metadata
     for model_module in (

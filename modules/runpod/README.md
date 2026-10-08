@@ -19,10 +19,6 @@ Deploys an organization's own apps to RunPod pods: register an app's manifest, d
 - Tools: `apps.list` (scope `apps:read`).
 - Tables: `runpod_apps`, `runpod_deployments`.
 
-## Depends on
-
-`core.runpod`, `core.secrets`, `core.errors`, `core.jobs`, `core.tools`, `core.logging_config`, `core.base`; `modules.auth` (routes, scopes); `shared`.
-
 ## More
 
 [docs/runpod-apps.md](../../docs/runpod-apps.md)

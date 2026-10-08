@@ -131,10 +131,10 @@ def test_hackathon_sources():
 
 @pytest.fixture
 def alerts(app, monkeypatch):
+    from core.db import db_connect
     from core.secrets import OrgSecret
     from modules.alerts import service
     from modules.alerts.models import AlertFeed, AlertPost
-    from shared import db_connect
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     monkeypatch.setattr(service, "POST_GAP_SECONDS", 0)
@@ -157,9 +157,9 @@ def _put(client, headers, key="internships", **body):
 
 
 def _run(key="internships", **kwargs):
+    from core.db import db_connect
     from modules.alerts import service
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -252,8 +252,8 @@ def test_feed_rules(client, officer_headers, alerts):
 
 
 def test_due_feeds_respect_schedule_and_switch(client, officer_headers, alerts, restore_soda_config):
+    from core.db import db_connect
     from modules.alerts import service
-    from shared import db_connect
 
     _put(client, officer_headers)
     _put(client, officer_headers, key="paused", enabled=False)

@@ -37,8 +37,8 @@ def test_saved_secret_is_encrypted_and_never_returned(client, officer_headers, s
     assert entry["set"] is True
 
     from core import secrets
+    from core.db import db_connect
     from core.secrets import OrgSecret
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -52,7 +52,7 @@ def test_key_rotation_keeps_old_secrets_readable(client, officer_headers, soda_i
     _put(client, officer_headers, soda_id)
     monkeypatch.setenv("SECRETS_KEY", f"{Fernet.generate_key().decode()},{key}")
     from core import secrets
-    from shared import db_connect
+    from core.db import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -62,10 +62,10 @@ def test_key_rotation_keeps_old_secrets_readable(client, officer_headers, soda_i
 
 
 def test_calendar_uses_the_orgs_own_notion_token(client, officer_headers, soda_id, key, monkeypatch):
+    from core.db import db_connect
     from modules.calendar import service
     from modules.calendar.clients import NotionCalendarClient
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     _put(client, officer_headers, soda_id)
     db_session = db_connect.SessionLocal()
@@ -96,9 +96,9 @@ def test_secrets_need_an_officer(client, soda_id):
 
 
 def _gcal_for_soda():
+    from core.db import db_connect
     from modules.calendar import service
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db_session = db_connect.SessionLocal()
     try:
@@ -130,7 +130,7 @@ def test_calendar_uses_the_orgs_own_google_account(client, officer_headers, soda
 def test_a_broken_org_google_key_fails_instead_of_using_the_instance_account(
     client, officer_headers, soda_id, key, monkeypatch
 ):
-    from shared import config
+    from core.config import config
 
     monkeypatch.setattr(config, "GOOGLE_SERVICE_ACCOUNT", {"type": "service_account"})
     assert _put(client, officer_headers, soda_id, value="not json", name="google_service_account").status_code == 200

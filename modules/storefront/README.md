@@ -18,10 +18,6 @@ The product and order queries live in `core/db.py` (`DBConnect.get_storefront_pr
 - Tools: none.
 - Tables: `products`, `orders`, `order_items`.
 
-## Depends on
-
-`core.db` and `core.base`; `modules.points` (models, user helpers in `points/api.py`), `modules.auth` (decorators, access), `modules.organizations.models`; `shared`.
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

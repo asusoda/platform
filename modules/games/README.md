@@ -19,10 +19,6 @@ Runs Jeopardy games in an organization's Discord server. Officers upload games, 
 - Tools: none.
 - Tables: `jeopardy_game`, `active_game`.
 
-## Depends on
-
-`core.logging_config`, `core.base`; `modules.auth.access`; `HelperCog` from `modules/bot` through `bot.execute`; `shared`.
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

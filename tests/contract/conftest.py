@@ -116,7 +116,7 @@ def _seed(db_connect):
 @pytest.fixture(scope="session")
 def app():
     import main
-    from shared import db_connect
+    from core.db import db_connect
     from tests.conftest import create_schema
 
     create_schema()
@@ -153,9 +153,9 @@ def member_client(app):
 
 @pytest.fixture(scope="session")
 def officer_headers(app):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    token = tokenManager.generate_token(username="officer", discord_id=OFFICER_DISCORD_ID)
+    token = token_manager.generate_token(username="officer", discord_id=OFFICER_DISCORD_ID)
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -167,8 +167,8 @@ def clerk_headers():
 @pytest.fixture
 def restore_soda_config(app):
     """Put SoDA's config JSON back after a test that changes it (the contract snapshots read it)."""
+    from core.db import db_connect
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     original = copy.deepcopy(db.query(Organization).filter_by(prefix="soda").one().config)

@@ -1,20 +1,18 @@
-# modules/calendar/clients.py
-
 from google.oauth2 import service_account
-from googleapiclient.discovery import Resource, build  # Added Resource type hint
+from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
 from notion_client import APIResponseError
-from notion_client import Client as NotionClient  # Alias to avoid confusion
+from notion_client import Client as NotionClient
 from notion_client.helpers import collect_paginated_api
 from sentry_sdk import capture_exception, set_context, start_transaction
 
-# Assuming shared resources are correctly set up
-from shared import config, logger
-from shared import notion as notion_shared_client
+from core.config import config
+from core.logging_config import get_logger
 
-# Import custom modules
 from .errors import APIErrorHandler
 from .utils import batch_operation, operation_span
+
+logger = get_logger(__name__)
 
 
 class GoogleCalendarClient:
@@ -23,7 +21,7 @@ class GoogleCalendarClient:
     SCOPES = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/calendar.events"]
 
     def __init__(self, logger_instance=None, service_account_info: dict | None = None):
-        self.logger = logger_instance or logger  # Use shared logger by default
+        self.logger = logger_instance or logger
         self._service: Resource | None = None  # Type hint for service
         # An org's own service account; None means the instance-wide GOOGLE_SERVICE_ACCOUNT.
         self.service_account_info = service_account_info
@@ -469,9 +467,9 @@ class NotionCalendarClient:
     """Client for Notion calendar-related operations."""
 
     def __init__(self, logger_instance=None, token: str | None = None):
-        self.logger = logger_instance or logger  # Use shared logger by default
-        # An org's own integration token if given, else the shared instance-wide client
-        self.notion: NotionClient = NotionClient(auth=token) if token else notion_shared_client
+        self.logger = logger_instance or logger
+        # An org's own integration token if given, else the instance-wide NOTION_API_KEY
+        self.notion: NotionClient = NotionClient(auth=token or config.NOTION_API_KEY)
         self.error_handler = APIErrorHandler(self.logger, "NotionCalendarClient")
 
     def fetch_events(self, database_id: str, parent_transaction=None) -> list[dict] | None:  # Accept parent transaction

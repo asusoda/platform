@@ -23,10 +23,6 @@ Runs GPU and CPU pods on the organization's own RunPod account for members to SS
 - Tools: none.
 - Tables: `compute_pods`, `compute_keys`, `compute_sessions`.
 
-## Depends on
-
-`core.runpod`, `core.secrets`, `core.audit`, `core.errors`, `core.jobs`, `core.logging_config`, `core.base`; `modules.auth` (decorators, access, machine tokens, models, scopes), `modules.accounts.providers` (Discord consent), `modules.organizations`; `shared`.
-
 ## More
 
 [docs/compute.md](../../docs/compute.md)

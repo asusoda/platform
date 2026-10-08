@@ -8,12 +8,13 @@ from typing import cast
 from flask import Blueprint, jsonify, redirect, request, send_file, session
 
 from core import audit
+from core.config import config
+from core.db import db_connect
 from modules.accounts import providers
 from modules.auth import access
 from modules.auth.decoraters import auth_required, member_required
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from shared import config, db_connect
 
 from . import cli_login, files, schedule, service
 

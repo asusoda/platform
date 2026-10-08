@@ -4,10 +4,10 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
+from core.db import db_connect
 from modules.auth.decoraters import auth_required, error_handler
 from modules.points.models import Points, User
 from modules.points.service import member_fields, member_input, merge_profile_fields
-from shared import db_connect
 
 logger = logging.getLogger(__name__)
 

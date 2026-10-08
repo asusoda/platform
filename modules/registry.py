@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 from flask import Blueprint, Flask, jsonify, request
 
+from core.db import db_connect
 from modules.accounts.api import accounts_blueprint
 from modules.agents.api import agents_blueprint
 from modules.alerts.api import alerts_blueprint
@@ -107,8 +108,6 @@ def _gate(mount: Mount):
         module = mount.endpoint_modules.get(endpoint, mount.module)
         if not org_prefix or not module:
             return None
-        from shared import db_connect
-
         db = db_connect.SessionLocal()
         try:
             org = organizations.find_by_prefix(db, org_prefix)

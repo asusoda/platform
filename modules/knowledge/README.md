@@ -24,10 +24,6 @@ Holds an organization's knowledge sources and searches them. Writers send a sour
 - Tools: `knowledge.search` (scope `knowledge:read`).
 - Tables: `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`.
 
-## Depends on
-
-`core.audit_http`, `core.errors`, `core.jobs`, `core.tools`, `core.logging_config`, `core.base`; `modules.auth` (routes, scopes); `shared`.
-
 ## More
 
 [docs/knowledge.md](../../docs/knowledge.md)

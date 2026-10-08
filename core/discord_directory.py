@@ -11,6 +11,7 @@ import time
 
 import requests
 
+from core.db import db_connect
 from core.logging_config import get_logger
 
 logger = get_logger("discord_directory")
@@ -126,7 +127,6 @@ class DiscordDirectory:
         The superadmin gets every active org's guild.
         """
         from modules.organizations.models import Organization
-        from shared import db_connect
 
         db = db_connect.SessionLocal()
         try:

@@ -6,15 +6,60 @@ import threading
 from datetime import UTC, datetime
 
 import discord
-from flask import jsonify
+from flask import Flask, jsonify
+from flask_cors import CORS
 
 from core import jobs
 from core.audit_http import register_audit
+from core.config import config
 from core.discord_directory import DiscordDirectory
+from core.logging_config import get_logger, init_sentry
 from core.request_log import register_request_logging
+from modules.auth.tokens import token_manager
+from modules.bot.discord_modules.bot import BotFork
+from modules.bot.factory import create_bot
 from modules.cli import register_cli
 from modules.registry import load_jobs, load_tools, register_modules
-from shared import app, config, create_auth_bot, logger, tokenManager
+
+logger = get_logger(__name__)
+
+init_sentry(config.SENTRY_DSN)
+
+
+class App(Flask):
+    """The Flask app with the Discord clients that routes read from current_app."""
+
+    discord_directory: DiscordDirectory
+    # Set only while the bot runs in this process (RUN_BOT_IN_API)
+    auth_bot: BotFork
+
+
+app = App(
+    "SoDA internal API",
+    static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
+    template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
+)
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "https://thesoda.io",
+                "https://admin.thesoda.io",
+                # Extra origins for other deployments, comma-separated
+                *[o.strip() for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()],
+                *([os.environ["DASHBOARD_URL"].rstrip("/")] if os.environ.get("DASHBOARD_URL") else []),
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Organization-ID", "X-Organization-Prefix"],
+            "supports_credentials": True,
+        }
+    },
+)
 
 # Session cookies are signed with this key. A known default would let anyone forge a session,
 # so without FLASK_SECRET_KEY or SECRET_KEY a random key is used and sessions end on restart.
@@ -28,13 +73,11 @@ app.discord_directory = DiscordDirectory(config.BOT_TOKEN)
 
 
 def get_git_commit_hash():
-    """Get the current git commit hash."""
-    # First check if commit hash is provided via environment variable (set during Docker build)
+    """The commit hash: GIT_COMMIT_HASH from the Docker build, else git rev-parse HEAD."""
     commit_hash = os.environ.get("GIT_COMMIT_HASH")
     if commit_hash:
         return commit_hash
 
-    # Fall back to git command (for local development)
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],  # nosec B603, B607 - hardcoded git command with no user input
@@ -48,14 +91,11 @@ def get_git_commit_hash():
         return "unknown"
 
 
-# Cache the commit hash at startup since it won't change during runtime
 COMMIT_HASH = get_git_commit_hash()
 
-# Record the startup time (container creation/start time)
 STARTUP_TIME = datetime.now(UTC)
 
 
-# Health endpoint
 @app.route("/health")
 def health():
     return jsonify(
@@ -69,12 +109,11 @@ def health():
 
 
 # Log one structured line per API request
-register_request_logging(app, tokenManager)
+register_request_logging(app, token_manager)
 
 # Record every successful API write in the audit_log table
-register_audit(app, tokenManager)
+register_audit(app, token_manager)
 
-# Register Blueprints
 register_modules(app)
 load_tools()
 
@@ -85,16 +124,12 @@ jobs.start_inline_scheduler()
 
 # `flask --app main org|jobs|config ...`
 register_cli(app)
-# Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 
-# --- Bot Thread Functions ---
 def run_auth_bot_in_thread():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    # Create bot instance inside the thread, using the thread's loop
-    auth_bot_instance = create_auth_bot(loop)
-    # Store the auth_bot instance on the Flask app context for API use
+    auth_bot_instance = create_bot(loop)
     app.auth_bot = auth_bot_instance
     try:
         logger.info("Starting auth bot thread...")
@@ -102,7 +137,6 @@ def run_auth_bot_in_thread():
         if not auth_bot_token:
             logger.error("BOT_TOKEN not found. Auth bot will not start.")
             return
-        # Use bot_instance.start() and manage the loop
         loop.run_until_complete(auth_bot_instance.start(auth_bot_token))
     except discord.errors.LoginFailure:
         logger.error("Login failed for auth bot. Check BOT_TOKEN.")
@@ -116,9 +150,7 @@ def run_auth_bot_in_thread():
         logger.info("Auth bot thread finished and loop closed.")
 
 
-# --- App Initialization ---
 def initialize_app():
-    # Enable debug and reloader based on IS_PROD environment variable
     is_prod = os.environ.get("IS_PROD", "").lower() == "true"
     use_reloader = not is_prod
 
@@ -138,8 +170,7 @@ def initialize_app():
     else:
         logger.info("Reloader parent process; auth bot will start in the reloaded child process")
 
-    # Start Flask app
-    # Binding to 0.0.0.0 is required for Docker container accessibility
+    # 0.0.0.0 so the port is reachable from outside the container
     app.run(host="0.0.0.0", port=8000, debug=not is_prod, use_reloader=use_reloader)  # nosec B104
 
 

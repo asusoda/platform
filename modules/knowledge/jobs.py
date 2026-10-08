@@ -1,5 +1,6 @@
 """Crawling scheduled knowledge sources."""
 
+from core.db import db_connect
 from core.jobs import job
 
 
@@ -7,7 +8,6 @@ from core.jobs import job
 def crawl_due() -> None:
     """Crawl every enabled source whose fetch_every_hours has passed since its last attempt."""
     from modules.knowledge import crawl, embedder
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -22,7 +22,6 @@ def crawl_due() -> None:
 def crawl_source(org_id: int, key: str, force: bool = False, org_prefix: str | None = None) -> None:
     """Crawl one source now, on request."""
     from modules.knowledge import crawl, embedder
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

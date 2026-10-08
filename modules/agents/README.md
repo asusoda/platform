@@ -19,10 +19,6 @@ Stores what an organization's agents keep about the members they talk to: conver
 - Tools: none.
 - Tables: `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions`.
 
-## Depends on
-
-`core.secrets`, `core.discord_directory`, `core.audit_http`, `core.errors`, `core.jobs`, `core.logging_config`, `core.base`; `modules.knowledge` (embedder, embedding column type), `modules.auth` (decorators, access, scopes, routes), `modules.organizations.models`; `shared`.
-
 ## More
 
 [docs/agents.md](../../docs/agents.md)

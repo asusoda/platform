@@ -4,6 +4,8 @@ import os
 import re
 
 import colorlog
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 # key=value pairs in the request_log and access lines, lifted into JSON fields
 _PAIR = re.compile(r"(\w+)=(\S+)")
@@ -67,3 +69,18 @@ logger = setup_logger()
 def get_logger(name):
     """Get a logger for a specific module with proper formatting"""
     return logging.getLogger(name)
+
+
+def init_sentry(dsn: str | None) -> None:
+    """Send errors, traces and logs to Sentry when a DSN is set."""
+    if not dsn:
+        logging.getLogger(__name__).warning("SENTRY_DSN not found in environment. Sentry not initialized.")
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+        enable_logs=True,
+    )
+    logging.getLogger(__name__).info("Sentry initialized with logging enabled.")

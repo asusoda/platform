@@ -3,7 +3,8 @@
 from flask import Flask, g, request
 from sqlalchemy import text
 
-from core.audit import _session, logger, record
+from core.audit import logger, record
+from core.db import session
 from core.request_log import _credential, _org
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -50,11 +51,8 @@ def register_audit(app: Flask, token_manager) -> None:
         if response.status_code >= 400:
             return response
         try:
-            db = _session()
-            try:
+            with session() as db:
                 org = _org_prefix(db)
-            finally:
-                db.close()
             kind, actor_id = _actor(token_manager)
             record(
                 f"{request.method} {rule}",

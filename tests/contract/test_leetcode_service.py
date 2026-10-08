@@ -7,8 +7,8 @@ import pytest
 
 @pytest.fixture
 def db(app):
+    from core.db import db_connect
     from modules.leetcode.models import LeetCodeLink, LeetCodeSolve
-    from shared import db_connect
 
     session = db_connect.SessionLocal()
     yield session
@@ -49,8 +49,8 @@ QUESTION = {
 
 @pytest.fixture
 def daily_env(db, monkeypatch):
+    from core.config import config
     from modules.leetcode.models import LeetCodeDaily
-    from shared import config
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", "555", raising=False)
     monkeypatch.setattr(config, "LEETCODE_ROLE_PING", "777", raising=False)
@@ -129,8 +129,8 @@ def test_verify_records_and_announces_each_solve_once(db, daily_env):
 
 
 def test_no_channel_means_no_post(db, daily_env, monkeypatch):
+    from core.config import config
     from modules.leetcode import daily
-    from shared import config
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
     assert daily.post_daily(db, _at(10), lambda: QUESTION) == {}
@@ -213,8 +213,8 @@ def test_each_org_gets_its_own_post_and_member_only_announcements(db, daily_env,
 
 
 def test_turning_leetcode_off_stops_the_orgs_post(db, daily_env, client, officer_headers, soda, monkeypatch):
+    from core.config import config
     from modules.leetcode import daily
-    from shared import config
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
     _settings(client, officer_headers, soda.id, {"channel_id": "999999"})

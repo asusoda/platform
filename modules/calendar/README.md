@@ -22,10 +22,6 @@ Syncs an organization's Notion events database to its Google Calendar and serves
 - Tools: `events.list` (scope `calendar:read`, gated by `calendar`).
 - Tables: `calendar_event_links`.
 
-## Depends on
-
-`core.secrets`, `core.errors`, `core.jobs`, `core.tools`, `core.base`; `modules.auth` (decorators, access, scopes), `modules.organizations.models`; `shared` (config, Notion client, `db_connect`, logger).
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

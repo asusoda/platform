@@ -19,10 +19,6 @@ Lets an organization's agents connect a member's accounts at outside OAuth provi
 - Tools: none.
 - Tables: `account_grants`, `account_logins`.
 
-## Depends on
-
-`core.secrets`, `core.audit_http`, `core.errors`, `core.jobs`, `core.logging_config`, `core.base`; `modules.auth` (decorators, scopes), `modules.organizations.models`; `shared`.
-
 ## More
 
 [docs/accounts.md](../../docs/accounts.md)

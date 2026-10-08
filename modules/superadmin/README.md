@@ -15,10 +15,6 @@ Routes for the platform's single superadmin (`SUPERADMIN_USER_ID`): add and remo
 - Tools: none.
 - Tables: none.
 
-## Depends on
-
-`core.audit`, `core.discord_directory`, `core.logging_config`; `modules.auth` (decorators, access), `modules.organizations` (models, config); `shared`.
-
 ## More
 
 [docs/05-backend-modules.md](../../docs/05-backend-modules.md)

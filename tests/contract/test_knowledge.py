@@ -10,9 +10,9 @@ from modules.knowledge.models import DIMENSIONS
 
 
 def _issue(prefix, *scopes):
+    from core.db import db_connect
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

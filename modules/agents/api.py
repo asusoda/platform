@@ -8,11 +8,11 @@ superadmins have no route to read agent data.
 from flask import Blueprint, g, jsonify, request
 
 from core import audit_http
+from core.db import db_connect
 from modules.auth.decoraters import machine_scope_required, member_required
 from modules.auth.routes import INACTIVE_ORG, json_body, token_org
 from modules.knowledge import embedder
 from modules.organizations.models import Organization
-from shared import db_connect
 
 from . import service, turns
 

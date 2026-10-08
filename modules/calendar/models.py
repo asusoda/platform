@@ -1,4 +1,3 @@
-# modules/calendar/models.py
 from dataclasses import dataclass, field  # Added field
 from datetime import UTC, datetime
 from typing import Any, Optional
@@ -7,9 +6,11 @@ from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from core.base import Base
+from core.logging_config import get_logger
 
-# Import helpers from the new utils module
-from .utils import DateParser, extract_property, logger  # Added logger import
+from .utils import DateParser, extract_property
+
+logger = get_logger(__name__)
 
 # --- Data Transfer Object (DTO) ---
 

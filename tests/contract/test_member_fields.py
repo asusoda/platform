@@ -70,8 +70,8 @@ def test_migration_renames_columns_and_keeps_data(tmp_path):
 @pytest.fixture
 def carol(app):
     """Removes the member these tests create, so the shared database matches the contract snapshots."""
+    from core.db import db_connect
     from modules.points.models import User, UserOrganizationMembership
-    from shared import db_connect
 
     yield EMAIL
     db = db_connect.SessionLocal()
@@ -86,8 +86,8 @@ def carol(app):
 
 
 def _stored(email):
+    from core.db import db_connect
     from modules.points.models import User
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

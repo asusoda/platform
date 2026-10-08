@@ -2,10 +2,10 @@
 
 from flask import Blueprint, g, jsonify, request
 
+from core.db import db_connect
 from core.errors import ServiceError
 from modules.auth.decoraters import auth_required, machine_scope_required
 from modules.organizations.models import Organization
-from shared import db_connect
 
 INACTIVE_ORG = "The token's organization is inactive or gone"
 
