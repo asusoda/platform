@@ -29,6 +29,7 @@ class MachineCaller:
     name: str
     kind: str
     scopes: frozenset[str]
+    created_by: str | None = None
 
     def allows(self, scope: str) -> bool:
         return scope in self.scopes
@@ -101,6 +102,7 @@ def verify(db, token: str | None) -> MachineCaller | None:
         name=str(row.name),
         kind=str(row.kind),
         scopes=frozenset(row.scopes or []),
+        created_by=str(row.created_by) if row.created_by is not None else None,
     )
 
 

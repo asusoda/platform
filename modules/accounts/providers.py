@@ -176,10 +176,10 @@ def discord_redirect_uri() -> str:
     return f"{base_url()}/api/accounts/discord/callback"
 
 
-def discord_consent_url(client_id: str, state: str) -> str:
+def discord_consent_url(client_id: str, state: str, redirect_uri: str | None = None) -> str:
     params = {
         "client_id": client_id,
-        "redirect_uri": discord_redirect_uri(),
+        "redirect_uri": redirect_uri or discord_redirect_uri(),
         "response_type": "code",
         "scope": "identify",
         "state": state,
@@ -188,14 +188,14 @@ def discord_consent_url(client_id: str, state: str) -> str:
     return f"{DISCORD_AUTHORIZE}?{urlencode(params)}"
 
 
-def discord_user_id(client_id: str, client_secret: str, code: str) -> str:
+def discord_user_id(client_id: str, client_secret: str, code: str, redirect_uri: str | None = None) -> str:
     """The Discord user id behind an authorization code."""
     form = {
         "client_id": client_id,
         "client_secret": client_secret,
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": discord_redirect_uri(),
+        "redirect_uri": redirect_uri or discord_redirect_uri(),
     }
     try:
         token = requests.post(DISCORD_TOKEN, data=form, timeout=TIMEOUT_SECONDS)
