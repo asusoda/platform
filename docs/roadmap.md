@@ -11,7 +11,7 @@ This is the plan for turning platform into shared infrastructure for SoDA, AIS a
 | 2. Run it properly | In review | #6, #7, #9, #10 |
 | 3. Modules and jobs | In review | #12 core/ and import rules, #13 module switches, #14 job queue, #15 games and LeetCode split, #16 audit log, #17 org secrets, #18 CLI |
 | 4. What AIS adds | In progress | #19 machine tokens and scopes, #20 MCP server and /api/tools, #21 agents, #22 knowledge storage and search, #23 accounts, #24 RunPod app deploys, #25 crawl pipeline, #26 ASU sources and live queries, #27 turn context and commit, #28 profile node embeddings, #29 manifests from the app's repo, #30 LeetCode daily post and verify as jobs, #31 per-org Google credentials, #32 web app hides turned-off modules, #33 per-org LeetCode posts |
-| 5. Godfather as the compute module | In progress | #34 pods and SSH certificates, #35 pod file manager (CLI and admin pages to do) |
+| 5. Godfather as the compute module | In progress | #34 pods and SSH certificates, #35 pod file manager, #36 officer web pages (member CLI credential to do) |
 
 The phase PRs are stacked: each is based on the previous one, so merge them in order.
 
