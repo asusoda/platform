@@ -7,6 +7,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { App } from './app';
 import { ApiError } from './lib/api';
+import { applyTheme, storedTheme } from './lib/theme';
+
+applyTheme(storedTheme());
 
 const queryClient = new QueryClient({
   defaultOptions: {
