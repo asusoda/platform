@@ -12,7 +12,7 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 | Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete |
 | Apps | RunPod apps: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
-| Knowledge | Knowledge sources: add, edit, pause and run crawls, delete sources, and test a search |
+| Knowledge | Knowledge sources: sync the ASU pages, add, edit, pause and run crawls, delete sources, and test a search |
 | Agents | Conversation, memory and member counts. It shows no conversation text |
 | CI | The latest GitHub Actions runs for the repos the org lists |
 | Tokens | Machine tokens: create and revoke |

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Database, ExternalLink, Pencil, Play, Plus, Search, Trash2, X } from 'lucide-react';
+import { Database, ExternalLink, Pencil, Play, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import {
   Badge,
@@ -364,13 +364,25 @@ export function KnowledgePage() {
     onSuccess: invalidate,
   });
 
+  const syncAsu = useMutation({
+    mutationFn: () =>
+      send<{ added: number; updated: number; retired: number }>(`/api/dashboard/${prefix}/knowledge/asu/sync`, 'POST'),
+    onSuccess: (r) => {
+      invalidate();
+      setWatchUntil(Date.now() + WATCH_MS);
+      setNotice(
+        `ASU pages synced: ${r.added} added, ${r.updated} updated, ${r.retired} retired. The crawl job fetches due pages in batches every 10 minutes.`,
+      );
+    },
+  });
+
   const sources = list.data?.sources ?? [];
   const categories = [...new Set(sources.map((s) => s.category))].sort();
   const shown = filter ? sources.filter((s) => s.category === filter) : sources;
   const crawled = sources.filter((s) => s.crawl);
   const failing = crawled.filter((s) => s.crawl?.last_error);
   const chunks = sources.reduce((n, s) => n + s.chunk_count, 0);
-  const actionError = toggle.error ?? remove.error;
+  const actionError = toggle.error ?? remove.error ?? syncAsu.error;
   // Row actions: crawled sources get schedule, run and edit controls; every source can be deleted.
   const actions = (s: KnowledgeSource, className?: string) => (
     <div className={cx('flex items-center gap-1', className)}>
@@ -408,9 +420,18 @@ export function KnowledgePage() {
   );
 
   const addCrawl = (
-    <Button variant="primary" onClick={() => setEditing('new')}>
-      <Plus className="size-4" /> Add crawl
-    </Button>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        onClick={() => syncAsu.mutate()}
+        disabled={syncAsu.isPending}
+        title="Add or update the ASU pages as crawled sources"
+      >
+        {syncAsu.isPending ? <Spinner /> : <RefreshCw className="size-4" />} Sync ASU pages
+      </Button>
+      <Button variant="primary" onClick={() => setEditing('new')}>
+        <Plus className="size-4" /> Add crawl
+      </Button>
+    </div>
   );
 
   return (
@@ -537,7 +558,7 @@ export function KnowledgePage() {
           </Table>
         ) : (
           <EmptyState icon={Database} title="No sources yet" action={addCrawl}>
-            Add a page to crawl on a schedule, or write documents with a knowledge:write token.
+            Sync the ASU pages, add a page to crawl on a schedule, or write documents with a knowledge:write token.
           </EmptyState>
         )}
       </Card>

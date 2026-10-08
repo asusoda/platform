@@ -73,6 +73,22 @@ def test_officer_manages_crawls(client, officer_headers, queued):
     assert client.delete(f"{base}/sources/{key}", headers=officer_headers).status_code == 404
 
 
+def test_officer_syncs_asu_pages(client, officer_headers, queued):
+    from modules.asu.sources import SOURCES
+
+    base = "/api/dashboard/ais/knowledge"
+    first = client.post(f"{base}/asu/sync", headers=officer_headers)
+    assert first.status_code == 200 and first.get_json()["added"] + first.get_json()["updated"] == len(SOURCES)
+    assert queued[-1] == ("knowledge.crawl_due", {})
+    keys = [s["key"] for s in client.get(f"{base}/sources", headers=officer_headers).get_json()["sources"]]
+    assert sum(k.startswith("asu/") for k in keys) == len(SOURCES)
+    assert client.post(f"{base}/asu/sync", headers=officer_headers).get_json()["added"] == 0
+    for key in keys:
+        if key.startswith("asu/"):
+            client.delete(f"{base}/sources/{key}", headers=officer_headers)
+
+
 def test_control_routes_need_an_officer(client):
     assert client.get("/api/dashboard/ais/apps").status_code == 401
     assert client.put("/api/dashboard/ais/knowledge/crawls/x", json={}).status_code == 401
+    assert client.post("/api/dashboard/ais/knowledge/asu/sync").status_code == 401

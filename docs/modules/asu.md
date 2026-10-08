@@ -4,7 +4,7 @@ Public ASU pages and live queries (dining, library hours, events and others) tha
 
 ## Scheduled pages
 
-`POST /api/asu/sync` (scope `knowledge:write`) adds each ASU page as a crawled knowledge source of the token's org, with a key that starts with `asu/`. When you run it again, it updates URLs, categories and schedules, and turns off the `asu/` sources that are no longer in the list. The crawl job then gets the pages as it does for other crawled sources.
+`POST /api/asu/sync` (scope `knowledge:write`) adds each ASU page as a crawled knowledge source of the token's org, with a key that starts with `asu/`. When you run it again, it updates URLs, categories and schedules, and turns off the `asu/` sources that are no longer in the list. The crawl job then gets the pages as it does for other crawled sources. Officers do the same sync with **Sync ASU pages** on the Knowledge page of the dashboard.
 
 Some pages have their own extractor (library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports). An extractor keeps each record on one line, so a chunk never splits a name from its hours or date. The `extractor` column of the source names it (`asu.<key>`).
 
