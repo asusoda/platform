@@ -29,7 +29,7 @@ web/, dashboard/, site/   the web app, the officer dashboard, the docs and landi
 deploy/        the RunPod start script and the Hermes image
 ```
 
-`core/` imports nothing from `modules/`. `make ci` checks this with import-linter.
+`core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
 
 ## How a request runs
 
