@@ -131,7 +131,7 @@ def _run(entry: Job, kwargs: dict) -> None:
     try:
         _execute(entry, kwargs)
     except Exception:
-        pass
+        logger.debug("job %s ended with an error, already logged", entry.name)
 
 
 def defer(name: str, **kwargs) -> threading.Thread | None:
