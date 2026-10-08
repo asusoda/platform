@@ -95,7 +95,7 @@ function GeneralSection({ org }: { org: Organization }) {
   const detail = useOrganization(org.id);
   return (
     <Card>
-      <CardHeader title="General" hint="How the organization is described and how members earn message points." />
+      <CardHeader title="General" hint="How the org is described and how members earn message points." />
       {detail.data ? <GeneralForm key={org.id} org={detail.data} /> : <Pending error={detail.error} loading={detail.isLoading} />}
     </Card>
   );
@@ -126,7 +126,7 @@ function ModulesSection({ org, prefix, modules }: { org: Organization; prefix: s
   });
   return (
     <Card>
-      <CardHeader title="Modules" hint="A module that is off returns 404 for this organization, and its page leaves the sidebar." />
+      <CardHeader title="Modules" hint="A module that is off returns 404 for this org, and its page leaves the sidebar." />
       <Pending error={modules.error} loading={modules.isLoading} />
       {modules.data?.modules.map((m) => (
         <Row key={m.name}>
@@ -196,7 +196,7 @@ export function SettingsPage() {
   ];
   return (
     <>
-      <PageHeader title="Settings" description="General settings, branding, modules and secrets for this organization." />
+      <PageHeader title="Settings" description="General settings, branding, modules and secrets of the org." />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:gap-10">
         <SectionNav sections={sections} />
         <div className="min-w-0 space-y-6">

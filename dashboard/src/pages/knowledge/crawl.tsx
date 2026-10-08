@@ -132,7 +132,7 @@ export function CrawlForm({
       </datalist>
       {canPublish || draft.public ? (
         <CheckOption checked={draft.public} onChange={(on) => setDraft({ ...draft, public: on })} title="Public">
-          Every organization's agents can search a public source.
+          The agents of every org can search a public source.
         </CheckOption>
       ) : null}
       <FormActions error={save.error}>

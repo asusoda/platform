@@ -32,14 +32,14 @@ function MissingKey({ prefix }: { prefix: string }) {
   return (
     <EmptyState
       icon={KeyRound}
-      title="Add the organization's RunPod API key"
+      title="Add the org's RunPod API key"
       action={
         <Link to={`/${prefix}/settings#secrets`} className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg shadow-xs hover:opacity-85">
           Open settings
         </Link>
       }
     >
-      Pods run on the organization's own RunPod account. Save its API key as the secret <Mono>runpod_api_key</Mono> under
+      Pods run on the org's own RunPod account. Save its API key as the secret <Mono>runpod_api_key</Mono> under
       Settings, Secrets.
     </EmptyState>
   );
@@ -123,7 +123,7 @@ export function ComputePage() {
     <>
       <PageHeader
         title="Compute"
-        description="GPU and CPU pods on the organization's RunPod account. Members connect to them with the compute CLI."
+        description="GPU and CPU pods on the org's RunPod account. Members connect with the compute CLI."
         action={
           <Button variant="primary" onClick={() => setCreating(true)} disabled={missingKey}>
             <Plus className="size-4" /> New pod

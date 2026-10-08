@@ -1,6 +1,6 @@
-import { Trash2, X } from 'lucide-react';
-import { type ComponentProps, type ComponentType, type ReactNode, useEffect, useRef } from 'react';
-import type { Tone } from '../lib/format';
+import { Search, Trash2, X } from 'lucide-react';
+import { type ComponentProps, type ComponentType, type ReactNode, useEffect, useRef, useState } from 'react';
+import { count, type Tone } from '../lib/format';
 
 const toneBadge: Record<Tone, string> = {
   ok: 'border-ok/25 bg-ok/10 text-ok',
@@ -24,14 +24,15 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
 
 // Layout
 
+// The title of a page: the sidebar label of the page, one line of description, and the page actions on the right.
 export function PageHeader({ title, description, action }: { title: ReactNode; description?: ReactNode; action?: ReactNode }) {
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+      <div className="min-w-0 flex-1 basis-72">
         <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
         {description ? <p className="mt-1.5 max-w-2xl text-sm text-pretty text-muted">{description}</p> : null}
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
     </header>
   );
 }
@@ -148,10 +149,10 @@ export function Badge({ tone = 'muted', children, className }: { tone?: Tone; ch
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const buttonStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-accent-fg shadow-xs hover:opacity-85',
-  secondary: 'border border-line bg-panel shadow-xs hover:bg-panel-2',
-  ghost: 'text-muted hover:bg-panel-2 hover:text-fg',
-  danger: 'border border-line bg-panel text-bad shadow-xs hover:border-bad/40 hover:bg-bad/10',
+  primary: 'bg-accent text-accent-fg shadow-xs hover:opacity-90 active:opacity-80',
+  secondary: 'border border-line bg-panel shadow-xs hover:border-line-strong hover:bg-panel-2 active:bg-panel-2',
+  ghost: 'text-muted hover:bg-panel-2 hover:text-fg active:bg-panel-2',
+  danger: 'border border-line bg-panel text-bad shadow-xs hover:border-bad/40 hover:bg-bad/10 active:bg-bad/15',
 };
 
 export function Button({
@@ -163,7 +164,7 @@ export function Button({
   return (
     <button
       className={cx(
-        'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] duration-150 ease-out select-none active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50',
         size === 'icon' ? 'w-8' : 'px-3',
         buttonStyles[variant],
         className,
@@ -174,14 +175,24 @@ export function Button({
 }
 
 const fieldClass =
-  'w-full rounded-md border border-line bg-panel text-sm shadow-xs transition-colors outline-none placeholder:text-muted/70 hover:border-line-strong focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring/30 aria-invalid:border-bad/60 disabled:opacity-50';
+  'w-full rounded-md border border-line bg-panel text-sm shadow-xs transition-[border-color,box-shadow] duration-150 outline-none placeholder:text-muted/70 hover:border-line-strong focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 aria-invalid:border-bad/60 disabled:opacity-50';
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cx(fieldClass, 'h-9 px-3', className)} {...props} />;
 }
 
 export function Select({ className, ...props }: ComponentProps<'select'>) {
-  return <select className={cx(fieldClass, 'h-9 cursor-pointer px-2.5', className)} {...props} />;
+  return <select className={cx(fieldClass, 'ui-select h-9 cursor-pointer px-2.5', className)} {...props} />;
+}
+
+// A search field with an icon. The parent filters with useDeferredValue, so typing does not wait for the list.
+export function SearchInput({ className, ...props }: ComponentProps<'input'>) {
+  return (
+    <label className={cx('relative block', className)}>
+      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
+      <Input type="search" autoComplete="off" spellCheck={false} className="pl-9 [&::-webkit-search-cancel-button]:hidden" {...props} />
+    </label>
+  );
 }
 
 export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
@@ -218,14 +229,14 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'relative h-5 w-9 shrink-0 cursor-pointer rounded-full border transition-colors disabled:cursor-default disabled:opacity-50',
+        'relative h-5 w-9 shrink-0 cursor-pointer rounded-full border transition-colors duration-150 disabled:cursor-default disabled:opacity-50',
         checked ? 'border-fg bg-fg' : 'border-line-strong bg-panel-2',
       )}
     >
       <span
         className={cx(
-          'absolute top-0.5 size-3.5 rounded-full shadow-sm transition-all',
-          checked ? 'left-[18px] bg-bg' : 'left-0.5 bg-panel',
+          'absolute top-0.5 left-0.5 size-3.5 rounded-full shadow-sm transition-[translate,background-color] duration-200 ease-out',
+          checked ? 'translate-x-4 bg-bg' : 'translate-x-0 bg-panel',
         )}
       />
     </button>
@@ -365,7 +376,7 @@ export function Spinner({ className }: { className?: string }) {
 export function ErrorNote({ error }: { error: unknown }) {
   const message = error instanceof Error ? error.message : String(error);
   return (
-    <div role="alert" className="rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
+    <div role="alert" className="animate-in rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-pretty text-bad">
       {message}
     </div>
   );
@@ -374,7 +385,7 @@ export function ErrorNote({ error }: { error: unknown }) {
 // A message that an action worked.
 export function OkNote({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p role="status" className={cx('rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok', className)}>
+    <p role="status" className={cx('animate-in rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok', className)}>
       {children}
     </p>
   );
@@ -383,18 +394,66 @@ export function OkNote({ children, className }: { children: ReactNode; className
 // A status message the officer can close, shown above the page content.
 export function Notice({ children, onDismiss }: { children: ReactNode; onDismiss: () => void }) {
   return (
-    <div role="status" className="mb-4 flex items-start gap-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm">
+    <div
+      role="status"
+      className="mb-4 flex animate-in items-start gap-3 rounded-lg border border-line bg-panel py-2.5 pr-2.5 pl-3.5 text-sm shadow-xs"
+    >
+      <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-info" aria-hidden />
       <div className="min-w-0 flex-1 text-pretty">{children}</div>
-      <button type="button" aria-label="Dismiss" className="text-muted hover:text-fg" onClick={onDismiss}>
-        <X className="size-4" />
+      <button
+        type="button"
+        aria-label="Dismiss"
+        className="-my-0.5 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-fg"
+        onClick={onDismiss}
+      >
+        <X className="size-3.5" />
       </button>
+    </div>
+  );
+}
+
+// Long lists
+
+// The first items of a list, step more on each call of more(). The count goes back to step when resetKey changes,
+// such as when the filter changes. A refetch of the same list keeps the count.
+export function useShowMore<T>(items: T[], resetKey: unknown, step = 100) {
+  const [limit, setLimit] = useState(step);
+  const [key, setKey] = useState(resetKey);
+  if (key !== resetKey) {
+    setKey(resetKey);
+    setLimit(step);
+  }
+  return {
+    shown: items.length > limit ? items.slice(0, limit) : items,
+    total: items.length,
+    step,
+    more: () => setLimit((n) => n + step),
+  };
+}
+
+// The footer of a long list: how many rows show, and a button that shows the next rows.
+export function ShowMore({ list, noun }: { list: { shown: unknown[]; total: number; step: number; more: () => void }; noun: string }) {
+  if (list.shown.length >= list.total) return null;
+  const next = Math.min(list.step, list.total - list.shown.length);
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-xs text-muted">
+      <span className="tabular-nums">
+        {count(list.shown.length)} of {count(list.total)} {noun}
+      </span>
+      <Button variant="ghost" className="h-7 px-2.5 text-xs" onClick={list.more}>
+        Show {count(next)} more
+      </Button>
     </div>
   );
 }
 
 // Overlays
 
+// How long the close animation of a dialog lasts, in index.css.
+const DIALOG_OUT_MS = 170;
+
 // A modal panel on the native dialog element. Escape and a click on the backdrop close it.
+// While it closes, it keeps the last open content, so the panel does not go empty during the animation.
 export function Dialog({
   open,
   onClose,
@@ -411,36 +470,54 @@ export function Dialog({
   wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const last = useRef({ title, description, children });
+  const [closing, setClosing] = useState(false);
+  if (open) last.current = { title, description, children };
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      setClosing(false);
+      dialog.showModal();
+    }
+    if (!open && dialog.open) {
+      setClosing(true);
+      dialog.close();
+      const timer = window.setTimeout(() => setClosing(false), DIALOG_OUT_MS);
+      return () => window.clearTimeout(timer);
+    }
   }, [open]);
+  const shown = open ? { title, description, children } : last.current;
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClose={() => {
+        if (open) onClose();
+      }}
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
       className={cx(
-        'm-auto w-[calc(100%-2rem)] rounded-xl border border-line bg-panel p-0 text-fg shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-[1px]',
+        'ui-dialog m-auto w-[calc(100%-2rem)] rounded-xl border border-line bg-panel p-0 text-fg shadow-2xl shadow-black/20',
         wide ? 'max-w-3xl' : 'max-w-lg',
       )}
     >
-      {open ? (
-        <div className="max-h-[85vh] overflow-y-auto">
-          <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+      {open || closing ? (
+        <div className="max-h-[85vh] overflow-y-auto overscroll-contain">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-panel px-5 py-4">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-              {description ? <p className="mt-1 text-sm text-pretty text-muted">{description}</p> : null}
+              <h2 className="text-base font-semibold tracking-tight">{shown.title}</h2>
+              {shown.description ? <p className="mt-1 text-sm text-pretty text-muted">{shown.description}</p> : null}
             </div>
-            <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}>
+            <Button variant="ghost" size="icon" aria-label="Close" className="-mt-1 -mr-2" onClick={onClose}>
               <X className="size-4" />
             </Button>
           </div>
-          <div className="p-5">{children}</div>
+          <div className="p-5">{shown.children}</div>
         </div>
       ) : null}
     </dialog>

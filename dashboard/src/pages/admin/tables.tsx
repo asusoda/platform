@@ -84,7 +84,7 @@ export function OrganizationsCard({
 export function GuildsCard({ guilds, onAdd }: { guilds: AvailableGuild[]; onAdd: (guild: AvailableGuild) => void }) {
   if (!guilds.length) {
     return (
-      <EmptyState icon={Server} title="Every server has an organization">
+      <EmptyState icon={Server} title="Every server has an org">
         Invite the bot to a Discord server to add it here.
       </EmptyState>
     );
@@ -121,7 +121,7 @@ export function GuildsCard({ guilds, onAdd }: { guilds: AvailableGuild[]; onAdd:
               <Td className="hidden text-right text-muted tabular-nums sm:table-cell">{g.member_count ?? '-'}</Td>
             ) : null}
             <Td className="text-right">
-              <Button onClick={() => onAdd(g)} aria-label={`Add ${g.name} as an organization`}>
+              <Button onClick={() => onAdd(g)} aria-label={`Add ${g.name} as an org`}>
                 <Plus className="size-4" />
                 <span className="hidden sm:inline">Add</span>
               </Button>

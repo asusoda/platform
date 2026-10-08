@@ -33,8 +33,8 @@ export function OverviewPage() {
   return (
     <>
       <PageHeader
-        title={data.organization.name}
-        description={`Everything running for ${data.organization.prefix}, refreshed ${timeAgo(data.generated_at)}.`}
+        title="Overview"
+        description={`What runs for ${data.organization.name} and what needs attention. Updated ${timeAgo(data.generated_at)}.`}
       />
 
       {data.problems.length ? (
@@ -82,7 +82,7 @@ export function OverviewPage() {
         <Card className="lg:col-span-2">
           <CardHeader
             title="Modules"
-            hint={`${enabled} of ${data.modules.length} on for this organization`}
+            hint={`${enabled} of ${data.modules.length} on for this org`}
             action={
               <Link to="settings#modules" className={quietLink}>
                 Change

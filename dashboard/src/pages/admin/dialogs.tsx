@@ -55,7 +55,7 @@ export function OfficerRoleDialog({ org, onClose }: { org: OrganizationDetail; o
           Role ID <Code>{role}</Code>
         </p>
       ) : (
-        <p className="text-xs text-muted">With no officer role, no member can open this organization in the dashboard.</p>
+        <p className="text-xs text-muted">With no officer role, no member can open this org in the dashboard.</p>
       )}
       <FormActions error={save.error ? explain(save.error) : undefined}>
         <Button variant="primary" disabled={!roles.data || role === (org.officer_role_id ?? '') || save.isPending}>
@@ -139,7 +139,7 @@ export function AddDialog({ guild, onClose }: { guild: AvailableGuild; onClose: 
         </dd>
       </dl>
       <p className="text-xs text-pretty text-muted">
-        The organization starts with default settings and no officer role. Set the officer role next so officers can sign in.
+        The org starts with default settings and no officer role. Set the officer role next so officers can sign in.
       </p>
       <FormActions error={add.error ? explain(add.error) : undefined}>
         <Button variant="primary" onClick={() => add.mutate()} disabled={add.isPending}>
