@@ -1,6 +1,7 @@
 """Route decorators: who may call a view. Each answers with JSON and a status when it refuses."""
 
 from functools import wraps
+from typing import cast
 
 from flask import g, jsonify, request, session
 
@@ -16,7 +17,7 @@ from modules.auth.access import (
     superadmin_denial,
 )
 from modules.auth.tokens import token_manager
-from modules.organizations.models import Organization
+from modules.organizations import service as organizations
 
 logger = get_logger(__name__)
 
@@ -228,9 +229,7 @@ def member_required(f):
 
             try:
                 with db_connect.SessionLocal() as db:
-                    organization = (
-                        db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
-                    )
+                    organization = organizations.find_by_prefix(db, org_prefix, active_only=True)
             except Exception as e:
                 logger.error(f"Database error: {e}")
                 return _refuse(f"Database error: {str(e)}", 500)
@@ -241,7 +240,7 @@ def member_required(f):
                 directory = discord_directory()
                 if directory is None or not directory.is_ready():
                     return _refuse("Discord bot not available", 503)
-                if not directory.check_user_membership(int(user_discord_id), int(organization.guild_id)):
+                if not directory.check_user_membership(int(user_discord_id), int(cast(str, organization.guild_id))):
                     return _refuse("You must be a member of this organization to access this resource", 403)
                 kwargs["user_discord_id"] = user_discord_id
                 kwargs["organization"] = organization
@@ -276,7 +275,7 @@ def machine_scope_required(scope: str):
                     return jsonify({"error": f"Token lacks scope {scope}"}), 403
                 org_prefix = (request.view_args or {}).get("org_prefix")
                 if org_prefix is not None:
-                    org = db.query(Organization).filter_by(prefix=org_prefix).first()
+                    org = organizations.find_by_prefix(db, org_prefix)
                     if org is None or org.id != caller.organization_id:
                         return jsonify({"error": "Token belongs to a different organization"}), 403
             finally:

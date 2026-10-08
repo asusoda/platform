@@ -11,6 +11,7 @@ from core.db import db_connect
 from core.errors import ServiceError
 from core.http.responses import error
 from modules.auth.decorators import auth_required, machine_scope_required, member_required
+from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
 INACTIVE_ORG = "The token's organization is inactive or gone"
@@ -59,7 +60,7 @@ def officer_route(blueprint: Blueprint, rule: str, methods: list[str]):
         def wrapper(org_prefix, **kwargs):
             db = db_connect.SessionLocal()
             try:
-                org = db.query(Organization).filter_by(prefix=org_prefix, is_active=True).first()
+                org = organizations.find_by_prefix(db, org_prefix, active_only=True)
                 if org is None:
                     return error("Organization not found", 404)
                 return respond(db, view, org, **kwargs)

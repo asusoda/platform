@@ -79,7 +79,7 @@ A generic key/value store per org (`key` String, `value` JSON). Present in the s
 `(organization_id, user_id)` pairs. Also present but not authoritative — officer status is
 determined live from Discord roles, not from this table.
 
-### `users` — `modules/points/models.py:User`
+### `users` — `modules/users/models.py:User`
 
 One row per human, **global across all organizations**.
 

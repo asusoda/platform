@@ -163,7 +163,9 @@ source_modules = [
     "modules.manifest",
     "modules.mcp.runtime",
     "modules.organizations.service",
+    "modules.points.csv_import",
     "modules.points.service",
     "modules.runpod.service",
+    "modules.users.service",
 ]
 forbidden_modules = ["flask"]

@@ -15,7 +15,6 @@ from modules.accounts import providers
 from modules.auth import access
 from modules.auth.routes import member_view, officer_route, respond
 from modules.organizations import service as organizations
-from modules.organizations.models import Organization
 
 from . import cli_login, files, schedule, service
 
@@ -44,7 +43,7 @@ def _member_route(rule: str, methods: list[str]):
                 return session_route(org_prefix=org_prefix, **kwargs)
             db = db_connect.SessionLocal()
             try:
-                org = db.query(Organization).filter_by(prefix=org_prefix, is_active=True).first()
+                org = organizations.find_by_prefix(db, org_prefix, active_only=True)
                 if org is None:
                     return jsonify({"error": "Organization not found"}), 404
                 discord_id = cli_login.member_for(db, _org_id(org), header[7:].strip())
@@ -284,7 +283,7 @@ def cli_callback():
         return _page(f"Discord sign-in failed. {_sign_in_again()}", status=502)
     db = db_connect.SessionLocal()
     try:
-        org = db.query(Organization).filter_by(prefix=started.get("org_prefix"), is_active=True).first()
+        org = organizations.find_by_prefix(db, started.get("org_prefix"), active_only=True)
         if org is None:
             return _page("Organization not found.", status=404)
         if not organizations.module_enabled(org, "compute"):

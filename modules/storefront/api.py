@@ -7,22 +7,15 @@ from core.db import db_connect
 from core.http.responses import error_handler
 from modules.auth.access import decide
 from modules.auth.decorators import auth_required, dual_auth_required, member_required, org_officer_required
+from modules.organizations.service import find_by_prefix
+from modules.points.models import Points
 from modules.storefront.models import Order, OrderItem, Product
+from modules.users.models import User, UserOrganizationMembership
+from modules.users.service import get_or_create_user, get_or_create_user_from_clerk
 
 storefront_blueprint = Blueprint("storefront", __name__)
 
 
-# Helper function to get organization by prefix
-def get_organization_by_prefix(db, org_prefix):
-    from modules.organizations.models import Organization
-
-    org = db.query(Organization).filter(Organization.prefix == org_prefix).first()
-    if not org:
-        return None
-    return org
-
-
-# Helper function to normalize category values
 def price_mismatch(org_prefix, total_amount, priced) -> bool:
     """Compare the prices a client sent with the catalog. True if the order must be refused.
 
@@ -54,7 +47,7 @@ def get_products(org_prefix):
     """Get all products for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -86,7 +79,7 @@ def get_product(org_prefix, product_id):
     """Get a specific product by ID for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -141,7 +134,7 @@ def create_product(org_prefix):
 
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -173,7 +166,7 @@ def update_product(org_prefix, product_id):
     """Update a product for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -224,7 +217,7 @@ def delete_product(org_prefix, product_id):
     """Delete a product for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -246,7 +239,7 @@ def get_orders(org_prefix):
     """Get all orders for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -288,7 +281,7 @@ def get_order(org_prefix, order_id):
     """Get a specific order by ID for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -339,13 +332,11 @@ def create_order(org_prefix):
 
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
         # Find user by email
-        from modules.points.models import User, UserOrganizationMembership
-
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -366,8 +357,6 @@ def create_order(org_prefix):
         total_amount = float(data["total_amount"])
 
         # Check user has sufficient points
-        from modules.points.models import Points
-
         points_sum = (
             db.query(func.sum(Points.points))
             .filter(Points.user_id == user.id, Points.organization_id == org.id)
@@ -413,8 +402,6 @@ def create_order(org_prefix):
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
 
         # Deduct points by creating negative point entry
-        from modules.points.models import Points
-
         point_deduction = Points(
             user_id=user.id,
             organization_id=org.id,
@@ -451,7 +438,7 @@ def update_order_status(org_prefix, order_id):
     """Update order status for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -497,7 +484,7 @@ def delete_order(org_prefix, order_id):
     """Delete an order for an organization"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -526,7 +513,7 @@ def get_store_products(org_prefix):
     """Get all available products for public store front"""
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -576,8 +563,6 @@ def get_member_store(org_prefix, **kwargs):
     organization = kwargs.get("organization")
 
     # Get or create user in this organization
-    from modules.points.api import get_or_create_user
-
     user = get_or_create_user(user_discord_id, organization.id)
 
     db = next(db_connect.get_db())
@@ -622,8 +607,6 @@ def get_member_orders(org_prefix, **kwargs):
     organization = kwargs.get("organization")
 
     # Get or create user in this organization
-    from modules.points.api import get_or_create_user
-
     user = get_or_create_user(user_discord_id, organization.id)
 
     if not user:
@@ -632,8 +615,6 @@ def get_member_orders(org_prefix, **kwargs):
     db = next(db_connect.get_db())
     try:
         # Get orders for this specific user in this organization
-        from modules.storefront.models import Order
-
         orders = (
             db.query(Order)
             .filter(Order.organization_id == organization.id, Order.user_id == user.id)
@@ -677,8 +658,6 @@ def create_member_order(org_prefix, **kwargs):
     organization = kwargs.get("organization")
 
     # Get or create user in this organization
-    from modules.points.api import get_or_create_user
-
     user = get_or_create_user(user_discord_id, organization.id)
 
     if not user:
@@ -759,8 +738,6 @@ def get_member_order(org_prefix, order_id, **kwargs):
     db = next(db_connect.get_db())
     try:
         # Get order for this specific user in this organization
-        from modules.storefront.models import Order
-
         order = (
             db.query(Order)
             .filter(Order.id == order_id, Order.organization_id == organization.id, Order.user_id == user_discord_id)
@@ -801,8 +778,6 @@ def get_user_points_public(org_prefix, **kwargs):
     """Get authenticated member's points balance (storefront endpoint)"""
     db = next(db_connect.get_db())
     try:
-        from modules.points.models import Points, User, UserOrganizationMembership
-
         user_discord_id = kwargs.get("user_discord_id")
         organization = kwargs.get("organization")
 
@@ -870,10 +845,7 @@ def get_user_orders_clerk(org_prefix, user_email):
         if request.clerk_user_email != user_email:  # type: ignore[attr-defined]
             return jsonify({"error": "Unauthorized: Email mismatch"}), 403
 
-        from modules.organizations.models import Organization
-        from modules.points.models import User
-
-        organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
+        organization = find_by_prefix(db, org_prefix)
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -881,8 +853,6 @@ def get_user_orders_clerk(org_prefix, user_email):
 
         # Auto-create user if they don't exist and we have Clerk user data
         if not user and hasattr(request, "clerk_user"):
-            from modules.points.api import get_or_create_user_from_clerk
-
             user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
@@ -934,10 +904,7 @@ def get_user_wallet_clerk(org_prefix, user_email):
         if request.clerk_user_email != user_email:  # type: ignore[attr-defined]
             return jsonify({"error": "Unauthorized: Email mismatch"}), 403
 
-        from modules.organizations.models import Organization
-        from modules.points.models import Points, User
-
-        organization = db.query(Organization).filter(Organization.prefix == org_prefix).first()
+        organization = find_by_prefix(db, org_prefix)
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
@@ -945,8 +912,6 @@ def get_user_wallet_clerk(org_prefix, user_email):
 
         # Auto-create user if they don't exist and we have Clerk user data
         if not user and hasattr(request, "clerk_user"):
-            from modules.points.api import get_or_create_user_from_clerk
-
             user = get_or_create_user_from_clerk(db, organization.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
             if not user:
                 return jsonify({"error": "Failed to create user account"}), 500
@@ -1004,18 +969,14 @@ def clerk_checkout(org_prefix):
 
     db = next(db_connect.get_db())
     try:
-        org = get_organization_by_prefix(db, org_prefix)
+        org = find_by_prefix(db, org_prefix)
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-
-        from modules.points.models import Points, User, UserOrganizationMembership
 
         user = db.query(User).filter(User.email == user_email).first()
 
         # Auto-create user if they don't exist and we have Clerk user data
         if not user and hasattr(request, "clerk_user"):
-            from modules.points.api import get_or_create_user_from_clerk
-
             user = get_or_create_user_from_clerk(db, org.id, request.clerk_user, user_email)  # type: ignore[attr-defined]
 
         if not user:

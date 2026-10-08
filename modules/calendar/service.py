@@ -11,6 +11,7 @@ from core.db import db_connect
 from core.errors import ServiceError
 from core.log import get_logger
 from modules.auth import scopes
+from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
 from .clients import GoogleCalendarClient, NotionCalendarClient
@@ -524,10 +525,10 @@ class CalendarError(ServiceError):
 
 def find_organization(db, org_prefix: str) -> Organization:
     """The active organization with this prefix. Raises CalendarError (404, or 403 if inactive)."""
-    org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+    org = organizations.find_by_prefix(db, org_prefix, active_only=True)
     if org:
         return org
-    if db.query(Organization).filter(Organization.prefix == org_prefix).first():
+    if organizations.find_by_prefix(db, org_prefix):
         raise CalendarError(f"Organization '{org_prefix}' exists but is inactive", 403)
     raise CalendarError(f"Organization '{org_prefix}' not found", 404)
 

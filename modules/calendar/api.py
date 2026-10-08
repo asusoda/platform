@@ -7,6 +7,7 @@ from core.db import db_connect
 from core.log import get_logger
 from modules.auth.access import any_officer_denial
 from modules.auth.decorators import auth_required
+from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
 from . import service
@@ -90,8 +91,7 @@ def sync_organization_calendar(org_prefix):
 
     try:
         with next(db_connect.get_db()) as session:
-            # Get organization by prefix
-            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+            org = organizations.find_by_prefix(session, org_prefix, active_only=True)
 
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
@@ -132,8 +132,7 @@ def setup_organization_calendar(org_prefix):
 
     try:
         with next(db_connect.get_db()) as session:
-            # Get organization by prefix
-            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+            org = organizations.find_by_prefix(session, org_prefix, active_only=True)
 
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")

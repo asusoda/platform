@@ -19,9 +19,10 @@ from modules.compute.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.points.models import Points, UserOrganizationMembership
+from modules.points.models import Points
 from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
+from modules.users.models import UserOrganizationMembership
 
 
 def overview(db, org: Organization) -> dict:

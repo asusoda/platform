@@ -24,7 +24,7 @@ in October 2026. Where any page still conflicts with the code, the code wins.
 
 `modules/auth/decoraters.py:335` reads `session.get("discord_id")` and returns
 `401 Discord authentication required` when absent. **Nothing in the codebase ever writes
-`session["discord_id"]`.** (`modules/points/api.py:419` also only reads it.)
+`session["discord_id"]`.** (`member_login` in `modules/points/api.py` also only reads it.)
 
 Affected endpoints — every one of them returns 401 today:
 

@@ -19,6 +19,7 @@ MODEL_MODULES = [
     "modules.points.models",
     "modules.runpod.models",
     "modules.storefront.models",
+    "modules.users.models",
 ]
 
 # Importing a jobs module registers its jobs with core.jobs

@@ -63,7 +63,7 @@ resolved from SoDA's own Discord server** regardless of which org the user belon
 
 The largest module (~1300 lines). Two halves: shared helper functions, then routes.
 
-### Helper functions (top of `api.py`)
+### Helper functions (`modules/users/service.py`, `modules/points/csv_import.py`)
 
 | Function | What it does |
 |----------|--------------|

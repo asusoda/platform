@@ -61,8 +61,9 @@ class FakeBot:
 
 def _seed(db_connect):
     from modules.organizations.models import Organization
-    from modules.points.models import Points, User, UserOrganizationMembership
+    from modules.points.models import Points
     from modules.storefront.models import Order, OrderItem, Product
+    from modules.users.models import User, UserOrganizationMembership
 
     db = next(db_connect.get_db())
     try:

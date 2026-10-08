@@ -43,8 +43,12 @@ BRANDING_KEYS = ("logo_url", "accent_color")
 MAX_LOGO_URL = 500
 
 
-def find_by_prefix(db, org_prefix: str) -> Organization | None:
-    return db.query(Organization).filter_by(prefix=org_prefix).first()
+def find_by_prefix(db, prefix: str | None, *, active_only: bool = False) -> Organization | None:
+    """The org with this prefix, or None. With active_only, an inactive org is None too."""
+    query = db.query(Organization).filter_by(prefix=prefix)
+    if active_only:
+        query = query.filter_by(is_active=True)
+    return query.first()
 
 
 def name_for_guild(db, guild_id: object) -> str | None:
@@ -101,7 +105,7 @@ def create_organization(
         raise OrganizationError("Prefix must be 2-20 characters of lowercase letters, numbers, - and _")
     if not str(guild_id).isdigit():
         raise OrganizationError("Guild id must be a Discord id (digits only)")
-    if db.query(Organization).filter_by(prefix=prefix).first():
+    if find_by_prefix(db, prefix):
         raise OrganizationError(f"Prefix {prefix} is taken")
     if db.query(Organization).filter_by(guild_id=str(guild_id)).first():
         raise OrganizationError(f"Guild {guild_id} already has an organization")

@@ -139,7 +139,7 @@ def update_organization_settings(org_id):
                 ), 400
 
             # Check if prefix is already taken by another organization
-            existing_org = db.query(Organization).filter_by(prefix=new_prefix).first()
+            existing_org = service.find_by_prefix(db, new_prefix)
             if existing_org and existing_org.id != org_id:
                 return jsonify({"error": "Prefix is already taken by another organization"}), 400
 
