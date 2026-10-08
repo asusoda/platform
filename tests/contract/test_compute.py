@@ -182,3 +182,151 @@ def test_turning_compute_off_hides_the_routes(client, officer_headers, runpod, r
     soda_id = next(o["id"] for o in orgs if o["prefix"] == "soda")
     client.put(f"/api/organizations/{soda_id}/modules", json={"modules": {"compute": False}}, headers=officer_headers)
     assert client.get("/api/compute/soda/pods", headers=officer_headers).status_code == 404
+
+
+class FakeSFTP:
+    """An in-memory filesystem with the paramiko SFTPClient calls PodFiles uses."""
+
+    def __init__(self):
+        self.files: dict[str, bytes] = {"/workspace/train.py": b"print('hi')\n"}
+        self.dirs: set[str] = {"/", "/workspace", "/workspace/data"}
+
+    def _attr(self, name, path):
+        import stat
+        from types import SimpleNamespace
+
+        is_dir = path in self.dirs
+        mode = (stat.S_IFDIR | 0o755) if is_dir else (stat.S_IFREG | 0o644)
+        size = 0 if is_dir else len(self.files[path])
+        return SimpleNamespace(filename=name, st_mode=mode, st_size=size, st_mtime=1)
+
+    def listdir_attr(self, path):
+        if path not in self.dirs:
+            raise FileNotFoundError(path)
+        prefix = path.rstrip("/") + "/"
+        names = {p[len(prefix) :] for p in [*self.files, *self.dirs] if p.startswith(prefix) and p != path}
+        return [self._attr(n, prefix + n) for n in sorted(names) if "/" not in n]
+
+    def stat(self, path):
+        if path not in self.files and path not in self.dirs:
+            raise FileNotFoundError(path)
+        return self._attr(path.rsplit("/", 1)[-1], path)
+
+    def open(self, path, mode):
+        import io
+
+        sftp = self
+        if mode == "r":
+            if path not in self.files:
+                raise FileNotFoundError(path)
+            return io.BytesIO(self.files[path])
+
+        class Writer(io.BytesIO):
+            def __exit__(self, *exc):
+                sftp.files[path] = self.getvalue()
+                return super().__exit__(*exc)
+
+        return Writer()
+
+    def getfo(self, path, buffer):
+        buffer.write(self.files[path])
+
+    def putfo(self, stream, path):
+        self.files[path] = stream.read()
+
+    def mkdir(self, path):
+        if path in self.dirs:
+            raise OSError("exists")
+        self.dirs.add(path)
+
+    def rename(self, old, new):
+        self.files[new] = self.files.pop(old)
+
+    def close(self):
+        pass
+
+
+class FakeSSH:
+    def __init__(self):
+        self.commands: list[str] = []
+
+    def exec_command(self, command, timeout=None):
+        from types import SimpleNamespace
+
+        self.commands.append(command)
+        stdout = SimpleNamespace(channel=SimpleNamespace(recv_exit_status=lambda: 0))
+        return None, stdout, None
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def pod_fs(runpod, monkeypatch):
+    from modules.compute import files
+
+    sftp, ssh = FakeSFTP(), FakeSSH()
+    opened: list[tuple] = []
+
+    def fake_open(host, port, private_key):
+        opened.append((host, port, private_key.startswith("-----BEGIN OPENSSH PRIVATE KEY-----")))
+        return files.PodFiles(ssh, sftp)
+
+    monkeypatch.setattr(files.PodFiles, "open", staticmethod(fake_open))
+    yield sftp, ssh, opened
+
+
+def test_officers_manage_files_on_a_running_pod(client, officer_headers, pod_fs):
+    import io
+
+    sftp, ssh, opened = pod_fs
+    _create(client, officer_headers)
+    base = "/api/compute/soda/pods/pod1/files"
+
+    listing = client.get(base, headers=officer_headers).get_json()
+    assert listing["path"] == "/workspace"
+    assert [(f["name"], f["type"]) for f in listing["files"]] == [("data", "directory"), ("train.py", "file")]
+    assert opened[0] == ("203.0.113.5", 40022, True)
+
+    read = client.post(f"{base}/read", json={"path": "/workspace/../workspace/train.py"}, headers=officer_headers)
+    assert read.get_json() == {"path": "/workspace/train.py", "content": "print('hi')\n"}
+    client.post(f"{base}/write", json={"path": "/workspace/train.py", "content": "x = 1\n"}, headers=officer_headers)
+    assert sftp.files["/workspace/train.py"] == b"x = 1\n"
+
+    download = client.post(f"{base}/download", json={"path": "/workspace/train.py"}, headers=officer_headers)
+    assert download.status_code == 200 and download.data == b"x = 1\n"
+    assert "train.py" in download.headers["Content-Disposition"]
+
+    uploaded = client.post(
+        f"{base}/upload",
+        data={"path": "/workspace/data", "file": (io.BytesIO(b"a,b\n"), "rows.csv")},
+        headers=officer_headers,
+        content_type="multipart/form-data",
+    )
+    assert uploaded.get_json() == {"path": "/workspace/data/rows.csv"}
+    assert sftp.files["/workspace/data/rows.csv"] == b"a,b\n"
+
+    assert client.post(f"{base}/mkdir", json={"path": "/workspace/out"}, headers=officer_headers).status_code == 200
+    renamed = client.post(
+        f"{base}/rename",
+        json={"old_path": "/workspace/train.py", "new_path": "/workspace/main.py"},
+        headers=officer_headers,
+    )
+    assert renamed.status_code == 200 and "/workspace/main.py" in sftp.files
+    deleted = client.post(f"{base}/delete", json={"path": "/workspace/it's here"}, headers=officer_headers)
+    assert deleted.status_code == 200 and ssh.commands == ["rm -rf -- '/workspace/it'\"'\"'s here'"]
+
+
+def test_file_requests_are_checked(client, member_client, officer_headers, pod_fs, runpod):
+    _create(client, officer_headers)
+    base = "/api/compute/soda/pods/pod1/files"
+    assert client.post(f"{base}/read", json={"path": "relative.txt"}, headers=officer_headers).status_code == 400
+    assert client.post(f"{base}/read", json={"path": "/missing"}, headers=officer_headers).status_code == 404
+    for path in ("/", "/workspace/", "/root/../root"):
+        assert client.post(f"{base}/delete", json={"path": path}, headers=officer_headers).status_code == 400
+    assert client.post(f"{base}/upload", data={}, headers=officer_headers).status_code == 400
+    assert client.get("/api/compute/soda/pods/nope/files", headers=officer_headers).status_code == 404
+    assert member_client.get(f"{base}").status_code in (401, 403)
+
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "stop"}, headers=officer_headers)
+    assert client.get(base, headers=officer_headers).status_code == 409

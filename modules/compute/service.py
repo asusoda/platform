@@ -312,3 +312,19 @@ def connect(
         "is_admin": is_admin,
         "certificate": certificate,
     }
+
+
+def pod_files(db, org_id: int, pod_id: str, client: runpod.RunPodClient | None = None, opener=None):
+    """An open SFTP session on a running pod, as root with the org's backend key."""
+    from modules.compute.files import PodFiles
+
+    _find(db, org_id, pod_id)
+    client = client or _client(db, org_id)
+    live = _call(client.get_pod, pod_id)
+    if _status(live) != "RUNNING":
+        raise ComputeError("Pod is not running", 409)
+    address = ssh_address(cast(dict, live))
+    if address is None:
+        raise ComputeError("Pod network information not available", 503)
+    _, backend_private = keypair(db, org_id, BACKEND_KEY)
+    return (opener or PodFiles.open)(address[0], address[1], backend_private)

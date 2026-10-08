@@ -65,9 +65,28 @@ A member certificate has principal `gf-<pod_id>` and forces `/usr/local/bin/godf
 certificate without the forced command. Each certificate is valid from five minutes ago to twelve
 hours from now. Every connect is in the audit log.
 
+## File manager
+
+Officer routes that work on a running pod's files over SFTP, as root with the org's `backend` key.
+Paths are absolute and normalized. The API has no web page yet.
+
+| Route | Body | What it does |
+|-------|------|--------------|
+| `GET .../pods/<pod_id>/files?path=/workspace` | | Directory entries, directories first |
+| `POST .../files/read` | `{"path"}` | Text content, up to 1 MB |
+| `POST .../files/write` | `{"path", "content"}` | Replace a file with text, up to 1 MB |
+| `POST .../files/download` | `{"path"}` | The file as an attachment, up to 100 MB |
+| `POST .../files/upload` | multipart `file`, form `path` (directory) | Store a file, up to 100 MB |
+| `POST .../files/mkdir` | `{"path"}` | Create a directory |
+| `POST .../files/rename` | `{"old_path", "new_path"}` | Move or rename |
+| `POST .../files/delete` | `{"path"}` | Delete a file or a directory with its contents. Refuses `/`, `/workspace`, `/root`, `/home` |
+
+`...` is `/api/compute/<org>`. A stopped pod returns 409; a failed SSH connection returns 502.
+Pod host keys are not checked, since RunPod publishes none.
+
 ## Not ported yet
 
-- The web file manager (browse, upload and edit files on a pod over SFTP).
+- The web pages for pods and the file manager.
 - The godfather CLI. It signs in with Godfather's own tokens; using these routes needs a member
   credential the CLI can hold, which the platform does not issue yet.
 - The RunPod request and response field names follow RunPod's REST API and are checked against a

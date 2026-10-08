@@ -1,15 +1,16 @@
 """HTTP routes for pods. Officers manage an org's pods; members list and connect to the ones shared with them."""
 
+import io
 from typing import cast
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 
 from modules.auth import access
 from modules.auth.decoraters import auth_required, member_required
 from modules.organizations.models import Organization
 from shared import db_connect
 
-from . import service
+from . import files, service
 
 compute_blueprint = Blueprint("compute", __name__)
 
@@ -30,7 +31,7 @@ def _officer_route(rule: str, methods: list[str]):
                     return jsonify({"error": "Organization not found"}), 404
                 result = view(db, org, **kwargs)
                 return result if isinstance(result, tuple) else jsonify(result)
-            except service.ComputeError as e:
+            except (service.ComputeError, files.FilesError) as e:
                 db.rollback()
                 return jsonify({"error": e.message}), e.status
             finally:
@@ -127,3 +128,80 @@ def connect(db, org, discord_id, pod_id):
             db, _org_id(org), pod_id, discord_id, _username(org, discord_id), _is_officer(org, discord_id), public_key
         )
     }
+
+
+# File manager: officers browse and edit files on a running pod as root.
+
+
+def _json() -> dict:
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
+
+def _files(db, org, pod_id):
+    return service.pod_files(db, _org_id(org), pod_id)
+
+
+@_officer_route("/pods/<string:pod_id>/files", ["GET"])
+def list_files(db, org, pod_id):
+    path = request.args.get("path", "/workspace")
+    with _files(db, org, pod_id) as pod:
+        return {"path": files.clean_path(path), "files": pod.list(path)}
+
+
+@_officer_route("/pods/<string:pod_id>/files/read", ["POST"])
+def read_file(db, org, pod_id):
+    path = _json().get("path")
+    with _files(db, org, pod_id) as pod:
+        return {"path": files.clean_path(path), "content": pod.read_text(path)}
+
+
+@_officer_route("/pods/<string:pod_id>/files/write", ["POST"])
+def write_file(db, org, pod_id):
+    data = _json()
+    with _files(db, org, pod_id) as pod:
+        pod.write_text(data.get("path"), data.get("content"))
+    return {"path": files.clean_path(data.get("path"))}
+
+
+@_officer_route("/pods/<string:pod_id>/files/download", ["POST"])
+def download_file(db, org, pod_id):
+    path = files.clean_path(_json().get("path"))
+    with _files(db, org, pod_id) as pod:
+        content = pod.download(path)
+    return send_file(io.BytesIO(content), as_attachment=True, download_name=path.rsplit("/", 1)[-1] or "file"), 200
+
+
+@_officer_route("/pods/<string:pod_id>/files/upload", ["POST"])
+def upload_file(db, org, pod_id):
+    if (request.content_length or 0) > files.MAX_TRANSFER_BYTES:
+        raise files.FilesError(f"Uploads are limited to {files.MAX_TRANSFER_BYTES} bytes", 413)
+    upload = request.files.get("file")
+    if upload is None:
+        raise files.FilesError("Send the file as multipart field file")
+    with _files(db, org, pod_id) as pod:
+        return {"path": pod.upload(request.form.get("path", "/workspace"), upload.filename, upload.stream)}
+
+
+@_officer_route("/pods/<string:pod_id>/files/mkdir", ["POST"])
+def make_directory(db, org, pod_id):
+    path = _json().get("path")
+    with _files(db, org, pod_id) as pod:
+        pod.mkdir(path)
+    return {"path": files.clean_path(path)}
+
+
+@_officer_route("/pods/<string:pod_id>/files/rename", ["POST"])
+def rename_file(db, org, pod_id):
+    data = _json()
+    with _files(db, org, pod_id) as pod:
+        pod.rename(data.get("old_path"), data.get("new_path"))
+    return {"path": files.clean_path(data.get("new_path"))}
+
+
+@_officer_route("/pods/<string:pod_id>/files/delete", ["POST"])
+def delete_file(db, org, pod_id):
+    path = _json().get("path")
+    with _files(db, org, pod_id) as pod:
+        pod.delete(path)
+    return {"deleted": files.clean_path(path)}
