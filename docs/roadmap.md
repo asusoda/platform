@@ -9,11 +9,13 @@ This is the plan for turning platform into shared infrastructure for SoDA, AIS a
 | 0. CI/CD and a safety net | Merged | #1 |
 | 1. Make multi-org safe | In review, report mode | #2, #3, #4, #5 |
 | 2. Run it properly | In review | #6, #7, #9, #10 |
-| 3. Modules and jobs | In progress | |
+| 3. Modules and jobs | In review | #12 core/ and import rules, #13 module switches, #14 job queue, #15 games and LeetCode split, #16 audit log, #17 org secrets, #18 CLI |
 | 4. What AIS adds | Not started | |
 | 5. Godfather as the compute module | Not started | |
 
 The phase PRs are stacked: each is based on the previous one, so merge them in order.
+
+Phase 3 leftovers: the LeetCode daily post still runs in the bot (its verify loop keeps state in memory), games and LeetCode have no per-org switch yet (neither is tied to an org), Google credentials are still instance-wide, and the web app does not hide turned-off modules.
 
 ## Summary
 
