@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import useAuthToken from "../hooks/userAuth";
 import useOrgNavigation from "../hooks/useOrgNavigation";
+import useOrgModules from "../hooks/useOrgModules";
 import { useAuth } from "../components/auth/AuthContext";
 import OrganizationNavbar from "../components/shared/OrganizationNavbar";
 import {
@@ -38,6 +39,7 @@ const HomePage = () => {
     goToAddProducts,
     goToOrders,
   } = useOrgNavigation();
+  const { isEnabled } = useOrgModules();
 
   // State for managing dropdown visibility
   const [expandedCategories, setExpandedCategories] = useState({
@@ -56,7 +58,7 @@ const HomePage = () => {
   };
 
   // Dashboard categories with their features
-  const dashboardCategories = [
+  const allCategories = [
     {
       id: "userManagement",
       title: "User Management",
@@ -73,6 +75,7 @@ const HomePage = () => {
         },
         {
           title: "Leaderboard",
+          module: "points",
           description: "View points rankings and user statistics",
           icon: FaChartLine,
           color: "from-green-500 to-green-600",
@@ -80,6 +83,7 @@ const HomePage = () => {
         },
         {
           title: "Add Points",
+          module: "points",
           description: "Award points to users for events and activities",
           icon: FaPlus,
           color: "from-purple-500 to-purple-600",
@@ -89,6 +93,7 @@ const HomePage = () => {
     },
     {
       id: "storeFront",
+      module: "storefront",
       title: "Store Front",
       icon: FaStore,
       color: "from-orange-500 to-orange-600",
@@ -126,6 +131,7 @@ const HomePage = () => {
     },
     {
       id: "calendar",
+      module: "calendar",
       title: "Calendar System",
       icon: FaCalendarAlt,
       color: "from-red-500 to-red-600",
@@ -185,6 +191,14 @@ const HomePage = () => {
       ],
     },
   ];
+
+  // Switched-off modules are hidden; their routes return 404 for this org.
+  const dashboardCategories = allCategories
+    .filter((category) => isEnabled(category.module))
+    .map((category) => ({
+      ...category,
+      features: category.features.filter((feature) => isEnabled(feature.module)),
+    }));
 
   return (
     <OrganizationNavbar>

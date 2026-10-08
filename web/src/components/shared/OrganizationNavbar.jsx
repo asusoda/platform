@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Menu, MenuItem, HoveredLink } from '../ui/navbar-menu';
 import OrganizationSwitcher from '../OrganizationSwitcher';
+import useOrgModules from '../../hooks/useOrgModules';
 import { 
   FaUsers, 
   FaChartLine, 
@@ -25,6 +26,7 @@ const OrganizationNavbar = ({ children }) => {
   const { logout, currentOrg, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [activeNavItem, setActiveNavItem] = useState(null);
+  const { isEnabled } = useOrgModules();
 
   const goToDashboard = () => navigate(`/${currentOrg?.prefix}/dashboard`);
   const goToUsers = () => navigate(`/${currentOrg?.prefix}/users`);
@@ -89,6 +91,8 @@ const OrganizationNavbar = ({ children }) => {
                         • Manage Users
                       </HoveredLink>
                     </li>
+                    {isEnabled('points') && (
+                      <>
                     <li>
                       <HoveredLink onClick={goToLeaderboard} className="block p-2 rounded hover:bg-blue-400/20 hover:text-blue-300 transition-all duration-200 text-sm text-gray-300">
                         • Leaderboard
@@ -99,10 +103,13 @@ const OrganizationNavbar = ({ children }) => {
                         • Add Points
                       </HoveredLink>
                     </li>
+                      </>
+                    )}
                   </ul>
                 </div>
 
                 {/* Store Front Category */}
+                {isEnabled('storefront') && (
                 <div>
                   <div className="text-sm font-semibold text-green-400 mb-4 flex items-center">
                     <FaStore className="mr-2 text-green-400" />
@@ -131,8 +138,10 @@ const OrganizationNavbar = ({ children }) => {
                     </li>
                   </ul>
                 </div>
+                )}
 
                 {/* Calendar System Category */}
+                {isEnabled('calendar') && (
                 <div>
                   <div className="text-sm font-semibold text-yellow-400 mb-4 flex items-center">
                     <FaCalendarAlt className="mr-2 text-yellow-400" />
@@ -151,6 +160,7 @@ const OrganizationNavbar = ({ children }) => {
                     </li>
                   </ul>
                 </div>
+                )}
 
                 {/* Discord Bots Category */}
                 <div>
