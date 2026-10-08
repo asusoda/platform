@@ -218,6 +218,42 @@ export type SearchResult = {
 
 export type SearchResponse = { results: SearchResult[]; dense: boolean };
 
+export type KnowledgeMode = 'hybrid' | 'text' | 'vector';
+
+export type KnowledgeTuning = {
+  chunk_chars: number;
+  chunk_overlap: number;
+  mode: KnowledgeMode;
+  top_k: number;
+  window: number;
+  max_distance: number;
+  rrf_k: number;
+};
+
+export type KnowledgeSettings = {
+  settings: KnowledgeTuning;
+  defaults: KnowledgeTuning;
+  embeddings: { configured: boolean; model: string | null };
+};
+
+export type KnowledgeRun = {
+  id: number;
+  source_key: string;
+  kind: 'crawl' | 'upload';
+  started_at: string;
+  duration_ms: number;
+  changed: boolean;
+  chunks: number | null;
+  error: string | null;
+};
+
+export type UploadResult = {
+  files: { file: string; key: string; changed: boolean; chunks: number; error: string | null }[];
+  indexed: number;
+  unchanged: number;
+  failed: number;
+};
+
 // Settings and superadmin
 
 export type OrganizationDetail = Organization & {

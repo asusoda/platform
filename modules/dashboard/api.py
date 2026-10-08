@@ -13,7 +13,7 @@ from core.http import audit_hook
 from core.http.responses import json_body
 from modules.auth import access
 from modules.auth.routes import officer_route
-from modules.knowledge import crawl, embedder, packs
+from modules.knowledge import crawl, documents, embedder, packs, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
@@ -167,3 +167,46 @@ def search(db, org):
         top_k=data.get("top_k"),
         embedder=embedder.configured(),
     )
+
+
+@_route("/knowledge/documents", ["POST"])
+def upload_documents(db, org):
+    """Index uploaded files. Form fields: files (one or more), category, folder, public."""
+    uploads = [documents.Upload(f.filename or "document", f.read()) for f in request.files.getlist("files")]
+    form = {"category": request.form.get("category"), "folder": request.form.get("folder")}
+    form["public"] = request.form.get("public") == "true"
+    return documents.upload(db, _org_id(org), str(org.prefix), uploads, form, embedder.configured())
+
+
+@_route("/knowledge/settings", ["GET"])
+def get_knowledge_settings(db, org):
+    return _settings_body(settings.for_org(db, _org_id(org)))
+
+
+@_route("/knowledge/settings", ["PUT"])
+def set_knowledge_settings(db, org):
+    return _settings_body(settings.update(db, _org_id(org), json_body()))
+
+
+def _settings_body(values: dict) -> dict:
+    model = embedder.configured()
+    return {
+        "settings": values,
+        "defaults": settings.defaults(),
+        "embeddings": {"configured": model is not None, "model": model.model if model else None},
+    }
+
+
+@_route("/knowledge/reindex", ["POST"])
+def reindex(db, org):
+    """Start a job that crawls every crawled source again, so new chunk settings apply."""
+    from core.jobs import defer
+
+    defer("knowledge.reindex", org_id=_org_id(org))
+    return {"queued": True}, 202
+
+
+@_route("/knowledge/runs", ["GET"])
+def knowledge_runs(db, org):
+    limit = request.args.get("limit", type=int)
+    return {"runs": runs.recent(db, _org_id(org), limit, failed_only=request.args.get("failed") == "1")}

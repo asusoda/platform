@@ -6,22 +6,26 @@ import { api } from '../lib/api';
 import { useCurrentOrg } from '../lib/org';
 import type { AuditEntry } from '../lib/types';
 import { CiRuns } from './ci';
+import { KnowledgeRuns } from './knowledge-runs';
 
 const PAGE = 50;
 
 const TABS = [
   { id: 'changes', label: 'Changes' },
+  { id: 'knowledge', label: 'Knowledge runs' },
   { id: 'ci', label: 'CI runs' },
 ] as const;
 
+type TabId = (typeof TABS)[number]['id'];
+
 export function ActivityPage() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'ci' ? 'ci' : 'changes';
+  const tab: TabId = TABS.find((t) => t.id === params.get('tab'))?.id ?? 'changes';
   return (
     <>
       <PageHeader
         title="Activity"
-        description="Every change an officer, token or job made in this organization, and the CI runs of its repositories."
+        description="Every change an officer, token or job made in this organization, its crawls and uploads, and the CI runs of its repositories."
       />
       <div role="tablist" aria-label="Activity" className="mb-6 flex gap-1 border-b border-line">
         {TABS.map((t) => (
@@ -40,7 +44,7 @@ export function ActivityPage() {
           </button>
         ))}
       </div>
-      {tab === 'ci' ? <CiRuns /> : <AuditLog />}
+      {tab === 'ci' ? <CiRuns /> : tab === 'knowledge' ? <KnowledgeRuns /> : <AuditLog />}
     </>
   );
 }

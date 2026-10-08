@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Database, ExternalLink, Pencil, Play, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { Database, ExternalLink, Pencil, Play, Plus, RefreshCw, ScrollText, Search, SlidersHorizontal, Trash2, Upload, X } from 'lucide-react';
+import { Link } from 'react-router';
 import { type ReactNode, useState } from 'react';
 import {
   Badge,
@@ -31,6 +32,8 @@ import { api, send } from '../lib/api';
 import { compact, keyPath, type Tone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import type { KnowledgeSource, SearchResponse } from '../lib/types';
+import { KnowledgeSettingsForm } from './knowledge-settings';
+import { UploadForm } from './knowledge-upload';
 
 // Limits from modules/knowledge (KEY_PATTERN and crawl.MAX_EVERY_HOURS).
 const KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}$/;
@@ -405,6 +408,8 @@ export function KnowledgePage() {
   const invalidate = useInvalidate(prefix);
   const [editing, setEditing] = useState<KnowledgeSource | 'new' | null>(null);
   const [running, setRunning] = useState<KnowledgeSource | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [tuning, setTuning] = useState(false);
   const [filter, setFilter] = useState('');
   const [domain, setDomain] = useState('');
   const [watchUntil, setWatchUntil] = useState(0);
@@ -474,13 +479,27 @@ export function KnowledgePage() {
       <Plus className="size-4" /> Add crawl
     </Button>
   );
+  const upload = (
+    <Button onClick={() => setUploading(true)}>
+      <Upload className="size-4" /> Upload
+    </Button>
+  );
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button variant="ghost" onClick={() => setTuning(true)} aria-label="Search settings" title="Search settings">
+        <SlidersHorizontal className="size-4" /> <span className="hidden sm:inline">Search settings</span>
+      </Button>
+      {upload}
+      {addCrawl}
+    </div>
+  );
 
   return (
     <>
       <PageHeader
         title="Knowledge"
-        description="The sources agents search, by domain: source packs, pages the platform crawls on a schedule, and documents that clients write."
-        action={addCrawl}
+        description="The sources agents search, by domain: source packs, pages the platform crawls on a schedule, and uploaded documents."
+        action={headerActions}
       />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Sources" value={list.data ? sources.length : '-'} />
@@ -536,7 +555,14 @@ export function KnowledgePage() {
           title="Sources"
           hint={list.data ? `${shown.length} of ${sources.length} sources` : undefined}
           action={
-            categories.length > 1 ? (
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/${prefix}/activity?tab=knowledge`}
+                className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs whitespace-nowrap text-muted hover:bg-panel-2 hover:text-fg"
+              >
+                <ScrollText className="size-3.5" /> Run log
+              </Link>
+              {categories.length > 1 ? (
               <Select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter by category" className="h-8 w-auto text-xs">
                 <option value="">All categories</option>
                 {categories.map((c) => (
@@ -545,7 +571,8 @@ export function KnowledgePage() {
                   </option>
                 ))}
               </Select>
-            ) : null
+              ) : null}
+            </div>
           }
         />
         {list.isLoading ? (
@@ -590,7 +617,7 @@ export function KnowledgePage() {
                           </div>
                         ) : null}
                         <div className="mt-0.5 text-xs text-muted sm:hidden">
-                          {s.crawl ? (s.crawl.enabled ? every(s.crawl.fetch_every_hours) : 'paused') : 'written by client'} ·{' '}
+                          {s.crawl ? (s.crawl.enabled ? every(s.crawl.fetch_every_hours) : 'paused') : s.url ? 'written by client' : 'document'} ·{' '}
                           {s.chunk_count} passages
                         </div>
                         {actions(s, 'mt-2 sm:hidden')}
@@ -614,7 +641,7 @@ export function KnowledgePage() {
                         <Badge>paused</Badge>
                       )
                     ) : (
-                      <Badge>written by client</Badge>
+                      <Badge>{s.url ? 'written by client' : 'document'}</Badge>
                     )}
                   </Td>
                   <Td className="hidden pl-0 sm:table-cell">
@@ -625,8 +652,18 @@ export function KnowledgePage() {
             </tbody>
           </Table>
         ) : (
-          <EmptyState icon={Database} title="No sources yet" action={addCrawl}>
-            Add a source pack above, add a page to crawl on a schedule, or write documents with a knowledge:write token.
+          <EmptyState
+            icon={Database}
+            title="No sources yet"
+            action={
+              <div className="flex gap-2">
+                {upload}
+                {addCrawl}
+              </div>
+            }
+          >
+            Add a source pack above, upload documents, add a page to crawl on a schedule, or write sources with a
+            knowledge:write token.
           </EmptyState>
         )}
       </Card>
@@ -647,6 +684,45 @@ export function KnowledgePage() {
             categories={categories}
             canPublish={list.data?.can_publish ?? false}
             onDone={() => setEditing(null)}
+          />
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={uploading}
+        onClose={() => setUploading(false)}
+        title="Upload documents"
+        description="Each file becomes a source. Its text is split into passages and indexed for agents."
+        wide
+      >
+        {uploading ? (
+          <UploadForm
+            prefix={prefix}
+            categories={categories}
+            canPublish={list.data?.can_publish ?? false}
+            onUploaded={invalidate}
+            onCancel={() => setUploading(false)}
+          />
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={tuning}
+        onClose={() => setTuning(false)}
+        title="Search settings"
+        description="How this organization's text is split into passages and how a search ranks them."
+        wide
+      >
+        {tuning ? (
+          <KnowledgeSettingsForm
+            prefix={prefix}
+            onDone={(message) => {
+              setTuning(false);
+              if (message) {
+                setNotice(message);
+                setWatchUntil(Date.now() + WATCH_MS);
+              }
+            }}
           />
         ) : null}
       </Dialog>

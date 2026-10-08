@@ -412,11 +412,44 @@ export function fixtures(now = Date.now()) {
       title: 'Team roster',
     }),
     source(5, 'docs/onboarding', 'docs', 64, -9 * DAY, { title: 'New member onboarding' }),
+    source(7, 'upload/sponsor-packet.pdf', 'documents', 31, -6 * HOUR, { title: 'sponsor-packet.pdf' }),
     source(6, 'docs/safety', 'docs', 27, -14 * DAY, {
       url: 'https://robotics.example.org/safety',
       title: 'Shop safety rules',
       crawl: crawl(168, -14 * DAY, { enabled: false }),
     }),
+  ];
+
+  const tuning = { chunk_chars: 300, chunk_overlap: 0, mode: 'hybrid', top_k: 8, window: 0, max_distance: 0.6, rrf_k: 60 };
+  const knowledgeSettings = {
+    settings: { ...tuning, chunk_chars: 600, chunk_overlap: 60, window: 1 },
+    defaults: tuning,
+    embeddings: { configured: true, model: 'Qwen3-Embedding-0.6B' },
+  };
+  const knowledgeRun = (id, key, kind, offset, rest = {}) => ({
+    id,
+    source_key: key,
+    kind,
+    started_at: at(offset),
+    duration_ms: kind === 'upload' ? 2400 : 900,
+    changed: false,
+    chunks: 18,
+    error: null,
+    ...rest,
+  });
+  const knowledgeRuns = [
+    knowledgeRun(9, 'club/build-nights', 'crawl', -3 * HOUR, { changed: true }),
+    knowledgeRun(8, 'competition/rules-2026', 'crawl', -40 * MINUTE - 3 * HOUR, {
+      chunks: null,
+      error: 'The page answered 503 Service Unavailable',
+    }),
+    knowledgeRun(7, 'upload/sponsor-packet.pdf', 'upload', -6 * HOUR, { changed: true, chunks: 31 }),
+    knowledgeRun(6, 'upload/scan.pdf', 'upload', -6 * HOUR, {
+      chunks: null,
+      error: 'The PDF has no text layer. A scanned PDF needs text recognition first',
+    }),
+    knowledgeRun(5, 'club/faq', 'crawl', -20 * HOUR, { chunks: 42 }),
+    knowledgeRun(4, 'docs/onboarding', 'upload', -9 * DAY, { changed: true, chunks: 64 }),
   ];
 
   const search = {
@@ -604,6 +637,8 @@ export function fixtures(now = Date.now()) {
     },
     [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
+    [`/api/dashboard/${ORG.prefix}/knowledge/settings`]: knowledgeSettings,
+    [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs: knowledgeRuns },
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
     ...Object.fromEntries(
       livePods.map((pod) => [
