@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "screenshots": "vite build && node scripts/screenshots.mjs",
+    "demo-video": "vite build && node scripts/demo-video.mjs",
     "perf": "vite build && node scripts/perf.mjs"
   },
   "dependencies": {

@@ -9,6 +9,7 @@ npm run dev
 npm test
 npm run build          # tsc, then vite build to dist/
 npm run screenshots    # images for the landing page, see docs/frontends.md
+npm run demo-video     # the demo video for the landing page, see docs/frontends.md
 npm run perf           # long lists: time of each step and long tasks
 ```
 
@@ -42,6 +43,7 @@ public/orgs/               logos for the org marks
 scripts/
   fixtures.mjs             API responses for a fictional org, and largeFixtures() with long lists
   screenshots.mjs          screenshots for the landing page
+  demo-video.mjs           the demo video for the landing page
   perf.mjs                 timing and long tasks of the long lists
 ```
 
