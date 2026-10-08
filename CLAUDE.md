@@ -2,6 +2,10 @@
 
 This file provides guidance to AI agents when working with code in this repository.
 
+## Skills
+
+Procedures for agents are in `.agents/skills/` (linked from `.claude/skills/`), listed in `.agents/README.md`. Use `check` before every commit, `new-module` when adding a module, `migration` for model changes, `api-contract` when touching a route thesoda.io or `web/` calls, and `pr-ready` before opening a PR.
+
 ## Development Commands
 
 ### Primary Development Workflow
