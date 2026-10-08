@@ -1,28 +1,24 @@
 # agents
 
-Stores what an organization's agents keep about the members they talk to: conversations, messages, memories, a profile graph of facts, and pending actions waiting for confirmation. Members can see and delete their own agent data.
+Keeps what an org's agents know about the members they talk to: conversations, memories, a profile graph and pending actions. Members can see and delete their own agent data.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Agent routes under `/members/<discord_id>` (conversations, memories, profile, pending actions, turn context and commit) and member routes under `/<org_prefix>/me` |
-| `service.py` | Storage scoped to one org and member, encryption of sensitive memories, pruning; declares the `agents:read` and `agents:write` scopes |
-| `turns.py` | The turn context an agent reads before calling its model, and the turn commit written in one transaction |
+| `api.py` | Agent routes under `/members/<discord_id>` and member routes under `/<org_prefix>/me` |
+| `service.py` | `Owner`, `AgentError`, shared input checks and prune; declares the `agents:read` and `agents:write` scopes |
+| `conversations.py`, `memories.py`, `pending.py` | Conversations with messages and summaries; memories (sensitive ones encrypted); actions held for confirmation |
+| `profile.py` | The profile graph, nearest nodes by embedding, and deletes of a member's data |
+| `turns.py` | The turn context an agent reads before its model call, and the turn commit in one transaction |
 | `models.py` | Conversations, messages, memories, profile nodes and edges, pending actions |
 | `jobs.py` | The prune job |
 
 ## Surface
 
-- Routes: `/api/agents`, no module switch. Agent routes take a machine token with `agents:read` or `agents:write` and act on the token's org; `/<org_prefix>/me` routes take a member's Discord session. Officers have no route to agent data.
-- Jobs: `agents.prune`, cron `15 4 * * *` (idle conversations after `AGENT_RETENTION_DAYS`, expired memories, old pending actions).
+- Routes: `/api/agents`. Agent routes need a machine token with `agents:read` or `agents:write` and act on the token's org. `/<org_prefix>/me` routes need a member's Discord session. Officers have no route to agent data.
+- Jobs: `agents.prune`, schedule `15 4 * * *`.
 - Tools: none.
 - Tables: `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions`.
 
-## Depends on
-
-`core.secrets`, `core.discord_directory`, `core.audit_http`, `core.errors`, `core.jobs`, `core.logging_config`, `core.base`; `modules.knowledge` (embedder, embedding column type), `modules.auth` (decorators, access, scopes, routes), `modules.organizations.models`; `shared`.
-
-## More
-
-[docs/agents.md](../../docs/agents.md)
+See [docs/modules/agents.md](../../docs/modules/agents.md).

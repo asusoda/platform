@@ -10,9 +10,10 @@ from typing import Any, cast
 
 from sqlalchemy.exc import IntegrityError
 
-from core import runpod, secrets
+from core import secrets
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.integrations import runpod
+from core.log import get_logger
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
 

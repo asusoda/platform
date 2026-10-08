@@ -7,7 +7,7 @@ from typing import cast
 from sqlalchemy import func
 from sqlalchemy.orm.attributes import flag_modified
 
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.leetcode.models import LeetCodeLink, LeetCodeSolve
 
 logger = get_logger("leetcode.service")

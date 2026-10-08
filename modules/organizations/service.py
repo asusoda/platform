@@ -6,8 +6,9 @@ from urllib.parse import urlparse
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from core import secrets
 from core.errors import ServiceError
-from modules.auth import scopes
+from modules.auth import machine_tokens, scopes
 from modules.organizations.models import Organization
 
 scopes.declare("org:read", "Read the org's name, description and enabled modules")
@@ -43,8 +44,12 @@ BRANDING_KEYS = ("logo_url", "accent_color")
 MAX_LOGO_URL = 500
 
 
-def find_by_prefix(db, org_prefix: str) -> Organization | None:
-    return db.query(Organization).filter_by(prefix=org_prefix).first()
+def find_by_prefix(db, prefix: str | None, *, active_only: bool = False) -> Organization | None:
+    """The org with this prefix, or None. With active_only, an inactive org is None too."""
+    query = db.query(Organization).filter_by(prefix=prefix)
+    if active_only:
+        query = query.filter_by(is_active=True)
+    return query.first()
 
 
 def name_for_guild(db, guild_id: object) -> str | None:
@@ -101,7 +106,7 @@ def create_organization(
         raise OrganizationError("Prefix must be 2-20 characters of lowercase letters, numbers, - and _")
     if not str(guild_id).isdigit():
         raise OrganizationError("Guild id must be a Discord id (digits only)")
-    if db.query(Organization).filter_by(prefix=prefix).first():
+    if find_by_prefix(db, prefix):
         raise OrganizationError(f"Prefix {prefix} is taken")
     if db.query(Organization).filter_by(guild_id=str(guild_id)).first():
         raise OrganizationError(f"Guild {guild_id} already has an organization")
@@ -170,3 +175,53 @@ def set_branding(db, org: Organization, changes: object) -> dict:
     flag_modified(org, "config")
     db.commit()
     return branding(org)
+
+
+# Org secrets and machine tokens
+
+
+def active_org(db, org_id: int) -> Organization | None:
+    """The active org with this id, or None."""
+    return db.query(Organization).filter_by(id=org_id, is_active=True).first()
+
+
+def secret_names(db, org_id: int) -> dict:
+    """Whether SECRETS_KEY is set, and the names of the secrets the org saved. Values are never returned."""
+    return {"configured": secrets.configured(), "secrets": secrets.list_secrets(db, org_id)}
+
+
+def save_secret(db, org_id: int, name: str, value: object, set_by: str | None) -> None:
+    """Save an org secret. Raises secrets.SecretsError when the name or value is refused."""
+    secrets.set_secret(db, org_id, name, value, set_by)
+
+
+def delete_secret(db, org_id: int, name: str) -> bool:
+    """Delete an org secret. False when it was not set."""
+    return secrets.delete_secret(db, org_id, name)
+
+
+def token_list(db, org_id: int) -> dict:
+    """The org's active machine tokens, and the scopes a token can hold."""
+    return {"tokens": machine_tokens.list_active(db, org_id), "scopes": scopes.SCOPES}
+
+
+def issue_token(db, org_id: int, data: dict, created_by: str | None) -> dict:
+    """Issue a machine token from {"name", "kind", "scopes", "expires_days"}. The value is in the result only.
+
+    Raises machine_tokens.TokenError when the request is refused.
+    """
+    value, row = machine_tokens.issue(
+        db,
+        organization_id=org_id,
+        name=data.get("name"),
+        kind=data.get("kind"),
+        scopes=data.get("scopes"),
+        created_by=created_by,
+        expires_days=data.get("expires_days"),
+    )
+    return {"token": value, **machine_tokens.to_dict(row)}
+
+
+def revoke_token(db, org_id: int, token_id: int) -> bool:
+    """Revoke a machine token of the org. False when there is none."""
+    return machine_tokens.revoke(db, org_id, token_id)

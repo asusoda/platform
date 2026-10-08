@@ -1,33 +1,25 @@
 # core
 
-Shared code the modules build on: configuration, database, logging, tokens, Discord REST access, jobs, tools, audit and org secrets.
+Shared code that modules use: config, database, logs, HTTP hooks, Discord and RunPod clients, jobs, tools, audit and org secrets. `core/` imports nothing from `modules/`; the import-linter contract `core imports no module` in `pyproject.toml` checks it.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
-| `TokenManager.py` | `TokenManager`: RS256 keys in `./data`, access and refresh token pairs, app tokens, revocation, refresh token cleanup |
-| `audit.py` | The `audit_log` table, `record()`, and the `audit.prune` job (cron `30 3 * * *`, `AUDIT_RETENTION_DAYS`) |
-| `audit_http.py` | After-request hook that records successful API writes in the audit log |
-| `base.py` | The SQLAlchemy declarative `Base` |
-| `clerk_auth.py` | Clerk client and `verify_clerk_token` |
-| `config.py` | `Config`: settings from `.env` and the environment |
-| `db.py` | `DBConnect`: engine, sessions, `get_db`, and user, point and storefront query helpers |
-| `discord_directory.py` | `DiscordDirectory`: guilds, roles and members over Discord's REST API with the bot token, cached |
-| `discord_messages.py` | Sends messages and reactions over Discord's REST API without the gateway bot |
-| `errors.py` | `ServiceError`, the error services raise with an HTTP status |
-| `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres (run by `worker_main.py`), threads on SQLite |
-| `logging_config.py` | Logger setup, JSON formatting of request and access lines, `get_logger` |
-| `request_log.py` | One log line per API request: route, org, credential kind, origin |
-| `runpod.py` | RunPod REST client; each org's key is the org secret `runpod_api_key` |
-| `secrets.py` | The `org_secrets` table, `declare()`, and Fernet-encrypted `set_secret` and `get_secret` keyed by `SECRETS_KEY` |
-| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) served over MCP and `/api/tools` |
-| `types.py` | `ExtendedRequest`, a typed Flask request; nothing imports it |
+| `config.py` | `Config` and the `config` instance: settings from `.env` and the environment |
+| `db/` | `Base` (`base.py`), `DBConnect`, the `db_connect` instance and `session()` (`session.py`) |
+| `errors.py`, `time.py` | `ServiceError`, the error a service raises with an HTTP status; `utcnow()` and `iso()` for naive UTC times |
+| `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres, threads on SQLite |
+| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) |
+| `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
+| `secrets.py` | The `org_secrets` table, `declare()`, `set_secret` and `get_secret`, encrypted with `SECRETS_KEY` |
+| `log.py` | `get_logger`, JSON log lines and `init_sentry` |
+| `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log) |
+| `integrations/` | `discord.py` (`DiscordDirectory`, messages and reactions over Discord's REST API) and `runpod.py` (RunPod REST client) |
 
-## Rule
+## Surface
 
-core imports nothing from `modules/`. The import-linter contract `core imports no module` in `[tool.importlinter]` of `pyproject.toml` enforces it (`make check` runs `lint-imports`), with three listed exceptions: `core.db -> modules.storefront.models`, `core.TokenManager -> modules.auth.models`, `core.discord_directory -> modules.organizations.models`.
+- Jobs: `audit.prune`, schedule `30 3 * * *`, keeps `AUDIT_RETENTION_DAYS` (default 365).
+- Tables: `audit_log`, `org_secrets`.
 
-## More
-
-[docs/02-architecture.md](../docs/02-architecture.md)
+See [docs/architecture.md](../docs/architecture.md).

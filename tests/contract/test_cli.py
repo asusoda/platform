@@ -12,8 +12,8 @@ def cli(app):
 def remove_org(app):
     prefixes = []
     yield prefixes.append
+    from core.db import db_connect
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from modules.asu.params import text, url
+from modules.asu.queries.params import text, url
 from modules.asu.types import QueryParam, QuerySource
 
 # Words that ask for recent stories rather than name a topic.

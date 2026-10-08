@@ -17,9 +17,9 @@ def soda_id(client, officer_headers):
 
 
 def _issue(prefix, *scopes):
+    from core.db import db_connect
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -112,8 +112,8 @@ def test_memories(client, agent, member, monkeypatch):
     semantic = client.get(f"{member}/memories?kinds=semantic", headers=agent).get_json()["memories"]
     assert {m["kind"] for m in semantic} == {"semantic"}
 
+    from core.db import db_connect
     from modules.agents.models import AgentMemory
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -207,9 +207,9 @@ def test_officer_token_cannot_read_agent_data(client, officer_headers, member):
 
 
 def test_prune_removes_idle_conversations(client, agent, member):
+    from core.db import db_connect
     from modules.agents import service
     from modules.agents.models import AgentConversation
-    from shared import db_connect
 
     cid = _conversation(client, agent, member)
     later = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) + datetime.timedelta(

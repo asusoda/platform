@@ -25,31 +25,12 @@ os.environ.setdefault("JOBS_BACKEND", "inline")
 
 def create_schema():
     """Create every table on a fresh test database. Production uses Alembic migrations instead."""
-    from importlib import import_module
-
     from sqlalchemy import text
 
-    from core.base import Base
-    from shared import db_connect
+    from core.db import Base, db_connect
+    from modules.manifest import load_models
 
-    # The same model modules alembic/env.py loads, so every table is in Base.metadata
-    for model_module in (
-        "core.audit",
-        "core.secrets",
-        "modules.alerts.models",
-        "modules.accounts.models",
-        "modules.agents.models",
-        "modules.auth.models",
-        "modules.games.models",
-        "modules.knowledge.models",
-        "modules.leetcode.models",
-        "modules.calendar.models",
-        "modules.organizations.models",
-        "modules.points.models",
-        "modules.runpod.models",
-        "modules.storefront.models",
-    ):
-        import_module(model_module)
+    load_models()
 
     if db_connect.engine.dialect.name == "postgresql":
         with db_connect.engine.begin() as conn:

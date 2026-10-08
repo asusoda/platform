@@ -10,12 +10,12 @@ import hashlib
 from typing import Any
 
 from core.jobs import defer
-from core.logging_config import get_logger
-from modules.asu import registry
+from core.log import get_logger
+from modules.asu.queries import registry
 from modules.asu.settings import settings
 from modules.asu.sources import SOURCES
 from modules.asu.types import QueryError
-from modules.knowledge import crawl, extractors, fetch
+from modules.knowledge import crawl, extract, fetch
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import KnowledgeError, can_publish
@@ -27,7 +27,7 @@ LIVE_PREFIX = "asu-live/"
 
 for _source in SOURCES.values():
     if _source.extractor is not None:
-        extractors.register(f"asu.{_source.key}", _source.extractor)
+        extract.register(f"asu.{_source.key}", _source.extractor)
 
 
 def sync(db, org_id: int, org_prefix: str) -> dict:

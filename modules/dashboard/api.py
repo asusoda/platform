@@ -4,7 +4,8 @@ from functools import partial
 
 from flask import Blueprint
 
-from modules.auth.routes import json_body, officer_route
+from core.http.responses import json_body
+from modules.auth.routes import officer_route
 from modules.organizations import service as organizations
 
 from . import ci, service

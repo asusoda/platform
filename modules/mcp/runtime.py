@@ -7,7 +7,7 @@ import jsonschema
 
 from core import audit
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.log import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec
 from modules.auth.machine_tokens import MachineCaller
 from modules.organizations import service as organizations

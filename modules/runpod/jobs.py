@@ -1,5 +1,6 @@
 """Deployment health checks."""
 
+from core.db import db_connect
 from core.jobs import job
 
 
@@ -7,7 +8,6 @@ from core.jobs import job
 def check_deployments() -> None:
     """Mark running app deployments healthy or failed from their health path."""
     from modules.runpod import service
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

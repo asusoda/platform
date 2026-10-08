@@ -1,27 +1,19 @@
 # storefront
 
-A merch store paid with points. Officers manage products and orders; members buy with their points balance, signed in with Discord or Clerk.
+A merch store paid with points. Officers manage products and orders. Members buy with their points balance, signed in with Discord or Clerk.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Product, order, store, member and checkout routes |
+| `api.py` | `storefront_blueprint`; product, order and store routes |
+| `member_api.py` | Member routes on the same blueprint: `/members/...`, `/orders/<email>`, `/wallet/<email>`, `/checkout` |
+| `service.py` | Product and order queries, category clean-up, the catalog price check |
 | `models.py` | Products, orders, order items |
-
-The product and order queries live in `core/db.py` (`DBConnect.get_storefront_products` and the others).
 
 ## Surface
 
-- Routes: `/api/storefront`, gated by the `storefront` switch. Product and order changes need an officer of the org; `/members/...` routes need a Discord session of a guild member; `/checkout`, `/wallet/<email>`, `/orders/<email>` and `POST /orders` take a Clerk or Discord token; product lists and `/store` are open.
+- Routes: `/api/storefront`, behind the `storefront` switch. Product and order changes need an officer of the org. `/members/...` routes need a Discord session of a server member. `/checkout`, `/wallet/<email>`, `/orders/<email>` and `POST /orders` need a Clerk or platform token. Product lists and `/store` are open.
 - Jobs: none.
 - Tools: none.
 - Tables: `products`, `orders`, `order_items`.
-
-## Depends on
-
-`core.db` and `core.base`; `modules.points` (models, user helpers in `points/api.py`), `modules.auth` (decorators, access), `modules.organizations.models`; `shared`.
-
-## More
-
-[docs/05-backend-modules.md](../../docs/05-backend-modules.md)

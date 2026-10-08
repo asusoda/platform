@@ -6,9 +6,9 @@ import uuid
 import pytest
 from cryptography.fernet import Fernet
 
-from core import runpod
+from core.db import db_connect
+from core.integrations import runpod
 from modules.runpod import service
-from shared import db_connect
 
 
 class FakeRunPod:

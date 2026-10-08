@@ -1,14 +1,14 @@
 """Connected account housekeeping."""
 
+from core.db import db_connect
 from core.jobs import job
 
 
 @job("accounts.prune", cron="40 * * * *")
 def prune() -> None:
     """Delete account logins past their expiry."""
-    from core.logging_config import get_logger
+    from core.log import get_logger
     from modules.accounts import service
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

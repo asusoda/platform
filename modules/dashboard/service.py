@@ -10,6 +10,7 @@ from typing import cast
 from sqlalchemy import func
 
 from core import audit
+from core.time import iso, utcnow
 from modules.accounts.models import AccountGrant
 from modules.agents.models import AgentConversation, AgentMemory, AgentPendingAction
 from modules.alerts.models import AlertFeed, AlertPost
@@ -18,23 +19,16 @@ from modules.compute.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.points.models import Points, UserOrganizationMembership
+from modules.points.models import Points
 from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
-def _iso(value: datetime.datetime | None) -> str | None:
-    return value.isoformat() if value else None
+from modules.users.models import UserOrganizationMembership
 
 
 def overview(db, org: Organization) -> dict:
     """Modules, counts, problems and recent activity for one organization."""
     org_id = cast(int, org.id)
-    now = _now()
+    now = utcnow()
     sections = {
         "members": _members(db, org_id),
         "points": _points(db, org_id, now),
@@ -105,7 +99,7 @@ def _compute(db, org_id: int, now: datetime.datetime) -> dict:
     return {
         "pods": [{"pod_id": p.pod_id, "name": p.name, "public": p.is_public} for p in pods],
         "sessions": [
-            {"pod_id": s.pod_id, "title": s.title, "start_at": _iso(s.start_at), "stop_at": _iso(s.stop_at)}
+            {"pod_id": s.pod_id, "title": s.title, "start_at": iso(s.start_at), "stop_at": iso(s.stop_at)}
             for s in upcoming
         ],
     }
@@ -127,7 +121,7 @@ def _alerts(db, org_id: int, now: datetime.datetime) -> dict:
                 "kind": f.kind,
                 "enabled": f.enabled,
                 "every_hours": f.every_hours,
-                "last_run_at": _iso(f.last_run_at),
+                "last_run_at": iso(f.last_run_at),
                 "last_error": f.last_error,
                 "posted_7_days": counts.get(f.id, 0),
             }
@@ -147,7 +141,7 @@ def _apps(db, org_id: int) -> dict:
                 "repo": app.repo,
                 "tag": app.current_tag,
                 "status": latest.status if latest else None,
-                "deployed_at": _iso(latest.started_at) if latest else None,
+                "deployed_at": iso(latest.started_at) if latest else None,
                 "error": latest.error if latest else None,
             }
         )
@@ -198,7 +192,7 @@ def _tokens(db, org_id: int, now: datetime.datetime) -> dict:
     )
     return {
         "tokens": [
-            {"name": t.name, "kind": t.kind, "scopes": t.scopes, "last_used_at": _iso(t.last_used_at)}
+            {"name": t.name, "kind": t.kind, "scopes": t.scopes, "last_used_at": iso(t.last_used_at)}
             for t in rows
             if t.kind != "cli"
         ],

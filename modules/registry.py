@@ -1,14 +1,16 @@
 """Every module's blueprint, where it is mounted, and which optional module gates it.
 
+Model, job and tool modules are listed in modules/manifest.py.
+
 To add a module: give it an api.py with a blueprint, add it here, and if orgs should be
 able to turn it off, add its name to OPTIONAL_MODULES in modules/organizations/service.py.
 """
 
-import importlib
 from dataclasses import dataclass, field
 
 from flask import Blueprint, Flask, jsonify, request
 
+from core.db import db_connect
 from modules.accounts.api import accounts_blueprint
 from modules.agents.api import agents_blueprint
 from modules.alerts.api import alerts_blueprint
@@ -25,7 +27,7 @@ from modules.organizations.api import organizations_blueprint
 from modules.points.api import points_blueprint
 from modules.public.api import public_blueprint
 from modules.runpod.api import apps_blueprint
-from modules.storefront.api import storefront_blueprint
+from modules.storefront.member_api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
 
@@ -62,44 +64,6 @@ MOUNTS = [
 ]
 
 
-# Modules with background jobs. Importing a jobs.py registers its jobs with core.jobs.
-JOB_MODULES = [
-    "core.audit",
-    "modules.auth.jobs",
-    "modules.points.jobs",
-    "modules.calendar.jobs",
-    "modules.agents.jobs",
-    "modules.accounts.jobs",
-    "modules.runpod.jobs",
-    "modules.knowledge.jobs",
-    "modules.asu.jobs",
-    "modules.leetcode.jobs",
-    "modules.compute.jobs",
-    "modules.alerts.jobs",
-]
-
-
-# Modules with MCP tools. Importing a tools.py registers its tools with core.tools.
-TOOL_MODULES = [
-    "modules.organizations.tools",
-    "modules.calendar.tools",
-    "modules.points.tools",
-    "modules.knowledge.tools",
-    "modules.runpod.tools",
-    "modules.asu.tools",
-]
-
-
-def load_tools() -> None:
-    for name in TOOL_MODULES:
-        importlib.import_module(name)
-
-
-def load_jobs() -> None:
-    for name in JOB_MODULES:
-        importlib.import_module(name)
-
-
 def _gate(mount: Mount):
     def check_module_enabled():
         org_prefix = (request.view_args or {}).get("org_prefix")
@@ -107,8 +71,6 @@ def _gate(mount: Mount):
         module = mount.endpoint_modules.get(endpoint, mount.module)
         if not org_prefix or not module:
             return None
-        from shared import db_connect
-
         db = db_connect.SessionLocal()
         try:
             org = organizations.find_by_prefix(db, org_prefix)

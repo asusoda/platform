@@ -43,8 +43,8 @@ def test_issue_list_whoami_revoke(client, officer_headers, soda_id):
 
 
 def test_only_the_hash_is_stored(client, officer_headers, soda_id):
+    from core.db import db_connect
     from modules.auth.models import MachineToken
-    from shared import db_connect
 
     token = _issue(client, officer_headers, soda_id).get_json()["token"]
     db = db_connect.SessionLocal()
@@ -64,8 +64,8 @@ def test_bad_requests_are_refused(client, officer_headers, soda_id, body):
 
 
 def test_expired_token_is_refused(client, officer_headers, soda_id):
+    from core.db import db_connect
     from modules.auth.models import MachineToken
-    from shared import db_connect
 
     body = _issue(client, officer_headers, soda_id, expires_days=1).get_json()
     db = db_connect.SessionLocal()
@@ -85,7 +85,7 @@ def test_machine_token_cannot_use_officer_routes(client, officer_headers, soda_i
 
 @pytest.fixture
 def scoped_app(app):
-    from modules.auth.decoraters import machine_scope_required
+    from modules.auth.decorators import machine_scope_required
 
     probe = Flask("probe")
 

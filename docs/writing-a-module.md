@@ -1,47 +1,54 @@
 # Writing a module
 
-Every feature lives in one folder under `modules/`. This page lists the files a module can have,
-where it is registered, and the rules `make ci` checks.
+This page lists the files a module can have, the places to register it, and the rules that `make ci` checks. The `new-module` skill in `.agents/skills/` has the full procedure.
 
 ## Files
 
-| File | Holds | Needed |
+| File | Holds | Add it when |
 | --- | --- | --- |
-| `README.md` | What the module does, its files, routes, jobs, tools and tables | always |
-| `service.py` | The logic. Takes a DB session and plain values, returns plain values, raises `ServiceError`. Does not import Flask | when the module does more than read a table |
-| `api.py` | A Flask blueprint. Each route reads the request, calls `service.py` and returns JSON | when the module has HTTP routes |
-| `models.py` | SQLAlchemy tables, each a subclass of `core.base.Base` | when the module stores data |
-| `jobs.py` | Background work declared with `@job` from `core/jobs.py` | when the module runs on a schedule or in the background |
-| `tools.py` | Tools for agents declared with `@tool` from `core/tools.py`. Served over MCP and `/api/tools` | when agents call the module |
+| `README.md` | What the module does, a Files table and a Surface list (routes, jobs, tools, tables) | always |
+| `service.py` | The logic. It takes a database session and plain values, returns plain values and raises a `ServiceError`. It does not import Flask | the module does more than read a table |
+| `api.py` | A Flask blueprint. Each route reads the request, calls `service.py` and returns JSON | the module has routes |
+| `models.py` | SQLAlchemy tables that use `Base` from `core/db/base.py` | the module keeps data |
+| `jobs.py` | Background work with `@job` from `core/jobs.py` | the module runs on a schedule or in the background |
+| `tools.py` | Tools for agents with `@tool` from `core/tools.py` | agents call the module |
 
-A module that grows past one concern splits `service.py` into more Flask-free files
-(`compute/` has `ssh.py`, `files.py`, `schedule.py`). Add each one to the Flask contract below.
+If `service.py` has more than one concern, split it into more Flask-free files. For example, `compute/` has `ssh.py`, `files.py` and `schedule.py`.
 
-## Registering it
+## Register it
 
 | What | Where |
 | --- | --- |
 | Blueprint and URL prefix | `MOUNTS` in `modules/registry.py` |
-| Org switch, so an org can turn it off | `OPTIONAL_MODULES` in `modules/organizations/service.py`, and `module=` on its `Mount` |
-| Jobs | `JOB_MODULES` in `modules/registry.py` |
-| Tools | `TOOL_MODULES` in `modules/registry.py` |
-| Tables | the model list in `alembic/env.py`, then `uv run alembic revision --autogenerate -m "..."` |
+| Org switch | `OPTIONAL_MODULES` in `modules/organizations/service.py`, and `module=` on the `Mount` |
+| Tables | `MODEL_MODULES` in `modules/manifest.py`, then `uv run alembic revision --autogenerate -m "..."` |
+| Jobs | `JOB_MODULES` in `modules/manifest.py` |
+| Tools | `TOOL_MODULES` in `modules/manifest.py` |
 | Machine token scopes | `scopes.declare(...)` from `modules/auth/scopes.py`, at the top of `service.py` |
-| Flask-free files | the "service modules do not import Flask" contract in `pyproject.toml` |
-| Docs | a page in `docs/`, listed in `docs/README.md` and in `site/scripts/sync-docs.mjs` |
+| Org secrets | `secrets.declare(...)` from `core/secrets.py` |
+| Flask-free files | The "service modules do not import Flask" contract in `pyproject.toml` |
+| Routes | `tests/contract/routes.txt`: run `UPDATE_ROUTES=1 uv run pytest tests/contract/test_routes.py` |
+| Docs | The module `README.md`, a row in `modules/README.md`, and the active modules line in `AGENTS.md` and `CLAUDE.md` |
+
+If the module needs more than its README, add `docs/modules/<name>.md`, a row in `docs/README.md`, and the page in `site/scripts/sync-docs.mjs`.
 
 ## Routes
 
-Routes for people use the decorators in `modules/auth/decoraters.py` (`member_required`,
-`org_officer_required`, `superadmin_required` and others). Officer routes under an org prefix can use `officer_route`, and routes for apps and agents use
-`machine_route`, both from `modules/auth/routes.py`:
+Use the helpers in `modules/auth/routes.py`. Each one checks the caller, opens a database session, finds the org and changes a `ServiceError` into `{"error": message}` with its status.
+
+| Helper | Use it for | The view gets |
+| --- | --- | --- |
+| `officer_route(blueprint, rule, methods)` | Officer routes under `/<org_prefix>` | `db, org, **path args` |
+| `machine_route(blueprint, rule, scope, methods)` | Routes for apps and agents with a machine token | `db, org, **path args` |
+| `member_view(view)` | Routes for members signed in with Discord | `db, org, discord_id, **path args` |
 
 ```python
 from functools import partial
 
 from flask import Blueprint
 
-from modules.auth.routes import json_body, machine_route
+from core.http.responses import json_body
+from modules.auth.routes import machine_route
 
 from . import service
 
@@ -54,13 +61,11 @@ def put_thing(db, org, key):
     return service.put_thing(db, int(org.id), key, json_body()), 201
 ```
 
-`machine_route` checks the token and its scope, opens a session, loads the token's organization,
-and turns a `ServiceError` into `{"error": message}` with the error's status. The view returns a
-dict or a `(dict, status)` tuple.
+A view returns a dict, or a `(dict, status)` tuple. For other routes, use the decorators in `modules/auth/decorators.py`. See [Authentication](./authentication.md).
 
 ## Errors
 
-A module defines one error class that subclasses `core.errors.ServiceError`:
+A module has one error class, a subclass of `core.errors.ServiceError`:
 
 ```python
 class ThingError(ServiceError):
@@ -70,17 +75,17 @@ class ThingError(ServiceError):
 raise ThingError("No thing with that key", 404)
 ```
 
-Routes built on `machine_route` and every tool answer with its message and status, so a tool
-function calls the service directly and needs no `try`.
+The route helpers and the tool runner return its message and status. A tool function thus calls the service and needs no `try`.
 
-## Rules checked by `make ci`
+## Rules that `make ci` checks
 
 - `core/` imports nothing from `modules/` (import-linter).
-- Files in the Flask contract do not import Flask (import-linter).
-- ruff lint and format, ty type check, bandit.
-- `tests/contract/` checks every route a client depends on. A new route gets a test there.
+- The files in the Flask-free contract do not import Flask (import-linter).
+- ruff lint and format, and the ty type check. CI also runs bandit.
+- `tests/contract/routes.txt` agrees with the routes of the app.
+- `tests/contract/` checks each route that a client uses. Add a test there for a new route.
+- `alembic check` finds no model change without a migration.
 
-## Example to copy
+## Example
 
-`modules/runpod/` is a small module with every file: `service.py`, `api.py` on `machine_route`,
-`models.py`, `jobs.py` and `tools.py`.
+`modules/runpod/` is a small module with every file: `service.py`, `api.py` on `machine_route`, `models.py`, `jobs.py` and `tools.py`. `modules/alerts/` is the example for `officer_route`.

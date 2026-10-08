@@ -7,8 +7,8 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
-from modules.asu import fetching as fetch
-from modules.asu.params import text, url
+from modules.asu import http
+from modules.asu.queries.params import text, url
 from modules.asu.settings import settings
 from modules.asu.sources.events import extract_events
 from modules.asu.types import Fetched, QueryError, QueryParam, QuerySource
@@ -46,7 +46,7 @@ def public_cards(fetched: Fetched) -> str:
 def _public(keywords: str) -> tuple[str, str]:
     """The public ASU events calendar, narrowed to a keyword when one was given."""
     target = url(_PUBLIC, [("searchText", keywords)])
-    return target, public_cards(fetch.fetch(target, needs_js=True))
+    return target, public_cards(http.fetch(target, needs_js=True))
 
 
 def answer(params: dict[str, str]) -> tuple[str, str]:

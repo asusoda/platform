@@ -17,9 +17,11 @@ import jsonschema
 import requests
 import yaml
 
-from core import runpod, secrets
+from core import secrets
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.integrations import runpod
+from core.log import get_logger
+from core.time import iso, utcnow
 from modules.auth import scopes
 from modules.runpod.models import App, AppDeployment
 
@@ -95,14 +97,6 @@ class AppError(ServiceError, ValueError):
     pass
 
 
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
-def _iso(value) -> str | None:
-    return value.isoformat() if value else None
-
-
 def client_for(db, org_id: int) -> runpod.RunPodClient:
     key = secrets.get_secret(db, org_id, runpod.SECRET_NAME)
     if not key:
@@ -171,8 +165,8 @@ def _deployment_dict(d: AppDeployment) -> dict:
         "actor": d.actor,
         "error": d.error,
         "manifest_ref": d.manifest_ref,
-        "started_at": _iso(d.started_at),
-        "finished_at": _iso(d.finished_at),
+        "started_at": iso(d.started_at),
+        "finished_at": iso(d.finished_at),
     }
 
 
@@ -190,7 +184,7 @@ def _app_dict(db, app: App) -> dict:
         "pod_id": app.pod_id,
         "current_tag": app.current_tag,
         "latest_deployment": _deployment_dict(latest) if latest else None,
-        "updated_at": _iso(app.updated_at),
+        "updated_at": iso(app.updated_at),
     }
 
 
@@ -214,7 +208,7 @@ def put_app(db, org_id: int, name: str, manifest: Any = None, repo: Any = None, 
         db.add(app)
     app.repo, app.manifest_path = repo, path
     app.manifest = json.dumps(manifest, sort_keys=True)
-    app.updated_at = _now()
+    app.updated_at = utcnow()
     db.commit()
     return _app_dict(db, app)
 
@@ -322,7 +316,7 @@ def deploy(
     client = client_for(db, org_id)
     method, _, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=False)
     db.query(AppDeployment).filter_by(app_id=app.id, status="deploying").update(
-        {"status": "failed", "finished_at": _now(), "error": "Replaced by a later deployment"},
+        {"status": "failed", "finished_at": utcnow(), "error": "Replaced by a later deployment"},
         synchronize_session=False,
     )
     stored = json.dumps(manifest, sort_keys=True)
@@ -338,11 +332,11 @@ def deploy(
         else:
             client.update_pod(str(app.pod_id), body)
     except (runpod.RunPodError, KeyError, TypeError) as e:
-        deployment.status, deployment.finished_at = "failed", _now()
+        deployment.status, deployment.finished_at = "failed", utcnow()
         deployment.error = e.message if isinstance(e, runpod.RunPodError) else "RunPod returned no pod id"
         db.commit()
         raise AppError(f"Deploy failed: {deployment.error}", 502) from e
-    app.current_tag, app.updated_at = tag, _now()
+    app.current_tag, app.updated_at = tag, utcnow()
     db.commit()
     logger.info("deploy started app=%s tag=%s pod=%s", app.name, tag, app.pod_id)
     return {"deployment": _deployment_dict(deployment), "pod_id": app.pod_id}
@@ -372,7 +366,7 @@ def _healthy(url: str) -> bool:
 
 def check_deployments(db, now: datetime.datetime | None = None) -> dict:
     """Mark running deployments healthy when their health path answers, failed after HEALTH_TIMEOUT. Commits."""
-    now = now or _now()
+    now = now or utcnow()
     counts = {"healthy": 0, "failed": 0, "waiting": 0}
     running = db.query(AppDeployment, App).join(App, App.id == AppDeployment.app_id)
     for deployment, app in running.filter(AppDeployment.status == "deploying").all():

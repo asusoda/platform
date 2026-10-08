@@ -5,7 +5,8 @@ from typing import cast
 
 from flask import Blueprint, g
 
-from modules.auth.routes import json_body, machine_route
+from core.http.responses import json_body
+from modules.auth.routes import machine_route
 
 from . import service
 

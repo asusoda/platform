@@ -1,7 +1,7 @@
 """Knowledge tools."""
 
 from core.tools import tool
-from modules.knowledge import embedder, service
+from modules.knowledge import embedder, search
 
 
 @tool(
@@ -16,14 +16,14 @@ from modules.knowledge import embedder, service
         "properties": {
             "query": {"type": "string", "minLength": 1, "maxLength": 1000},
             "category": {"type": "string", "maxLength": 100},
-            "top_k": {"type": "integer", "minimum": 1, "maximum": service.MAX_TOP_K, "default": 8},
-            "window": {"type": "integer", "minimum": 0, "maximum": service.MAX_WINDOW, "default": 0},
+            "top_k": {"type": "integer", "minimum": 1, "maximum": search.MAX_TOP_K, "default": 8},
+            "window": {"type": "integer", "minimum": 0, "maximum": search.MAX_WINDOW, "default": 0},
         },
         "required": ["query"],
         "additionalProperties": False,
     },
 )
 def knowledge_search(db, org, caller, query: str, category: str | None = None, top_k: int = 8, window: int = 0):
-    return service.search(
+    return search.search(
         db, int(org.id), query, category=category, top_k=top_k, window=window, embedder=embedder.configured()
     )

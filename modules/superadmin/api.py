@@ -1,12 +1,13 @@
 from flask import Blueprint, jsonify, request, session
 
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import get_logger
+from core.db import db_connect
+from core.log import get_logger
 from modules.auth.access import discord_directory
-from modules.auth.decoraters import superadmin_required
-from modules.organizations.config import OrganizationSettings
+from modules.auth.decorators import superadmin_required
+from modules.auth.tokens import token_manager
 from modules.organizations.models import Organization
-from shared import config, db_connect, tokenManager
+
+from . import service
 
 logger = get_logger(__name__)
 
@@ -16,122 +17,55 @@ superadmin_blueprint = Blueprint("superadmin", __name__)
 @superadmin_blueprint.route("/check", methods=["GET"])
 @superadmin_required
 def check_superadmin():
-    """Check if user has superadmin privileges"""
+    """Whether the caller is the superadmin: 200 when yes, 403 when no."""
     try:
-        logger.debug("check_superadmin endpoint called")
-
-        # Get the token from Authorization header
         auth_header = request.headers.get("Authorization")
-        logger.debug(f"Authorization header: {auth_header}")
-
         if not auth_header or not auth_header.startswith("Bearer "):
             logger.error("Invalid Authorization header format")
             return jsonify({"error": "Authorization header required"}), 401
 
-        token = auth_header.split(" ")[1]
-        logger.debug(f"Extracted token: {token[:20]}...")
-
-        # Decode the token to get user information
-        logger.debug("Decoding token...")
-        token_data = tokenManager.decode_token(token)
+        token_data = token_manager.decode_token(auth_header.split(" ")[1])
         if not token_data:
             logger.error("Failed to decode token")
             return jsonify({"error": "Invalid token"}), 401
 
-        logger.debug(f"Token data: {token_data}")
-
-        # Get Discord ID from token
         user_discord_id = token_data.get("discord_id")
         if not user_discord_id:
             logger.error("Token missing Discord ID")
             return jsonify({"error": "Token missing Discord ID"}), 401
 
-        superadmin_id = config.SUPERADMIN_USER_ID
-        logger.debug(f"Superadmin ID from config: {superadmin_id}")
-
-        logger.debug(f"Comparing user_discord_id: {user_discord_id} with superadmin_id: {superadmin_id}")
-        logger.debug(f"String comparison: '{str(user_discord_id)}' == '{str(superadmin_id)}'")
-
-        # Check if user's ID matches the superadmin ID
-        if str(user_discord_id) == str(superadmin_id):
-            logger.debug("User is superadmin - returning True")
+        if service.is_superadmin(user_discord_id):
             return jsonify({"is_superadmin": True}), 200
-        else:
-            logger.debug("User is not superadmin - returning False")
-            return jsonify({"is_superadmin": False}), 403
-
+        return jsonify({"is_superadmin": False}), 403
     except Exception as e:
-        logger.error(f"Error in check_superadmin: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in check_superadmin: {e}")
         return jsonify({"error": f"Error checking superadmin status: {str(e)}"}), 500
 
 
 @superadmin_blueprint.route("/dashboard", methods=["GET"])
 @superadmin_required
 def get_dashboard():
-    """Get SuperAdmin dashboard data"""
+    """Guilds without an org, every org, and the orgs whose guild has the caller."""
     try:
-        logger.debug("get_dashboard endpoint called")
-
         directory = discord_directory()
         if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
 
-        # Get all guilds where the bot is a member
         guilds = directory.list_guilds()
-        logger.debug(f"Bot is in {len(guilds)} guilds")
-
-        # Get existing organizations from the database
-        logger.debug("Getting organizations from database...")
         db = next(db_connect.get_db())
         existing_orgs = db.query(Organization).all()
-        logger.debug(f"Found {len(existing_orgs)} existing organizations")
-
-        existing_guild_ids = {org.guild_id for org in existing_orgs}
-        logger.debug(f"Existing guild IDs: {existing_guild_ids}")
-
-        # Filter guilds to show only those not already added
-        available_guilds = []
-        for guild in guilds:
-            if guild["id"] not in existing_guild_ids:
-                available_guilds.append({"id": guild["id"], "name": guild["name"], "icon": {"url": guild["icon_url"]}})
-
-        logger.debug(f"Found {len(available_guilds)} available guilds")
-
-        # Get officer's organizations - check which orgs the current user is an officer of
-        logger.debug("Getting officer organizations...")
-        officer_orgs = []
         officer_id = session.get("user", {}).get("discord_id")
-        logger.debug(f"Officer ID from session: {officer_id}")
+        officer_orgs = service.officer_orgs(directory, existing_orgs, officer_id)
 
-        if officer_id:
-            for org in existing_orgs:
-                try:
-                    if directory.check_user_membership(officer_id, org.guild_id):
-                        officer_orgs.append(org)
-                        logger.debug(f"User is officer in organization: {org.name}")
-                except (ValueError, DiscordUnavailable) as e:
-                    logger.debug(f"Error checking organization {org.name}: {e}")
-                    # Skip if guild_id is invalid or guild not found
-                    continue
-
-        logger.debug(f"User is officer in {len(officer_orgs)} organizations")
-
-        response_data = {
-            "available_guilds": available_guilds,
-            "existing_orgs": [org.to_dict() for org in existing_orgs],
-            "officer_orgs": [org.to_dict() for org in officer_orgs],
-        }
-
-        logger.debug("Dashboard data prepared successfully")
-        return jsonify(response_data)
+        return jsonify(
+            {
+                "available_guilds": service.available_guilds(guilds, existing_orgs),
+                "existing_orgs": [org.to_dict() for org in existing_orgs],
+                "officer_orgs": [org.to_dict() for org in officer_orgs],
+            }
+        )
     except Exception as e:
-        logger.error(f"Error in get_dashboard: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in get_dashboard: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         if "db" in locals():
@@ -141,73 +75,45 @@ def get_dashboard():
 @superadmin_blueprint.route("/guild_roles/<guild_id>", methods=["GET"])
 @superadmin_required
 def get_guild_roles(guild_id):
-    """Get all roles from a specific guild"""
+    """The guild's roles, highest first, without @everyone and integration roles."""
     try:
-        logger.debug(f"get_guild_roles endpoint called for guild_id: {guild_id}")
-
         directory = discord_directory()
         if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
 
-        # Convert guild_id to int for comparison
         try:
             guild_id_int = int(guild_id)
-            logger.debug(f"Converted guild_id to int: {guild_id_int}")
         except ValueError:
             logger.error(f"Invalid guild ID format: {guild_id}")
             return jsonify({"error": "Invalid guild ID format"}), 400
 
-        # Get the guild
-        logger.debug(f"Getting guild with ID: {guild_id_int}")
         guild = directory.get_guild(guild_id_int)
         if not guild:
             logger.error(f"Guild not found for ID: {guild_id_int}")
             return jsonify({"error": "Guild not found"}), 404
 
-        # Skip the @everyone role and roles managed by integrations (bots)
-        roles = [
-            {key: role[key] for key in ("id", "name", "color", "position", "permissions")}
-            for role in directory.get_guild_roles(guild_id_int)
-            if role["name"] != "@everyone" and not role["managed"]
-        ]
-
-        # Sort roles by position (highest first)
-        roles.sort(key=lambda x: x["position"], reverse=True)
-
-        logger.debug(f"Found {len(roles)} roles for guild {guild['name']}")
-        return jsonify({"roles": roles})
+        return jsonify({"roles": service.guild_roles(directory, guild_id_int)})
     except Exception as e:
-        logger.error(f"Error in get_guild_roles: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in get_guild_roles: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 @superadmin_blueprint.route("/update_officer_role/<int:org_id>", methods=["PUT"])
 @superadmin_required
 def update_officer_role(org_id):
-    """Update the officer role ID for an organization"""
+    """Set the org's officer role. An empty officer_role_id clears it."""
     try:
-        logger.debug(f"update_officer_role endpoint called for org_id: {org_id}")
-
-        # Get the request data
         data = request.get_json()
-        logger.debug(f"Request data: {data}")
-
         if not data or "officer_role_id" not in data:
             logger.error("Missing officer_role_id in request data")
             return jsonify({"error": "officer_role_id is required"}), 400
 
         officer_role_id = data["officer_role_id"]
-        logger.debug(f"Officer role ID: {officer_role_id}")
 
         directory = discord_directory()
         if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
 
-        # Get the organization from database
-        logger.debug("Getting organization from database...")
         db = next(db_connect.get_db())
         org = db.query(Organization).filter_by(id=org_id).first()
 
@@ -215,42 +121,26 @@ def update_officer_role(org_id):
             logger.error(f"Organization not found for ID: {org_id}")
             return jsonify({"error": "Organization not found"}), 404
 
-        logger.debug(f"Found organization: {org.name} (Guild ID: {org.guild_id})")
-
-        # Verify the role exists in the guild
         try:
-            logger.debug("Getting guild for verification...")
             guild = directory.get_guild(int(org.guild_id))
             if not guild:
                 logger.error(f"Guild not found for ID: {org.guild_id}")
                 return jsonify({"error": "Guild not found"}), 404
 
-            # If officer_role_id is provided, verify it exists
-            if officer_role_id:
-                role_ids = {role["id"] for role in directory.get_guild_roles(int(org.guild_id))}
-                if str(int(officer_role_id)) not in role_ids:
-                    logger.error(f"Role not found in guild for ID: {officer_role_id}")
-                    return jsonify({"error": "Role not found in guild"}), 404
-            else:
-                logger.debug("No officer role ID provided (clearing role)")
+            if officer_role_id and not service.role_in_guild(directory, org.guild_id, officer_role_id):
+                logger.error(f"Role not found in guild for ID: {officer_role_id}")
+                return jsonify({"error": "Role not found in guild"}), 404
 
         except (ValueError, AttributeError) as e:
             logger.error(f"Error verifying role: {e}")
             return jsonify({"error": f"Invalid role ID format: {str(e)}"}), 400
 
-        # Update the officer role ID
-        logger.debug("Updating officer role ID in database...")
         org.officer_role_id = officer_role_id
         db.commit()
 
-        logger.debug("Officer role updated successfully")
-
         return jsonify({"message": f"Officer role updated successfully for {org.name}", "organization": org.to_dict()})
     except Exception as e:
-        logger.error(f"Error in update_officer_role: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in update_officer_role: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         if "db" in locals():
@@ -260,38 +150,23 @@ def update_officer_role(org_id):
 @superadmin_blueprint.route("/add_org/<guild_id>", methods=["POST"])
 @superadmin_required
 def add_organization(guild_id):
-    """Add a new organization to the system"""
+    """Add an org for a guild the bot is in, with default settings."""
     try:
         directory = discord_directory()
         if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
 
-        # Convert guild_id to int for comparison with guild.id
         try:
             guild_id_int = int(guild_id)
         except ValueError:
             return jsonify({"error": "Invalid guild ID format"}), 400
 
-        # Find the guild
         guild = directory.get_guild(guild_id_int)
         if not guild:
             return jsonify({"error": "Guild not found"}), 404
 
-        # Create prefix from guild name
-        prefix = guild["name"].lower().replace(" ", "_").replace("-", "_")
+        new_org = service.new_organization(guild)
 
-        # Create new organization with default settings
-        settings = OrganizationSettings()
-        new_org = Organization(
-            name=guild["name"],
-            guild_id=guild["id"],
-            prefix=prefix,
-            description=f"Discord server: {guild['name']}",
-            icon_url=guild["icon_url"],
-            config=settings.to_dict(),
-        )
-
-        # Save to database
         db = next(db_connect.get_db())
         db.add(new_org)
         db.commit()
@@ -306,7 +181,7 @@ def add_organization(guild_id):
 @superadmin_blueprint.route("/remove_org/<int:org_id>", methods=["DELETE"])
 @superadmin_required
 def remove_organization(org_id):
-    """Remove an organization from the system"""
+    """Delete an org."""
     try:
         db = next(db_connect.get_db())
         org = db.query(Organization).filter_by(id=org_id).first()

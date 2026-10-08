@@ -9,6 +9,7 @@ import hashlib
 import secrets
 from dataclasses import dataclass
 
+from core.time import iso, utcnow
 from modules.auth.models import MachineToken
 from modules.auth.scopes import SCOPES
 
@@ -33,10 +34,6 @@ class MachineCaller:
 
     def allows(self, scope: str) -> bool:
         return scope in self.scopes
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 def _hash(token: str) -> str:
@@ -78,7 +75,7 @@ def issue(
         token_hash=_hash(value),
         display=value[: len(PREFIX) + 6],
         created_by=created_by,
-        expires_at=_now() + datetime.timedelta(days=expires_days) if expires_days else None,
+        expires_at=utcnow() + datetime.timedelta(days=expires_days) if expires_days else None,
     )
     db.add(row)
     db.commit()
@@ -90,7 +87,7 @@ def verify(db, token: str | None) -> MachineCaller | None:
     if not is_machine_token(token):
         return None
     row = db.query(MachineToken).filter_by(token_hash=_hash(str(token))).first()
-    now = _now()
+    now = utcnow()
     if row is None or row.revoked_at is not None or (row.expires_at is not None and row.expires_at <= now):
         return None
     if row.last_used_at is None or (now - row.last_used_at).total_seconds() > 60:
@@ -110,15 +107,12 @@ def revoke(db, organization_id: int, token_id: int) -> bool:
     row = db.query(MachineToken).filter_by(id=token_id, organization_id=organization_id).first()
     if row is None or row.revoked_at is not None:
         return False
-    row.revoked_at = _now()
+    row.revoked_at = utcnow()
     db.commit()
     return True
 
 
 def to_dict(row: MachineToken) -> dict:
-    def iso(value):
-        return value.isoformat() if value else None
-
     return {
         "id": row.id,
         "name": row.name,
