@@ -10,14 +10,14 @@ This is the plan for turning platform into shared infrastructure for SoDA, AIS a
 | 1. Make multi-org safe | In review, report mode | #2, #3, #4, #5 |
 | 2. Run it properly | In review | #6, #7, #9, #10 |
 | 3. Modules and jobs | In review | #12 core/ and import rules, #13 module switches, #14 job queue, #15 games and LeetCode split, #16 audit log, #17 org secrets, #18 CLI |
-| 4. What AIS adds | In progress | #19 machine tokens and scopes, #20 MCP server and /api/tools, #21 agents, #22 knowledge storage and search, #23 accounts, #24 RunPod app deploys, #25 crawl pipeline, #26 ASU sources and live queries, #27 turn context and commit, #28 profile node embeddings, #29 manifests from the app's repo |
+| 4. What AIS adds | In progress | #19 machine tokens and scopes, #20 MCP server and /api/tools, #21 agents, #22 knowledge storage and search, #23 accounts, #24 RunPod app deploys, #25 crawl pipeline, #26 ASU sources and live queries, #27 turn context and commit, #28 profile node embeddings, #29 manifests from the app's repo, #30 LeetCode daily post and verify as jobs, #31 per-org Google credentials, #32 web app hides turned-off modules |
 | 5. Godfather as the compute module | Not started | |
 
 The phase PRs are stacked: each is based on the previous one, so merge them in order.
 
 Phase 4 still to do: the Sparky cutover in its own repo (its engine calls platform for turns, search and live queries; its scraper and database go). Not ported from Sparky's scraper: pages behind ASU sign-in, summary-tree levels.
 
-Phase 3 leftovers: the LeetCode daily post still runs in the bot (its verify loop keeps state in memory), games and LeetCode have no per-org switch yet (neither is tied to an org), Google credentials are still instance-wide, and the web app does not hide turned-off modules.
+Phase 3 leftovers: games and LeetCode have no per-org switch yet (neither is tied to an org). The LeetCode post and verify moved to jobs in #30, per-org Google credentials landed in #31, and the web app hides turned-off modules since #32.
 
 ## Summary
 
