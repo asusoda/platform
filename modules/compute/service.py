@@ -241,6 +241,9 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
         _call(client.start_pod, pod_id)
     else:
         _call(client.delete_pod, pod_id)
+        from modules.compute.schedule import delete_pod_sessions
+
+        delete_pod_sessions(db, org_id, pod_id)
         db.delete(row)
         db.commit()
     logger.info("compute pod %s org=%s pod=%s", action, org_id, pod_id)

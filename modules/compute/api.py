@@ -10,7 +10,7 @@ from modules.auth.decoraters import auth_required, member_required
 from modules.organizations.models import Organization
 from shared import db_connect
 
-from . import files, service
+from . import files, schedule, service
 
 compute_blueprint = Blueprint("compute", __name__)
 
@@ -205,3 +205,22 @@ def delete_file(db, org, pod_id):
     with _files(db, org, pod_id) as pod:
         pod.delete(path)
     return {"deleted": files.clean_path(path)}
+
+
+# Sessions: windows when a pod runs, started and stopped by the compute.schedule job.
+
+
+@_officer_route("/pods/<string:pod_id>/sessions", ["GET"])
+def list_sessions(db, org, pod_id):
+    return {"sessions": schedule.list_sessions(db, _org_id(org), pod_id)}
+
+
+@_officer_route("/pods/<string:pod_id>/sessions", ["POST"])
+def add_session(db, org, pod_id):
+    return {"session": schedule.add_session(db, _org_id(org), pod_id, _body(), _caller())}, 201
+
+
+@_officer_route("/pods/<string:pod_id>/sessions/<int:session_id>", ["DELETE"])
+def delete_session(db, org, pod_id, session_id):
+    schedule.delete_session(db, _org_id(org), pod_id, session_id)
+    return {"deleted": session_id}

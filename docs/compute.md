@@ -65,10 +65,25 @@ A member certificate has principal `gf-<pod_id>` and forces `/usr/local/bin/godf
 certificate without the forced command. Each certificate is valid from five minutes ago to twelve
 hours from now. Every connect is in the audit log.
 
+## Sessions
+
+A session is a window when a pod should run, such as a workshop. The `compute.schedule` job runs
+every five minutes. It starts a pod ten minutes before a session begins and stops it when the
+session ends, unless another session on the same pod is still running. A pod already running when
+its session begins is also stopped afterwards. Pods without sessions are never touched by the job.
+Between sessions a stopped pod bills only for its disk, so one pod can serve a whole workshop
+series.
+
+| Route | What it does |
+|-------|--------------|
+| `GET /api/compute/<org>/pods/<pod_id>/sessions` | Every session of the pod |
+| `POST /api/compute/<org>/pods/<pod_id>/sessions` | `{"title", "start_at", "stop_at"}`, ISO 8601 with a timezone. At most 24 hours. 201 |
+| `DELETE /api/compute/<org>/pods/<pod_id>/sessions/<id>` | Remove a session. A pod already started for it is stopped at the next run |
+
 ## Web pages
 
 Officers manage pods at `/<org>/compute` (create, start, stop, restart, terminate, who may
-connect) and a running pod's files at `/<org>/compute/<pod_id>/files` (browse, edit text, upload,
+connect, sessions) and a running pod's files at `/<org>/compute/<pod_id>/files` (browse, edit text, upload,
 download, new folder, rename, delete). Both are hidden when the module is off.
 
 ## File manager

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaFolderOpen, FaPlay, FaPlus, FaServer, FaStop, FaSync, FaTrash, FaUndo } from "react-icons/fa";
+import { FaClock, FaFolderOpen, FaPlay, FaPlus, FaServer, FaStop, FaSync, FaTrash, FaUndo } from "react-icons/fa";
 import { useAuth } from "../components/auth/AuthContext";
 import OrganizationNavbar from "../components/shared/OrganizationNavbar";
+import PodSessions from "../components/PodSessions";
 import ThemedLoading from "../components/ui/ThemedLoading";
 import apiClient from "../components/utils/axios";
 
@@ -30,6 +31,7 @@ const ComputePage = () => {
   const [busy, setBusy] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [showForm, setShowForm] = useState(false);
+  const [openSessions, setOpenSessions] = useState(null);
   const base = `/api/compute/${currentOrg?.prefix}/pods`;
 
   const load = useCallback(async () => {
@@ -181,7 +183,8 @@ const ComputePage = () => {
             </thead>
             <tbody>
               {pods.map((pod) => (
-                <tr key={pod.id} className="border-b border-gray-800">
+                <React.Fragment key={pod.id}>
+                <tr className="border-b border-gray-800">
                   <td className="py-2">
                     <div className="text-white">{pod.name}</div>
                     <div className="text-xs text-gray-500">{pod.id}</div>
@@ -203,6 +206,13 @@ const ComputePage = () => {
                   </td>
                   <td>{pod.cost_per_hour != null ? `$${pod.cost_per_hour}` : "-"}</td>
                   <td className="text-right space-x-1 whitespace-nowrap">
+                    <button
+                      className={button}
+                      onClick={() => setOpenSessions(openSessions === pod.id ? null : pod.id)}
+                      title="Sessions"
+                    >
+                      <FaClock />
+                    </button>
                     <button
                       className={button}
                       disabled={pod.status !== "RUNNING"}
@@ -228,6 +238,14 @@ const ComputePage = () => {
                     </button>
                   </td>
                 </tr>
+                {openSessions === pod.id && (
+                  <tr>
+                    <td colSpan={5}>
+                      <PodSessions orgPrefix={currentOrg.prefix} podId={pod.id} />
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

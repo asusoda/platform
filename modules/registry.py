@@ -70,6 +70,7 @@ JOB_MODULES = [
     "modules.knowledge.jobs",
     "modules.asu.jobs",
     "modules.leetcode.jobs",
+    "modules.compute.jobs",
 ]
 
 

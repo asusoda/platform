@@ -42,7 +42,7 @@ class FakeRunPod:
 @pytest.fixture
 def runpod(app, monkeypatch):
     from modules.compute import service
-    from modules.compute.models import ComputeKey, ComputePod
+    from modules.compute.models import ComputeKey, ComputePod, ComputeSession
     from shared import db_connect
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
@@ -50,6 +50,7 @@ def runpod(app, monkeypatch):
     monkeypatch.setattr(service, "_client", lambda db, org_id: fake)
     yield fake
     db = db_connect.SessionLocal()
+    db.query(ComputeSession).delete()
     db.query(ComputePod).delete()
     db.query(ComputeKey).delete()
     db.commit()
@@ -330,3 +331,97 @@ def test_file_requests_are_checked(client, member_client, officer_headers, pod_f
 
     client.post("/api/compute/soda/pods/pod1/action", json={"action": "stop"}, headers=officer_headers)
     assert client.get(base, headers=officer_headers).status_code == 409
+
+
+def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
+    import datetime
+
+    from modules.compute import schedule
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    runpod.pods["pod1"]["desiredStatus"] = "EXITED"
+    base = "/api/compute/soda/pods/pod1/sessions"
+    utc = datetime.datetime(2099, 10, 9, 0, 0)
+
+    def at(minutes):
+        return utc + datetime.timedelta(minutes=minutes)
+
+    created = client.post(
+        base,
+        json={"title": "Intro to CUDA", "start_at": "2099-10-08T17:00:00-07:00", "stop_at": "2099-10-09T02:00:00Z"},
+        headers=officer_headers,
+    )
+    assert created.status_code == 201
+    assert created.get_json()["session"]["start_at"] == "2099-10-09T00:00:00+00:00"
+    client.post(
+        base, json={"start_at": "2099-10-09T01:30:00Z", "stop_at": "2099-10-09T03:00:00Z"}, headers=officer_headers
+    )
+    assert len(client.get(base, headers=officer_headers).get_json()["sessions"]) == 2
+
+    db = db_connect.SessionLocal()
+    run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id: runpod)  # noqa: E731
+    assert run(-30) == {"started": [], "stopped": [], "failed": []}
+    assert run(-5)["started"] == ["pod1"]
+    assert runpod.pods["pod1"]["desiredStatus"] == "RUNNING"
+    assert run(60) == {"started": [], "stopped": [], "failed": []}
+    # The first session ends while the second still runs
+    assert run(125) == {"started": [], "stopped": [], "failed": []}
+    assert run(185)["stopped"] == ["pod1"]
+    assert runpod.pods["pod1"]["desiredStatus"] == "EXITED"
+    assert run(200) == {"started": [], "stopped": [], "failed": []}
+    db.close()
+
+
+def test_a_running_pod_is_stopped_after_its_session_and_others_are_left_alone(client, officer_headers, runpod):
+    import datetime
+
+    from modules.compute import schedule
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    _create(client, officer_headers, name="no sessions")
+    body = {"start_at": "2099-10-09T00:00:00Z", "stop_at": "2099-10-09T01:00:00Z"}
+    client.post("/api/compute/soda/pods/pod1/sessions", json=body, headers=officer_headers)
+    db = db_connect.SessionLocal()
+    now = datetime.datetime(2099, 10, 9, 0, 0)
+    run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id: runpod)  # noqa: E731
+    assert run(now)["started"] == []
+    assert run(now + datetime.timedelta(hours=2))["stopped"] == ["pod1"]
+    assert runpod.pods["pod2"]["desiredStatus"] == "RUNNING"
+    db.close()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        None,
+        {"start_at": "2099-10-09T00:00:00Z"},
+        {"start_at": "2099-10-09T00:00:00", "stop_at": "2099-10-09T01:00:00"},
+        {"start_at": "2099-10-09T02:00:00Z", "stop_at": "2099-10-09T01:00:00Z"},
+        {"start_at": "2099-10-09T00:00:00Z", "stop_at": "2099-10-10T01:00:00Z"},
+        {"start_at": "2020-01-01T00:00:00Z", "stop_at": "2020-01-01T01:00:00Z"},
+        {"start_at": "tomorrow", "stop_at": "later"},
+    ],
+)
+def test_bad_sessions_are_refused(client, officer_headers, runpod, body):
+    _create(client, officer_headers)
+    assert client.post("/api/compute/soda/pods/pod1/sessions", json=body, headers=officer_headers).status_code == 400
+
+
+def test_deleting_and_terminating_clear_sessions(client, officer_headers, runpod):
+    from modules.compute.models import ComputeSession
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    base = "/api/compute/soda/pods/pod1/sessions"
+    body = {"start_at": "2099-01-01T00:00:00Z", "stop_at": "2099-01-01T01:00:00Z"}
+    first = client.post(base, json=body, headers=officer_headers).get_json()["session"]["id"]
+    client.post(base, json=body, headers=officer_headers)
+    assert client.delete(f"{base}/{first}", headers=officer_headers).status_code == 200
+    assert client.delete(f"{base}/{first}", headers=officer_headers).status_code == 404
+    assert len(client.get(base, headers=officer_headers).get_json()["sessions"]) == 1
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "terminate"}, headers=officer_headers)
+    db = db_connect.SessionLocal()
+    assert db.query(ComputeSession).count() == 0
+    db.close()

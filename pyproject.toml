@@ -144,6 +144,7 @@ source_modules = [
     "modules.auth.machine_tokens",
     "modules.calendar.service",
     "modules.compute.files",
+    "modules.compute.schedule",
     "modules.compute.service",
     "modules.compute.ssh",
     "modules.knowledge.crawl",

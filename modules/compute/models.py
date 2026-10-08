@@ -3,7 +3,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
 from core.base import Base
 
@@ -45,3 +45,22 @@ class ComputeKey(Base):
     created_at = Column(DateTime, nullable=False, default=_now)
 
     __table_args__ = (UniqueConstraint("organization_id", "kind", name="uq_compute_key"),)
+
+
+class ComputeSession(Base):
+    """A time window when a pod should run, such as a workshop. The schedule job starts and stops it."""
+
+    __tablename__ = "compute_sessions"
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    pod_id = Column(String(64), nullable=False)  # RunPod's id
+    title = Column(String(200), nullable=True)
+    start_at = Column(DateTime, nullable=False)  # UTC
+    stop_at = Column(DateTime, nullable=False)  # UTC
+    started = Column(Boolean, nullable=False, default=False)  # the session began while the job was watching
+    finished = Column(Boolean, nullable=False, default=False)  # the window has passed and was handled
+    created_by = Column(String(32), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_now)
+
+    __table_args__ = (Index("ix_compute_sessions_due", "finished", "start_at"),)
