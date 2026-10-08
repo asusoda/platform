@@ -2,11 +2,12 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   ArrowRight,
+  Bell,
   Bot,
   CalendarDays,
   Cpu,
   FileSearch,
-  GraduationCap,
+  Gamepad2,
   KeyRound,
   Lock,
   Plug,
@@ -16,24 +17,52 @@ import {
   ShoppingBag,
   Ticket,
   Timer,
-  Trophy,
+  Users,
 } from 'lucide-react';
 import { gitConfig } from '@/lib/shared';
 
 const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 
-const clubModules = [
-  { icon: Trophy, name: 'Points', text: 'Attendance points, leaderboards and CSV imports from events.' },
-  { icon: ShoppingBag, name: 'Storefront', text: 'A merch store paid in points, with prices checked on the server.' },
-  { icon: CalendarDays, name: 'Calendar', text: 'Notion events synced to Google Calendar with per-org credentials.' },
-  { icon: Ticket, name: 'LeetCode and games', text: 'A daily LeetCode post and Jeopardy, run in the Discord server.' },
+const problems = [
+  ['A member list and points', 'Kept in a spreadsheet or a script on one officer’s laptop.'],
+  ['A Discord bot', 'Hosted on a free tier under someone’s personal account.'],
+  ['A calendar sync', 'Stops when its API key expires or the person who set it up leaves.'],
+];
+
+const operationsModules = [
+  {
+    icon: Users,
+    name: 'Members and points',
+    text: 'A member list, points awarded by hand or from an event attendance CSV, and a leaderboard.',
+  },
+  { icon: ShoppingBag, name: 'Storefront', text: 'A merch store paid with points. Officers manage products and orders.' },
+  {
+    icon: CalendarDays,
+    name: 'Calendar sync',
+    text: 'Events in the org’s Notion database synced to its Google Calendar, with a public events feed.',
+  },
+  {
+    icon: Bell,
+    name: 'Alerts',
+    text: 'Job listings and upcoming hackathons posted to Discord channels through webhooks, each item once.',
+  },
+  {
+    icon: Gamepad2,
+    name: 'Discord bot and games',
+    text: 'One bot for every org’s server. Officers run Jeopardy with team roles, channels and a scoreboard.',
+  },
+  {
+    icon: Ticket,
+    name: 'LeetCode',
+    text: 'The daily question posted in the org’s channel, with solve checks for linked members.',
+  },
 ];
 
 const buildModules = [
   {
-    icon: Cpu,
-    name: 'Compute',
-    text: 'GPU and CPU pods on the org’s RunPod account. Members SSH in with 12-hour certificates through the godfather CLI.',
+    icon: FileSearch,
+    name: 'Knowledge search',
+    text: 'Hybrid search over an org’s documents and crawled public pages, with pgvector and full text.',
   },
   {
     icon: Bot,
@@ -41,32 +70,20 @@ const buildModules = [
     text: 'Conversations, memories and a profile graph per member, kept for an agent and pruned after 180 days.',
   },
   {
-    icon: FileSearch,
-    name: 'Knowledge',
-    text: 'Hybrid search over documents and crawled public pages, with pgvector and full text.',
-  },
-  {
-    icon: GraduationCap,
-    name: 'ASU',
-    text: '226 public ASU pages and 16 live queries such as dining and library hours, indexed for search.',
-  },
-  {
     icon: KeyRound,
     name: 'Accounts',
-    text: 'Canvas, Google and Outlook sign-in bound to a member’s Discord account, so agents can act for them.',
+    text: 'Canvas, Google and Microsoft sign-in bound to a member’s Discord account, so agents can act for them.',
+  },
+  {
+    icon: Cpu,
+    name: 'Compute pods',
+    text: 'GPU and CPU pods on the org’s RunPod account. Members SSH in with 12-hour certificates through the godfather CLI.',
   },
   {
     icon: Rocket,
-    name: 'Apps',
+    name: 'RunPod apps',
     text: 'Deploy an org’s own apps to RunPod from a manifest in their repo, with health checks and rollback.',
   },
-];
-
-const guarantees = [
-  { icon: ShieldCheck, name: 'Access checks on every org route', text: 'Member, officer and superadmin checks run before any handler.' },
-  { icon: ScrollText, name: 'Audit log', text: 'Every change an officer or a token makes is recorded with who made it.' },
-  { icon: Lock, name: 'Encrypted org secrets', text: 'RunPod keys, Google credentials and OAuth grants are encrypted at rest.' },
-  { icon: Timer, name: 'Short-lived credentials', text: 'SSH certificates last 12 hours for one pod. Machine tokens are scoped and revocable.' },
 ];
 
 const processes = [
@@ -77,17 +94,43 @@ const processes = [
   ['MCP server', 'mcp_main.py', ':8001'],
 ];
 
+const guarantees = [
+  { icon: ShieldCheck, name: 'Access checks on every org route', text: 'Member, officer and superadmin checks run before any handler.' },
+  { icon: ScrollText, name: 'Audit log', text: 'Every change an officer or a token makes is recorded with who made it.' },
+  { icon: Lock, name: 'Encrypted org secrets', text: 'RunPod keys, Google credentials and OAuth grants are encrypted at rest.' },
+  { icon: Timer, name: 'Short-lived credentials', text: 'SSH certificates last 12 hours for one pod. Machine tokens are scoped and revocable.' },
+];
+
+const orgs: { name: string; href?: string }[] = [
+  { name: 'Software Developers Association at ASU', href: 'https://thesoda.io' },
+  { name: 'AI Society at ASU' },
+];
+
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
       <Hero />
       <Section
+        eyebrow="The problem"
+        title="Every officer board builds the same tools again."
+        text="Most student orgs need the same few things. Each board writes its own version, the officers who wrote it graduate, and no one is left who can run it."
+      >
+        <div className="grid gap-px overflow-hidden rounded-xl border bg-fd-border md:grid-cols-3">
+          {problems.map(([name, text]) => (
+            <div key={name} className="bg-fd-background p-6">
+              <h3 className="font-medium">{name}</h3>
+              <p className="mt-2 text-sm text-fd-muted-foreground">{text}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section
         eyebrow="Modules"
         title="Turn on what your org uses."
-        text="Each organization is a Discord server. Points, the store, calendar, LeetCode and compute switch on or off per organization. A module that is off returns 404 for that org and disappears from its web app."
+        text="Each organization is a Discord server. Points, the store, calendar, alerts, LeetCode and compute switch on or off per organization. A module that is off returns 404 for that org."
       >
-        <div className="grid gap-px overflow-hidden rounded-xl border bg-fd-border sm:grid-cols-2 lg:grid-cols-4">
-          {clubModules.map((m) => (
+        <div className="grid gap-px overflow-hidden rounded-xl border bg-fd-border sm:grid-cols-2 lg:grid-cols-3">
+          {operationsModules.map((m) => (
             <Feature key={m.name} {...m} />
           ))}
         </div>
@@ -96,6 +139,31 @@ export default function HomePage() {
           {buildModules.map((m) => (
             <Feature key={m.name} {...m} />
           ))}
+        </div>
+      </Section>
+      <Section
+        eyebrow="Agents"
+        title="Give an agent scoped access to an org."
+        text="Every module exposes its tools through one MCP server and /api/tools. An agent holds a machine token for one organization with only the scopes it needs, and every call is checked and audited."
+      >
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+          <ul className="space-y-3 text-sm">
+            {['knowledge:read', 'agents:write', 'accounts:token', 'compute:connect', 'apps:deploy'].map((scope) => (
+              <li key={scope} className="flex items-center gap-3 rounded-lg border bg-fd-card px-4 py-3">
+                <Plug className="size-4 text-fd-muted-foreground" />
+                <code className="font-mono">{scope}</code>
+              </li>
+            ))}
+          </ul>
+          <Terminal
+            title="agent"
+            lines={[
+              ['$', 'curl $API/api/tools/knowledge.search \\'],
+              ['', '  -H "Authorization: Bearer plat_..." \\'],
+              ['', '  -d \'{"query": "when does Hayden library close"}\''],
+              ['', '{"result": {"results": [{"title": "Library hours", ...}]}}'],
+            ]}
+          />
         </div>
       </Section>
       <Section
@@ -129,31 +197,6 @@ export default function HomePage() {
         </div>
       </Section>
       <Section
-        eyebrow="Agents"
-        title="Give an agent scoped access to an org."
-        text="Every module exposes its tools through one MCP server and /api/tools. An agent holds a machine token for one organization with only the scopes it needs, and every call is checked and audited."
-      >
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-          <ul className="space-y-3 text-sm">
-            {['knowledge:read', 'agents:write', 'accounts:token', 'compute:connect', 'apps:deploy'].map((scope) => (
-              <li key={scope} className="flex items-center gap-3 rounded-lg border bg-fd-card px-4 py-3">
-                <Plug className="size-4 text-fd-muted-foreground" />
-                <code className="font-mono">{scope}</code>
-              </li>
-            ))}
-          </ul>
-          <Terminal
-            title="agent"
-            lines={[
-              ['$', 'curl $API/api/tools/knowledge.search \\'],
-              ['', '  -H "Authorization: Bearer plat_..." \\'],
-              ['', '  -d \'{"query": "when does Hayden library close"}\''],
-              ['', '{"result": {"results": [{"title": "Library hours", ...}]}}'],
-            ]}
-          />
-        </div>
-      </Section>
-      <Section
         eyebrow="Security"
         title="Built for data you are responsible for."
         text="Student data stays inside the organization it belongs to."
@@ -171,7 +214,7 @@ export default function HomePage() {
         </div>
       </Section>
       <Section
-        eyebrow="Self-hosted"
+        eyebrow="Self-hosting"
         title="Five processes. Postgres or SQLite."
         text="Run it with containers, or on a single RunPod pod with no Docker. Background work runs on a Procrastinate queue, or in threads on SQLite."
       >
@@ -187,6 +230,7 @@ export default function HomePage() {
           ))}
         </div>
       </Section>
+      <UsedBy />
       <CallToAction />
       <Footer />
     </main>
@@ -204,15 +248,16 @@ function Hero() {
         >
           Open source, BSD-3
           <span className="h-3 w-px bg-fd-border" />
-          Built at ASU
+          Self-hosted
           <ArrowRight className="size-3" />
         </Link>
         <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance md:text-6xl">
-          Infrastructure for student organizations
+          The backend your student org rebuilds every year
         </h1>
         <p className="mt-6 max-w-2xl text-base text-pretty text-fd-muted-foreground md:text-lg">
-          One deployment runs club operations, compute and agent backends for every organization on campus. Each
-          organization is a Discord server and switches on only what it uses.
+          Each officer board builds a member list, points, a Discord bot and a calendar sync, then graduates and it
+          stops working. Platform is one deployment shared by many organizations. Each one turns on the modules it
+          needs.
         </p>
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <Link
@@ -240,9 +285,6 @@ function Hero() {
             ]}
           />
         </div>
-        <p className="mt-10 text-xs text-fd-muted-foreground">
-          Runs the Software Developers Association and AI Society at Arizona State University.
-        </p>
       </div>
     </section>
   );
@@ -302,13 +344,36 @@ function Terminal({ title, lines }: { title: string; lines: [string, string][] }
   );
 }
 
+function UsedBy() {
+  return (
+    <section className="border-b">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12 md:flex-row md:items-center md:gap-12">
+        <p className="font-mono text-xs tracking-wider text-fd-muted-foreground uppercase">Used by</p>
+        <ul className="flex flex-col gap-4 sm:flex-row sm:gap-10">
+          {orgs.map((org) => (
+            <li key={org.name} className="text-lg font-semibold tracking-tight">
+              {org.href ? (
+                <Link href={org.href} className="transition-colors hover:text-fd-muted-foreground">
+                  {org.name}
+                </Link>
+              ) : (
+                org.name
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function CallToAction() {
   return (
     <section className="border-b">
       <div className="mx-auto flex max-w-5xl flex-col items-start gap-6 px-6 py-20 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Run it for your organization.</h2>
-          <p className="mt-2 text-fd-muted-foreground">Free and open source. Bring a Discord server.</p>
+          <p className="mt-2 text-fd-muted-foreground">Free and open source under BSD-3. Bring a Discord server.</p>
         </div>
         <div className="flex gap-3">
           <Link
@@ -332,7 +397,13 @@ function CallToAction() {
 function Footer() {
   return (
     <footer className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-6 py-10 text-xs text-fd-muted-foreground sm:flex-row sm:justify-between">
-      <span>Platform. Based on the platform of the Software Developers Association at ASU.</span>
+      <span>
+        Platform. Originally developed by the{' '}
+        <Link href={repoUrl} className="underline hover:text-fd-foreground">
+          Software Developers Association at ASU
+        </Link>
+        .
+      </span>
       <span className="flex gap-4">
         <Link href="/docs" className="hover:text-fd-foreground">
           Docs
