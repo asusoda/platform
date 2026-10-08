@@ -1,10 +1,11 @@
-"""HTTP routes for the officer dashboard: one overview of the organization and its CI runs."""
+"""HTTP routes for the officer dashboard: one overview of the organization, its branding and its CI runs."""
 
 from functools import partial
 
 from flask import Blueprint
 
 from modules.auth.routes import json_body, officer_route
+from modules.organizations import service as organizations
 
 from . import ci, service
 
@@ -15,6 +16,16 @@ _route = partial(officer_route, dashboard_blueprint)
 @_route("/overview", ["GET"])
 def overview(db, org):
     return service.overview(db, org)
+
+
+@_route("/branding", ["GET"])
+def get_branding(db, org):
+    return organizations.branding(org)
+
+
+@_route("/branding", ["PUT"])
+def set_branding(db, org):
+    return organizations.set_branding(db, org, json_body())
 
 
 @_route("/ci", ["GET"])

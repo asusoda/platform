@@ -74,7 +74,7 @@ export function Button({
 }: ComponentProps<'button'> & { variant?: 'default' | 'primary' | 'ghost' | 'danger' }) {
   const styles = {
     default: 'border border-line bg-panel-2 hover:bg-line/60',
-    primary: 'bg-fg text-bg hover:opacity-90',
+    primary: 'bg-accent text-accent-fg hover:opacity-90',
     ghost: 'hover:bg-panel-2',
     danger: 'border border-line text-bad hover:bg-bad/10',
   }[variant];
