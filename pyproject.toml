@@ -147,6 +147,7 @@ source_modules = [
     "modules.knowledge.extract",
     "modules.knowledge.fetch",
     "modules.knowledge.service",
+    "modules.leetcode.daily",
     "modules.leetcode.service",
     "modules.mcp.runtime",
     "modules.organizations.service",

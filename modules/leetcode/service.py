@@ -52,6 +52,12 @@ def record_solve(db, discord_id: str, title_slug: str, solved_date: datetime.dat
         db.rollback()
 
 
+def unsolved_links(db, day: datetime.date) -> dict[str, str]:
+    """Linked members with no solve recorded for day: discord_id to LeetCode username."""
+    solved = {row.discord_id for row in db.query(LeetCodeSolve.discord_id).filter_by(solved_date=day)}
+    return {row.discord_id: row.leetcode_username for row in db.query(LeetCodeLink) if row.discord_id not in solved}
+
+
 def leaderboard(db, limit: int = 10) -> list[tuple[str, str, int]]:
     """[(discord_id, leetcode_username, solve_count), ...], most solves first."""
     rows = (

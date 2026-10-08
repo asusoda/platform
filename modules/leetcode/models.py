@@ -21,3 +21,15 @@ class LeetCodeSolve(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (UniqueConstraint("discord_id", "solved_date", name="uq_solve_user_date"),)
+
+
+class LeetCodeDaily(Base):
+    """One row per local date: the daily post happens once, whichever process gets there first."""
+
+    __tablename__ = "leetcode_daily"
+
+    post_date = Column(Date, primary_key=True)
+    title_slug = Column(String, nullable=False)
+    channel_id = Column(String, nullable=False)
+    message_id = Column(String, nullable=True)
+    posted_at = Column(DateTime, server_default=func.now())

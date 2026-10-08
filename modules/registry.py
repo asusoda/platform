@@ -67,6 +67,7 @@ JOB_MODULES = [
     "modules.runpod.jobs",
     "modules.knowledge.jobs",
     "modules.asu.jobs",
+    "modules.leetcode.jobs",
 ]
 
 
