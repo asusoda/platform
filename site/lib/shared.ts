@@ -7,10 +7,12 @@ export const docsImageRoute = '/og/docs';
 export const docsContentRoute = '/llms.mdx/docs';
 
 export const gitConfig = {
-  user: 'asusoda',
-  repo: 'platform',
+  user: 'theaisocietyasu',
+  repo: 'bedrock',
   branch: 'main',
 };
+
+export const repoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 
 const getContentUrl = createGetUrl(docsContentRoute);
 
