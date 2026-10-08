@@ -14,7 +14,7 @@
 | CI | Latest GitHub Actions runs for the repos the org lists |
 | Tokens | Machine tokens: create and revoke |
 | Activity | The org's audit log, paged |
-| Settings | Module switches and org secrets |
+| Settings | Branding, module switches and org secrets |
 
 Agents such as SparkyAI and godfather show up through what they use: their tokens, their conversations in `agents`, pods in `compute`, apps in `runpod`.
 
@@ -27,8 +27,14 @@ Officer routes, in `modules/dashboard/`:
 | `GET /api/dashboard/<org>/overview` | Every section in one response |
 | `GET /api/dashboard/<org>/ci` | Latest runs per listed repo, cached 120 seconds |
 | `PUT /api/dashboard/<org>/ci/repos` | Set the repo list, `{"repos": ["owner/name"]}`, at most 20 |
+| `GET /api/dashboard/<org>/branding` | The org's `{"logo_url", "accent_color"}`, each null when unset |
+| `PUT /api/dashboard/<org>/branding` | Set either or both; an empty string or null clears one |
 
 Private repos need an org secret named `github_token` (a read-only token with Actions read access).
+
+## Branding
+
+Each org sets its own logo and accent color on the Settings page. The sidebar shows the org's logo and name; the accent color sets the `--accent` CSS variable, used for primary buttons, focus rings and the active page, and `--accent-fg` is black or white, whichever reads better on it. With nothing set the dashboard is neutral grey and shows the org's initial. `logo_url` must be an https URL; `accent_color` must be `#RRGGBB`. Both are stored under `branding` in the org's config. The overview response carries them in `organization.branding`.
 
 ## Sign-in
 

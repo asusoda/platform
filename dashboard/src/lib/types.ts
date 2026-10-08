@@ -2,6 +2,8 @@
 
 export type Organization = { id: number; name: string; prefix: string; guild_id: string; icon_url: string | null };
 
+export type Branding = { logo_url: string | null; accent_color: string | null };
+
 export type ModuleState = { name: string; description: string; enabled: boolean };
 
 export type AuditEntry = {
@@ -38,7 +40,7 @@ export type AppSummary = {
 };
 
 export type Overview = {
-  organization: { id: number; name: string; prefix: string };
+  organization: { id: number; name: string; prefix: string; branding: Branding };
   modules: ModuleState[];
   sections: {
     members: { total: number };

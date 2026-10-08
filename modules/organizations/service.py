@@ -2,9 +2,11 @@
 
 import re
 from typing import cast
+from urllib.parse import urlparse
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from core.errors import ServiceError
 from modules.auth import scopes
 from modules.organizations.models import Organization
 
@@ -31,7 +33,14 @@ class OrganizationError(ValueError):
     pass
 
 
+class BrandingError(ServiceError, ValueError):
+    pass
+
+
 PREFIX_PATTERN = re.compile(r"^[a-z0-9_-]{2,20}$")
+ACCENT_PATTERN = re.compile(r"#[0-9a-fA-F]{6}")
+BRANDING_KEYS = ("logo_url", "accent_color")
+MAX_LOGO_URL = 500
 
 
 def find_by_prefix(db, org_prefix: str) -> Organization | None:
@@ -108,3 +117,50 @@ def create_organization(
     db.add(org)
     db.commit()
     return org
+
+
+def branding(org: Organization) -> dict:
+    """The org's logo URL and accent color from config.branding, each None when unset."""
+    saved = (cast(dict, org.config) or {}).get("branding") or {}
+    return {key: saved.get(key) or None for key in BRANDING_KEYS}
+
+
+def _clean_logo_url(value: object) -> str | None:
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or len(value) > MAX_LOGO_URL:
+        raise BrandingError(f"logo_url must be an https URL of at most {MAX_LOGO_URL} characters")
+    if any(ch.isspace() or ord(ch) < 32 for ch in value):
+        raise BrandingError("logo_url must not contain spaces or control characters")
+    parsed = urlparse(value)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise BrandingError("logo_url must be an https URL")
+    return value
+
+
+def _clean_accent(value: object) -> str | None:
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or not ACCENT_PATTERN.fullmatch(value):
+        raise BrandingError("accent_color must be a hex color like #1f6feb")
+    return value.lower()
+
+
+def set_branding(db, org: Organization, changes: object) -> dict:
+    """Update the given branding keys. An empty string or null clears a key. Commits."""
+    if not isinstance(changes, dict) or not changes:
+        raise BrandingError("Send an object with logo_url, accent_color or both")
+    unknown = [key for key in changes if key not in BRANDING_KEYS]
+    if unknown:
+        raise BrandingError(f"Unknown branding field: {', '.join(sorted(unknown))}")
+    current = branding(org)
+    if "logo_url" in changes:
+        current["logo_url"] = _clean_logo_url(cast(dict, changes)["logo_url"])
+    if "accent_color" in changes:
+        current["accent_color"] = _clean_accent(cast(dict, changes)["accent_color"])
+    config = dict(cast(dict, org.config) or {})
+    config["branding"] = {key: value for key, value in current.items() if value}
+    org.config = config
+    flag_modified(org, "config")
+    db.commit()
+    return branding(org)

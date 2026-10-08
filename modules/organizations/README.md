@@ -7,7 +7,7 @@ Holds the organization record (Discord guild, URL prefix, officer role, settings
 | File | Holds |
 | --- | --- |
 | `api.py` | Officer routes under `/<org_id>` |
-| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `find_by_prefix`, `create_organization`; declares the `org:read` scope |
+| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`; declares the `org:read` scope |
 | `config.py` | `OrganizationSettings`, the default settings written into a new org's config |
 | `models.py` | Organizations, org config rows, officers |
 | `tools.py` | The `org.info` tool |
@@ -18,6 +18,11 @@ Holds the organization record (Discord guild, URL prefix, officer role, settings
 - Jobs: none.
 - Tools: `org.info` (scope `org:read`).
 - Tables: `organizations`, `organization_configs`, `officers`.
+
+## Config keys
+
+- `modules`: module name to false for each module turned off.
+- `branding`: `logo_url` (https) and `accent_color` (`#RRGGBB`), shown by the officer dashboard and set through `/api/dashboard/<org>/branding`.
 
 ## Depends on
 

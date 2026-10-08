@@ -16,7 +16,10 @@ import {
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { tokens } from '../lib/auth';
+import { useAccentColor } from '../lib/branding';
 import { useCurrentOrg, useOrganizations } from '../lib/org';
+import { useBranding } from '../lib/queries';
+import { OrgMark } from './org-mark';
 import { cx } from './ui';
 
 const NAV = [
@@ -31,27 +34,20 @@ const NAV = [
   { to: 'settings', label: 'Settings', icon: Settings },
 ];
 
-function Logo() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
-      <rect x="3" y="4" width="18" height="4" rx="2" className="fill-fg" />
-      <rect x="3" y="10" width="18" height="4" rx="2" className="fill-muted" />
-      <rect x="3" y="16" width="18" height="4" rx="2" className="fill-line" />
-    </svg>
-  );
-}
-
 function OrgSwitcher() {
   const { org, prefix } = useCurrentOrg();
   const { data } = useOrganizations();
+  const branding = useBranding(prefix);
   const navigate = useNavigate();
+  const name = org?.name ?? prefix;
   return (
-    <label className="relative flex h-10 items-center gap-2 rounded-lg border border-line bg-panel-2 px-3 text-sm">
-      <span className="flex size-5 items-center justify-center rounded bg-fg text-[10px] font-semibold text-bg uppercase">
-        {(org?.name ?? prefix).slice(0, 1)}
+    <label className="relative flex items-center gap-2.5 rounded-lg border border-line bg-panel-2 p-2 text-sm">
+      <OrgMark name={name} logoUrl={branding.data?.logo_url} className="size-9" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-semibold">{name}</span>
+        <span className="block truncate font-mono text-xs text-muted">{prefix}</span>
       </span>
-      <span className="min-w-0 flex-1 truncate">{org?.name ?? prefix}</span>
-      <ChevronsUpDown className="size-4 text-muted" />
+      <ChevronsUpDown className="size-4 shrink-0 text-muted" />
       <select
         aria-label="Organization"
         className="absolute inset-0 cursor-pointer opacity-0"
@@ -73,10 +69,6 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col gap-4 p-3">
-      <div className="flex items-center gap-2 px-2 pt-1 font-semibold">
-        <Logo />
-        Platform
-      </div>
       <OrgSwitcher />
       <nav className="flex flex-col gap-0.5">
         {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -92,8 +84,12 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
               )
             }
           >
-            <Icon className="size-4" />
-            {label}
+            {({ isActive }) => (
+              <>
+                <Icon className={cx('size-4', isActive && 'text-accent')} />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -113,6 +109,10 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Shell() {
   const [open, setOpen] = useState(false);
+  const { org, prefix } = useCurrentOrg();
+  const branding = useBranding(prefix);
+  useAccentColor(branding.data?.accent_color);
+  const name = org?.name ?? prefix;
   return (
     <div className="min-h-screen md:grid md:grid-cols-[240px_1fr]">
       <aside className="sticky top-0 hidden h-screen border-r border-line bg-panel md:block">
@@ -122,8 +122,9 @@ export function Shell() {
         <button aria-label="Open menu" onClick={() => setOpen(true)}>
           <Menu className="size-5" />
         </button>
-        <span className="flex items-center gap-2 font-semibold">
-          <Logo /> Platform
+        <span className="flex min-w-0 items-center gap-2 font-semibold">
+          <OrgMark name={name} logoUrl={branding.data?.logo_url} />
+          <span className="truncate">{name}</span>
         </span>
       </header>
       {open ? (
