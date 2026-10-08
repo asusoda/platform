@@ -1,6 +1,6 @@
 # Frontends
 
-Platform has two officer frontends. `dashboard/` is the officer dashboard: officers see and control what each org runs. `web/` is the older web app with the points, store, calendar, compute and Jeopardy pages, and the member store.
+Platform has one frontend, `dashboard/`. Officers use it to see and control what each org runs. Members use its store pages, `/store/<org>`.
 
 ## Officer dashboard
 
@@ -122,27 +122,13 @@ These fields of a registry entry control who sees the page:
 
 An old path that opens another page goes in `REDIRECTS` in the same file.
 
-## Web app
+## Member store
 
-`web/` is a Create React App project (React 19, pnpm, Tailwind and MUI). The `web` container serves the build with `serve` on port 5000.
+The member store is two open pages of `dashboard/`, outside the officer pages:
 
-```bash
-cd web && pnpm install && pnpm start    # port 5000
-npx react-scripts test --watchAll=false src/hooks src/utils
-```
+- `/store/<org>` shows the products in stock. A signed-in member also sees a cart, their points and their orders, and can place an order.
+- `/store/<org>/login` signs a member in with `POST /api/points/<org>/member_login`.
 
-`REACT_APP_API_URL` goes into the bundle at build time. Its default is `https://api.thesoda.io`, the example SoDA server (`web/src/config.js`). A change needs a new build.
+These pages use the API session cookie, not the officer token. The order routes (`/api/storefront/<org>/members/...`) need a Discord session on the API. The browser sends the cookie only when the dashboard and the API are on the same site.
 
-`web/src/App.js` has the routes:
-
-- Open: `/`, `/login`, `/auth` (gets the tokens for the one-time code), `/store/:orgPrefix`, `/store/:orgPrefix/login`, `/500`, `/metrics`.
-- Officer, behind `PrivateRoute`: `/select-organization`, `/superadmin`, and `/:orgPrefix/` with `dashboard`, `users`, `leaderboard`, `addpoints`, `calendar`, `storefront/...`, `transactions`, `compute`, `compute/:podId/files`, `panel`, `gamepanel`, `activegame` and `jeopardy`.
-- Old paths without an org (`/home`, `/users` and others) go to `/select-organization`.
-
-Use `useOrgNavigation()` from `web/src/hooks/` to make paths. Do not write a path with the org prefix by hand.
-
-`web/src/components/auth/AuthContext.js` keeps `accessToken`, `refreshToken`, `user` and `currentOrg` in `localStorage`. `web/src/components/utils/axios.js` adds the `Authorization` header. On a 403 it calls `/api/auth/refresh` and sends the request again one time. If the refresh fails, it signs out.
-
-`hooks/useOrgModules.js` reads `GET /api/organizations/<id>/modules`. The home page and the navigation bar hide the modules that the org turned off. If you type the URL of a hidden page, the page opens, but its API calls return 404.
-
-The Jeopardy and bot pages (`ActiveGame`, `GamePanel`, `Jeopardy`, `BotControlPanel`, `AwardPanel`, `SetupButton`, `GameBoard`) call paths that the API does not have. [API contract](./api-contract.md) lists them.
+The older `web/` app is removed. Its pages are in the dashboard: member details are on Points (Add member, and Edit details in a member's history), and the store, calendar, compute and superadmin pages have dashboard pages. Its Jeopardy and bot pages called paths that the API does not have, so they are not in the dashboard.

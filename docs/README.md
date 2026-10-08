@@ -14,7 +14,7 @@ Platform is shared infrastructure for student orgs. One deployment serves many o
 | [API contract](./api-contract.md) | Change a route that a live client uses |
 | [Writing a module](./writing-a-module.md) | Add a module and register it |
 | [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes, run Hermes |
-| [Frontends](./frontends.md) | Work on the web app (`web/`) or the officer dashboard (`dashboard/`) |
+| [Frontends](./frontends.md) | Work on the dashboard and the member store (`dashboard/`) |
 | [Roadmap](./roadmap.md) | See what is left to build and the known issues |
 
 ## Module pages

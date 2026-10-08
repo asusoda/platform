@@ -10,8 +10,7 @@ Platform is a Flask API with a Discord bot, a job worker and an MCP server. All 
 | Discord bot | `bot_main.py` | | Slash commands and Jeopardy, with the cogs in `modules/bot`, `modules/games` and `modules/leetcode` |
 | Job worker | `worker_main.py` | | Runs jobs from the Procrastinate queue. Postgres only |
 | MCP server | `mcp_main.py` | 8001 | Module tools for agents, over MCP |
-| Web app | `web/` | 5000 | The older officer and member app (React) |
-| Officer dashboard | `dashboard/` | 5173 in dev | One page per org (Vite, React) |
+| Dashboard | `dashboard/` | 5000 (5173 in dev) | The officer pages for each org and the member store (Vite, React) |
 
 The database is Postgres in production, or SQLite for a small deployment. Alembic makes the schema.
 
@@ -25,7 +24,7 @@ core/          shared code: config, database, jobs, tools, secrets, audit, logs,
 modules/       one folder per module; registry.py mounts the blueprints, manifest.py lists models, jobs and tools
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
-web/, dashboard/, site/   the web app, the officer dashboard, the docs and landing site
+dashboard/, site/   the dashboard and member store, the docs and landing site
 deploy/        the RunPod start script and the Hermes image
 ```
 
@@ -40,7 +39,7 @@ deploy/        the RunPod start script and the Hermes image
 5. The view reads the request, calls the module's `service.py` and returns JSON.
 6. Before the response goes out, `core/http/request_log.py` logs one line, and `core/http/audit_hook.py` writes each successful change to `audit_log`.
 
-The org comes from the URL (`org_prefix` or `org_id`), or from the machine token. The `X-Organization-*` headers that `web/` sends are used only in the request log.
+The org comes from the URL (`org_prefix` or `org_id`), or from the machine token. The `X-Organization-*` headers that older clients send are used only in the request log.
 
 Views get a database session from `officer_route`, `machine_route` or `member_view` in `modules/auth/routes.py`, or from `core.db.session()`. Older views call `next(db_connect.get_db())` and close the session in a `finally` block.
 

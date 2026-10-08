@@ -22,7 +22,7 @@ const queryClient = new QueryClient({
 
 queryClient.getQueryCache().subscribe((event) => {
   const error = event.query.state.error;
-  if (error instanceof ApiError && error.status === 401 && location.pathname !== '/login') location.assign('/login');
+  if (error instanceof ApiError && error.status === 401 && location.pathname !== '/login' && !location.pathname.startsWith('/store/')) location.assign('/login');
 });
 
 createRoot(document.getElementById('root')!).render(

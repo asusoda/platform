@@ -223,5 +223,4 @@
 /api/users/<string:org_prefix>/users OPTIONS,POST users.add_user_to_organization
 /api/users/<string:org_prefix>/users/<string:user_identifier> GET,HEAD,OPTIONS users.get_user_in_organization
 /api/users/<string:org_prefix>/viewUser GET,HEAD,OPTIONS users.view_user_in_org
-/build/<path:filename> GET,HEAD,OPTIONS static
 /health GET,HEAD,OPTIONS health

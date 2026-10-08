@@ -7,6 +7,8 @@ export type PointsMember = {
   name: string | null;
   username: string | null;
   email: string | null;
+  asu_id: string | null;
+  academic_standing: string | null;
   major: string | null;
   discord_linked: boolean;
   points: number;

@@ -35,11 +35,7 @@ class App(Flask):
     auth_bot: BotFork
 
 
-app = App(
-    "SoDA internal API",
-    static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
-    template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
-)
+app = App("SoDA internal API", static_folder=None)
 CORS(
     app,
     resources={

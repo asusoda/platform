@@ -55,4 +55,4 @@ Agents that write during the turn can use the routes in the first table.
 ## Limits
 
 - Profile nodes match by exact kind and label. With `EMBEDDINGS_URL`, each node also gets a vector of "kind: label", so recall can start from what the member said. Platform does not merge similar nodes.
-- The member routes need a Discord session with `discord_id`. The member sign-in of `web/` does not set it.
+- The member routes need a Discord session with `discord_id`. The member store sign-in does not set it.
