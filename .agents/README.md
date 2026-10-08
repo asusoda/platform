@@ -15,6 +15,7 @@ read the `SKILL.md` files directly.
 | `migration` | Create and test an Alembic migration | this repo |
 | `api-contract` | Change a route a live client depends on | this repo |
 | `pr-ready` | Prepare a branch and keep its PR green | this repo |
+| `technical-writing` | Write docs, comments and messages in Simplified Technical English | this repo, after ASD-STE100 |
 | `test-driven-development` | Write the failing test first | [obra/superpowers](https://github.com/obra/superpowers), MIT |
 | `systematic-debugging` | Find the root cause before fixing | [obra/superpowers](https://github.com/obra/superpowers), MIT |
 | `verification-before-completion` | Run the command and read its output before saying done | [obra/superpowers](https://github.com/obra/superpowers), MIT |
