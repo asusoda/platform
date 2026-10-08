@@ -45,13 +45,13 @@ export function GeneralForm({ org }: { org: OrganizationDetail }) {
         save.mutate();
       }}
     >
-      <Field label="Description" hint={`Shown where the organization is listed. ${draft.description.length}/${DESCRIPTION_MAX}`}>
+      <Field label="Description" hint={`Shown where the org is listed. ${draft.description.length}/${DESCRIPTION_MAX}`}>
         <Textarea
           value={draft.description}
           onChange={set('description')}
           maxLength={DESCRIPTION_MAX}
           className="min-h-20"
-          placeholder="What the organization does"
+          placeholder="What the org does"
         />
       </Field>
       <div className="grid gap-5 sm:grid-cols-2">

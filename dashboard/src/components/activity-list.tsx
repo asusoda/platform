@@ -14,7 +14,7 @@ export function ActivityList({ entries, empty, showOrg = false }: { entries: Aud
   return (
     <ul>
       {entries.map((e) => (
-        <li key={e.id} className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-0">
+        <li key={e.id} className="cv-row flex items-start gap-3 border-b border-line px-4 py-3 last:border-0">
           <span className="mt-1.5">
             <Dot tone={tone(e)} />
           </span>

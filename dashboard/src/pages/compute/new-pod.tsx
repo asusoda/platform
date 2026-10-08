@@ -115,7 +115,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   });
   const editEnv = (key: number, patch: Partial<EnvRow>) => setEnv(env.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   return (
-    <Dialog open onClose={onClose} wide title="New pod" description="Creates a pod on the organization's RunPod account. It starts right away.">
+    <Dialog open onClose={onClose} wide title="New pod" description="Creates a pod on the org's RunPod account. It starts right away.">
       <form
         className="space-y-6"
         onSubmit={(e) => {
@@ -239,7 +239,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
         </div>
 
         <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-xs text-pretty">
-          RunPod bills the organization's account by the hour while the pod runs, at the price of the hardware and cloud
+          RunPod bills the org's account by the hour while the pod runs, at the price of the hardware and cloud
           you pick. A stopped pod still costs its volume. Stop or terminate pods you do not use, or add sessions so the
           schedule stops them.
         </p>

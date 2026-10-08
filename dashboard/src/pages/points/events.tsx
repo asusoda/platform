@@ -1,7 +1,21 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarCheck } from 'lucide-react';
 import { useMemo } from 'react';
-import { Card, CardHeader, cx, DeleteButton, EmptyState, ErrorNote, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
+import {
+  Card,
+  CardHeader,
+  cx,
+  DeleteButton,
+  EmptyState,
+  ErrorNote,
+  ShowMore,
+  SkeletonRows,
+  Table,
+  Td,
+  Th,
+  Tr,
+  useShowMore,
+} from '../../components/ui';
 import { send } from '../../lib/api';
 import { compact, timeAgo } from '../../lib/format';
 import type { PointsMember } from '../../lib/types';
@@ -15,6 +29,7 @@ export function EventsTab({ prefix, groups, members, loading, error }: {
   error: unknown;
 }) {
   const client = useQueryClient();
+  const page = useShowMore(groups, null);
   const emails = useMemo(() => new Map(members.map((m) => [m.id, m.email])), [members]);
   // The route deletes one entry for each call: the first entry of that member for that event.
   const remove = useMutation({
@@ -41,49 +56,52 @@ export function EventsTab({ prefix, groups, members, loading, error }: {
       ) : loading ? (
         <SkeletonRows rows={5} />
       ) : groups.length ? (
-        <Table>
-          <thead>
-            <tr>
-              <Th>Event</Th>
-              <Th className="hidden text-right sm:table-cell">Entries</Th>
-              <Th className="text-right">Points</Th>
-              <Th className="hidden text-right sm:table-cell">Last entry</Th>
-              <Th>
-                <span className="sr-only">Actions</span>
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((g) => {
-              const deletable = g.entries.filter((e) => emails.get(e.user_id)).length;
-              const skipped = g.entries.length - deletable;
-              const note = skipped ? ` ${entryCount(skipped)} of people who are not members stay.` : '';
-              const effect = g.total < 0 ? 'Members get these points back.' : 'Members lose these points.';
-              return (
-                <Tr key={g.event}>
-                  <Td className="w-full max-w-0">
-                    <div className="truncate font-medium">{g.event}</div>
-                    <div className="truncate text-xs text-muted sm:hidden">
-                      {entryCount(g.entries.length)}, {timeAgo(g.last)}
-                    </div>
-                  </Td>
-                  <Td className="hidden text-right text-muted tabular-nums sm:table-cell">{g.entries.length}</Td>
-                  <Td className={cx('text-right tabular-nums', g.total < 0 && 'text-bad')}>{compact(g.total)}</Td>
-                  <Td className="hidden text-right text-xs whitespace-nowrap text-muted sm:table-cell">{timeAgo(g.last)}</Td>
-                  <Td className="pr-2 pl-0">
-                    <DeleteButton
-                      title="Delete the entries of this event"
-                      label={`Delete the entries of ${g.event}`}
-                      question={`Delete ${entryCount(deletable)} of ${g.event}? ${effect}${note}`}
-                      onDelete={() => remove.mutate(g)}
-                      disabled={!deletable || remove.isPending}
-                    />
-                  </Td>
-                </Tr>
-              );
-            })}
-          </tbody>
-        </Table>
+        <>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Event</Th>
+                <Th className="hidden text-right sm:table-cell">Entries</Th>
+                <Th className="text-right">Points</Th>
+                <Th className="hidden text-right sm:table-cell">Last entry</Th>
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {page.shown.map((g) => {
+                const deletable = g.entries.filter((e) => emails.get(e.user_id)).length;
+                const skipped = g.entries.length - deletable;
+                const note = skipped ? ` ${entryCount(skipped)} of people who are not members stay.` : '';
+                const effect = g.total < 0 ? 'Members get these points back.' : 'Members lose these points.';
+                return (
+                  <Tr key={g.event}>
+                    <Td className="w-full max-w-0">
+                      <div className="truncate font-medium">{g.event}</div>
+                      <div className="truncate text-xs text-muted sm:hidden">
+                        {entryCount(g.entries.length)}, {timeAgo(g.last)}
+                      </div>
+                    </Td>
+                    <Td className="hidden text-right text-muted tabular-nums sm:table-cell">{g.entries.length}</Td>
+                    <Td className={cx('text-right tabular-nums', g.total < 0 && 'text-bad')}>{compact(g.total)}</Td>
+                    <Td className="hidden text-right text-xs whitespace-nowrap text-muted sm:table-cell">{timeAgo(g.last)}</Td>
+                    <Td className="pr-2 pl-0">
+                      <DeleteButton
+                        title="Delete the entries of this event"
+                        label={`Delete the entries of ${g.event}`}
+                        question={`Delete ${entryCount(deletable)} of ${g.event}? ${effect}${note}`}
+                        onDelete={() => remove.mutate(g)}
+                        disabled={!deletable || remove.isPending}
+                      />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </Table>
+          <ShowMore list={page} noun="events" />
+        </>
       ) : (
         <EmptyState icon={CalendarCheck} title="No events yet">
           Award points with an event name, or upload event check-ins.

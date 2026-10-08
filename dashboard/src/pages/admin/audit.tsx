@@ -28,7 +28,7 @@ export function AuditCard({ prefixes }: { prefixes: string[] }) {
           title="Audit log"
           hint="Every change across all organizations, newest first."
           action={
-            <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by organization" className="h-8 w-40 text-xs sm:w-48">
+            <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by org" className="h-8 w-40 text-xs sm:w-48">
               <option value="">All organizations</option>
               {prefixes.map((p) => (
                 <option key={p} value={p}>

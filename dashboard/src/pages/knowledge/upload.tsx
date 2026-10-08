@@ -195,7 +195,7 @@ export function UploadForm({
       </datalist>
       {canPublish ? (
         <CheckOption checked={publish} onChange={setPublish} title="Public">
-          Every organization's agents can search these documents.
+          The agents of every org can search these documents.
         </CheckOption>
       ) : null}
       <FormActions error={problem ?? upload.error}>

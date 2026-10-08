@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Database, Pencil, Play, Plus, ScrollText, SlidersHorizontal, Upload } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useDeferredValue, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Button,
@@ -15,13 +15,16 @@ import {
   Notice,
   PageHeader,
   Select,
+  SearchInput,
+  ShowMore,
   SkeletonRows,
   Stat,
   StatGrid,
   Switch,
+  useShowMore,
 } from '../../components/ui';
 import { api, send } from '../../lib/api';
-import { compact, keyPath } from '../../lib/format';
+import { compact, count, keyPath } from '../../lib/format';
 import { useCurrentOrg } from '../../lib/org';
 import type { KnowledgeSource } from '../../lib/types';
 import { crawlBody, CrawlForm, RunCrawl } from './crawl';
@@ -62,13 +65,31 @@ export function KnowledgePage() {
     onSuccess: invalidate,
   });
 
-  const sources = list.data?.sources ?? [];
-  const categories = [...new Set(sources.map((s) => s.category))].sort();
-  const domains = countBy(sources.map((s) => domainOf(s.key)));
-  const shown = sources.filter((s) => (!filter || s.category === filter) && (!domain || domainOf(s.key) === domain));
-  const crawled = sources.filter((s) => s.crawl);
-  const failing = crawled.filter((s) => s.crawl?.last_error);
-  const chunks = sources.reduce((n, s) => n + s.chunk_count, 0);
+  const [query, setQuery] = useState('');
+  const q = useDeferredValue(query.trim().toLowerCase());
+  const data = list.data?.sources;
+  const sources = useMemo(() => data ?? [], [data]);
+  const { categories, domains, crawled, failing, chunks } = useMemo(() => {
+    const crawled = sources.filter((s) => s.crawl);
+    return {
+      categories: [...new Set(sources.map((s) => s.category))].sort(),
+      domains: countBy(sources.map((s) => domainOf(s.key))),
+      crawled,
+      failing: crawled.filter((s) => s.crawl?.last_error),
+      chunks: sources.reduce((n, s) => n + s.chunk_count, 0),
+    };
+  }, [sources]);
+  const shown = useMemo(
+    () =>
+      sources.filter(
+        (s) =>
+          (!filter || s.category === filter) &&
+          (!domain || domainOf(s.key) === domain) &&
+          (!q || s.key.toLowerCase().includes(q) || s.title?.toLowerCase().includes(q) || s.url?.toLowerCase().includes(q)),
+      ),
+    [sources, filter, domain, q],
+  );
+  const page = useShowMore(shown, `${filter}|${domain}|${q}`);
   const actionError = toggle.error ?? remove.error;
   // Row actions: crawled sources get schedule, run and edit controls; every source can be deleted.
   const actions = (s: KnowledgeSource, className?: string) => (
@@ -122,12 +143,12 @@ export function KnowledgePage() {
     <>
       <PageHeader
         title="Knowledge"
-        description="The sources agents search, by domain: source packs, pages the platform crawls on a schedule, and uploaded documents."
+        description="The sources agents search: source packs, pages crawled on a schedule, and uploaded documents."
         action={headerActions}
       />
       <StatGrid className="mb-6">
-        <Stat label="Sources" value={list.data ? sources.length : '-'} />
-        <Stat label="Crawled on a schedule" value={list.data ? crawled.length : '-'} />
+        <Stat label="Sources" value={list.data ? count(sources.length) : '-'} />
+        <Stat label="Crawled on a schedule" value={list.data ? count(crawled.length) : '-'} />
         <Stat
           label="Failing crawls"
           value={<span className={failing.length ? 'text-bad' : undefined}>{list.data ? failing.length : '-'}</span>}
@@ -151,7 +172,7 @@ export function KnowledgePage() {
       <Card>
         <CardHeader
           title="Sources"
-          hint={list.data ? `${shown.length} of ${sources.length} sources` : undefined}
+          hint={list.data ? `${count(shown.length)} of ${count(sources.length)} sources` : undefined}
           action={
             <div className="flex items-center gap-2">
               <Link
@@ -173,10 +194,27 @@ export function KnowledgePage() {
             </div>
           }
         />
+        {sources.length > 10 ? (
+          <div className="border-b border-line p-3">
+            <SearchInput
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Find a source by key, title or URL"
+              aria-label="Find a source"
+            />
+          </div>
+        ) : null}
         {list.isLoading ? (
           <SkeletonRows />
         ) : shown.length ? (
-          <SourceTable sources={shown} actions={actions} />
+          <>
+            <SourceTable sources={page.shown} actions={actions} />
+            <ShowMore list={page} noun="sources" />
+          </>
+        ) : sources.length ? (
+          <EmptyState icon={Database} title="No source matches">
+            Try another word, domain or category.
+          </EmptyState>
         ) : (
           <EmptyState
             icon={Database}
@@ -236,7 +274,7 @@ export function KnowledgePage() {
         open={tuning}
         onClose={() => setTuning(false)}
         title="Search settings"
-        description="How this organization's text is split into passages and how a search ranks them."
+        description="How this org's text is split into passages and how a search ranks them."
         wide
       >
         {tuning ? (
