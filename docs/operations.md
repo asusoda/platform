@@ -51,7 +51,7 @@ If `make deploy` or `make health` fails, it runs `make rollback`.
 2. Select the images to build. A change in `web/` or `Dockerfile.web` builds `web`. A change in a compose file or the `Makefile` builds both. A change in `.github/` or a `.md` file builds nothing. All other changes build `api`.
 3. Run `uv run alembic upgrade head` on the host. If it fails, the deploy stops and the old containers keep running.
 4. Tag the current images as `:previous`.
-5. Build and start the changed services, then wait up to 60 seconds for each to be healthy.
+5. Build and start the changed services, then wait up to 60 seconds for each to be healthy. When it builds `api`, it also starts `bot` again, because the bot uses the same image.
 
 ## Roll back
 
