@@ -53,7 +53,9 @@ Create body, every field optional:
 
 ## Member routes
 
-Discord login session and membership of the org's server, like other member routes.
+Discord login session and membership of the org's server, like other member routes. The godfather
+CLI sends `Authorization: Bearer plat_...` instead (see CLI sign-in below); membership is checked on
+every request the same way.
 
 | Route | What it does |
 |-------|--------------|
@@ -64,6 +66,22 @@ A member certificate has principal `gf-<pod_id>` and forces `/usr/local/bin/godf
 <username>`, which puts the member in their own account and folder. Officers of the org get a root
 certificate without the forced command. Each certificate is valid from five minutes ago to twelve
 hours from now. Every connect is in the audit log.
+
+## CLI sign-in
+
+The godfather CLI gets its credential from a browser sign-in:
+
+1. `godfather auth` opens `GET /api/compute/<org>/cli/login`, which sends the member to Discord.
+2. Discord returns to `GET /api/compute/cli/callback`. If the member is in the org's server and
+   compute is on, the page shows a token once.
+3. The member pastes it into the CLI, which sends it as a bearer token on the member routes.
+
+The token is a machine token of kind `cli` with scope `compute:connect`, bound to the member's
+Discord id and the org, valid for 90 days. Signing in again revokes the member's previous CLI token.
+Each token issued is in the audit log.
+
+Setup: `ACCOUNTS_BASE_URL`, `CLIENT_ID` and `CLIENT_SECRET` set on the server, and
+`<ACCOUNTS_BASE_URL>/api/compute/cli/callback` added as a redirect on the Discord application.
 
 ## Sessions
 
@@ -107,8 +125,6 @@ Pod host keys are not checked, since RunPod publishes none.
 
 ## Not ported yet
 
-- A member page for connecting. Members use the routes above directly for now.
-- The godfather CLI. It signs in with Godfather's own tokens; using these routes needs a member
-  credential the CLI can hold, which the platform does not issue yet.
+- A member page for connecting. Members use the godfather CLI or the routes above.
 - The RunPod request and response field names follow RunPod's REST API and are checked against a
   fake in the tests, not against RunPod itself. Check them with a real key before the cutover.
