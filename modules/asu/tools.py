@@ -1,8 +1,7 @@
 """ASU live query tool."""
 
-from core.tools import ToolError, tool
+from core.tools import tool
 from modules.asu import registry, service
-from modules.knowledge.service import KnowledgeError
 
 _LIST = "\n".join(
     f"- {q.key}: {q.description} Params: "
@@ -26,7 +25,4 @@ _LIST = "\n".join(
     },
 )
 def asu_query(db, org, caller, source: str, params: dict | None = None):
-    try:
-        return service.query(db, int(org.id), str(org.prefix), source, params or {})
-    except KnowledgeError as e:
-        raise ToolError(e.message, e.status) from e
+    return service.query(db, int(org.id), str(org.prefix), source, params or {})

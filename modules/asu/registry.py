@@ -1,4 +1,4 @@
-"""The live query sources, the checks every query passes, and how one is run. Ported from SparkyAI."""
+"""The live query sources, the checks every query passes, and how one is run."""
 
 from modules.asu import fetching as fetch
 from modules.asu.queries import (

@@ -7,6 +7,7 @@ from cachetools import TTLCache, cached, keys
 from sentry_sdk import start_transaction
 
 from core import secrets
+from core.errors import ServiceError
 from modules.auth import scopes
 
 # Import organization models
@@ -543,13 +544,8 @@ def get_service() -> MultiOrgCalendarService:
     return _service
 
 
-class CalendarError(Exception):
-    """A calendar request that cannot be served. status is the HTTP status the API returns."""
-
-    def __init__(self, message: str, status: int):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class CalendarError(ServiceError):
+    """A calendar request that cannot be served."""
 
 
 def find_organization(db, org_prefix: str) -> Organization:

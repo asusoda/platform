@@ -13,7 +13,7 @@ def soda_id(client, officer_headers):
 
 
 def _issue(client, headers, org_id, **body):
-    payload = {"name": "sparky", "kind": "agent", "scopes": ["calendar:read"], **body}
+    payload = {"name": "club-agent", "kind": "agent", "scopes": ["calendar:read"], **body}
     return client.post(f"/api/organizations/{org_id}/tokens", json=payload, headers=headers)
 
 
@@ -34,7 +34,7 @@ def test_issue_list_whoami_revoke(client, officer_headers, soda_id):
     assert "calendar:read" in listing["scopes"]
 
     whoami = client.get("/api/auth/machine/whoami", headers=_bearer(token))
-    assert whoami.get_json() == {"org": "soda", "name": "sparky", "kind": "agent", "scopes": ["calendar:read"]}
+    assert whoami.get_json() == {"org": "soda", "name": "club-agent", "kind": "agent", "scopes": ["calendar:read"]}
 
     assert (
         client.delete(f"/api/organizations/{soda_id}/tokens/{body['id']}", headers=officer_headers).status_code == 200

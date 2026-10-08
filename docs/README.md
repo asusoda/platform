@@ -1,18 +1,18 @@
-# Bedrock documentation
+# Platform documentation
 
-This folder is the knowledge-transfer pack for the Bedrock codebase, AI Society at ASU's fork of SoDA's platform. It is written for
+This folder is the knowledge-transfer pack for the Platform codebase. It is written for
 someone who has never seen this repo before. Read the pages in order the first time; after that,
 use it as a reference.
 
 ## What this project is, in one paragraph
 
-Bedrock is shared infrastructure for student organizations. It started as the platform the
+Platform is shared infrastructure for student organizations. It started as the platform the
 Software Developers Association (SoDA) at ASU runs its club on: a **Flask REST API**, a **React
 admin web app** and a **Discord bot**, tracking members, event points, a merch store, a Notion to
 Google Calendar sync, a daily LeetCode post and Jeopardy. Everything is scoped to an
-**organization** (a Discord server), and each org turns modules on or off. AI Society added modules
-for agents and compute: pods on RunPod that members SSH into (`compute`), per-member agent memory
-(`agents`), document and ASU search (`knowledge`, `asu`), linked Canvas, Google and Outlook accounts
+**organization** (a Discord server), and each org turns modules on or off. AI Society at ASU added
+modules for agents and compute: pods on RunPod that members SSH into (`compute`), per-member agent memory
+(`agents`), document search with an example campus source (`knowledge`, `asu`), linked Canvas, Google and Outlook accounts
 (`accounts`), app deploys (`runpod`), and an MCP server that exposes them to agents through scoped
 tokens. It runs as an API, a web app, a bot process, a job worker and an MCP server.
 
@@ -31,16 +31,17 @@ tokens. It runs as an API, a web app, a bot process, a job worker and an MCP ser
 | 9 | [Deployment & Operations](./09-deployment-and-operations.md) | Docker, the Makefile, CI/CD, migrations in production, rollback |
 | 10 | [Gotchas & Known Issues](./10-gotchas-and-known-issues.md) | The traps. **Read this before you change anything.** |
 | 11 | [API Contract](./api-contract.md) | Every endpoint a client depends on, the contract tests that guard them, and the request log |
-| 12 | [Roadmap](./roadmap.md) | The plan for multi-org platform: phases, what moves in from Sparky, Godfather and Bedrock, status |
+| 12 | [Writing a module](./writing-a-module.md) | The files a module has, where it is registered, the rules CI checks |
+| 13 | [Roadmap](./roadmap.md) | What is left to build |
 
-## Modules added for agents and compute
+## Agent and compute modules
 
 | Page | Module |
 |------|--------|
 | [Compute](./compute.md) | RunPod pods, SSH certificates, file manager, sessions, godfather CLI sign-in |
 | [Agents](./agents.md) | Conversations, memories, profile graph, turn context and commit |
 | [Knowledge](./knowledge.md) | Sources, crawls, hybrid search |
-| [ASU](./asu.md) | ASU pages and live queries |
+| [ASU](./asu.md) | Example campus source: ASU pages and live queries |
 | [Accounts](./accounts.md) | Canvas, Google and Outlook sign-in for members |
 | [RunPod apps](./runpod-apps.md) | App manifests, deploys, health checks, rollback |
 | [Tools and MCP](./tools-and-mcp.md) | Machine tokens, scopes, /api/tools, the MCP server |
@@ -49,7 +50,7 @@ tokens. It runs as an API, a web app, a bot process, a job worker and an MCP ser
 ## The 60-second orientation
 
 ```
-bedrock/
+platform/
 ├── main.py                 API entry point. Registers blueprints, serves Flask under gunicorn.
 ├── bot_main.py             Discord bot process.
 ├── worker_main.py          Job worker (Procrastinate on Postgres).

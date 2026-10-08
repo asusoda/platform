@@ -9,14 +9,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.errors import ServiceError
 
-class ToolError(Exception):
-    """A tool refused or failed. `status` follows HTTP: 400 bad arguments, 404 not found, and so on."""
 
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class ToolError(ServiceError):
+    """A tool refused or failed. status follows HTTP: 400 bad arguments, 404 not found, and so on."""
 
 
 @dataclass(frozen=True)

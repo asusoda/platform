@@ -2,9 +2,8 @@
 
 Writers (a scraper, an import script) send a source as chunks; the platform does not fetch pages.
 A source is replaced whole: when its content hash changes, a new version and its chunks replace the
-old ones. Search fuses a vector leg and a text leg with reciprocal rank fusion, as SparkyAI's
-retriever does (apps/engine/src/stores/knowledge/retrieval.rs), over the caller's organization plus
-public sources. Only organizations listed in KNOWLEDGE_PUBLISHERS may write public sources.
+old ones. Search fuses a vector leg and a text leg with reciprocal rank fusion over the caller's organization
+plus public sources. Only organizations listed in KNOWLEDGE_PUBLISHERS may write public sources.
 
 On Postgres with pgvector, both legs run in SQL. Elsewhere, including Postgres without pgvector,
 the vector leg runs in Python over the stored vectors, and on SQLite so does the text leg.
@@ -19,6 +18,7 @@ from typing import Any
 
 from sqlalchemy import or_, text
 
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from modules.auth import scopes
 from modules.knowledge.embedder import Embedder, EmbeddingError
@@ -40,11 +40,8 @@ KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}$")
 TEXT_CONFIG = "english"
 
 
-class KnowledgeError(ValueError):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class KnowledgeError(ServiceError, ValueError):
+    pass
 
 
 def max_distance() -> float:

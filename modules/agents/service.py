@@ -2,8 +2,7 @@
 
 Every function is scoped to one Owner: the machine token's organization plus the Discord id of the
 member the agent is talking to. The agent says who the member is; the platform checks the token, so
-an agent can only reach members of its own organization. The semantics follow SparkyAI's stores
-(apps/engine/src/stores) so its engine can call this API instead of its own database.
+an agent can only reach members of its own organization.
 
 Sensitive memories are encrypted with the same Fernet keys as org secrets (SECRETS_KEY).
 """
@@ -18,6 +17,7 @@ from typing import Any, cast
 from sqlalchemy import func, or_, text
 
 from core import secrets
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from modules.agents.models import (
     AgentConversation,
@@ -43,11 +43,8 @@ scopes.declare("agents:read", "Read conversations, memories and profiles of memb
 scopes.declare("agents:write", "Write conversations, memories, profiles and pending actions for members")
 
 
-class AgentError(ValueError):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class AgentError(ServiceError, ValueError):
+    pass
 
 
 @dataclass(frozen=True)

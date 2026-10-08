@@ -1,0 +1,38 @@
+---
+title: Concepts
+description: Organizations, modules, access, tokens and jobs.
+---
+
+## Organizations
+
+An organization is one Discord server. Almost every route is under the organization's prefix, for example `/api/compute/robotics/pods`. Members are the people in the server. Officers hold the officer role the organization configured. Superadmins manage every organization on the deployment.
+
+## Modules
+
+Each feature is a module under `modules/`. A module has its routes in `api.py`, its tables in `models.py`, and its logic in a Flask-free `service.py` that the REST API, the MCP server, jobs and the bot all reuse. `modules/registry.py` lists them.
+
+Optional modules (points, storefront, calendar, LeetCode and compute) switch on or off per organization. A module that is off returns 404 for that organization, and the web app hides it. The agent, knowledge and account modules are reached through tokens the organization issues, so an organization that issues none never uses them.
+
+## Access
+
+People sign in with Discord. Every organization route checks whether the caller is a member, an officer or a superadmin before it runs. Changes made by officers and tokens are written to the audit log.
+
+Programs use machine tokens instead of a login. A token starts with `plat_`, is stored only as a hash, belongs to one organization, and carries scopes such as `knowledge:read` or `compute:connect`. Agents, deploy pipelines and the godfather CLI each hold one.
+
+## Secrets
+
+Per-organization credentials (a RunPod key, a Google service account, OAuth grants) are encrypted with `SECRETS_KEY` and stored in the database. They are never returned by the API.
+
+## Jobs
+
+Background work is declared with `@job` in each module's `jobs.py`. On Postgres a separate worker process runs them from a Procrastinate queue. On SQLite they run in threads inside the API process. Examples are the daily LeetCode post, crawls, pod session start and stop, and token cleanup.
+
+## Processes
+
+| Process | Entry point | Port |
+| --- | --- | --- |
+| API | `main.py` under gunicorn | 8000 |
+| Web app | `web/` (React) | 5000 |
+| Discord bot | `bot_main.py` | |
+| Job worker | `worker_main.py` | |
+| MCP server | `mcp_main.py` | 8001 |

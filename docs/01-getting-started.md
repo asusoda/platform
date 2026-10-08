@@ -15,8 +15,8 @@ the right version for you.
 ## First-time setup
 
 ```bash
-git clone https://github.com/theaisocietyasu/bedrock.git
-cd bedrock
+git clone https://github.com/asusoda/platform.git
+cd platform
 
 # 1. Install Python deps into .venv and install the pre-commit hook
 uv sync

@@ -69,17 +69,22 @@ make rollback
 ### Core Structure
 - **Flask API Backend**: Main application in `main.py` with modular blueprint architecture
 - **React Frontend**: Located in `web/` directory with separate build process
-- **Discord Bots**: Two separate bot instances (summarizer and auth) running in dedicated threads
+- **Discord Bot**: One bot, run as its own process by `bot_main.py`
+- **Job worker and MCP server**: `worker_main.py` (Procrastinate on Postgres) and `mcp_main.py`
 - **Multi-Organization Support**: Organization-scoped data and configurations
 - **Containerized Deployment**: Docker/Podman with docker-compose for orchestration
 
 ### Key Components
 
 #### Module System
-All core functionality is organized in `/modules/` with consistent structure:
-- `api.py` - REST endpoints and route handlers
-- `models.py` - SQLAlchemy database models  
-- `README.md` - Module documentation
+All core functionality is organized in `/modules/`, one folder per feature. A module has only the files it needs:
+- `README.md` - what it does, its files, routes, jobs, tools and tables
+- `service.py` - logic; takes a DB session, never imports Flask, raises a `core.errors.ServiceError` subclass
+- `api.py` - Flask blueprint that calls `service.py`; machine-token routes use `machine_route` from `modules/auth/routes.py`
+- `models.py` - SQLAlchemy models
+- `jobs.py`, `tools.py` - background jobs (`@job`) and agent tools (`@tool`)
+
+Blueprints, jobs and tools are registered in `modules/registry.py`. `docs/writing-a-module.md` lists every place a new module is registered.
 
 Active modules: accounts, agents, asu, auth, bot, calendar, compute, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
 
@@ -90,8 +95,8 @@ Active modules: accounts, agents, asu, auth, bot, calendar, compute, games, know
 - Schema managed by Alembic migrations (`alembic upgrade head`); no table creation at startup
 
 #### Discord Integration
-- **Auth Bot**: BotFork instance with HelperCog and GameCog for server management
-- Bot runs in separate asyncio event loop in daemon thread
+- BotFork instance in `modules/bot/`, loading cogs from `modules/games` and `modules/leetcode`
+- Runs in its own process (`bot_main.py`); the API reaches Discord over REST (`core/discord_directory.py`)
 - Bot token managed via environment variable (`BOT_TOKEN`)
 
 #### Background Jobs

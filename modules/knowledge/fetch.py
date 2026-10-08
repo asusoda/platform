@@ -1,6 +1,6 @@
 """Fetching pages for crawled sources: robots.txt, per-host pacing, public addresses only. No Flask here.
 
-Ported from SparkyAI's scraper (apps/scraper/ingest/fetch.py, robots.py, pace.py). Pages come
+Pages come
 through self-hosted Firecrawl when FIRECRAWL_URL is set (JavaScript rendered, markdown out), else
 through a plain GET. Every URL, and every redirect, must resolve to a public address, so a source
 cannot make the platform read its own network.

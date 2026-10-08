@@ -6,6 +6,7 @@ from typing import Any
 import jsonschema
 
 from core import audit
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec
 from modules.auth.machine_tokens import MachineCaller
@@ -53,6 +54,9 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
     except ToolError as e:
         status = e.status
         raise
+    except ServiceError as e:
+        status = e.status
+        raise ToolError(e.message, e.status) from e
     except Exception:
         status = 500
         logger.exception("tool failed name=%s", name)

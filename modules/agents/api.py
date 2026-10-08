@@ -9,6 +9,7 @@ from flask import Blueprint, g, jsonify, request
 
 from core import audit_http
 from modules.auth.decoraters import machine_scope_required, member_required
+from modules.auth.routes import INACTIVE_ORG, json_body, token_org
 from modules.knowledge import embedder
 from modules.organizations.models import Organization
 from shared import db_connect
@@ -47,9 +48,8 @@ def _agent_route(rule: str, scope: str, methods: list[str]):
             caller = g.machine_caller
             db = db_connect.SessionLocal()
             try:
-                org = db.query(Organization).filter_by(id=caller.organization_id, is_active=True).first()
-                if org is None:
-                    return jsonify({"error": "The token's organization is inactive or gone"}), 403
+                if token_org(db) is None:
+                    return jsonify({"error": INACTIVE_ORG}), 403
                 who = service.owner(caller.organization_id, discord_id, caller.token_id)
                 result = view(db, who, **kwargs)
                 return result if isinstance(result, tuple) else jsonify(result)
@@ -66,11 +66,6 @@ def _agent_route(rule: str, scope: str, methods: list[str]):
     return decorator
 
 
-def _body() -> dict:
-    data = request.get_json(silent=True)
-    return data if isinstance(data, dict) else {}
-
-
 def _int_arg(name: str) -> int | None:
     value = request.args.get(name)
     if value is None:
@@ -85,7 +80,7 @@ def _int_arg(name: str) -> int | None:
 
 @_agent_route("/conversations/<string:conversation_id>", "agents:write", ["PUT"])
 def ensure_conversation(db, who, conversation_id):
-    data = _body()
+    data = json_body()
     cid = service.ensure(db, who, conversation_id, data.get("channel_id"), data.get("visibility", "public"))
     return {"id": cid}
 
@@ -103,12 +98,12 @@ def load_messages(db, who, conversation_id):
 
 @_agent_route("/conversations/<string:conversation_id>/messages", "agents:write", ["POST"])
 def append_messages(db, who, conversation_id):
-    return {"seqs": service.append(db, who, conversation_id, _body().get("messages"))}, 201
+    return {"seqs": service.append(db, who, conversation_id, json_body().get("messages"))}, 201
 
 
 @_agent_route("/conversations/<string:conversation_id>/summary", "agents:write", ["POST"])
 def append_summary(db, who, conversation_id):
-    data = _body()
+    data = json_body()
     return {"seq": service.append_summary(db, who, conversation_id, data.get("content"), data.get("covers"))}, 201
 
 
@@ -133,7 +128,7 @@ def recall_memories(db, who):
 
 @_agent_route("/memories", "agents:write", ["POST"])
 def write_memory(db, who):
-    data = _body()
+    data = json_body()
     memory = service.remember(
         db,
         who,
@@ -163,7 +158,7 @@ def read_profile(db, who):
 
 @_agent_route("/profile/facts", "agents:write", ["POST"])
 def upsert_facts(db, who):
-    return {"stored": service.upsert(db, who, _body().get("facts"), embedder=embedder.configured())}
+    return {"stored": service.upsert(db, who, json_body().get("facts"), embedder=embedder.configured())}
 
 
 @_agent_route("/profile/similar", "agents:read", ["GET"])
@@ -179,7 +174,7 @@ def matching_relations(db, who):
 
 @_agent_route("/profile/relations", "agents:write", ["DELETE"])
 def drop_relation(db, who):
-    data = _body()
+    data = json_body()
     return {"deleted": service.drop_relation(db, who, data.get("subject"), data.get("relation"), data.get("object"))}
 
 
@@ -199,14 +194,14 @@ def forget_member(db, who):
 
 @_agent_route("/pending/<string:token>", "agents:write", ["PUT"])
 def hold_action(db, who, token):
-    data = _body()
+    data = json_body()
     service.hold(db, who, token, data.get("action"), data.get("payload_hash"), data.get("ttl_seconds", 600))
     return {"held": True}, 201
 
 
 @_agent_route("/pending/<string:token>/claim", "agents:write", ["POST"])
 def claim_action(db, who, token):
-    claimed = service.claim(db, who, token, _body().get("approved"))
+    claimed = service.claim(db, who, token, json_body().get("approved"))
     if claimed is None:
         return jsonify({"error": "No pending action for this token"}), 404
     return claimed
@@ -225,13 +220,13 @@ def _member_info(db, who):
 
 @_agent_route("/turn/context", "agents:read", ["POST"])
 def turn_context(db, who):
-    return turns.context(db, who, _member_info(db, who), _body(), embedder.configured())
+    return turns.context(db, who, _member_info(db, who), json_body(), embedder.configured())
 
 
 @_agent_route("/turn/commit", "agents:write", ["POST"])
 def turn_commit(db, who):
     _member_info(db, who)
-    return turns.commit(db, who, _body(), embedder.configured()), 201
+    return turns.commit(db, who, json_body(), embedder.configured()), 201
 
 
 # Member self-service: a member sees and deletes what agents keep about them.

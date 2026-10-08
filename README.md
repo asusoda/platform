@@ -1,8 +1,8 @@
-# Bedrock
+# Platform
 
-Bedrock is shared infrastructure for student organizations. Each org is a Discord server. One deployment serves many orgs, and each org turns on only the modules it uses.
+Platform is shared infrastructure for student organizations. Each org is a Discord server. One deployment serves many orgs, and each org turns on only the modules it uses.
 
-It is AI Society at ASU's fork of [asusoda/platform](https://github.com/asusoda/platform), the platform the Software Developers Association (SoDA) at ASU runs its club on. Changes here are also sent upstream.
+It started as the platform the Software Developers Association (SoDA) at ASU runs its club on. AI Society at ASU added the agent and compute modules. Both clubs run on it.
 
 ## What it does
 
@@ -16,14 +16,14 @@ Club operations, from SoDA's platform:
 | `leetcode`, `games` | Daily LeetCode post and Jeopardy in Discord |
 | `organizations`, `superadmin`, `users` | Orgs, officers, module switches, member records |
 
-Added for agents and compute:
+Agents and compute:
 
 | Module | What it does |
 | --- | --- |
 | `compute` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates through the godfather CLI. Officers get a file manager and scheduled sessions that start and stop pods around workshops. |
-| `agents` | Conversations, memories and a profile graph for each member, kept for an agent such as Sparky. Retention is 180 days by default. |
+| `agents` | Conversations, memories and a profile graph for each member, kept for agents that talk to members. Retention is 180 days by default. |
 | `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
-| `asu` | 226 public ASU pages and 16 live queries (dining, library hours, events and others), indexed into knowledge |
+| `asu` | Example campus source: 226 public ASU pages and 16 live queries (dining, library hours, events), indexed into knowledge |
 | `accounts` | Canvas, Google and Outlook sign-in for a member, bound to their Discord account, so agents can act for them |
 | `runpod` | Deploy an org's apps to RunPod from a manifest in the app's repo, with health checks and rollback |
 | `mcp` | An MCP server and `/api/tools` that expose the modules above to agents through scoped machine tokens |
@@ -47,8 +47,8 @@ The database is Postgres in production, or SQLite for small deployments. The sch
 You need Podman with podman-compose (or Docker), Make and uv.
 
 ```bash
-git clone https://github.com/theaisocietyasu/bedrock.git
-cd bedrock
+git clone https://github.com/asusoda/platform.git
+cd platform
 uv sync
 uv run pre-commit install
 cp .env.template .env      # Discord app, bot token, secrets

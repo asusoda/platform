@@ -10,19 +10,11 @@ Items are grouped by how likely they are to bite you, not by severity.
 
 ## A. Documentation that disagrees with the code
 
-The repo's own `CLAUDE.md` / `AGENTS.md` and the per-module `README.md` files predate several
-refactors. Where they conflict with the code, the code wins.
+`CLAUDE.md` (also `AGENTS.md`) and the per-module `README.md` files were rewritten against the code
+in October 2026. Where any page still conflicts with the code, the code wins.
 
-| Claim | Reality |
-|-------|---------|
-| "Active modules: auth, bot, calendar, **merch**, organizations, …" | There is no `modules/merch`. It is `modules/storefront`. |
-| "**Two** separate bot instances (summarizer and auth)" | One bot. There is no summarizer bot anywhere in the tree. |
-| "Calendar Sync Service … runs every 120 minutes" | **No such scheduler exists.** Grep for `Thread(`, `time.sleep`, `tasks.loop`: background work is the jobs in `core/jobs.py` and the LeetCode daily/verify loops. Calendar sync runs on a schedule only if `CALENDAR_SYNC_CRON` is set. |
-| `modules/README.md` lists endpoints like `/auth/login`, `/points/award`, models like `PointBalance`, `PointRule` | Those paths and models do not exist. Real paths are `/api/auth/login`, `/api/points/<org>/assign_points`; the only points model is `Points`. |
-| `modules/storefront/README.md` schema | Missing `organization_id`, `category`, and `message` columns that the models actually have. |
-
-**If you fix code documented here, fix `CLAUDE.md` too.** It is loaded into every AI agent session
-and stale entries propagate.
+**If you change code documented in `CLAUDE.md` or a module `README.md`, change them too.**
+`CLAUDE.md` is loaded into every AI agent session and stale entries propagate.
 
 ---
 
