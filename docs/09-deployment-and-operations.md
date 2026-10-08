@@ -202,6 +202,29 @@ flask --app main jobs run points.import_event_csv -a org_prefix=soda -a event_na
 `jobs run` runs the job in the shell's process, not through the queue, and records it in the audit
 log like any other run.
 
+### Turn off broken routes
+
+`DISABLED_ROUTES` is a comma-separated list of path prefixes. If a request path starts with one of
+the prefixes, the API returns the same 404 as an unknown route. The route stays in the code and in
+`tests/contract/routes.txt`. If `DISABLED_ROUTES` is empty or not set, all routes are on.
+
+Caution: end a folder prefix with `/`. If you do not, `/api/bot` also turns off `/api/botstatus`.
+
+1. Set `DISABLED_ROUTES` in the server's `.env`.
+2. Restart the API container: `docker compose restart api`. The API reads `.env` when it starts.
+3. Make sure that a turned-off path returns 404: `curl -i https://<api host>/api/public/getnextevent`.
+
+The AIS server sets these prefixes. Each one is broken today:
+
+| Prefix | Fault |
+| --- | --- |
+| `/api/public/getnextevent` | The view returns no response, so each call returns 500. |
+| `/api/bot/` | The game routes read `current_app.auth_bot`, which gunicorn never sets. `getavailablegames`, `getgame`, `setactivegame`, `startgame` and `uploadgame` also call `db_connect` methods that do not exist: `get_all_games`, `get_game`, `add_or_update_game`. |
+
+```bash
+DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
+```
+
 ### Which build is live?
 
 ```bash

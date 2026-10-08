@@ -6,7 +6,7 @@ import threading
 from datetime import UTC, datetime
 
 import discord
-from flask import Flask, jsonify
+from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
 
 from core import jobs
@@ -114,6 +114,14 @@ register_request_logging(app, token_manager)
 
 # Record every successful API write in the audit_log table
 register_audit(app, token_manager)
+
+
+@app.before_request
+def refuse_disabled_routes():
+    """A path that starts with a DISABLED_ROUTES prefix gets the 404 of an unknown route."""
+    if config.DISABLED_ROUTES and request.path.startswith(config.DISABLED_ROUTES):
+        abort(404)
+
 
 register_modules(app)
 load_tools()

@@ -54,6 +54,11 @@ class Config:
             # Superadmin config: the Discord user id in SYS_ADMIN
             self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
 
+            # Path prefixes that answer 404 like an unknown route, comma-separated. Empty turns none off
+            self.DISABLED_ROUTES = tuple(
+                p.strip() for p in os.environ.get("DISABLED_ROUTES", "").split(",") if p.strip()
+            )
+
             # Access checks (modules/auth/access.py): false logs refusals, true enforces them
             self.ACCESS_ENFORCE = os.environ.get("ACCESS_ENFORCE", "false").lower() == "true"
 
