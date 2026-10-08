@@ -93,6 +93,32 @@ services:
     networks:
       - soda-network
 
+  mcp:
+    # MCP server for agents (streamable HTTP at :8001/mcp, machine tokens). Off unless started
+    # with --profile mcp.
+    image: soda-internal-api:latest
+    container_name: soda-mcp
+    restart: unless-stopped
+    profiles: ["mcp"]
+    command: ["python3", "mcp_main.py"]
+    depends_on:
+      - api
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      - IS_PROD=true
+      - LOG_FORMAT=json
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - soda-network
+
   web:
     build:
       context: .

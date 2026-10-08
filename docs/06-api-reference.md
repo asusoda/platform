@@ -245,3 +245,12 @@ Allowed headers: `Content-Type, Authorization, X-Organization-ID, X-Organization
 Note the dev web container serves on **port 5000**, which is *not* in the allowlist. Browser calls
 from `http://localhost:5000` to the API will be blocked by CORS. If you are running the web app
 locally against the local API, add your origin to this list.
+
+## `/api/tools` — `modules/mcp/api.py`
+
+Machine tokens only. See [Tools and the MCP server](./tools-and-mcp.md).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/tools` | machine token | Tools this token may call, with their input schemas |
+| POST | `/api/tools/<name>` | machine token | Call a tool; the body is its arguments. Returns `{"result": ...}` |

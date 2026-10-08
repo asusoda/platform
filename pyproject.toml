@@ -22,7 +22,7 @@ dependencies = [
     "frozenlist==1.8.0",
     "greenlet==3.3.1",
     "h11==0.16.0",
-    "idna==3.11",
+    "idna>=3.11",
     "importlib-metadata==8.7.1",
     "itsdangerous==2.2.0",
     "jinja2==3.1.6",
@@ -58,6 +58,8 @@ dependencies = [
     "alembic>=1.18.4",
     "procrastinate==3.9.0",
     "croniter>=6.0",
+    "mcp==2.2.0",
+    "jsonschema>=4.20",
 ]
 
 [tool.pytest.ini_options]
@@ -128,5 +130,12 @@ ignore_imports = [
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
 type = "forbidden"
-source_modules = ["modules.calendar.service", "modules.leetcode.service", "modules.organizations.service"]
+source_modules = [
+    "modules.auth.machine_tokens",
+    "modules.calendar.service",
+    "modules.leetcode.service",
+    "modules.mcp.runtime",
+    "modules.organizations.service",
+    "modules.points.service",
+]
 forbidden_modules = ["flask"]
