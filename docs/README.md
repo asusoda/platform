@@ -38,7 +38,7 @@ tokens. It runs as an API, a web app, a bot process, a job worker and an MCP ser
 
 | Page | Module |
 |------|--------|
-| [Compute](./compute.md) | RunPod pods, SSH certificates, file manager, sessions, godfather CLI sign-in |
+| [Compute](./compute.md) | RunPod pods, SSH certificates, file manager, sessions, compute CLI sign-in |
 | [Agents](./agents.md) | Conversations, memories, profile graph, turn context and commit |
 | [Knowledge](./knowledge.md) | Sources, crawls, hybrid search |
 | [ASU](./asu.md) | Example campus source: ASU pages and live queries |

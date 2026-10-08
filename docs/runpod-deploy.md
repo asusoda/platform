@@ -31,5 +31,5 @@ Environment:
 | `API_URL`, `WEB_URL` | Only with a custom domain; default to the pod's RunPod proxy URLs |
 
 Add `<API_URL>/api/auth/callback` as a redirect in the Discord app. With the proxy URLs that is
-`https://<pod id>-8000.proxy.runpod.net/api/auth/callback`. For godfather CLI sign-in also add
+`https://<pod id>-8000.proxy.runpod.net/api/auth/callback`. For compute CLI sign-in also add
 `<API_URL>/api/compute/cli/callback`.

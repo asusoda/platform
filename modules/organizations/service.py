@@ -38,6 +38,12 @@ def find_by_prefix(db, org_prefix: str) -> Organization | None:
     return db.query(Organization).filter_by(prefix=org_prefix).first()
 
 
+def name_for_guild(db, guild_id: object) -> str | None:
+    """The name of the active org on this Discord server, or None."""
+    org = db.query(Organization).filter_by(guild_id=str(guild_id), is_active=True).first()
+    return cast(str, org.name) if org else None
+
+
 def module_enabled(org: Organization, name: str) -> bool:
     if name not in OPTIONAL_MODULES:
         return True

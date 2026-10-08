@@ -16,7 +16,7 @@
 | Activity | The org's audit log, paged |
 | Settings | Module switches and org secrets |
 
-Agents such as SparkyAI and godfather show up through what they use: their tokens, their conversations in `agents`, pods in `compute`, apps in `runpod`.
+Agents and CLIs show up through what they use: their tokens, their conversations in `agents`, pods in `compute`, apps in `runpod`.
 
 ## API
 

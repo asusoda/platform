@@ -13,7 +13,7 @@ export function ComputePage() {
     <>
       <PageHeader
         title="Compute"
-        description="Pods on the organization's RunPod account. Members connect with the godfather CLI: pip install godfather-cli."
+        description="Pods on the organization's RunPod account. Members connect with the compute CLI."
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

@@ -1,7 +1,7 @@
 """SSH keys and short-lived user certificates for pod access. No Flask and no ssh-keygen here.
 
-Pods built from the godfather-base image trust the org's user CA and accept a certificate whose
-principal is gf-<pod id>. A member certificate carries a forced command that drops the member into
+Pods built from an image that implements the pod contract (COMPUTE_POD_IMAGE) trust the org's
+user CA and accept a certificate whose principal is gf-<pod id>. A member certificate carries a forced command that drops the member into
 their own account; an officer certificate is root.
 """
 
@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import SSHCertificateBuilder, SSHCertificateType
 
+# Forced command and principal prefix the pod image expects; part of the pod image contract.
 LOGIN_COMMAND = "/usr/local/bin/godfather-login"
 CERT_BEFORE = datetime.timedelta(minutes=5)
 CERT_AFTER = datetime.timedelta(hours=12)

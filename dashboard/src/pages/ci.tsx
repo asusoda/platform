@@ -80,7 +80,7 @@ export function CiPage() {
                 className="min-h-28 w-full rounded-lg border border-line bg-panel p-3 font-mono text-sm outline-none focus:border-accent"
                 value={repos}
                 onChange={(e) => setRepos(e.target.value)}
-                placeholder={'asusoda/platform\nasusoda/website'}
+                placeholder={'your-org/website\nyour-org/api'}
               />
             </Field>
             <div className="flex items-center gap-3">
