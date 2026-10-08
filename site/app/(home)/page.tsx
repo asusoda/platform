@@ -9,10 +9,14 @@ import {
   FileSearch,
   Gamepad2,
   KeyRound,
+  Lock,
   Plug,
   Rocket,
+  ScrollText,
+  ShieldCheck,
   ShoppingBag,
   Ticket,
+  Timer,
   Users,
 } from 'lucide-react';
 import { gitConfig } from '@/lib/shared';
@@ -88,6 +92,13 @@ const processes = [
   ['Discord bot', 'bot_main.py', ''],
   ['Job worker', 'worker_main.py', ''],
   ['MCP server', 'mcp_main.py', ':8001'],
+];
+
+const guarantees = [
+  { icon: ShieldCheck, name: 'Access checks on every org route', text: 'Member, officer and superadmin checks run before any handler.' },
+  { icon: ScrollText, name: 'Audit log', text: 'Every change an officer or a token makes is recorded with who made it.' },
+  { icon: Lock, name: 'Encrypted org secrets', text: 'RunPod keys, Google credentials and OAuth grants are encrypted at rest.' },
+  { icon: Timer, name: 'Short-lived credentials', text: 'SSH certificates last 12 hours for one pod. Machine tokens are scoped and revocable.' },
 ];
 
 const orgs: { name: string; href?: string }[] = [
@@ -183,6 +194,23 @@ export default function HomePage() {
               ['', '201 Created'],
             ]}
           />
+        </div>
+      </Section>
+      <Section
+        eyebrow="Security"
+        title="Built for data you are responsible for."
+        text="Student data stays inside the organization it belongs to."
+      >
+        <div className="grid gap-6 sm:grid-cols-2">
+          {guarantees.map((g) => (
+            <div key={g.name} className="flex gap-4">
+              <g.icon className="mt-0.5 size-5 shrink-0" />
+              <div>
+                <h3 className="font-medium">{g.name}</h3>
+                <p className="mt-1 text-sm text-fd-muted-foreground">{g.text}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </Section>
       <Section
