@@ -220,6 +220,39 @@ function demoApi() {
         return { json: { added: 46, updated: 0, retired: 0 } };
       },
     ],
+    [
+      'POST',
+      new RegExp(`^/api/dashboard/${P}/notifications/resolve$`),
+      (body) => {
+        const list = data[`/api/dashboard/${P}/notifications`];
+        for (const n of list.notifications) {
+          if ((body?.ids ?? []).includes(n.id)) Object.assign(n, { resolved_at: at(), resolved_by: '1290000000000000101' });
+        }
+        list.open = list.notifications.filter((n) => !n.resolved_at).length;
+        overview.problems = overview.problems?.filter((p) => !(body?.ids ?? []).includes(p.id));
+        record('POST /api/dashboard/<prefix>/notifications/resolve');
+        return { json: list };
+      },
+    ],
+    [
+      'PUT',
+      new RegExp(`^/api/dashboard/${P}/integrations/([a-z]+)$`),
+      (body, match) => {
+        const list = data[`/api/dashboard/${P}/integrations`];
+        const entry = list.integrations.find((i) => i.key === match[1]);
+        for (const f of entry?.fields ?? []) {
+          if (body?.fields?.[f.name]) Object.assign(f, { set: true, updated_at: at() });
+        }
+        if (entry) entry.source = 'org';
+        record('PUT /api/dashboard/<prefix>/integrations/<key>');
+        return { json: list };
+      },
+    ],
+    [
+      'POST',
+      new RegExp(`^/api/dashboard/${P}/integrations/([a-z]+)/test$`),
+      () => ({ json: { ok: true, message: 'Connected as Robotics Club Bot.' } }),
+    ],
     ['POST', new RegExp(`^/api/dashboard/${P}/knowledge/search$`), () => ({ json: data[`/api/dashboard/${P}/knowledge/search`] })],
     [
       'POST',
@@ -564,8 +597,18 @@ async function story(d) {
   d.hold(0.5);
   await d.glide({ x: 900, y: 330 }, { real: false });
   await d.zoomTo(card('Modules'), { max: 1.45, dx: 120 });
-  d.hold(0.9);
+  d.hold(0.7);
   d.zoomOut();
+
+  // Notifications: the bell, then resolve one.
+  d.caption('Resolve what needs attention');
+  const bell = page.getByRole('button', { name: /^Notifications/ });
+  await d.click(bell, { animate: 200, after: 0.05 });
+  const panel = page.getByRole('dialog', { name: 'Notifications' });
+  await d.zoomTo(panel, { max: 1.6, dx: -120 });
+  await d.click(panel.getByRole('button', { name: 'Resolve', exact: true }).first(), { after: 0.6 });
+  d.zoomOut();
+  await d.press('Escape', { animate: 180, after: 0.05 });
 
   // Settings: branding, then modules.
   await d.click(nav('Settings'), { after: 0.1 });
@@ -581,6 +624,20 @@ async function story(d) {
   await d.scroll(await d.scrollTarget('#modules'), { dur: 0.6 });
   await d.zoomTo('#modules', { max: 1.5, dx: 260 });
   await d.click(page.getByRole('switch', { name: 'points', exact: true }), { after: 0.3 });
+  d.zoomOut();
+
+  // Integrations: connect Notion, then test it.
+  await d.click(nav('Integrations'), { after: 0.1 });
+  d.caption('Connect Notion, Google and RunPod');
+  const notion = card('Notion');
+  await d.zoomTo(notion, { max: 1.5 });
+  await d.click(notion.getByRole('button', { name: 'Connect' }), { animate: 180, after: 0.05 });
+  await d.zoomTo(dialog(), { max: 1.5 });
+  await d.click(dialog().locator('input').first(), { after: 0.05 });
+  await d.type('ntn_4f9a2c81b7', { cps: 30 });
+  await d.click(dialog().getByRole('button', { name: 'Save' }), { animate: 180, after: 0.2 });
+  await d.zoomTo(card('Notion'), { max: 1.5 });
+  await d.click(card('Notion').getByRole('button', { name: 'Test' }), { after: 0.7 });
   d.zoomOut();
 
   // Points: the leaderboard, then points for an event.
@@ -618,12 +675,6 @@ async function story(d) {
   d.hold(0.9);
   d.zoomOut();
   await d.press('Escape', { animate: 180, after: 0.05 });
-
-  await d.click(nav('Calendar'), { after: 0.1 });
-  d.caption('Sync events to Google Calendar');
-  await d.zoomTo(card('Upcoming events'), { max: 1.4 });
-  d.hold(0.9);
-  d.zoomOut();
 
   await d.click(nav('LeetCode'), { after: 0.1 });
   d.caption('Post the daily LeetCode problem');
