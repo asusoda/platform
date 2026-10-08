@@ -8,6 +8,12 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 
 The sidebar puts the pages in sections: Members (Points, Store), Automations (Alerts, Calendar, LeetCode), Knowledge and agents, and Infrastructure (Compute, Apps, Tokens). The sidebar hides the page of an optional module when the module is off for the org. A section with no pages has no header. If you open the Points, Store, Calendar or LeetCode page while its module is off, the page links to Settings, Modules.
 
+The sidebar collapses to a 56px rail of icons. To collapse or expand it, use the button at the left of the top bar, Ctrl+B (Cmd+B on a Mac) or `[`. The `[` key does nothing while you type in a field. The rail shows a tooltip with the page name on hover and on keyboard focus. The dashboard keeps the state in `localStorage` as `platform.sidebar`. On a phone, the sidebar is a menu that opens from the top bar.
+
+The top bar above each page shows where the page is: Org / Section / Page. Each page starts with `PageHeader`: the title is the sidebar label of the page, then one line of description, and the page actions on the right.
+
+Lists that can be long (knowledge sources, points members and events, knowledge runs, store orders) show 100 rows, or 50 runs, and a button that shows more. A search field filters with `useDeferredValue`, so typing does not wait for the list. The audit log rows use `content-visibility: auto`.
+
 | Page | Shows |
 | --- | --- |
 | Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
@@ -44,7 +50,16 @@ The Settings page has these sections: General (description, points per message, 
 
 Each org sets its logo, accent color and website on the Settings page. The sidebar links to the website. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 
-The dashboard uses the same type and colors as `site/`: Geist, Geist Mono and the gray tokens of the fumadocs-ui theme. The tokens are in `dashboard/src/index.css`. Light and dark follow the system; the switch at the bottom of the sidebar sets one.
+The dashboard uses the same type and colors as `site/`: Geist, Geist Mono and the gray tokens of the fumadocs-ui theme. The tokens are in `dashboard/src/index.css`. Light and dark follow the system; the switch at the bottom of the sidebar sets one. Transitions last 150 to 200 ms. If the system asks for reduced motion, the dashboard does not animate.
+
+The sign-in page, the sign-in return and the org list use `AuthFrame`. It shows the Platform mark, the help links (Docs, GitHub, What is this?) and the org marks. Set `VITE_SITE_URL` to the URL of the `site/` deployment, and the Docs and What is this? links go to that site. Without it, they go to the docs and README on GitHub.
+
+The org marks (`OrgMarks` in `src/components/org-marks.tsx`) show the orgs that build Platform as a row of round logos, one over the next. They show on the sign-in pages and at the bottom of the sidebar. To add an org:
+
+1. Put a square SVG logo with a transparent background in `dashboard/public/orgs/` and in `site/public/orgs/`.
+2. Add one entry to `BUILT_BY` in `dashboard/src/lib/links.ts` and to `orgs` in `site/lib/orgs.ts`: the name, the short name, the website, the logo path and the fill of the disk. The fill is fixed, so the logo looks the same on light and dark pages.
+
+To check that long lists stay fast, run `npm run perf` in `dashboard/`. It answers the API from `largeFixtures()` in `scripts/fixtures.mjs` (2,000 knowledge sources, 1,500 members, 600 orders, 1,000 audit log entries) and prints the time of each step and its long tasks.
 
 The landing page shows dashboard screenshots from `site/public/screenshots/`. After a UI change, run `npm run screenshots` in `dashboard/`. The script builds the dashboard, serves it with `vite preview` and answers each API call from `scripts/fixtures.mjs`, a fictional org. It needs Playwright with Chromium. If the Chromium version does not match Playwright, set `PLAYWRIGHT_CHROMIUM` to the browser binary.
 
@@ -73,8 +88,9 @@ These files hold the parts that two or more pages use. Use them on a new page. D
 
 | File | Holds |
 | --- | --- |
-| `src/components/ui.tsx` | `PageHeader`, `Card`, `CardHeader`, `Row`, `Stat`, `StatGrid`, `Table`, `Th`, `Td`, `Tr`, `Button`, `DeleteButton`, `Input`, `Select`, `Textarea`, `Field`, `Switch`, `CheckOption`, `Badge`, `Dot`, `Mono`, `Code`, `EmptyState`, the loading skeletons, `ErrorNote`, `OkNote`, `Notice`, `Dialog` and `FormActions` |
+| `src/components/ui.tsx` | `PageHeader`, `Card`, `CardHeader`, `Row`, `Stat`, `StatGrid`, `Table`, `Th`, `Td`, `Tr`, `Button`, `DeleteButton`, `Input`, `SearchInput`, `Select`, `Textarea`, `Field`, `Switch`, `CheckOption`, `Badge`, `Dot`, `Mono`, `Code`, `EmptyState`, the loading skeletons, `ErrorNote`, `OkNote`, `Notice`, `Dialog`, `FormActions`, and `useShowMore` with `ShowMore` for long lists |
 | `src/components/tabs.tsx` | `TabBar` and `useTabParam`: tabs that keep the open tab in `?tab=` |
+| `src/components/tooltip.tsx` | `Tooltip`: a label on hover and keyboard focus, with optional keys. `Kbd` |
 | `src/components/module-gate.tsx` | `ModuleGate` and `useModuleOn` |
 | `src/components/activity-list.tsx` | The list of audit log entries |
 | `src/lib/api.ts` | `api` and `send`, which call the API with the officer token |

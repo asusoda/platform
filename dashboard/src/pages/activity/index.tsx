@@ -16,7 +16,7 @@ export function ActivityPage() {
     <>
       <PageHeader
         title="Activity"
-        description="Every change an officer, token or job made in this organization, its crawls and uploads, and the CI runs of its repositories."
+        description="Changes by officers, tokens and jobs, knowledge runs, and the CI runs of the org's repos."
       />
       <TabBar label="Activity" tabs={TABS} value={tab} onChange={setTab} />
       {tab === 'ci' ? <CiRuns /> : tab === 'knowledge' ? <KnowledgeRuns /> : <AuditLog />}

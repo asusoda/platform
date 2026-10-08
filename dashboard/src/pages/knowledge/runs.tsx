@@ -1,7 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Card, CardHeader, Dot, EmptyState, ErrorNote, Select, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
+import {
+  Badge,
+  Card,
+  CardHeader,
+  Dot,
+  EmptyState,
+  ErrorNote,
+  Select,
+  ShowMore,
+  SkeletonRows,
+  Table,
+  Td,
+  Th,
+  Tr,
+  useShowMore,
+} from '../../components/ui';
 import { api } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
 import { useCurrentOrg } from '../../lib/org';
@@ -24,6 +39,7 @@ export function KnowledgeRuns() {
     refetchInterval: 15_000,
   });
   const list = runs.data?.runs ?? [];
+  const page = useShowMore(list, failed, 50);
   return (
     <>
       {runs.error ? (
@@ -45,42 +61,45 @@ export function KnowledgeRuns() {
         {runs.isLoading ? (
           <SkeletonRows rows={8} />
         ) : list.length ? (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Source</Th>
-                <Th className="hidden sm:table-cell">Kind</Th>
-                <Th>Result</Th>
-                <Th className="hidden text-right md:table-cell">Took</Th>
-                <Th className="text-right">When</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((r) => (
-                <Tr key={r.id}>
-                  <Td className="max-w-0 py-2.5 sm:w-1/3">
-                    <span className="flex items-center gap-2">
-                      <Dot tone={r.error ? 'bad' : r.changed ? 'ok' : 'muted'} />
-                      <span className="truncate font-mono text-xs" title={r.source_key}>
-                        {r.source_key}
+          <>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Source</Th>
+                  <Th className="hidden sm:table-cell">Kind</Th>
+                  <Th>Result</Th>
+                  <Th className="hidden text-right md:table-cell">Took</Th>
+                  <Th className="text-right">When</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.shown.map((r) => (
+                  <Tr key={r.id}>
+                    <Td className="max-w-0 py-2.5 sm:w-1/3">
+                      <span className="flex items-center gap-2">
+                        <Dot tone={r.error ? 'bad' : r.changed ? 'ok' : 'muted'} />
+                        <span className="truncate font-mono text-xs" title={r.source_key}>
+                          {r.source_key}
+                        </span>
                       </span>
-                    </span>
-                  </Td>
-                  <Td className="hidden sm:table-cell">
-                    <Badge>{r.kind}</Badge>
-                  </Td>
-                  <Td className="text-sm">
-                    {result(r)}
-                    {r.error ? <div className="line-clamp-2 text-xs text-bad" title={r.error}>{r.error}</div> : null}
-                  </Td>
-                  <Td className="hidden text-right text-xs whitespace-nowrap text-muted tabular-nums md:table-cell">
-                    {(r.duration_ms / 1000).toFixed(1)}s
-                  </Td>
-                  <Td className="text-right text-xs whitespace-nowrap text-muted tabular-nums">{timeAgo(r.started_at)}</Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+                    </Td>
+                    <Td className="hidden sm:table-cell">
+                      <Badge>{r.kind}</Badge>
+                    </Td>
+                    <Td className="text-sm">
+                      {result(r)}
+                      {r.error ? <div className="line-clamp-2 text-xs text-bad" title={r.error}>{r.error}</div> : null}
+                    </Td>
+                    <Td className="hidden text-right text-xs whitespace-nowrap text-muted tabular-nums md:table-cell">
+                      {(r.duration_ms / 1000).toFixed(1)}s
+                    </Td>
+                    <Td className="text-right text-xs whitespace-nowrap text-muted tabular-nums">{timeAgo(r.started_at)}</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+            <ShowMore list={page} noun="runs" />
+          </>
         ) : (
           <EmptyState icon={ScrollText} title={failed ? 'No failed runs' : 'No runs yet'}>
             Crawls and uploads show here when they run.

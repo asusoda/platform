@@ -39,7 +39,7 @@ export function AppsPage() {
     <>
       <PageHeader
         title="Apps"
-        description="The org's own bots, agents, sites and services. Register a manifest, then deploy image tags here or from CI with an apps:deploy token. Apps run on RunPod today; the host is shown per app."
+        description="The org's bots, agents, sites and services. Register a manifest, then deploy image tags here or from CI."
         action={register}
       />
       {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}

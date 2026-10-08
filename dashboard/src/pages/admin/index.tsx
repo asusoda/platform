@@ -26,7 +26,7 @@ function Superadmin() {
   const close = () => setOpen(null);
   return (
     <>
-      <PageHeader title="Superadmin" description="Organizations on this Platform, the Discord servers the bot is in, and the audit log for all of them." />
+      <PageHeader title="Superadmin" description="All orgs, the Discord servers the bot is in, and the audit log of all orgs." />
 
       {dashboard.error ? (
         <Card className="mb-6">
@@ -70,7 +70,7 @@ function Superadmin() {
             )}
           </Card>
           <Card>
-            <CardHeader title="Discord servers without an organization" hint="Servers the bot is in that have no organization yet." />
+            <CardHeader title="Discord servers without an org" hint="Servers the bot is in that have no org yet." />
             {dashboard.isLoading ? <SkeletonRows rows={2} /> : <GuildsCard guilds={guilds} onAdd={(guild) => setOpen({ kind: 'add', guild })} />}
           </Card>
         </div>
@@ -81,10 +81,10 @@ function Superadmin() {
       <Dialog open={open?.kind === 'role'} onClose={close} title="Officer role" description={open?.kind === 'role' ? open.org.name : undefined}>
         {open?.kind === 'role' ? <OfficerRoleDialog key={open.org.id} org={open.org} onClose={close} /> : null}
       </Dialog>
-      <Dialog open={open?.kind === 'remove'} onClose={close} title="Remove organization" description={open?.kind === 'remove' ? open.org.name : undefined}>
+      <Dialog open={open?.kind === 'remove'} onClose={close} title="Remove org" description={open?.kind === 'remove' ? open.org.name : undefined}>
         {open?.kind === 'remove' ? <RemoveDialog key={open.org.id} org={open.org} onClose={close} /> : null}
       </Dialog>
-      <Dialog open={open?.kind === 'add'} onClose={close} title="Add organization" description="Create an organization for this Discord server.">
+      <Dialog open={open?.kind === 'add'} onClose={close} title="Add org" description="Make an org for this Discord server.">
         {open?.kind === 'add' ? <AddDialog key={open.guild.id} guild={open.guild} onClose={close} /> : null}
       </Dialog>
     </>

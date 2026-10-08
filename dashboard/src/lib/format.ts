@@ -26,8 +26,17 @@ export function duration(start: string, stop: string): string {
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
 
+// One formatter for all calls: a new Intl.NumberFormat for each row of a long table is slow.
+const compactFormat = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const fullFormat = new Intl.NumberFormat('en');
+
 export function compact(n: number): string {
-  return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+  return compactFormat.format(n);
+}
+
+// A count with thousands separators, such as 2,000.
+export function count(n: number): string {
+  return fullFormat.format(n);
 }
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted' | 'active';

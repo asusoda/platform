@@ -145,7 +145,7 @@ export function TokensPage() {
     <>
       <PageHeader
         title="Tokens"
-        description="Machine tokens let apps, agents and pipelines call the platform with the scopes you give them."
+        description="Machine tokens let apps, agents and pipelines call Platform with the scopes you give them."
         action={
           <Button variant="primary" onClick={() => setAdding(true)} disabled={!list.data}>
             <Plus className="size-4" /> New token

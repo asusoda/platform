@@ -812,3 +812,110 @@ export function fixtures(now = Date.now()) {
     },
   };
 }
+
+// The same org with long lists, for perf.mjs: 2,000 knowledge sources, 1,500 members, 200 knowledge runs,
+// 600 store orders and 1,000 audit log entries.
+export function largeFixtures(now = Date.now()) {
+  const base = fixtures(now);
+  const at = (offset) => new Date(now + offset).toISOString();
+  const domains = ['asu', 'club', 'competition', 'docs', 'events', 'upload'];
+  const words = ['library', 'hours', 'dining', 'shuttle', 'robot', 'rules', 'faq', 'safety', 'workshop', 'sponsor', 'news'];
+  const word = (i) => words[i % words.length];
+  const sources = Array.from({ length: 2000 }, (_, i) => {
+    const domain = domains[i % domains.length];
+    const crawled = i % 3 !== 0;
+    const fetched = at(-((i % 72) + 1) * HOUR);
+    return {
+      id: `00000000-0000-4000-9000-${String(i).padStart(12, '0')}`,
+      key: `${domain}/${word(i)}-${word(i * 7 + 3)}-${i}`,
+      url: crawled ? `https://${domain}.example.org/${word(i)}/${i}` : null,
+      title: `${word(i)} ${word(i + 5)} ${i}`,
+      category: domain === 'upload' ? 'documents' : domain,
+      public: i % 17 === 0,
+      version_id: null,
+      content_hash: null,
+      embedding_model: 'nomic-embed-text-v1.5',
+      chunk_count: (i * 37) % 300,
+      fetched_at: fetched,
+      updated_at: fetched,
+      crawl: crawled
+        ? {
+            fetch_every_hours: [6, 24, 168][i % 3],
+            extractor: null,
+            enabled: i % 11 !== 0,
+            last_attempt_at: fetched,
+            last_error: i % 29 === 0 ? 'The page answered 503 Service Unavailable' : null,
+          }
+        : null,
+    };
+  });
+  const first = ['Ana', 'Ben', 'Chloe', 'Dev', 'Eli', 'Farah', 'Gus', 'Hana', 'Ivan', 'Jade', 'Kofi', 'Lena', 'Milo'];
+  const last = ['Ruiz', 'Okafor', 'Park', 'Shah', 'Novak', 'Haddad', 'Moreno', 'Sato', 'Petrov', 'Lin', 'Mensah'];
+  const members = Array.from({ length: 1500 }, (_, i) => {
+    const name = `${first[i % first.length]} ${last[(i * 5) % last.length]} ${i}`;
+    const username = name.toLowerCase().replaceAll(' ', '.');
+    return {
+      id: 1000 + i,
+      uuid: `5b1f0c2e-0000-4000-9000-${String(i).padStart(12, '0')}`,
+      name,
+      username,
+      email: `${username}@example.edu`,
+      major: null,
+      discord_linked: i % 4 !== 0,
+      points: (i * 53) % 900,
+      joined_at: at(-((i % 400) + 1) * DAY),
+      created_at: at(-((i % 400) + 1) * DAY),
+    };
+  });
+  const runs = Array.from({ length: 200 }, (_, i) => ({
+    id: 10_000 - i,
+    source_key: sources[i * 7].key,
+    kind: i % 5 === 0 ? 'upload' : 'crawl',
+    started_at: at(-(i + 1) * 20 * MINUTE),
+    duration_ms: 400 + ((i * 97) % 5000),
+    changed: i % 3 === 0,
+    chunks: i % 13 === 0 ? null : (i * 11) % 200,
+    error: i % 13 === 0 ? 'The page answered 503 Service Unavailable' : null,
+  }));
+  const products = base[`/api/storefront/${ORG.prefix}/products`];
+  const statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+  const orders = Array.from({ length: 600 }, (_, i) => {
+    const m = members[(i * 13) % members.length];
+    const p = products[i % products.length];
+    const qty = (i % 3) + 1;
+    return {
+      id: 5000 - i,
+      user_id: m.id,
+      total_amount: p.price * qty,
+      status: statuses[i % statuses.length],
+      message: null,
+      created_at: at(-(i + 1) * 3 * HOUR),
+      updated_at: at(-(i + 1) * 3 * HOUR),
+      organization_id: ORG.id,
+      user_name: m.name,
+      user_email: m.email,
+      items: [{ id: i, product_id: p.id, quantity: qty, price_at_time: p.price }],
+    };
+  });
+  const actions = ['PUT /api/organizations/<int:org_id>/modules', 'POST /api/points/<prefix>/import', 'job knowledge.crawl'];
+  const audit = Array.from({ length: 1000 }, (_, i) => ({
+    id: 90_000 - i,
+    created_at: at(-(i + 1) * 30 * MINUTE),
+    source: i % 3 === 2 ? 'job' : 'http',
+    action: actions[i % 3],
+    org: ORG.prefix,
+    actor_kind: i % 3 === 2 ? 'job' : 'officer',
+    actor_id: i % 3 === 2 ? null : '1290000000000000101',
+    status: i % 3 === 2 ? null : 200,
+    details: i % 3 === 2 ? { result: i % 20 === 2 ? 'failed' : 'ok' } : null,
+  }));
+  const users = base[`/api/points/${ORG.prefix}/users`];
+  return {
+    ...base,
+    [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
+    [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs },
+    [`/api/points/${ORG.prefix}/users`]: { ...users, total_users: members.length, users: members },
+    [`/api/storefront/${ORG.prefix}/orders`]: orders,
+    [`/api/organizations/${ORG.id}/audit`]: { entries: audit },
+  };
+}

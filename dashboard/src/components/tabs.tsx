@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { cx } from './ui';
 
@@ -12,7 +12,8 @@ export function useTabParam<T extends string>(tabs: readonly Tab<T>[]): [T, (id:
   return [tab, (id: T) => setParams(id === first ? {} : { tab: id }, { replace: true })];
 }
 
-// A row of tabs with an underline under the open one. extra adds content after a label, such as a count.
+// A row of tabs with an underline under the open one. The underline slides to the tab that opens.
+// Arrow keys move between tabs. extra adds content after a label, such as a count.
 export function TabBar<T extends string>({
   label,
   tabs,
@@ -26,24 +27,67 @@ export function TabBar<T extends string>({
   onChange: (id: T) => void;
   extra?: (id: T) => ReactNode;
 }) {
+  const list = useRef<HTMLDivElement>(null);
+  const [bar, setBar] = useState<{ left: number; width: number } | null>(null);
+  // The underline slides only after its first place is set, so it does not slide in when the page opens.
+  const [slide, setSlide] = useState(false);
+  useEffect(() => {
+    if (!bar || slide) return;
+    const frame = requestAnimationFrame(() => setSlide(true));
+    return () => cancelAnimationFrame(frame);
+  }, [bar, slide]);
+
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    const measure = () => {
+      const tab = el.querySelector<HTMLElement>('[aria-selected="true"]');
+      setBar(tab ? { left: tab.offsetLeft, width: tab.offsetWidth } : null);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [value, tabs]);
+
+  const move = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    const i = tabs.findIndex((t) => t.id === value);
+    const next = tabs[(i + step + tabs.length) % tabs.length];
+    onChange(next.id);
+    list.current?.querySelector<HTMLElement>(`[data-tab="${next.id}"]`)?.focus();
+  };
+
   return (
-    <div role="tablist" aria-label={label} className="mb-6 flex gap-1 border-b border-line">
+    <div ref={list} role="tablist" aria-label={label} onKeyDown={move} className="relative mb-6 flex gap-1 overflow-x-auto border-b border-line">
       {tabs.map((t) => (
         <button
           key={t.id}
           type="button"
           role="tab"
+          data-tab={t.id}
           aria-selected={value === t.id}
+          tabIndex={value === t.id ? 0 : -1}
           onClick={() => onChange(t.id)}
           className={cx(
-            '-mb-px h-9 cursor-pointer border-b-2 px-3 text-sm transition-colors',
-            value === t.id ? 'border-fg font-medium text-fg' : 'border-transparent text-muted hover:text-fg',
+            'my-1 flex h-8 shrink-0 cursor-pointer items-center rounded-md px-3 text-sm whitespace-nowrap transition-colors duration-150 hover:bg-panel-2/70',
+            value === t.id ? 'font-medium text-fg' : 'text-muted hover:text-fg',
           )}
         >
           {t.label}
           {extra?.(t.id)}
         </button>
       ))}
+      <span
+        aria-hidden
+        className={cx(
+          'absolute bottom-0 left-0 h-0.5 rounded-full bg-fg',
+          !bar && 'opacity-0',
+          slide && 'transition-[translate,width] duration-200 ease-out',
+        )}
+        style={bar ? { width: bar.width, translate: `${bar.left}px 0` } : undefined}
+      />
     </div>
   );
 }

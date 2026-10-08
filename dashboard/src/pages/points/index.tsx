@@ -46,7 +46,7 @@ export function PointsPage() {
     <>
       <PageHeader
         title="Points"
-        description="Members and their points, the events that gave points, and event check-in uploads."
+        description="Members and their points, and the events that gave points."
         action={
           <>
             <Button onClick={() => setUploading(true)}>
