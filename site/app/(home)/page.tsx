@@ -21,6 +21,7 @@ import {
   Timer,
   Users,
 } from 'lucide-react';
+import { DemoVideo } from '@/components/demo-video';
 import { BuiltBy, OrgMarks } from '@/components/org-marks';
 import { repoUrl } from '@/lib/shared';
 
@@ -174,13 +175,7 @@ function Hero() {
           <OrgMarks />
           <BuiltBy />
         </div>
-        <Screenshot
-          className="mt-14 w-full text-left"
-          name="overview"
-          alt="Overview page of the officer dashboard for one org"
-          sizes="(min-width: 1024px) 976px, 100vw"
-          preload
-        />
+        <DemoVideo className="mt-14 w-full" />
       </div>
     </section>
   );

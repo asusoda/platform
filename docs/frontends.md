@@ -67,6 +67,8 @@ To check that long lists stay fast, run `npm run perf` in `dashboard/`. It answe
 
 The landing page shows dashboard screenshots from `site/public/screenshots/`. After a UI change, run `npm run screenshots` in `dashboard/`. The script builds the dashboard, serves it with `vite preview` and answers each API call from `scripts/fixtures.mjs`, a fictional org. It needs Playwright with Chromium. If the Chromium version does not match Playwright, set `PLAYWRIGHT_CHROMIUM` to the browser binary.
 
+The hero of the landing page plays a demo video from `site/public/demo/`: `platform-demo.mp4`, `platform-demo.webm` and `poster.webp`. After a UI change, run `npm run demo-video` in `dashboard/`. The script builds the dashboard and uses the same fixtures. It clicks and types through each page with Playwright and takes a screenshot each time the page changes. Then it draws each frame (the window, the camera zoom, the pointer and the captions) and encodes the files with ffmpeg. It needs Playwright with Chromium and `ffmpeg` with libx264, libvpx-vp9 and libwebp. A run takes about 15 minutes. To change the story or the captions, edit `story()` in `scripts/demo-video.mjs`. `DEMO_FPS` sets the frame rate, and `DEMO_CRF` and `DEMO_VP9_CRF` set the quality of the MP4 and WebM files.
+
 Officers sign in at `/api/auth/login?client=dashboard`. After Discord, the API sends them to `DASHBOARD_URL/auth/` with a one-time code.
 
 ```bash
