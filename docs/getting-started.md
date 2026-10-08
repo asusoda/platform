@@ -66,7 +66,7 @@ To run one test file: `uv run pytest tests/contract/test_compute.py -v`. The tes
 
 ## Run it on one RunPod pod
 
-`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the web app on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Jobs run in threads of the API, on SQLite.
+`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the web app on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Set `RUN_BOT=false` to use the token of a bot that runs elsewhere, such as an agent bot: the API then uses the token only for Discord's REST API, and the bot commands, LeetCode posts and games do not run. Do not run two bot processes with one token. Jobs run in threads of the API, on SQLite.
 
 At each start the script gets the head of `PLATFORM_BRANCH`. A pod restart thus deploys the branch.
 
@@ -88,6 +88,7 @@ Caution: keep `/workspace/data/keys.env`. It holds `SECRET_KEY` and `SECRETS_KEY
 | `PLATFORM_BRANCH` | The branch to run |
 | `ORG_PREFIX`, `ORG_NAME`, `ORG_GUILD_ID`, `ORG_OFFICER_ROLE_ID`, `ORG_MODULES_OFF` | The org that the script creates on the first start |
 | `CLIENT_ID`, `CLIENT_SECRET`, `BOT_TOKEN`, `SYS_ADMIN` | As in the settings above |
+| `RUN_BOT` | `false` to not start the bot process. The API still uses `BOT_TOKEN` |
 | `API_URL`, `WEB_URL` | Only for a custom domain. The defaults are the pod proxy URLs, `https://<pod id>-8000.proxy.runpod.net` and `-5000` |
 
 Agents connect to the MCP server at `https://<pod id>-8001.proxy.runpod.net/mcp` with a machine token.
