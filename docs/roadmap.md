@@ -7,13 +7,14 @@ This is the plan for turning platform into shared infrastructure for SoDA, AIS a
 | Phase | State | PRs (theaisocietyasu/bedrock) |
 | --- | --- | --- |
 | 0. CI/CD and a safety net | Merged | #1 |
-| 1. Make multi-org safe | In review, report mode | #2, #3, #4, #5 |
-| 2. Run it properly | In review | #6, #7, #9, #10 |
-| 3. Modules and jobs | In review | #12 core/ and import rules, #13 module switches, #14 job queue, #15 games and LeetCode split, #16 audit log, #17 org secrets, #18 CLI |
-| 4. What AIS adds | In progress | #19 machine tokens and scopes, #20 MCP server and /api/tools, #21 agents, #22 knowledge storage and search, #23 accounts, #24 RunPod app deploys, #25 crawl pipeline, #26 ASU sources and live queries, #27 turn context and commit, #28 profile node embeddings, #29 manifests from the app's repo, #30 LeetCode daily post and verify as jobs, #31 per-org Google credentials, #32 web app hides turned-off modules, #33 per-org LeetCode posts |
-| 5. Godfather as the compute module | In progress | #34 pods and SSH certificates, #35 pod file manager, #36 officer web pages, #37 scheduled sessions (CLI rewired to platform at cutover; godfather repo keeps only pod image and CLI) |
+| 1. Make multi-org safe | Merged, report mode | #2, #3, #4, #5 |
+| 2. Run it properly | Merged | #6, #7, #9, #10 |
+| 3. Modules and jobs | Merged | #12 core/ and import rules, #13 module switches, #14 job queue, #15 games and LeetCode split, #16 audit log, #17 org secrets, #18 CLI |
+| 4. What AIS adds | Merged; Sparky cutover left | #19 machine tokens and scopes, #20 MCP server and /api/tools, #21 agents, #22 knowledge storage and search, #23 accounts, #24 RunPod app deploys, #25 crawl pipeline, #26 ASU sources and live queries, #27 turn context and commit, #28 profile node embeddings, #29 manifests from the app's repo, #30 LeetCode daily post and verify as jobs, #31 per-org Google credentials, #32 web app hides turned-off modules, #33 per-org LeetCode posts |
+| 5. Godfather as the compute module | Merged; deploy left | #34 pods and SSH certificates, #35 pod file manager, #36 officer web pages, #37 scheduled sessions, #39 CLI sign-in. godfather #56: CLI 2.0.0 on platform, backend and portal removed |
+| Deploy | In progress | #38 start script for one RunPod pod. Pod ais-platform created; needs Discord app settings and PLATFORM_BRANCH=main |
 
-The phase PRs are stacked: each is based on the previous one, so merge them in order.
+#2 to #38 were merged together on 2026-10-08.
 
 Phase 4 still to do: the Sparky cutover in its own repo (its engine calls platform for turns, search and live queries; its scraper and database go). Not ported from Sparky's scraper: pages behind ASU sign-in, summary-tree levels.
 
