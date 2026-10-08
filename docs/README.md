@@ -29,6 +29,7 @@ deployment can serve multiple clubs.
 | 9 | [Deployment & Operations](./09-deployment-and-operations.md) | Docker, the Makefile, CI/CD, migrations in production, rollback |
 | 10 | [Gotchas & Known Issues](./10-gotchas-and-known-issues.md) | The traps. **Read this before you change anything.** |
 | 11 | [API Contract](./api-contract.md) | Every endpoint a client depends on, the contract tests that guard them, and the request log |
+| 12 | [Roadmap](./roadmap.md) | The plan for multi-org platform: phases, what moves in from Sparky, Godfather and Bedrock, status |
 
 ## The 60-second orientation
 
