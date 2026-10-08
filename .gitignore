@@ -236,3 +236,4 @@ data
 !site/lib/
 !site/package-lock.json
 !dashboard/package-lock.json
+!dashboard/src/lib/
