@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compact, deployTone, duration, runTone, timeAgo } from './format';
+import { bytes, compact, deployTone, duration, localToIso, runTone, timeAgo, toLocalInput } from './format';
 
 describe('duration', () => {
   it('shows hours and minutes', () => {
@@ -27,5 +27,22 @@ describe('tones', () => {
     expect(runTone('completed', 'failure')).toBe('bad');
     expect(deployTone('failed')).toBe('bad');
     expect(compact(1250)).toBe('1.3K');
+  });
+});
+
+describe('bytes', () => {
+  it('picks a unit', () => {
+    expect(bytes(512)).toBe('512 B');
+    expect(bytes(1536)).toBe('1.5 KB');
+    expect(bytes(250 * 1024 * 1024)).toBe('250 MB');
+  });
+});
+
+describe('local times', () => {
+  it('adds the browser offset and round-trips', () => {
+    const iso = localToIso('2026-10-08T18:30');
+    expect(iso).toMatch(/^2026-10-08T18:30:00[+-]\d\d:\d\d$/);
+    expect(new Date(iso).getTime()).toBe(new Date('2026-10-08T18:30').getTime());
+    expect(toLocalInput(new Date('2026-10-08T18:30'))).toBe('2026-10-08T18:30');
   });
 });

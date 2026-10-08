@@ -9,7 +9,7 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: one p
 | Page | Shows |
 | --- | --- |
 | Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
-| Compute | Pods and their sessions |
+| Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete |
 | Apps | RunPod app deploys and their health |
 | Agents | Conversation, memory and member counts. It shows no conversation text |
