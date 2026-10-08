@@ -1,6 +1,6 @@
 """Knowledge sources and hybrid search over their chunks. No Flask here.
 
-Writers (a scraper, an import script) send a source as chunks; the platform does not fetch pages.
+Writers (a scraper, an import script) send a source as chunks, or crawl.py fetches a crawled source.
 A source is replaced whole: when its content hash changes, a new version and its chunks replace the
 old ones. Search fuses a vector leg and a text leg with reciprocal rank fusion over the caller's organization
 plus public sources. Only organizations listed in KNOWLEDGE_PUBLISHERS may write public sources.

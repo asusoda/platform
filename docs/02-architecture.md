@@ -228,4 +228,3 @@ It also means if the bot is offline, nobody can prove they are an officer.
 | Google Calendar | Destination for synced events | `modules/calendar/clients.py:GoogleCalendarClient` |
 | LeetCode GraphQL | Daily/random problems, verifying solves | `modules/leetcode/client.py` |
 | Sentry | Errors, logs, and calendar-sync performance traces | `shared.py`, `modules/calendar/utils.py` |
-| Google Sheets | One-off distinguished-member import | `modules/users/user_reader.py` (not wired to any route) |

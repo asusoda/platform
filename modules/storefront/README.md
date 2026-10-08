@@ -1,155 +1,27 @@
-# Storefront Module
+# storefront
 
-This module handles the storefront functionality, including product management and order processing.
+A merch store paid with points. Officers manage products and orders; members buy with their points balance, signed in with Discord or Clerk.
 
-## Database Structure
+## Files
 
-### Products Table
-- `id` (Integer, Primary Key)
-- `name` (String, Required)
-- `description` (Text)
-- `price` (Float, Required)
-- `stock` (Integer, Required)
-- `image_url` (String)
-- `created_at` (DateTime)
-- `updated_at` (DateTime)
+| File | Holds |
+| --- | --- |
+| `api.py` | Product, order, store, member and checkout routes |
+| `models.py` | Products, orders, order items |
 
-### Orders Table
-- `id` (Integer, Primary Key)
-- `user_id` (String, Required)
-- `total_amount` (Float, Required)
-- `status` (String, Default: 'pending')
-- `created_at` (DateTime)
-- `updated_at` (DateTime)
+The product and order queries live in `core/db.py` (`DBConnect.get_storefront_products` and the others).
 
-### Order Items Table
-- `id` (Integer, Primary Key)
-- `order_id` (Integer, Foreign Key)
-- `product_id` (Integer, Foreign Key)
-- `quantity` (Integer, Required)
-- `price_at_time` (Float, Required)
+## Surface
 
-## API Endpoints
+- Routes: `/api/storefront`, gated by the `storefront` switch. Product and order changes need an officer of the org; `/members/...` routes need a Discord session of a guild member; `/checkout`, `/wallet/<email>`, `/orders/<email>` and `POST /orders` take a Clerk or Discord token; product lists and `/store` are open.
+- Jobs: none.
+- Tools: none.
+- Tables: `products`, `orders`, `order_items`.
 
-### Products
+## Depends on
 
-#### Get All Products
-- **GET** `/<org_prefix>/products`
-- Returns a list of all products for an organization
-- No authentication required
+`core.db` and `core.base`; `modules.points` (models, user helpers in `points/api.py`), `modules.auth` (decorators, access), `modules.organizations.models`; `shared`.
 
-#### Get Single Product
-- **GET** `/<org_prefix>/products/<product_id>`
-- Returns details of a specific product
-- No authentication required
+## More
 
-#### Create Product
-- **POST** `/<org_prefix>/products`
-- Creates a new product
-- **Requires dual authentication** (Clerk or Discord)
-- Request body:
-  ```json
-  {
-    "name": "Product Name",
-    "description": "Product Description",
-    "price": 29.99,
-    "stock": 100,
-    "image_url": "https://example.com/image.jpg"
-  }
-  ```
-
-#### Update Product
-- **PUT** `/<org_prefix>/products/<product_id>`
-- Updates an existing product
-- **Requires dual authentication** (Clerk or Discord)
-- Request body: Same as create product, all fields optional
-
-#### Delete Product
-- **DELETE** `/<org_prefix>/products/<product_id>`
-- Deletes a product
-- **Requires dual authentication** (Clerk or Discord)
-
-### Orders
-
-#### Get All Orders
-- **GET** `/<org_prefix>/orders`
-- Returns a list of all orders
-- **Requires dual authentication** (Clerk or Discord)
-
-#### Get Single Order
-- **GET** `/<org_prefix>/orders/<order_id>`
-- Returns details of a specific order
-- **Requires dual authentication** (Clerk or Discord)
-
-#### Update Order Status
-- **PUT** `/<org_prefix>/orders/<order_id>`
-- Updates an order's status
-- **Requires dual authentication** (Clerk or Discord)
-- Request body:
-  ```json
-  {
-    "status": "completed"
-  }
-  ```
-
-#### Delete Order
-- **DELETE** `/<org_prefix>/orders/<order_id>`
-- Deletes an order
-- **Requires dual authentication** (Clerk or Discord)
-
-#### Create Order
-- **POST** `/<org_prefix>/orders`
-- Creates a new order
-- **Requires Clerk authentication**
-- Request body:
-  ```json
-  {
-    "user_id": "discord_user_id",
-    "total_amount": 99.99,
-    "items": [
-      {
-        "product_id": 1,
-        "quantity": 2,
-        "price": 49.99
-      }
-    ]
-  }
-  ```
-
-## Authentication
-
-Protected endpoints support **dual authentication** - both Clerk (for website users) and Discord (for admin dashboard) tokens are accepted.
-
-### Supported Authentication Methods
-
-1. **Clerk Authentication** (Website Users)
-   - Used by the public-facing website
-   - Requires Clerk session token
-   - Returns user email for identification
-
-2. **Discord Authentication** (Admin Dashboard)
-   - Used by the admin dashboard
-   - Supports both session cookies and JWT tokens
-   - Validates against Discord bot for permissions
-
-### Usage
-
-Include the authentication token in the request header:
-
-```
-Authorization: Bearer <token>
-```
-
-The system automatically detects the token type and validates accordingly:
-- Clerk tokens are validated first
-- If Clerk validation fails, Discord authentication is attempted
-- Session cookies are also supported for Discord authentication
-
-## Error Handling
-
-All endpoints use the `@error_handler` decorator to provide consistent error responses. Common error responses include:
-
-- 400: Bad Request
-- 401: Unauthorized
-- 404: Not Found
-- 500: Internal Server Error 
+[docs/05-backend-modules.md](../../docs/05-backend-modules.md)

@@ -47,6 +47,23 @@ lists what is left to build. What already exists is described in the other pages
 Campus source modules like `asu` are examples. Another campus adds its own pages and live queries
 the same way.
 
+## Cleanup
+
+Found while documenting the modules. Each is small and local.
+
+- [ ] Rename `modules/auth/decoraters.py` to `decorators.py`.
+- [ ] Move the shared `users` and memberships tables and their helpers out of `modules/points` into
+  `modules/users`, and the storefront queries out of `core/db.py` into `modules/storefront`.
+- [ ] Move the logic in `points/api.py` and `storefront/api.py` into a `service.py` each.
+- [ ] Remove dead routes and code: duplicate camelCase aliases in points, `/submit-form` in users,
+  `/getnextevent` in public, fake `/roles` in organizations, three legacy calendar endpoints,
+  unused models (`Session`, `OrganizationConfig`, `Officer`), `games/jeopardy/QuestionPost.py`.
+- [ ] Remove hardcoded guild ids in `HelperCog` and the bot's own officer and member lookups, which
+  repeat `core/discord_directory.py`.
+- [ ] `superadmin` creates organizations through `organizations.service` so prefixes are validated,
+  and stops logging the Authorization header.
+- [ ] Share one HTML-to-text function between `asu/text.py` and `knowledge/extract.py`.
+
 ## Not planned
 
 - An autonomous agent inside the platform. Agents are separate apps that call it with scoped tokens.

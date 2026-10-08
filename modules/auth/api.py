@@ -15,7 +15,6 @@ auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder
 CLIENT_ID = config.CLIENT_ID
 CLIENT_SECRET = config.CLIENT_SECRET
 REDIRECT_URI = config.REDIRECT_URI
-GUILD_ID = 762811961238618122
 
 logger.info(f"Auth API using CLIENT_ID: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
 

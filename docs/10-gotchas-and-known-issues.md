@@ -286,7 +286,6 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 | `Session` model, `sessions` table | `modules/auth/models.py:9` |
 | `Officer` model, `OrganizationConfig` model | `modules/organizations/models.py` — superseded by live Discord checks and the `config` JSON column |
 | `CalendarEventLink` table | created, but the sync path uses Google extendedProperties instead |
-| `modules/users/user_reader.py` | Google Sheets importer; needs a `token.json` produced by a `generate_token.py` that is not in the repo |
 | `Organization.points_per_message`, `points_cooldown` | no code reads them |
 | `/botstatus`, `/startbot`, `/stopbot` | commented out, `modules/games/api.py:27-49` |
 | `web/src/components/GameTable.js` | zero-byte file |
