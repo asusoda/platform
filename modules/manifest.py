@@ -58,8 +58,12 @@ def load_models() -> None:
 
 
 def load_jobs() -> None:
+    """Every model, then every job. A job can query any table."""
+    load_models()
     _load(JOB_MODULES)
 
 
 def load_tools() -> None:
+    """Every model, then every tool. A tool can query any table."""
+    load_models()
     _load(TOOL_MODULES)
