@@ -1,13 +1,13 @@
 # Knowledge
 
-Sources of text that agents search, such as web pages, handbooks and FAQs. A client writes a source as chunks, or Platform crawls a URL on a schedule.
+Sources of text that agents search, such as web pages, handbooks and FAQs. A client writes a source as chunks, an officer uploads a document, or Platform crawls a URL on a schedule.
 
 ## Access
 
 - Writers and searchers use a machine token with `knowledge:write`, `knowledge:read` or both. The org is the org of the token.
 - Search covers the caller's org and the public sources. A public source shows in the results of every org. Thus only the orgs in `KNOWLEDGE_PUBLISHERS` (org prefixes, comma-separated) can write one.
 - List, read and delete cover only the caller's org.
-- Officers manage crawls and test search on the Knowledge page of the dashboard, with no token.
+- Officers upload documents, manage crawls, change the search settings and test search on the Knowledge page of the dashboard, with no token.
 
 ## Routes
 
@@ -43,7 +43,7 @@ The key is the writer's fixed name for the source: letters, digits and `._:/-`, 
 - `level` 0 is page text. Levels 1 and higher are summaries of the rows below them. `parent_ordinal` points from a row to its summary. A source has up to 5000 chunks of up to 20000 characters.
 - All chunks have an `embedding` (1024 numbers), or none do. If none do and an embedder is set, Platform makes the embeddings. If there is no embedder, the source is text only.
 
-The `POST /search` body has `query`, and optional `category`, `top_k` (1 to 50, default 8), `window` (0 to 5, default 0), and `embedding` with `embedding_model` to search with the caller's own vector. Each result has `chunk_id`, `source_key`, `title`, `url`, `category`, `public`, `content`, `score` and `fetched_at`. `dense` in the response shows if the vector search ran. The `knowledge.search` tool runs the same search.
+The `POST /search` body has `query`, and optional `category`, `top_k` (1 to 50; the org's setting, default 8), `window` (0 to 5; the org's setting, default 0), and `embedding` with `embedding_model` to search with the caller's own vector. Each result has `chunk_id`, `source_key`, `title`, `url`, `category`, `public`, `content`, `score` and `fetched_at`. `dense` in the response shows if the vector search ran. The `knowledge.search` tool runs the same search.
 
 ## Crawls
 
@@ -53,10 +53,38 @@ The `knowledge.crawl_due` job runs every 10 minutes. It crawls up to `KNOWLEDGE_
 2. Reads robots.txt with `KNOWLEDGE_USER_AGENT` and skips pages that it does not allow.
 3. Gets the page through Firecrawl if `FIRECRAWL_URL` is set, else with a GET of up to 10 MB.
 4. Stops if the page hash did not change, unless `force` is set.
-5. Removes navigation, headers, footers, forms and scripts. Splits the text into chunks of `KNOWLEDGE_CHUNK_CHARS` characters with the page title on each, makes the embeddings and replaces the source's version.
+5. Removes navigation, headers, footers, forms and scripts. Splits the text into chunks of the org's passage size with the page title on each, makes the embeddings and replaces the source's version. The old version and its chunks are deleted.
 6. Refuses the new text if it is less than half of the last version (when that was 500 characters or more), so a broken page cannot remove a good index. `force` accepts it.
 
 A source's `crawl` field shows its schedule, `last_attempt_at` and `last_error`.
+
+A page that starts to fail keeps its last chunks; the error shows on the source. Delete the source to remove them.
+
+## Uploads
+
+`POST /api/dashboard/<org>/knowledge/documents` takes a multipart form: `files` (1 to 20 files, 10 MB each, 25 MB together), `folder` (default `upload`), `category` (default `documents`) and `public`. Platform reads `.txt`, `.md`, `.markdown`, `.csv`, `.html`, `.htm`, `.pdf` and `.docx`. Each file becomes a source with the key `<folder>/<file name>`, in lower case. The same name again replaces the source; if the file and the passage size did not change, nothing is written. A file that fails does not stop the others. The response lists each file with its key, passage count and error.
+
+A PDF must have a text layer. Platform does not read scanned pages.
+
+## Run log
+
+Each crawl and upload adds a row to `knowledge_runs`: the source key, `crawl` or `upload`, the time, the duration, if the index changed, the passage count and the error. Platform keeps the last 500 rows of each org. `GET /api/dashboard/<org>/knowledge/runs?limit=&failed=1` reads them; the Activity page of the dashboard shows them in the Knowledge runs tab.
+
+## Org settings
+
+Each org sets these on the Knowledge page (`GET` and `PUT /api/dashboard/<org>/knowledge/settings`). They are kept in the org config under `knowledge`. `null` returns a setting to its default.
+
+| Setting | Range | Default | Does |
+| --- | --- | --- | --- |
+| `chunk_chars` | 100 to 4000 | `KNOWLEDGE_CHUNK_CHARS`, 300 | Passage size for crawls and uploads |
+| `chunk_overlap` | 0 to half of `chunk_chars` | 0 | Text repeated from the end of the passage before |
+| `mode` | `hybrid`, `text`, `vector` | `hybrid` | Which searches run. Without an embedder, every mode uses text |
+| `top_k` | 1 to 50 | 8 | Results when the caller sends no `top_k` |
+| `window` | 0 to 5 | 0 | Neighbor rows when the caller sends no `window` |
+| `max_distance` | 0.05 to 2 | `KNOWLEDGE_MAX_DISTANCE`, 0.6 | Vector results farther than this are dropped |
+| `rrf_k` | 1 to 200 | 60 | The constant of reciprocal rank fusion |
+
+A new passage size applies when a source is indexed again. `POST /api/dashboard/<org>/knowledge/reindex` starts the `knowledge.reindex` job, which crawls every crawled source of the org with `force`. Upload a document again to split it again.
 
 ## Source packs
 
@@ -66,9 +94,9 @@ The dashboard groups sources by domain: the part of the key before the first `/`
 
 ## Search
 
-1. Vector search: the chunks nearest to the query vector, of the same embedding model. It drops chunks farther than `KNOWLEDGE_MAX_DISTANCE` (cosine distance).
-2. Text search: Postgres full text search (`websearch_to_tsquery`, ranked by `ts_rank_cd`). On SQLite, a count of shared words.
-3. Reciprocal rank fusion (k = 60) merges the two lists.
+1. Vector search: the chunks nearest to the query vector, of the same embedding model. It drops chunks farther than the org's `max_distance` (cosine distance). Mode `text` skips it.
+2. Text search: Postgres full text search (`websearch_to_tsquery`, ranked by `ts_rank_cd`). On SQLite, a count of shared words. Mode `vector` skips it when the vector search ran.
+3. Reciprocal rank fusion (k is the org's `rrf_k`) merges the lists.
 4. A row is dropped if its summary has a higher rank.
 5. With `window`, a page text result also has that number of rows on each side.
 
@@ -84,9 +112,9 @@ On Postgres with pgvector, the embedding column is `vector(1024)` with an HNSW i
 | `EMBEDDINGS_MODEL` | `default` | The model name sent to the URL and kept on each version |
 | `EMBEDDINGS_API_KEY` | not set | The bearer token for the URL |
 | `EMBEDDINGS_QUERY_PREFIX` | empty | Text put before queries, for models that need it |
-| `KNOWLEDGE_MAX_DISTANCE` | 0.6 | Vector results farther than this are dropped |
+| `KNOWLEDGE_MAX_DISTANCE` | 0.6 | The default of the org setting `max_distance` |
 | `KNOWLEDGE_PUBLISHERS` | empty | Org prefixes that can write public sources |
-| `KNOWLEDGE_CHUNK_CHARS` | 300 | The chunk size for crawled pages |
+| `KNOWLEDGE_CHUNK_CHARS` | 300 | The default of the org setting `chunk_chars` |
 | `KNOWLEDGE_CRAWL_BATCH` | 20 | Sources crawled in each run of the job |
 | `KNOWLEDGE_CRAWL_GAP_SECONDS` | 2 | The time between fetches to one host |
 | `KNOWLEDGE_USER_AGENT` | `PlatformKnowledgeBot/1.0` | Sent with fetches and matched against robots.txt |

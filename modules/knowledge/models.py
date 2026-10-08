@@ -145,3 +145,19 @@ class KnowledgeChunk(Base):
         Index("ix_knowledge_chunks_scope", "organization_id", "category", "level"),
         Index("ix_knowledge_chunks_public", "public", "category"),
     )
+
+
+class KnowledgeRun(Base):
+    """One crawl or upload of a source: whether the index changed, how many passages it holds, and any error."""
+
+    __tablename__ = "knowledge_runs"
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_key = Column(String(255), nullable=False)
+    kind = Column(String(16), nullable=False)  # crawl or upload
+    started_at = Column(DateTime, nullable=False, default=utcnow)
+    duration_ms = Column(Integer, nullable=False, default=0)
+    changed = Column(Boolean, nullable=False, default=False)
+    chunks = Column(Integer, nullable=True)
+    error = Column(String(1000), nullable=True)

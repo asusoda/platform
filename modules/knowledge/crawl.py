@@ -14,11 +14,12 @@ from sqlalchemy import or_
 
 from core.log import get_logger
 from core.time import utcnow
-from modules.knowledge import extract, fetch
+from modules.knowledge import extract, fetch, runs, settings
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import (
     KEY_PATTERN,
+    MAX_CHUNKS,
     KnowledgeError,
     _embed,
     _find,
@@ -41,10 +42,6 @@ def _setting(name: str, default: int) -> int:
     except ValueError:
         return default
     return value if value > 0 else default
-
-
-def chunk_chars() -> int:
-    return _setting("KNOWLEDGE_CHUNK_CHARS", 300)
 
 
 def schedule(db, org_id: int, org_prefix: str, key: str, data: dict) -> dict:
@@ -89,6 +86,7 @@ def run(db, org_id: int, key: str, embedder: Embedder | None, force: bool = Fals
 
 def crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: bool = False, pacer: Any = None) -> dict:
     """Fetch, extract, chunk, embed and index one crawled source. Commits; records any error on the source."""
+    started = runs.Timer()
     source.last_attempt_at = utcnow()
     db.commit()
     try:
@@ -96,10 +94,20 @@ def crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: bool
     except (fetch.FetchError, fetch.FetchRejected, KnowledgeError) as e:
         db.rollback()
         source.last_error = str(e.message if isinstance(e, KnowledgeError) else e)[:1000]
+        runs.record(db, cast(int, source.organization_id), str(source.key), "crawl", started, error=source.last_error)
         db.commit()
         logger.warning("crawl failed source=%s error=%s", source.key, source.last_error)
         return {"key": source.key, "changed": False, "error": source.last_error}
     source.last_error = None
+    runs.record(
+        db,
+        cast(int, source.organization_id),
+        str(source.key),
+        "crawl",
+        started,
+        changed=result["changed"],
+        chunks=result["chunks"],
+    )
     db.commit()
     logger.info("crawled source=%s changed=%s chunks=%s", source.key, result["changed"], result["chunks"])
     return result
@@ -139,9 +147,12 @@ def index_text(
 ) -> dict:
     """Chunk, embed and store text as the source's new version. Commits."""
     label: str = title or cast(str | None, source.title) or str(source.key)
-    pieces = extract.chunk_text(text, max_chars=chunk_chars(), overlap_chars=0)
+    tuning = settings.for_org(db, cast(int, source.organization_id))
+    pieces = extract.chunk_text(text, max_chars=tuning["chunk_chars"], overlap_chars=tuning["chunk_overlap"])
     if not pieces:
         raise KnowledgeError("No text was extracted; the index is kept")
+    if len(pieces) > MAX_CHUNKS:
+        raise KnowledgeError(f"The text makes {len(pieces)} passages, more than {MAX_CHUNKS}; the index is kept")
     floor = cast(int | None, previous.text_chars) if previous is not None else None
     if not force and floor is not None and floor >= QUALITY_FLOOR_MIN_CHARS:
         if len(text) < int(floor * QUALITY_FLOOR_RATIO):
@@ -184,15 +195,38 @@ def crawl_due(db, embedder: Embedder | None, now: datetime.datetime | None = Non
     pacer = fetch.HostPacer(_setting("KNOWLEDGE_CRAWL_GAP_SECONDS", 2))
     results = []
     for source in due(db, now, limit=_setting("KNOWLEDGE_CRAWL_BATCH", 20)):
+        started = runs.Timer()
         try:
             results.append(crawl(db, source, embedder, pacer=pacer))
         except Exception:
             # One broken source must not stop the rest of the batch
             db.rollback()
             logger.exception("crawl crashed source=%s", source.key)
+            runs.record(
+                db,
+                cast(int, source.organization_id),
+                str(source.key),
+                "crawl",
+                started,
+                error="The crawl crashed. The server log has the details",
+            )
+            db.commit()
             results.append({"key": source.key, "error": "crashed"})
     return {
         "crawled": len(results),
         "changed": sum(1 for r in results if r.get("changed")),
         "failed": sum(1 for r in results if r.get("error")),
     }
+
+
+def reindex(db, org_id: int, embedder: Embedder | None) -> dict:
+    """Crawl every crawled source of the org with force, one host at a time. Commits."""
+    pacer = fetch.HostPacer(_setting("KNOWLEDGE_CRAWL_GAP_SECONDS", 2))
+    sources = (
+        db.query(KnowledgeSource)
+        .filter(KnowledgeSource.organization_id == org_id, KnowledgeSource.fetch_every_hours.isnot(None))
+        .order_by(KnowledgeSource.key)
+        .all()
+    )
+    results = [crawl(db, source, embedder, force=True, pacer=pacer) for source in sources]
+    return {"crawled": len(results), "failed": sum(1 for r in results if r.get("error"))}

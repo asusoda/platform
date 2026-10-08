@@ -12,10 +12,10 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 | Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete, and the history of each feed: its last 50 runs with counts and errors, and its last 50 items |
 | Apps | The org's bots, agents, sites and services, grouped by kind, with the host of each: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
-| Knowledge | Source packs to add or sync, sources filtered by domain: add, edit, pause and run crawls, delete sources, and test a search |
+| Knowledge | Source packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
 | Agents | Conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
-| Activity | Two tabs: Changes, the org's audit log with pages; CI runs, the latest GitHub Actions runs for the repos the org lists |
+| Activity | Three tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists |
 | Settings | General, branding, module switches, calendar, LeetCode and org secrets |
 | Superadmin | Orgs, officer roles, Discord servers without an org, and the audit log of all orgs. Only the superadmin sees it |
 
@@ -28,7 +28,7 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `PUT /api/dashboard/<org>/ci/repos` | Sets the repo list: `{"repos": ["owner/name"]}`, 20 or fewer |
 | `GET`, `PUT /api/dashboard/<org>/branding` | Gets or sets `logo_url` (https), `accent_color` (`#RRGGBB`) and `website_url` (https). An empty string or null removes a value |
 | `/api/dashboard/<org>/apps/...` | List, register, delete, deploy and roll back apps, and read the pod. The same operations as `/api/apps` in [runpod-apps](modules/runpod-apps.md), for officers |
-| `/api/dashboard/<org>/knowledge/...` | List and delete sources, add and run crawls, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
+| `/api/dashboard/<org>/knowledge/...` | List and delete sources, upload documents, add and run crawls, read and set the search settings, start a reindex, read the run log, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
 
 The other pages use the routes of their modules: `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
 
