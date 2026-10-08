@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from core.base import Base
@@ -15,8 +16,8 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=True)
     email = Column(String, unique=True, index=True, nullable=True)
     name = Column(String)
-    asu_id = Column(String, unique=True, index=True, nullable=True)
-    academic_standing = Column(String)
+    student_id = Column(String, unique=True, index=True, nullable=True)  # the school's student number
+    class_standing = Column(String)  # freshman, senior, graduate and so on, as the org writes it
     major = Column(String)
     uuid = Column(String, unique=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
@@ -42,6 +43,10 @@ class UserOrganizationMembership(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     joined_at = Column(DateTime, default=lambda: datetime.now(UTC))
     is_active = Column(Boolean, default=True)
+    # Fields the organization defines for its members, such as major or shirt size
+    profile_fields = Column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False, default=dict, server_default=text("'{}'")
+    )
 
     # Relationships
     user = relationship("User", back_populates="memberships")

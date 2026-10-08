@@ -67,7 +67,7 @@ The largest module (~1300 lines). Two halves: shared helper functions, then rout
 
 | Function | What it does |
 |----------|--------------|
-| `update_user_field(db, user, field, value, org_id)` | Sets one field with uniqueness validation on `username`/`email`/`discord_id`/`asu_id`. Returns `(success, message)`. |
+| `update_user_field(db, user, field, value, org_id)` | Sets one field with uniqueness validation on `username`/`email`/`discord_id`/`student_id`. Returns `(success, message)`. |
 | `manage_user_in_organization(db, org_id, user_data, discord_id, user_identifier)` | The central find-or-create-and-enrol routine. Everything else funnels through it. |
 | `get_or_create_user(discord_id, org_id, username)` | Wrapper for Discord-originated users. |
 | `link_or_create_user(org_id, user_data, discord_id)` | Wrapper for member-store logins. |
