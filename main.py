@@ -9,6 +9,7 @@ import discord
 from flask import jsonify  # Import current_app
 
 from core import jobs
+from core.audit import register_audit
 from core.discord_directory import DiscordDirectory
 from core.request_log import register_request_logging
 from modules.calendar import service as calendar_service
@@ -73,6 +74,9 @@ def health():
 
 # Log one structured line per API request
 register_request_logging(app, tokenManager)
+
+# Record every successful API write in the audit_log table
+register_audit(app, tokenManager)
 
 # Register Blueprints
 register_modules(app)

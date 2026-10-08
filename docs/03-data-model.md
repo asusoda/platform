@@ -165,6 +165,15 @@ is harmless only because the table is never inserted into.
 
 Neither is scoped to an organization. LeetCode features are global across all guilds the bot is in.
 
+### `audit_log` — `core/audit.py:AuditEntry`
+
+One row per successful API write (POST, PUT, PATCH, DELETE below 400, plus `GET /api/auth/appToken`,
+which creates a token) and per job run. Columns: `created_at`, `source` (`api` or `job`), `action`
+(method and route rule, or `job <name>`), `org` (prefix), `actor_kind` and `actor_id` (Discord id,
+member email, or job name), `status`, `details` (request path, or job result and small arguments).
+Request bodies and file contents are never stored. `/api/auth/refresh` is skipped. The daily
+`audit.prune` job deletes rows older than `AUDIT_RETENTION_DAYS` (default 365).
+
 ## Migrations (Alembic)
 
 Migrations live in `alembic/versions/`. Current chain:

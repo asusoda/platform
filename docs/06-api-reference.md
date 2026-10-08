@@ -56,6 +56,7 @@ All keyed by **numeric org id**, not prefix.
 | PUT | `/<int:org_id>/settings` | JWT | Update the `config` JSON (module switches are kept unless the body sets `modules`) |
 | GET | `/<int:org_id>/modules` | JWT | Optional modules and whether each is on for this org |
 | PUT | `/<int:org_id>/modules` | JWT | Turn modules on or off: `{"modules": {"storefront": false}}` |
+| GET | `/<int:org_id>/audit` | JWT | This org's audit log, newest first. `?limit=100&before_id=<id>` |
 | GET | `/<int:org_id>/calendar` | JWT | Read calendar settings (`google_calendar_id`, `notion_database_id`, `calendar_sync_enabled`, `last_sync_at`) |
 | PUT | `/<int:org_id>/calendar` | JWT | Update those settings |
 | GET | `/<int:org_id>/roles` | JWT | Discord roles in the org's guild (via the bot) |
@@ -72,6 +73,7 @@ All keyed by **numeric org id**, not prefix.
 | PUT | `/update_officer_role/<int:org_id>` | SUPER | Set `officer_role_id` |
 | POST | `/add_org/<guild_id>` | SUPER | Register a guild as an organization |
 | DELETE | `/remove_org/<int:org_id>` | SUPER | Hard-delete an organization. **No cascade — see Gotchas.** |
+| GET | `/audit` | SUPER | Audit log across orgs, newest first. `?org=<prefix>&limit=100&before_id=<id>` |
 
 ---
 

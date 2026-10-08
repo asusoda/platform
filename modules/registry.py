@@ -45,7 +45,7 @@ MOUNTS = [
 
 
 # Modules with background jobs. Importing a jobs.py registers its jobs with core.jobs.
-JOB_MODULES = ["modules.auth.jobs", "modules.points.jobs", "modules.calendar.jobs"]
+JOB_MODULES = ["core.audit", "modules.auth.jobs", "modules.points.jobs", "modules.calendar.jobs"]
 
 
 def load_jobs() -> None:

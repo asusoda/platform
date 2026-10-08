@@ -1,5 +1,6 @@
 """Fixtures for the API contract tests: the Flask app, seeded data, and stand-ins for Discord, Clerk and Notion."""
 
+import copy
 import uuid
 
 import pytest
@@ -157,3 +158,21 @@ def officer_headers(app):
 @pytest.fixture
 def clerk_headers():
     return {"Authorization": "Bearer clerk-session-token"}
+
+
+@pytest.fixture
+def restore_soda_config(app):
+    """Put SoDA's config JSON back after a test that changes it (the contract snapshots read it)."""
+    from modules.organizations.models import Organization
+    from shared import db_connect
+
+    db = db_connect.SessionLocal()
+    original = copy.deepcopy(db.query(Organization).filter_by(prefix="soda").one().config)
+    db.close()
+    yield
+    db = db_connect.SessionLocal()
+    try:
+        db.query(Organization).filter_by(prefix="soda").one().config = original
+        db.commit()
+    finally:
+        db.close()

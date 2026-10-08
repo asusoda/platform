@@ -323,3 +323,22 @@ def remove_organization(org_id):
         return jsonify({"error": str(e)}), 500
     finally:
         db.close()
+
+
+@superadmin_blueprint.route("/audit", methods=["GET"])
+@superadmin_required
+def get_audit():
+    """Audit log across all orgs, newest first. ?org=<prefix>&limit=100&before_id=<id>."""
+    from core import audit
+
+    db = next(db_connect.get_db())
+    try:
+        entries = audit.list_entries(
+            db,
+            org=request.args.get("org"),
+            limit=request.args.get("limit", 100, type=int),
+            before_id=request.args.get("before_id", type=int),
+        )
+        return jsonify({"entries": entries})
+    finally:
+        db.close()

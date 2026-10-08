@@ -9,14 +9,8 @@ def _soda_id(client, officer_headers):
 
 
 @pytest.fixture
-def soda_id(client, officer_headers):
-    org_id = _soda_id(client, officer_headers)
-    yield org_id
-    client.put(
-        f"/api/organizations/{org_id}/modules",
-        json={"modules": {"points": True, "storefront": True, "calendar": True}},
-        headers=officer_headers,
-    )
+def soda_id(client, officer_headers, restore_soda_config):
+    return _soda_id(client, officer_headers)
 
 
 def test_modules_are_on_by_default(client, officer_headers, soda_id):

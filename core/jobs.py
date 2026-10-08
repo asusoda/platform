@@ -45,6 +45,7 @@ class Job:
     func: Callable
     cron: str | None
     retry: int
+    audit: bool = True
     task: object | None = None
 
 
@@ -63,22 +64,27 @@ def procrastinate_app():
     return _app
 
 
-def job(name: str, *, cron: str | None = None, retry: int = 0):
-    """Register a job. `cron` makes it periodic; `retry` is how many times a failure is retried."""
+def job(name: str, *, cron: str | None = None, retry: int = 0, audit: bool = True):
+    """Register a job. `cron` makes it periodic; `retry` is how many times a failure is retried;
+    `audit` records each run in the audit log (turn it off for frequent housekeeping)."""
 
     def register(func: Callable) -> Callable:
-        entry = Job(name=name, func=func, cron=cron, retry=retry)
+        entry = Job(name=name, func=func, cron=cron, retry=retry, audit=audit)
         if queue_backend() == "procrastinate":
             app = procrastinate_app()
             if cron:
 
                 def periodic(timestamp: int) -> None:
-                    func()
+                    _execute(entry, {})
 
                 task = app.task(name=name, retry=retry, queueing_lock=name)(periodic)
                 app.periodic(cron=cron, periodic_id=name)(task)
             else:
-                task = app.task(name=name, retry=retry)(func)
+
+                def queued(**kwargs) -> None:
+                    _execute(entry, kwargs)
+
+                task = app.task(name=name, retry=retry)(queued)
             entry.task = task
         JOBS[name] = entry
         return func
@@ -86,13 +92,46 @@ def job(name: str, *, cron: str | None = None, retry: int = 0):
     return register
 
 
-def _run(entry: Job, kwargs: dict) -> None:
+def _audit_args(kwargs: dict) -> dict:
+    """Small scalar arguments only; file contents and long strings stay out of the audit log."""
+    return {
+        key: value
+        for key, value in kwargs.items()
+        if isinstance(value, int | float | bool) or (isinstance(value, str) and len(value) <= 100)
+    }
+
+
+def _execute(entry: Job, kwargs: dict) -> None:
+    """Run a job, log it, and record it in the audit log. Re-raises so the queue can retry."""
     started = time.monotonic()
+    status = "succeeded"
     try:
         entry.func(**kwargs)
         logger.info("job finished name=%s seconds=%.2f", entry.name, time.monotonic() - started)
     except Exception:
+        status = "failed"
         logger.exception("job failed name=%s", entry.name)
+        raise
+    finally:
+        if entry.audit:
+            from core.audit import record
+
+            record(
+                f"job {entry.name}",
+                source="job",
+                org=kwargs.get("org_prefix"),
+                actor_kind="job",
+                actor_id=entry.name,
+                details={"result": status, "args": _audit_args(kwargs)},
+            )
+
+
+def _run(entry: Job, kwargs: dict) -> None:
+    """Inline backend: nothing retries, so a failure ends here after it is logged."""
+    try:
+        _execute(entry, kwargs)
+    except Exception:
+        pass
 
 
 def defer(name: str, **kwargs) -> threading.Thread | None:

@@ -82,6 +82,9 @@ list that file in `JOB_MODULES` in `modules/registry.py`, and start one with
 | `auth.cleanup_tokens` | hourly | Deletes expired refresh tokens |
 | `points.import_event_csv` | on CSV upload | Awards event points from an attendance CSV |
 | `calendar.sync_all` | `CALENDAR_SYNC_CRON`, unset by default | Notion to Google sync for every enabled org |
+| `audit.prune` | daily, 03:30 | Deletes audit rows older than `AUDIT_RETENTION_DAYS` |
+
+Every run of a job declared with `audit=True` (the default) is written to `audit_log`.
 
 How they run depends on the database:
 

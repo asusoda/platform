@@ -39,6 +39,7 @@ if "shared" not in sys.modules:
 from core.base import Base  # noqa: E402
 
 for model_module in (
+    "core.audit",
     "modules.auth.models",
     "modules.games.models",
     "modules.leetcode.models",

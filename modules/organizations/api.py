@@ -18,7 +18,7 @@ def get_organizations():
     """Get all organizations the user has access to"""
     try:
         db = next(db_connect.get_db())
-        organizations = db.query(Organization).filter_by(is_active=True).all()
+        organizations = db.query(Organization).filter_by(is_active=True).order_by(Organization.id).all()
         visible = visible_org_filter()
         if visible is not None:
             organizations = [org for org in organizations if str(org.guild_id) in visible]
@@ -262,5 +262,27 @@ def update_organization_modules(org_id):
         except service.ModuleError as e:
             return jsonify({"error": str(e)}), 400
         return jsonify({"modules": states})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/audit", methods=["GET"])
+@auth_required
+def get_organization_audit(org_id):
+    """Recent changes in this organization, newest first. ?limit=100&before_id=<id> to page."""
+    from core import audit
+
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        entries = audit.list_entries(
+            db,
+            org=org.prefix,
+            limit=request.args.get("limit", 100, type=int),
+            before_id=request.args.get("before_id", type=int),
+        )
+        return jsonify({"entries": entries})
     finally:
         db.close()
