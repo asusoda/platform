@@ -13,6 +13,7 @@ from modules.agents.api import agents_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.games.api import game_blueprint
+from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
@@ -45,6 +46,7 @@ MOUNTS = [
     Mount(storefront_blueprint, "/api/storefront", module="storefront"),
     Mount(tools_blueprint, "/api/tools"),
     Mount(agents_blueprint, "/api/agents"),
+    Mount(knowledge_blueprint, "/api/knowledge"),
 ]
 
 
@@ -53,7 +55,12 @@ JOB_MODULES = ["core.audit", "modules.auth.jobs", "modules.points.jobs", "module
 
 
 # Modules with MCP tools. Importing a tools.py registers its tools with core.tools.
-TOOL_MODULES = ["modules.organizations.tools", "modules.calendar.tools", "modules.points.tools"]
+TOOL_MODULES = [
+    "modules.organizations.tools",
+    "modules.calendar.tools",
+    "modules.points.tools",
+    "modules.knowledge.tools",
+]
 
 
 def load_tools() -> None:

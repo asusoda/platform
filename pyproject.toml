@@ -134,6 +134,8 @@ source_modules = [
     "modules.agents.service",
     "modules.auth.machine_tokens",
     "modules.calendar.service",
+    "modules.knowledge.embedder",
+    "modules.knowledge.service",
     "modules.leetcode.service",
     "modules.mcp.runtime",
     "modules.organizations.service",

@@ -39,6 +39,7 @@ def create_schema():
         "modules.agents.models",
         "modules.auth.models",
         "modules.games.models",
+        "modules.knowledge.models",
         "modules.leetcode.models",
         "modules.calendar.models",
         "modules.organizations.models",
@@ -51,4 +52,5 @@ def create_schema():
         with db_connect.engine.begin() as conn:
             conn.execute(text("DROP SCHEMA public CASCADE"))
             conn.execute(text("CREATE SCHEMA public"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=db_connect.engine)
