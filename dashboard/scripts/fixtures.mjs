@@ -128,6 +128,70 @@ export function fixtures(now = Date.now()) {
     { pod_id: 'm3v8c1tz', title: 'Vision team training run', start_at: at(11 * DAY), stop_at: at(11 * DAY + 8 * HOUR) },
   ];
 
+  // Live pods from GET /api/compute/<org>/pods; machine and costPerHr come from RunPod as is.
+  const livePods = [
+    {
+      id: '7kq2x9ab',
+      name: 'Workshop GPU (A40)',
+      status: 'RUNNING',
+      is_public: true,
+      allowed_users: [],
+      created_by: '1290000000000000101',
+      created_at: at(-21 * DAY),
+      machine: { gpuTypeId: 'NVIDIA A40', gpuType: { displayName: 'A40' }, location: 'US' },
+      cost_per_hour: 0.39,
+    },
+    {
+      id: 'm3v8c1tz',
+      name: 'Rover vision training',
+      status: 'RUNNING',
+      is_public: false,
+      allowed_users: ['1290000000000000201', '1290000000000000202', '1290000000000000203'],
+      created_by: '1290000000000000101',
+      created_at: at(-9 * DAY),
+      machine: { gpuTypeId: 'NVIDIA GeForce RTX 4090', gpuType: { displayName: 'RTX 4090' }, location: 'CA' },
+      cost_per_hour: 0.69,
+    },
+    {
+      id: 'q9w4e2rd',
+      name: 'Simulation (CPU)',
+      status: 'EXITED',
+      is_public: false,
+      allowed_users: [],
+      created_by: '1290000000000000101',
+      created_at: at(-3 * DAY),
+      machine: { cpuTypeId: 'cpu3c', location: 'US' },
+      cost_per_hour: 0.006,
+    },
+  ];
+
+  const podSessions = [
+    { id: 41, pod_id: '7kq2x9ab', title: 'Welcome workshop', start_at: at(-6 * DAY), stop_at: at(-6 * DAY + 2 * HOUR), started: true, finished: true, created_by: '1290000000000000101' },
+    { id: 42, pod_id: '7kq2x9ab', title: 'Intro to PyTorch', start_at: at(2 * DAY + 3 * HOUR), stop_at: at(2 * DAY + 5 * HOUR), started: false, finished: false, created_by: '1290000000000000101' },
+    { id: 43, pod_id: '7kq2x9ab', title: 'Object detection with YOLO', start_at: at(9 * DAY), stop_at: at(9 * DAY + 2 * HOUR), started: false, finished: false, created_by: '1290000000000000101' },
+  ];
+
+  const seconds = (offset) => Math.floor((now + offset) / 1000);
+  const podFiles = [
+    { name: 'datasets', type: 'directory', size: 4096, modified: seconds(-2 * DAY), permissions: '755' },
+    { name: 'notebooks', type: 'directory', size: 4096, modified: seconds(-5 * HOUR), permissions: '755' },
+    { name: 'runs', type: 'directory', size: 4096, modified: seconds(-40 * MINUTE), permissions: '755' },
+    { name: 'README.md', type: 'file', size: 1832, modified: seconds(-3 * DAY), permissions: '644' },
+    { name: 'requirements.txt', type: 'file', size: 214, modified: seconds(-3 * DAY), permissions: '644' },
+    { name: 'train.py', type: 'file', size: 6120, modified: seconds(-50 * MINUTE), permissions: '644' },
+    { name: 'yolov8n.pt', type: 'file', size: 6_534_387, modified: seconds(-6 * DAY), permissions: '644' },
+  ];
+
+  const readme = [
+    '# Intro to PyTorch',
+    '',
+    'Workshop files for the Robotics Club. Everything in /workspace is kept when the pod stops.',
+    '',
+    '1. pip install -r requirements.txt',
+    '2. python train.py --epochs 3',
+    '',
+  ].join('\n');
+
   const feeds = [
     {
       key: 'internships',
@@ -517,6 +581,16 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/rollback`]: preview('v1.8.0'),
     [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
+    [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
+    ...Object.fromEntries(
+      livePods.map((pod) => [
+        `/api/compute/${ORG.prefix}/pods/${pod.id}/sessions`,
+        { sessions: podSessions.filter((s) => s.pod_id === pod.id) },
+      ]),
+    ),
+    [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files`]: { path: '/workspace', files: podFiles },
+    [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files/read`]: { path: '/workspace/README.md', content: readme },
+
     [`/api/organizations/${ORG.id}/secrets`]: {
       configured: true,
       secrets: [
