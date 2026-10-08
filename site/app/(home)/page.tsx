@@ -27,8 +27,18 @@ import { repoUrl } from '@/lib/shared';
 type Module = { icon: typeof Cpu; name: string; text: string; href?: string };
 
 const modules: Module[] = [
-  { icon: Users, name: 'Members and points', text: 'A member list, points from events and a leaderboard.' },
-  { icon: ShoppingBag, name: 'Merch store', text: 'Members spend points. Officers manage products and orders.' },
+  {
+    icon: Users,
+    name: 'Members and points',
+    text: 'A member list, points from events and a leaderboard.',
+    href: '/docs/modules/points',
+  },
+  {
+    icon: ShoppingBag,
+    name: 'Merch store',
+    text: 'Members spend points. Officers manage products and orders.',
+    href: '/docs/modules/storefront',
+  },
   {
     icon: CalendarDays,
     name: 'Calendar sync',
@@ -36,8 +46,18 @@ const modules: Module[] = [
     href: '/docs/modules/calendar',
   },
   { icon: Bell, name: 'Alerts', text: 'Job and hackathon posts in your Discord channels.', href: '/docs/modules/alerts' },
-  { icon: Gamepad2, name: 'Discord bot', text: 'One bot for every org, with Jeopardy games.' },
-  { icon: Code, name: 'LeetCode', text: 'The daily question in Discord, with solve checks.' },
+  {
+    icon: Gamepad2,
+    name: 'Discord bot',
+    text: 'One bot for every org, with slash commands and games.',
+    href: '/docs/modules/discord-bot',
+  },
+  {
+    icon: Code,
+    name: 'LeetCode',
+    text: 'The daily question in Discord, with solve checks.',
+    href: '/docs/modules/leetcode',
+  },
   {
     icon: FileSearch,
     name: 'Knowledge search',

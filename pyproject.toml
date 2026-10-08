@@ -166,6 +166,7 @@ source_modules = [
     "modules.compute.schedule",
     "modules.compute.ssh",
     "modules.dashboard.ci",
+    "modules.dashboard.notices",
     "modules.games.cog",
     "modules.games.jeopardy",
     "modules.games.ui",

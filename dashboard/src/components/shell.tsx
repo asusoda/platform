@@ -9,6 +9,7 @@ import { useBranding, useModules, useSuperadmin } from '../lib/queries';
 import { useSidebarCollapsed } from '../lib/sidebar';
 import { type Theme, useTheme } from '../lib/theme';
 import { type PageEntry, PAGES, SECTIONS } from '../pages/registry';
+import { NotificationsBell } from './notifications';
 import { OrgMark } from './org-mark';
 import { OrgMarks } from './org-marks';
 import { MOD_KEY, Tooltip } from './tooltip';
@@ -298,6 +299,7 @@ function TopBar({ collapsed, onToggle, onMenu }: { collapsed: boolean; onToggle:
           {page ? <Crumb current>{page.label}</Crumb> : null}
         </ol>
       </nav>
+      <NotificationsBell />
     </header>
   );
 }

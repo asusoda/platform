@@ -524,6 +524,22 @@ export function fixtures(now = Date.now()) {
     generated_at: at(-20 * 1000),
   };
 
+  const notice = (id, module, subject, message, link, resolvedOffset = null) => ({
+    id,
+    module,
+    subject,
+    message,
+    link,
+    resolved_at: resolvedOffset === null ? null : at(resolvedOffset),
+    resolved_by: resolvedOffset === null ? null : 'officer:1290000000000000101',
+  });
+  const notifications = [
+    notice('a1', 'alerts', 'new-grad', 'The feed answered 404 Not Found', 'alerts'),
+    notice('k1', 'knowledge', 'club/sponsor-packet', 'sponsors.robotics.example.org does not resolve', 'knowledge'),
+    notice('k2', 'knowledge', 'asu/parking_rates', 'The page answered 503 Service Unavailable', 'knowledge'),
+    notice('p1', 'apps', 'match-scout', 'Health check failed after 5 tries: GET /health answered 502', 'apps', -2 * HOUR),
+  ];
+
   const secret = (name, description, setOffset) => ({
     name,
     description,
@@ -749,6 +765,7 @@ export function fixtures(now = Date.now()) {
     '/api/superadmin/audit': { entries: crossAudit },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
+    [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },

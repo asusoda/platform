@@ -130,6 +130,9 @@
 /api/dashboard/<string:org_prefix>/knowledge/settings OPTIONS,PUT dashboard.set_knowledge_settings
 /api/dashboard/<string:org_prefix>/knowledge/sources GET,HEAD,OPTIONS dashboard.list_sources
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> DELETE,OPTIONS dashboard.delete_source
+/api/dashboard/<string:org_prefix>/notifications GET,HEAD,OPTIONS dashboard.list_notifications
+/api/dashboard/<string:org_prefix>/notifications/reopen OPTIONS,POST dashboard.reopen_notifications
+/api/dashboard/<string:org_prefix>/notifications/resolve OPTIONS,POST dashboard.resolve_notifications
 /api/dashboard/<string:org_prefix>/overview GET,HEAD,OPTIONS dashboard.overview
 /api/knowledge/crawls/<path:key> OPTIONS,PUT knowledge.schedule_crawl
 /api/knowledge/crawls/run OPTIONS,POST knowledge.run_crawl
