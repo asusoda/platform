@@ -36,6 +36,7 @@ def create_schema():
     for model_module in (
         "core.audit",
         "core.secrets",
+        "modules.accounts.models",
         "modules.agents.models",
         "modules.auth.models",
         "modules.games.models",

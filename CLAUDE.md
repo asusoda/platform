@@ -81,7 +81,7 @@ All core functionality is organized in `/modules/` with consistent structure:
 - `models.py` - SQLAlchemy database models  
 - `README.md` - Module documentation
 
-Active modules: agents, auth, bot, calendar, games, knowledge, leetcode, mcp, organizations, points, public, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
+Active modules: accounts, agents, auth, bot, calendar, games, knowledge, leetcode, mcp, organizations, points, public, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
