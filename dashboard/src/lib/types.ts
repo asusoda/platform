@@ -108,3 +108,34 @@ export type MachineToken = {
 };
 
 export type SecretState = { name: string; description: string; set: boolean };
+
+// Settings and superadmin
+
+export type OrganizationDetail = Organization & {
+  description: string | null;
+  is_active: boolean;
+  officer_role_id: string | null;
+  points_per_message: number | null;
+  points_cooldown: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type CalendarSettings = {
+  notion_database_id: string | null;
+  google_calendar_id: string | null;
+  calendar_sync_enabled: boolean;
+  last_sync_at: string | null;
+};
+
+export type LeetCodeSettings = { channel_id: string | null; role_ping: string | null; daily_time: string | null };
+
+export type AvailableGuild = { id: string; name: string; icon: { url: string | null } | null; member_count?: number };
+
+export type SuperadminDashboard = {
+  available_guilds: AvailableGuild[];
+  existing_orgs: OrganizationDetail[];
+  officer_orgs: OrganizationDetail[];
+};
+
+export type GuildRole = { id: string; name: string; color: number; position: number; permissions: string };

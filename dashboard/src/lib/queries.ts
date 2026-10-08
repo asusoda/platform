@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, api } from './api';
-import type { Branding, CiRepo, Overview } from './types';
+import type { Branding, CiRepo, ModuleState, OrganizationDetail, Overview } from './types';
 
 export function useOverview(prefix: string) {
   return useQuery({
@@ -44,4 +44,26 @@ export function useSuperadmin() {
     retry: false,
     staleTime: 600_000,
   });
+}
+
+// One organization with its settings.
+export function useOrganization(id: number | undefined) {
+  return useQuery({
+    queryKey: ['organization', id],
+    queryFn: () => api<OrganizationDetail>(`/api/organizations/${id}`),
+    enabled: id !== undefined,
+  });
+}
+
+export function useModules(id: number | undefined) {
+  return useQuery({
+    queryKey: ['modules', id],
+    queryFn: () => api<{ modules: ModuleState[] }>(`/api/organizations/${id}/modules`),
+    enabled: id !== undefined,
+  });
+}
+
+// Whether an error is the API saying the Discord bot cannot be reached.
+export function isBotDown(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 503;
 }

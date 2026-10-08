@@ -29,6 +29,8 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 
 For private repos, save a read-only GitHub token with Actions read access as the org secret `github_token`.
 
+The Settings page has these sections: General (description, points per message, points cooldown), Branding, Modules, Calendar and LeetCode (shown only when the module is on), and Secrets. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
+
 Each org sets its logo and accent color on the Settings page. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 
 The dashboard uses the same type and colors as `site/`: Geist, Geist Mono and the gray tokens of the fumadocs-ui theme. The tokens are in `dashboard/src/index.css`. Light and dark follow the system; the switch at the bottom of the sidebar sets one.
