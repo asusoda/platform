@@ -83,6 +83,11 @@ class KnowledgeSource(Base):
     category = Column(String(100), nullable=False)
     public = Column(Boolean, nullable=False, default=False)  # readable by every org
     current_version_id = Column(String(36), nullable=True)
+    # Crawled sources: the platform fetches url on this schedule. None means a writer sends chunks.
+    fetch_every_hours = Column(Integer, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    last_attempt_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=_now)
     updated_at = Column(DateTime, nullable=False, default=_now)
 
@@ -97,6 +102,7 @@ class KnowledgeVersion(Base):
     content_hash = Column(String(64), nullable=False)
     embedding_model = Column(String(200), nullable=True)
     chunk_count = Column(Integer, nullable=False, default=0)
+    text_chars = Column(Integer, nullable=True)  # extracted text length, for crawled sources
     fetched_at = Column(DateTime, nullable=False, default=_now)
 
 

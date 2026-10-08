@@ -1,9 +1,9 @@
 # Knowledge module
 
-Sources of text that agents search: pages a scraper fetched, handbooks, FAQs. Writers send a
-source as chunks; the platform stores and searches them but never fetches pages itself. The
-columns and the search follow SparkyAI's retrieval index, so its scraper can write here and its
-engine can search here instead of keeping its own tables.
+Sources of text that agents search: web pages, handbooks, FAQs. A source is either written by a
+client, which sends it as chunks, or crawled, where the platform fetches a URL on a schedule.
+The columns, the crawl pipeline and the search follow SparkyAI's scraper and retrieval index, so
+its engine can search here instead of keeping its own tables.
 
 ## Who can see what
 
@@ -58,6 +58,34 @@ caller's own query vector. Each result has `chunk_id`, `source_key`, `title`, `u
 
 The same search is the `knowledge.search` tool over MCP and `/api/tools`.
 
+## Crawled sources
+
+| Method and path | Scope | Does |
+|---|---|---|
+| `PUT /crawls/<key>` | write | `url`, `category`, `fetch_every_hours` (1 to 720, default 24), `title`, `public`, `enabled` |
+| `POST /crawls/run` | write | `{"key": ..., "force": false}`. Queues a crawl now. 202 |
+
+A source's `crawl` field shows its schedule, `last_attempt_at` and `last_error`.
+
+The `knowledge.crawl_due` job runs every 10 minutes and crawls up to `KNOWLEDGE_CRAWL_BATCH`
+(20) sources whose schedule has come round, waiting `KNOWLEDGE_CRAWL_GAP_SECONDS` (2) between
+fetches to the same host. Each crawl:
+
+1. Checks the URL is http(s) and resolves only to public addresses. Redirects are followed by
+   hand and checked the same way, so a source cannot point the platform at its own network.
+2. Reads robots.txt with `KNOWLEDGE_USER_AGENT` and skips disallowed pages.
+3. Fetches through Firecrawl when `FIRECRAWL_URL` is set (JavaScript rendered, markdown out),
+   else with a plain GET of up to 10 MB.
+4. Stops if the page hash is unchanged, unless forced.
+5. Extracts the main text (navigation, headers, footers, forms and scripts dropped), splits it
+   into chunks of `KNOWLEDGE_CHUNK_CHARS` (300) characters, puts the page title on each chunk,
+   embeds them, and replaces the source's version.
+6. Refuses to replace the index when the new text is under half of the last version's (when that
+   was at least 500 characters), so a broken page cannot wipe a good index. `force` accepts it.
+
+Not ported yet from SparkyAI: summary levels over chunks (they need a chat model), pages behind
+ASU sign-in, per-source extractors, and live queries. Those come with the asu module.
+
 ## How search works
 
 1. Vector leg: the nearest chunks to the query vector, among chunks embedded with the same
@@ -89,3 +117,8 @@ CI use the `pgvector/pgvector:pg16` image. On SQLite both legs run in Python.
 | `EMBEDDINGS_QUERY_PREFIX` | empty | Put before queries, for models that embed queries differently |
 | `KNOWLEDGE_MAX_DISTANCE` | 0.6 | Vector matches further than this are dropped |
 | `KNOWLEDGE_PUBLISHERS` | empty | Org prefixes allowed to write public sources |
+| `KNOWLEDGE_CHUNK_CHARS` | 300 | Chunk size for crawled pages |
+| `KNOWLEDGE_CRAWL_BATCH` | 20 | Sources crawled per run of the job |
+| `KNOWLEDGE_CRAWL_GAP_SECONDS` | 2 | Wait between fetches to one host |
+| `KNOWLEDGE_USER_AGENT` | `PlatformKnowledgeBot/1.0` | Sent with fetches and matched against robots.txt |
+| `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | unset | Self-hosted Firecrawl for JavaScript pages |

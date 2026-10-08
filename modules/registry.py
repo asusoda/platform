@@ -63,6 +63,7 @@ JOB_MODULES = [
     "modules.agents.jobs",
     "modules.accounts.jobs",
     "modules.runpod.jobs",
+    "modules.knowledge.jobs",
 ]
 
 

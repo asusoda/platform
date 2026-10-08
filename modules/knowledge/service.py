@@ -127,6 +127,14 @@ def _source_dict(source: KnowledgeSource, version: KnowledgeVersion | None = Non
         "chunk_count": version.chunk_count if version else 0,
         "fetched_at": _iso(version.fetched_at) if version else None,
         "updated_at": _iso(source.updated_at),
+        "crawl": None
+        if source.fetch_every_hours is None
+        else {
+            "fetch_every_hours": source.fetch_every_hours,
+            "enabled": bool(source.enabled),
+            "last_attempt_at": _iso(source.last_attempt_at),
+            "last_error": source.last_error,
+        },
     }
 
 
@@ -225,27 +233,46 @@ def put_source(db, org_id: int, org_prefix: str, key: str, data: dict, embedder:
     model = None
     if rows[0]["embedding"] is not None:
         model = _text(data.get("embedding_model"), "embedding_model", 200)
-    elif embedder is not None:
-        try:
-            vectors = embedder.embed([row["content"] for row in rows])
-        except EmbeddingError as e:
-            raise KnowledgeError(str(e), 502) from e
-        for row, vector in zip(rows, vectors, strict=True):
-            row["embedding"] = _vector(vector, "embedding from the embedding service")
-        model = embedder.model
+    else:
+        model = _embed(rows, embedder)
+    version = _write_version(db, source, rows, content_hash, model)
+    db.commit()
+    return {"source": _source_dict(source, version), "changed": True}
 
+
+def _embed(rows: list[dict], embedder: Embedder | None) -> str | None:
+    """Fill each row's embedding from the embedder. Returns the model name, or None without one."""
+    if embedder is None:
+        return None
+    try:
+        vectors = embedder.embed([row["content"] for row in rows])
+    except EmbeddingError as e:
+        raise KnowledgeError(str(e), 502) from e
+    for row, vector in zip(rows, vectors, strict=True):
+        row["embedding"] = _vector(vector, "embedding from the embedding service")
+    return embedder.model
+
+
+def _write_version(
+    db, source: KnowledgeSource, rows: list[dict], content_hash: str, model: str | None, text_chars: int | None = None
+) -> KnowledgeVersion:
+    """Store rows as the source's new current version and drop the old ones. Flushes, does not commit."""
     version = KnowledgeVersion(
-        source_id=source.id, content_hash=content_hash, embedding_model=model, chunk_count=len(rows)
+        source_id=source.id,
+        content_hash=content_hash,
+        embedding_model=model,
+        chunk_count=len(rows),
+        text_chars=text_chars,
     )
     db.add(version)
     db.flush()
     db.add_all(
         KnowledgeChunk(
-            organization_id=org_id,
+            organization_id=source.organization_id,
             source_id=source.id,
             version_id=version.id,
-            category=category,
-            public=public,
+            category=source.category,
+            public=source.public,
             fetched_at=version.fetched_at,
             **row,
         )
@@ -254,8 +281,7 @@ def put_source(db, org_id: int, org_prefix: str, key: str, data: dict, embedder:
     source.current_version_id = version.id
     db.flush()
     _drop_versions(db, source.id, keep=version.id)
-    db.commit()
-    return {"source": _source_dict(source, version), "changed": True}
+    return version
 
 
 def _find(db, org_id: int, key: str) -> KnowledgeSource:

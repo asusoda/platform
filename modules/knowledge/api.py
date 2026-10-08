@@ -81,3 +81,27 @@ def search(db, org):
         embedding_model=data.get("embedding_model"),
         embedder=embedder.configured(),
     )
+
+
+# Crawled sources
+
+
+@_route("/crawls/<path:key>", "knowledge:write", ["PUT"])
+def schedule_crawl(db, org, key):
+    from . import crawl
+
+    return crawl.schedule(db, int(org.id), str(org.prefix), key, _body())
+
+
+@_route("/crawls/run", "knowledge:write", ["POST"])
+def run_crawl(db, org):
+    """Queue a crawl of one source now. 202; the result shows on the source as last_attempt_at and last_error."""
+    from core.jobs import defer
+
+    data = _body()
+    key, force = data.get("key"), data.get("force") is True
+    source = service._find(db, int(org.id), str(key))
+    if source.fetch_every_hours is None:
+        raise service.KnowledgeError("This source is written by a client, not crawled", 409)
+    defer("knowledge.crawl_source", org_id=int(org.id), key=str(key), force=force, org_prefix=str(org.prefix))
+    return {"queued": True}, 202
