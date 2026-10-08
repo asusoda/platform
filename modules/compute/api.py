@@ -56,19 +56,20 @@ def _member_route(rule: str, methods: list[str]):
     """
 
     def decorator(view):
-        def run(org, discord_id, kwargs):
-            db = db_connect.SessionLocal()
+        def run(db, org, discord_id, kwargs):
             try:
                 result = view(db, org, str(discord_id), **kwargs)
                 return result if isinstance(result, tuple) else jsonify(result)
             except service.ComputeError as e:
                 db.rollback()
                 return jsonify({"error": e.message}), e.status
-            finally:
-                db.close()
 
         def with_session(org_prefix, user_discord_id=None, organization=None, **kwargs):
-            return run(organization, user_discord_id, kwargs)
+            db = db_connect.SessionLocal()
+            try:
+                return run(db, organization, user_discord_id, kwargs)
+            finally:
+                db.close()
 
         session_route = member_required(with_session)
 
@@ -82,16 +83,16 @@ def _member_route(rule: str, methods: list[str]):
                 if org is None:
                     return jsonify({"error": "Organization not found"}), 404
                 discord_id = cli_login.member_for(db, _org_id(org), header[7:].strip())
+                if discord_id is None:
+                    return jsonify({"error": "The CLI token is invalid or expired. Run godfather auth again."}), 401
+                membership = _is_member(org, discord_id)
+                if membership is None:
+                    return jsonify({"error": "Discord is not available; try again shortly"}), 503
+                if not membership:
+                    return jsonify({"error": "You are no longer a member of this organization"}), 403
+                return run(db, org, discord_id, kwargs)
             finally:
                 db.close()
-            if discord_id is None:
-                return jsonify({"error": "The CLI token is invalid or expired. Run godfather auth again."}), 401
-            membership = _is_member(org, discord_id)
-            if membership is None:
-                return jsonify({"error": "Discord is not available; try again shortly"}), 503
-            if not membership:
-                return jsonify({"error": "You are no longer a member of this organization"}), 403
-            return run(org, discord_id, kwargs)
 
         wrapper.__name__ = view.__name__
         compute_blueprint.route(f"/<string:org_prefix>/me{rule}", methods=methods)(wrapper)
@@ -322,8 +323,9 @@ def cli_callback():
         membership = _is_member(org, discord_id)
         if membership is None:
             return _page("Discord is not available right now. Try again shortly.", status=503)
+        org_name = str(org.name)
         if not membership:
-            return _page(f"You need to be in the {org.name} Discord server to use its pods.", status=403)
+            return _page(f"You need to be in the {org_name} Discord server to use its pods.", status=403)
         token = cli_login.issue(db, _org_id(org), discord_id)
     finally:
         db.close()
@@ -334,4 +336,4 @@ def cli_callback():
         actor_kind="member",
         actor_id=discord_id,
     )
-    return _page(f"Signed in to {org.name}.", token)
+    return _page(f"Signed in to {org_name}.", token)

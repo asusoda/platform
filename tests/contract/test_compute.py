@@ -425,3 +425,67 @@ def test_deleting_and_terminating_clear_sessions(client, officer_headers, runpod
     db = db_connect.SessionLocal()
     assert db.query(ComputeSession).count() == 0
     db.close()
+
+
+# Godfather CLI sign-in: Discord login in the browser, then a bearer token on the member routes.
+
+
+def _cli_sign_in(client, monkeypatch, discord_id=MEMBER_DISCORD_ID):
+    import re
+
+    from modules.accounts import providers
+
+    monkeypatch.setenv("ACCOUNTS_BASE_URL", "https://platform.example")
+    monkeypatch.setattr(providers, "discord_user_id", lambda *args, **kwargs: discord_id)
+    start = client.get("/api/compute/soda/cli/login")
+    assert start.status_code == 302 and "discord.com" in start.location
+    assert "redirect_uri=https%3A%2F%2Fplatform.example%2Fapi%2Fcompute%2Fcli%2Fcallback" in start.location
+    with client.session_transaction() as session:
+        state = session["compute_cli_login"]["state"]
+    page = client.get(f"/api/compute/cli/callback?state={state}&code=abc")
+    match = re.search(r"plat_[A-Za-z0-9_\-]+", page.get_data(as_text=True))
+    return page, match.group(0) if match else None
+
+
+def test_cli_token_works_on_member_routes(app, client, officer_headers, runpod, monkeypatch):
+    from modules.compute import api
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    _create(client, officer_headers, allowed_users=[MEMBER_DISCORD_ID])
+    page, token = _cli_sign_in(app.test_client(), monkeypatch)
+    assert page.status_code == 200 and token and page.headers["Cache-Control"] == "no-store"
+
+    bearer = {"Authorization": f"Bearer {token}"}
+    assert [p["id"] for p in client.get("/api/compute/soda/me/pods", headers=bearer).get_json()["pods"]] == ["pod1"]
+    info = client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()}, headers=bearer)
+    assert info.status_code == 200 and info.get_json()["ssh_info"]["is_admin"] is False
+
+    _, newer = _cli_sign_in(app.test_client(), monkeypatch)
+    assert client.get("/api/compute/soda/me/pods", headers=bearer).status_code == 401
+    assert client.get("/api/compute/soda/me/pods", headers={"Authorization": f"Bearer {newer}"}).status_code == 200
+    assert client.get("/api/compute/soda/me/pods", headers={"Authorization": "Bearer plat_nope"}).status_code == 401
+
+
+def test_cli_token_follows_server_membership(app, client, officer_headers, runpod, monkeypatch):
+    from modules.compute import api
+
+    _, token = _cli_sign_in(app.test_client(), monkeypatch)
+    bearer = {"Authorization": f"Bearer {token}"}
+    monkeypatch.setattr(api, "_is_member", lambda org, discord_id: False)
+    assert client.get("/api/compute/soda/me/pods", headers=bearer).status_code == 403
+    monkeypatch.setattr(api, "_is_member", lambda org, discord_id: None)
+    assert client.get("/api/compute/soda/me/pods", headers=bearer).status_code == 503
+
+
+def test_cli_sign_in_is_refused_when_it_should_be(app, runpod, monkeypatch):
+    from modules.compute import api
+
+    monkeypatch.setattr(api, "_is_member", lambda org, discord_id: False)
+    page, token = _cli_sign_in(app.test_client(), monkeypatch)
+    assert page.status_code == 403 and token is None
+
+    stray = app.test_client().get("/api/compute/cli/callback?state=forged&code=abc")
+    assert stray.status_code == 400
+
+    monkeypatch.delenv("ACCOUNTS_BASE_URL")
+    assert app.test_client().get("/api/compute/soda/cli/login").status_code == 503
