@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { compact, deployTone, runTone, timeAgo } from './format';
+import { compact, deployTone, duration, runTone, timeAgo } from './format';
+
+describe('duration', () => {
+  it('shows hours and minutes', () => {
+    expect(duration('2026-10-08T18:00:00Z', '2026-10-08T20:00:00Z')).toBe('2h');
+    expect(duration('2026-10-08T18:00:00', '2026-10-08T19:30:00Z')).toBe('1h 30m');
+    expect(duration('2026-10-08T18:00:00Z', '2026-10-08T18:45:00Z')).toBe('45m');
+    expect(duration('2026-10-08T18:00:00Z', '2026-10-08T17:00:00Z')).toBe('0m');
+  });
+});
 
 describe('timeAgo', () => {
   const now = new Date('2026-10-08T12:00:00Z');
@@ -13,7 +22,7 @@ describe('timeAgo', () => {
 
 describe('tones', () => {
   it('maps run and deploy states', () => {
-    expect(runTone('in_progress', null)).toBe('accent');
+    expect(runTone('in_progress', null)).toBe('active');
     expect(runTone('completed', 'success')).toBe('ok');
     expect(runTone('completed', 'failure')).toBe('bad');
     expect(deployTone('failed')).toBe('bad');

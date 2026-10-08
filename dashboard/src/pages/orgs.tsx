@@ -1,37 +1,48 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Building2 } from 'lucide-react';
 import { Link, Navigate } from 'react-router';
+import { Logo } from '../components/logo';
+import { OrgMark } from '../components/org-mark';
+import { Card, EmptyState, ErrorNote, Mono, SkeletonRows } from '../components/ui';
 import { useOrganizations } from '../lib/org';
-import { Card, Empty, ErrorNote, Loading } from '../components/ui';
 
 export function OrganizationsPage() {
   const { data, isLoading, error } = useOrganizations();
-  if (isLoading) return <Loading />;
   if (data?.length === 1) return <Navigate to={`/${data[0].prefix}`} replace />;
   return (
     <div className="mx-auto max-w-lg px-4 py-16">
-      <h1 className="text-xl font-semibold">Choose an organization</h1>
-      <p className="mt-1 text-sm text-muted">Organizations where you hold the officer role.</p>
-      <div className="mt-6">{error ? <ErrorNote error={error} /> : null}</div>
-      <Card className="mt-2">
-        {data?.length ? (
+      <div className="flex items-center gap-2 text-sm font-medium tracking-tight">
+        <Logo className="size-5" />
+        Platform
+      </div>
+      <h1 className="mt-8 text-2xl font-semibold tracking-tight">Choose an organization</h1>
+      <p className="mt-1.5 text-sm text-muted">Organizations where you hold the officer role.</p>
+      {error ? (
+        <div className="mt-6">
+          <ErrorNote error={error} />
+        </div>
+      ) : null}
+      <Card className="mt-6">
+        {isLoading ? (
+          <SkeletonRows rows={3} />
+        ) : data?.length ? (
           data.map((org) => (
             <Link
               key={org.id}
               to={`/${org.prefix}`}
-              className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 hover:bg-panel-2"
+              className="group flex items-center gap-3 border-b border-line px-4 py-3 transition-colors last:border-0 hover:bg-panel-2/50"
             >
-              <span className="flex size-8 items-center justify-center rounded-lg bg-fg text-sm font-semibold text-bg uppercase">
-                {org.name.slice(0, 1)}
+              <OrgMark name={org.name} className="size-8" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{org.name}</span>
+                <Mono>{org.prefix}</Mono>
               </span>
-              <span className="flex-1">
-                <span className="block text-sm font-medium">{org.name}</span>
-                <span className="block font-mono text-xs text-muted">{org.prefix}</span>
-              </span>
-              <ArrowRight className="size-4 text-muted" />
+              <ArrowRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5" />
             </Link>
           ))
         ) : (
-          <Empty>No organizations yet. A superadmin creates one with flask --app main org create.</Empty>
+          <EmptyState icon={Building2} title="No organizations yet">
+            A superadmin creates one with <Mono>flask --app main org create</Mono>.
+          </EmptyState>
         )}
       </Card>
     </div>

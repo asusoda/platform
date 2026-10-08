@@ -29,7 +29,13 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 
 For private repos, save a read-only GitHub token with Actions read access as the org secret `github_token`.
 
-Each org sets its logo and accent color on the Settings page. The accent color sets the `--accent` CSS variable. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
+Each org sets its logo and accent color on the Settings page. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
+
+The dashboard uses the same type and colors as `site/`: Geist, Geist Mono and the gray tokens of the fumadocs-ui theme. The tokens are in `dashboard/src/index.css`. Light and dark follow the system; the switch at the bottom of the sidebar sets one.
+
+`dashboard/src/components/ui.tsx` has the shared parts: `PageHeader`, `Card`, `Table`, `Button`, `Input`, `Select`, `Textarea`, `Badge`, `EmptyState` and the loading skeletons. Use them on a new page. Do not style a one-off control.
+
+The landing page shows dashboard screenshots from `site/public/screenshots/`. After a UI change, run `npm run screenshots` in `dashboard/`. The script builds the dashboard, serves it with `vite preview` and answers each API call from `scripts/fixtures.mjs`, a fictional org. It needs Playwright with Chromium. If the Chromium version does not match Playwright, set `PLAYWRIGHT_CHROMIUM` to the browser binary.
 
 Officers sign in at `/api/auth/login?client=dashboard`. After Discord, the API sends them to `DASHBOARD_URL/auth/` with a one-time code.
 

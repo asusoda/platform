@@ -8,8 +8,9 @@ npm install
 npm run dev
 npm test
 npm run build
+npm run screenshots   # images for the landing page, see docs/frontends.md
 ```
 
-`src/lib/` holds the API client, sign-in and queries. `src/pages/` has one file per page. `src/components/ui.tsx` has the shared parts.
+`src/lib/` holds the API client, sign-in and queries. `src/pages/` has one file per page. `src/components/ui.tsx` has the shared parts. `scripts/` has the screenshot script and its fixtures.
 
-See [docs/dashboard.md](../docs/dashboard.md) for routes, sign-in and deployment.
+See [docs/frontends.md](../docs/frontends.md) for routes, sign-in and deployment.

@@ -1,6 +1,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ExternalLink, GitBranch } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Badge, Button, Card, CardHeader, Dot, Empty, ErrorNote, Field, Loading, PageHeader } from '../components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Dot,
+  EmptyState,
+  ErrorNote,
+  Field,
+  PageHeader,
+  PageSkeleton,
+  Textarea,
+} from '../components/ui';
 import { send } from '../lib/api';
 import { runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
@@ -22,18 +35,29 @@ export function CiPage() {
     onSuccess: () => client.invalidateQueries({ queryKey: ['ci', prefix] }),
   });
 
+  if (ci.isLoading) return <PageSkeleton />;
+
   return (
     <>
       <PageHeader title="CI runs" description="Latest GitHub Actions runs for the organization's repositories." />
-      {ci.isLoading ? <Loading /> : null}
-      {ci.error ? <ErrorNote error={ci.error} /> : null}
+      {ci.error ? (
+        <div className="mb-4">
+          <ErrorNote error={ci.error} />
+        </div>
+      ) : null}
       <div className="grid gap-6">
         {ci.data?.repos.map((repo) => (
           <Card key={repo.repo}>
             <CardHeader
               title={
-                <a className="hover:underline" href={`https://github.com/${repo.repo}/actions`} target="_blank" rel="noreferrer">
+                <a
+                  className="inline-flex items-center gap-1.5 font-mono text-[13px] hover:underline"
+                  href={`https://github.com/${repo.repo}/actions`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {repo.repo}
+                  <ExternalLink className="size-3 text-muted" />
                 </a>
               }
             />
@@ -48,42 +72,51 @@ export function CiPage() {
                   href={run.url ?? undefined}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 hover:bg-panel-2"
+                  className="flex min-h-12 items-center gap-3 border-b border-line px-4 py-2.5 transition-colors last:border-0 hover:bg-panel-2/50"
                 >
                   <Dot tone={runTone(run.status, run.conclusion)} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm">{run.title}</div>
-                    <div className="truncate text-xs text-muted">
-                      {run.workflow} · {run.branch} · {run.event}
+                    <div className="mt-0.5 truncate text-xs text-muted">
+                      {run.workflow} · <span className="font-mono">{run.branch}</span> · {run.event}
                     </div>
                   </div>
                   <Badge tone={runTone(run.status, run.conclusion)}>{run.conclusion ?? run.status}</Badge>
-                  <span className="hidden w-16 text-right text-xs text-muted sm:block">{timeAgo(run.started_at)}</span>
+                  <span className="hidden w-16 text-right text-xs text-muted tabular-nums sm:block">
+                    {timeAgo(run.started_at)}
+                  </span>
                 </a>
               ))
             ) : (
-              <Empty>No runs.</Empty>
+              <EmptyState>No runs.</EmptyState>
             )}
           </Card>
         ))}
+        {ci.data && !ci.data.repos.length ? (
+          <Card>
+            <EmptyState icon={GitBranch} title="No repositories">
+              List the repositories below to see their latest runs here.
+            </EmptyState>
+          </Card>
+        ) : null}
         <Card>
           <CardHeader title="Repositories" hint="Private repositories need the github_token secret under Settings." />
           <form
-            className="space-y-3 p-4"
+            className="space-y-4 p-4"
             onSubmit={(e) => {
               e.preventDefault();
               save.mutate();
             }}
           >
             <Field label="One owner/name per line">
-              <textarea
-                className="min-h-28 w-full rounded-lg border border-line bg-panel p-3 font-mono text-sm outline-none focus:border-accent"
+              <Textarea
+                className="font-mono"
                 value={repos}
                 onChange={(e) => setRepos(e.target.value)}
                 placeholder={'your-org/website\nyour-org/api'}
               />
             </Field>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button variant="primary" disabled={save.isPending}>
                 Save
               </Button>

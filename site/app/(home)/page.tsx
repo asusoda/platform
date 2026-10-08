@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
@@ -140,6 +141,22 @@ export default function HomePage() {
             <Feature key={m.name} {...m} />
           ))}
         </div>
+        <div className="mt-10 grid gap-6">
+          <Screenshot
+            name="settings"
+            alt="Settings page of the officer dashboard with the org's branding and a switch for each module"
+            caption="Officers switch modules on the Settings page of the dashboard or from the CLI."
+          />
+          <Terminal
+            title="platform"
+            lines={[
+              ['$', 'flask --app main org create --name "Robotics Club" --prefix robotics --guild-id 1290000000000000000'],
+              ['', 'Created Robotics Club (id 1, prefix robotics)'],
+              ['$', 'flask --app main org modules robotics --off points,storefront'],
+              ['', '  modules: points=off, storefront=off, calendar=on, leetcode=on, compute=on'],
+            ]}
+          />
+        </div>
       </Section>
       <Section
         eyebrow="Agents"
@@ -165,6 +182,12 @@ export default function HomePage() {
             ]}
           />
         </div>
+        <Screenshot
+          className="mt-10"
+          name="tokens"
+          alt="Tokens page of the officer dashboard with a new agent token and its scopes"
+          caption="Officers create and revoke machine tokens on the Tokens page."
+        />
       </Section>
       <Section
         eyebrow="Compute"
@@ -195,6 +218,12 @@ export default function HomePage() {
             ]}
           />
         </div>
+        <Screenshot
+          className="mt-10"
+          name="compute"
+          alt="Compute page of the officer dashboard with the org's pods and their scheduled sessions"
+          caption="The Compute page shows each pod and its next sessions."
+        />
       </Section>
       <Section
         eyebrow="Security"
@@ -274,17 +303,12 @@ function Hero() {
             Read the docs
           </Link>
         </div>
-        <div className="mt-16 w-full max-w-3xl text-left">
-          <Terminal
-            title="platform"
-            lines={[
-              ['$', 'flask --app main org create --name "Robotics Club" --prefix robotics --guild-id 1290000000000000000'],
-              ['', 'Created Robotics Club (id 1, prefix robotics)'],
-              ['$', 'flask --app main org modules robotics --off points,storefront'],
-              ['', '  modules: points=off, storefront=off, calendar=on, leetcode=on, compute=on'],
-            ]}
-          />
-        </div>
+        <Screenshot
+          className="mt-16 w-full text-left"
+          name="overview"
+          alt="Overview page of the officer dashboard with members, points, pods, module switches, CI runs, apps and alert feeds for one org"
+          eager
+        />
       </div>
     </section>
   );
@@ -320,6 +344,39 @@ function Feature({ icon: Icon, name, text }: { icon: typeof Cpu; name: string; t
       <h3 className="mt-4 font-medium">{name}</h3>
       <p className="mt-2 text-sm text-fd-muted-foreground">{text}</p>
     </div>
+  );
+}
+
+function Screenshot({
+  name,
+  alt,
+  caption,
+  eager = false,
+  className = '',
+}: {
+  name: string;
+  alt: string;
+  caption?: string;
+  eager?: boolean;
+  className?: string;
+}) {
+  const props = {
+    alt,
+    width: 2880,
+    height: 1800,
+    loading: eager ? ('eager' as const) : ('lazy' as const),
+    sizes: '(min-width: 1024px) 976px, 100vw',
+  };
+  return (
+    <figure className={className}>
+      <div className="rounded-xl border bg-fd-card p-1.5 shadow-sm">
+        <div className="overflow-hidden rounded-lg border">
+          <Image src={`/screenshots/${name}-light.webp`} className="block h-auto w-full dark:hidden" {...props} />
+          <Image src={`/screenshots/${name}-dark.webp`} className="hidden h-auto w-full dark:block" {...props} />
+        </div>
+      </div>
+      {caption ? <figcaption className="mt-3 text-sm text-fd-muted-foreground">{caption}</figcaption> : null}
+    </figure>
   );
 }
 

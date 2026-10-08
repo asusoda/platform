@@ -1,7 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play, Plus, Trash2 } from 'lucide-react';
+import { BellRing, Play, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, Card, CardHeader, Dot, Empty, ErrorNote, Field, Input, Loading, PageHeader, Switch } from '../components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Dot,
+  EmptyState,
+  ErrorNote,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonRows,
+  Switch,
+} from '../components/ui';
 import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
@@ -31,7 +45,7 @@ function NewFeed({ prefix, onDone }: { prefix: string; onDone: () => void }) {
     <Card className="mb-6">
       <CardHeader title="New feed" hint="The first run records what is listed now and posts only what comes after." />
       <form
-        className="grid gap-4 p-4 sm:grid-cols-2"
+        className="grid gap-5 p-4 sm:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();
           create.mutate();
@@ -41,14 +55,10 @@ function NewFeed({ prefix, onDone }: { prefix: string; onDone: () => void }) {
           <Input value={draft.key} onChange={set('key')} placeholder="internships" required />
         </Field>
         <Field label="Kind">
-          <select
-            className="h-9 w-full rounded-lg border border-line bg-panel px-3 text-sm"
-            value={draft.kind}
-            onChange={set('kind')}
-          >
+          <Select value={draft.kind} onChange={set('kind')}>
             <option value="github_jobs">Job table in a GitHub README</option>
             <option value="hackathons">Hackathons</option>
-          </select>
+          </Select>
         </Field>
         {draft.kind === 'github_jobs' ? (
           <>
@@ -66,7 +76,7 @@ function NewFeed({ prefix, onDone }: { prefix: string; onDone: () => void }) {
         <Field label="Every (hours)">
           <Input type="number" min={1} max={168} value={draft.every} onChange={set('every')} />
         </Field>
-        <div className="flex items-center gap-2 sm:col-span-2">
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4 sm:col-span-2">
           <Button variant="primary" disabled={create.isPending}>
             Create feed
           </Button>
@@ -95,57 +105,74 @@ export function AlertsPage() {
   });
   const run = useMutation({ mutationFn: (key: string) => send(`/api/alerts/${prefix}/feeds/${key}/run`, 'POST', {}), onSuccess: refresh });
   const remove = useMutation({ mutationFn: (key: string) => send(`/api/alerts/${prefix}/feeds/${key}`, 'DELETE'), onSuccess: refresh });
+  const newFeed = (
+    <Button variant="primary" onClick={() => setAdding(true)}>
+      <Plus className="size-4" /> New feed
+    </Button>
+  );
 
   return (
     <>
       <PageHeader
         title="Alerts"
         description="Job listings and hackathons posted to Discord channels through webhooks."
-        action={
-          <Button variant="primary" onClick={() => setAdding(true)}>
-            <Plus className="size-4" /> New feed
-          </Button>
-        }
+        action={newFeed}
       />
       {adding ? <NewFeed prefix={prefix} onDone={() => setAdding(false)} /> : null}
-      {feeds.error ? <ErrorNote error={feeds.error} /> : null}
-      {feeds.isLoading ? (
-        <Loading />
-      ) : (
-        <Card>
-          {feeds.data?.feeds.length ? (
-            feeds.data.feeds.map((f) => (
-              <div key={f.key} className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 last:border-0">
-                <Dot tone={!f.enabled ? 'muted' : f.last_error ? 'bad' : f.seeded_at ? 'ok' : 'warn'} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    {f.key}
-                    <Badge>{f.kind === 'github_jobs' ? String(f.config.repo ?? '') : 'hackathons'}</Badge>
-                  </div>
-                  <div className="truncate text-xs text-muted">
-                    {f.last_error ? <span className="text-bad">{f.last_error}</span> : `every ${f.every_hours}h · last run ${timeAgo(f.last_run_at)} · ${f.posted} posted`}
-                  </div>
+      {feeds.error ? (
+        <div className="mb-4">
+          <ErrorNote error={feeds.error} />
+        </div>
+      ) : null}
+      <Card>
+        <CardHeader title="Feeds" hint={feeds.data ? `${feeds.data.feeds.length} feeds` : undefined} />
+        {feeds.isLoading ? (
+          <SkeletonRows />
+        ) : feeds.data?.feeds.length ? (
+          feeds.data.feeds.map((f) => (
+            <div key={f.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-3 last:border-0">
+              <Dot tone={!f.enabled ? 'muted' : f.last_error ? 'bad' : f.seeded_at ? 'ok' : 'warn'} />
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                  <span className="truncate">{f.key}</span>
+                  <Badge className="font-mono font-normal">
+                    {f.kind === 'github_jobs' ? String(f.config.repo ?? '') : 'hackathons'}
+                  </Badge>
                 </div>
-                <Switch checked={f.enabled} onChange={() => toggle.mutate(f)} />
-                <Button variant="ghost" title="Run now" onClick={() => run.mutate(f.key)}>
+                <div className="mt-0.5 truncate text-xs text-muted">
+                  {f.last_error ? (
+                    <span className="text-bad">{f.last_error}</span>
+                  ) : (
+                    `every ${f.every_hours}h · last run ${timeAgo(f.last_run_at)} · ${f.posted} posted`
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Switch checked={f.enabled} onChange={() => toggle.mutate(f)} label={`Feed ${f.key} on`} />
+                <Button variant="ghost" size="icon" title="Run now" aria-label={`Run ${f.key} now`} onClick={() => run.mutate(f.key)}>
                   <Play className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
+                  size="icon"
                   title="Delete"
+                  aria-label={`Delete ${f.key}`}
+                  className="hover:text-bad"
                   onClick={() => {
                     if (confirm(`Delete feed ${f.key} and its webhook?`)) remove.mutate(f.key);
                   }}
                 >
-                  <Trash2 className="size-4 text-bad" />
+                  <Trash2 className="size-4" />
                 </Button>
               </div>
-            ))
-          ) : (
-            <Empty>No feeds yet.</Empty>
-          )}
-        </Card>
-      )}
+            </div>
+          ))
+        ) : (
+          <EmptyState icon={BellRing} title="No feeds yet" action={adding ? null : newFeed}>
+            A feed posts new job listings or hackathons to a Discord channel.
+          </EmptyState>
+        )}
+      </Card>
     </>
   );
 }

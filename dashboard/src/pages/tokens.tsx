@@ -1,7 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Plus } from 'lucide-react';
+import { Check, Copy, KeyRound, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, Card, CardHeader, Empty, ErrorNote, Field, Input, Loading, PageHeader, Row } from '../components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Code,
+  cx,
+  EmptyState,
+  ErrorNote,
+  Field,
+  Input,
+  Mono,
+  PageHeader,
+  Select,
+  SkeletonRows,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from '../components/ui';
 import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
@@ -15,6 +34,7 @@ function NewToken({ orgId, scopes, onDone }: { orgId: number; scopes: Record<str
   const [kind, setKind] = useState('agent');
   const [chosen, setChosen] = useState<string[]>([]);
   const [value, setValue] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const create = useMutation({
     mutationFn: () => send<{ token: string }>(`/api/organizations/${orgId}/tokens`, 'POST', { name, kind, scopes: chosen }),
     onSuccess: (body) => {
@@ -24,58 +44,77 @@ function NewToken({ orgId, scopes, onDone }: { orgId: number; scopes: Record<str
   });
   if (value) {
     return (
-      <Card className="mb-6 p-4">
-        <p className="text-sm">Copy the token now. It is not shown again.</p>
-        <div className="mt-3 flex gap-2">
-          <Input readOnly value={value} className="font-mono" />
-          <Button onClick={() => navigator.clipboard.writeText(value)}>
-            <Copy className="size-4" />
-          </Button>
+      <Card className="mb-6">
+        <CardHeader title="Token created" hint="Copy the token now. It is not shown again." />
+        <div className="space-y-4 p-4">
+          <div className="flex gap-2">
+            <Input readOnly value={value} className="font-mono" aria-label="New token" />
+            <Button
+              size="icon"
+              aria-label="Copy token"
+              onClick={() => {
+                navigator.clipboard.writeText(value);
+                setCopied(true);
+              }}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </Button>
+          </div>
+          <Button onClick={onDone}>Done</Button>
         </div>
-        <Button className="mt-3" variant="ghost" onClick={onDone}>
-          Done
-        </Button>
       </Card>
     );
   }
   return (
     <Card className="mb-6">
-      <CardHeader title="New token" />
+      <CardHeader title="New token" hint="Give the token only the scopes it needs." />
       <form
-        className="space-y-4 p-4"
+        className="space-y-5 p-4"
         onSubmit={(e) => {
           e.preventDefault();
           create.mutate();
         }}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="club-agent" required />
           </Field>
           <Field label="Kind">
-            <select className="h-9 w-full rounded-lg border border-line bg-panel px-3 text-sm" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="agent">agent</option>
               <option value="app">app</option>
-            </select>
+            </Select>
           </Field>
         </div>
-        <fieldset className="grid gap-2 sm:grid-cols-2">
-          {Object.entries(scopes).map(([scope, description]) => (
-            <label key={scope} className="flex items-start gap-2 rounded-lg border border-line p-2.5 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={chosen.includes(scope)}
-                onChange={(e) => setChosen(e.target.checked ? [...chosen, scope] : chosen.filter((s) => s !== scope))}
-              />
-              <span>
-                <span className="block font-mono text-xs">{scope}</span>
-                <span className="block text-xs text-muted">{description}</span>
-              </span>
-            </label>
-          ))}
+        <fieldset>
+          <legend className="mb-1.5 text-sm font-medium">Scopes</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {Object.entries(scopes).map(([scope, description]) => {
+              const on = chosen.includes(scope);
+              return (
+                <label
+                  key={scope}
+                  className={cx(
+                    'flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
+                    on ? 'border-fg/40 bg-panel-2' : 'border-line hover:bg-panel-2/50',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-current"
+                    checked={on}
+                    onChange={(e) => setChosen(e.target.checked ? [...chosen, scope] : chosen.filter((s) => s !== scope))}
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-mono text-xs">{scope}</span>
+                    <span className="mt-0.5 block text-xs text-muted">{description}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
         </fieldset>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
           <Button variant="primary" disabled={create.isPending || !chosen.length}>
             Create token
           </Button>
@@ -114,37 +153,68 @@ export function TokensPage() {
         }
       />
       {adding && org && list.data ? <NewToken orgId={org.id} scopes={list.data.scopes} onDone={() => setAdding(false)} /> : null}
-      {list.error ? <ErrorNote error={list.error} /> : null}
-      {list.isLoading ? (
-        <Loading />
-      ) : (
-        <Card>
-          {list.data?.tokens.length ? (
-            list.data.tokens.map((t) => (
-              <Row key={t.id}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    {t.name} <Badge>{t.kind}</Badge>
-                  </div>
-                  <div className="truncate font-mono text-xs text-muted">{t.scopes.join(' ')}</div>
-                </div>
-                <span className="hidden font-mono text-xs text-muted sm:block">{t.display}…</span>
-                <span className="hidden w-24 text-right text-xs text-muted sm:block">used {timeAgo(t.last_used_at)}</span>
-                <Button
-                  variant="danger"
-                  onClick={() => {
-                    if (confirm(`Revoke ${t.name}? Anything using it stops working.`)) revoke.mutate(t.id);
-                  }}
-                >
-                  Revoke
-                </Button>
-              </Row>
-            ))
-          ) : (
-            <Empty>No active tokens.</Empty>
-          )}
-        </Card>
-      )}
+      {list.error ? (
+        <div className="mb-4">
+          <ErrorNote error={list.error} />
+        </div>
+      ) : null}
+      <Card>
+        {list.isLoading || !org ? (
+          <SkeletonRows />
+        ) : list.data?.tokens.length ? (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Name</Th>
+                <Th className="hidden md:table-cell">Token</Th>
+                <Th className="hidden lg:table-cell">Last used</Th>
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.data.tokens.map((t) => (
+                <Tr key={t.id}>
+                  <Td className="w-full max-w-0 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-medium">{t.name}</span>
+                      <Badge>{t.kind}</Badge>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {t.scopes.map((scope) => (
+                        <Code key={scope} className="text-muted">
+                          {scope}
+                        </Code>
+                      ))}
+                    </div>
+                  </Td>
+                  <Td className="hidden whitespace-nowrap md:table-cell">
+                    <Mono>{t.display}…</Mono>
+                  </Td>
+                  <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums lg:table-cell">
+                    {timeAgo(t.last_used_at)}
+                  </Td>
+                  <Td className="text-right">
+                    <Button
+                      variant="danger"
+                      onClick={() => {
+                        if (confirm(`Revoke ${t.name}? Anything using it stops working.`)) revoke.mutate(t.id);
+                      }}
+                    >
+                      Revoke
+                    </Button>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <EmptyState icon={KeyRound} title="No active tokens">
+            Create a token for an app, an agent or a pipeline.
+          </EmptyState>
+        )}
+      </Card>
     </>
   );
 }

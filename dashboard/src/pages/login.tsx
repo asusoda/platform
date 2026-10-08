@@ -1,32 +1,34 @@
+import { ArrowRight } from 'lucide-react';
 import { useSearchParams } from 'react-router';
+import { Logo } from '../components/logo';
+import { ErrorNote } from '../components/ui';
 import { loginUrl } from '../lib/api';
-import { Card, ErrorNote } from '../components/ui';
 
 export function LoginPage() {
   const [params] = useSearchParams();
   const error = params.get('error');
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm p-6">
-        <svg viewBox="0 0 24 24" className="size-8" aria-hidden>
-          <rect x="3" y="4" width="18" height="4" rx="2" className="fill-fg" />
-          <rect x="3" y="10" width="18" height="4" rx="2" className="fill-muted" />
-          <rect x="3" y="16" width="18" height="4" rx="2" className="fill-line" />
-        </svg>
-        <h1 className="mt-4 text-lg font-semibold">Platform dashboard</h1>
-        <p className="mt-1 text-sm text-muted">Sign in with the Discord account that holds your organization's officer role.</p>
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="flex items-center gap-2 text-sm font-medium tracking-tight">
+          <Logo className="size-5" />
+          Platform
+        </div>
+        <h1 className="mt-8 text-2xl font-semibold tracking-tight">Sign in to the dashboard</h1>
+        <p className="mt-2 text-sm text-muted">Use the Discord account that holds your organization's officer role.</p>
         {error ? (
-          <div className="mt-4">
+          <div className="mt-6">
             <ErrorNote error={error} />
           </div>
         ) : null}
         <a
           href={loginUrl()}
-          className="mt-6 flex h-10 items-center justify-center rounded-lg bg-[#5865F2] text-sm font-medium text-white hover:opacity-90"
+          className="mt-8 flex h-10 items-center justify-center gap-2 rounded-md bg-fg text-sm font-medium text-bg shadow-xs transition-opacity hover:opacity-85"
         >
           Sign in with Discord
+          <ArrowRight className="size-4" />
         </a>
-      </Card>
+      </div>
     </div>
   );
 }
