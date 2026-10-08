@@ -1,6 +1,19 @@
-"""The modules that hold models, jobs and tools. Flask-free, so alembic, the worker and MCP can load it."""
+"""Module categories, and the modules that hold models, jobs and tools.
+
+Flask-free, so alembic, the worker and MCP can load it.
+"""
 
 import importlib
+
+# Each module and its category. modules/ stays flat; the categories group modules in modules/README.md and
+# match the sidebar sections of the dashboard (dashboard/src/pages/registry.tsx).
+CATEGORIES = {
+    "Members": ["accounts", "games", "points", "storefront", "users"],
+    "Automations": ["alerts", "calendar", "leetcode"],
+    "Knowledge and agents": ["agents", "asu", "knowledge", "mcp"],
+    "Infrastructure": ["compute", "runpod"],
+    "Platform": ["auth", "bot", "dashboard", "organizations", "public", "superadmin"],
+}
 
 # Importing these puts every table in Base.metadata (alembic/env.py, tests/conftest.py)
 MODEL_MODULES = [

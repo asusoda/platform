@@ -8,6 +8,7 @@ of the last indexed version, so a broken page cannot wipe a good index. No Flask
 import datetime
 import hashlib
 import os
+from collections.abc import Callable
 from typing import Any, cast
 
 from sqlalchemy import or_
@@ -59,7 +60,7 @@ def schedule(db, org_id: int, org_prefix: str, key: str, data: dict) -> dict:
     public, enabled = data.get("public", False), data.get("enabled", True)
     if not isinstance(public, bool) or not isinstance(enabled, bool):
         raise KnowledgeError("public and enabled must be true or false")
-    if public and not can_publish(org_prefix):
+    if public and not can_publish(db, org_prefix):
         raise KnowledgeError("This organization may not write public sources", 403)
 
     source = db.query(KnowledgeSource).filter_by(organization_id=org_id, key=key).first()
@@ -127,7 +128,8 @@ def _crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: boo
     url = str(source.url)
     if pacer is not None:
         pacer.wait(url)
-    page = fetch.fetch(url)
+    with fetch.firecrawl_scope(fetch.firecrawl_for(db, cast(int, source.organization_id))):
+        page = fetch.fetch(url)
     content_hash = hashlib.sha256(page.body).hexdigest()
     previous = db.query(KnowledgeVersion).filter_by(id=source.current_version_id).first()
     if previous is not None and previous.content_hash == content_hash and not force:
@@ -200,14 +202,14 @@ def due(db, now: datetime.datetime | None = None, limit: int = 20) -> list[Knowl
     return ready[:limit]
 
 
-def crawl_due(db, embedder: Embedder | None, now: datetime.datetime | None = None) -> dict:
-    """Crawl every due source, one host at a time per KNOWLEDGE_CRAWL_GAP_SECONDS. Commits."""
+def crawl_due(db, embedder_for: Callable[[int], Embedder | None], now: datetime.datetime | None = None) -> dict:
+    """Crawl every due source with its org's embedder, one host at a time per KNOWLEDGE_CRAWL_GAP_SECONDS. Commits."""
     pacer = fetch.HostPacer(_setting("KNOWLEDGE_CRAWL_GAP_SECONDS", 2))
     results = []
     for source in due(db, now, limit=_setting("KNOWLEDGE_CRAWL_BATCH", 20)):
         started = runs.Timer()
         try:
-            results.append(crawl(db, source, embedder, pacer=pacer))
+            results.append(crawl(db, source, embedder_for(cast(int, source.organization_id)), pacer=pacer))
         except Exception:
             # One broken source must not stop the rest of the batch
             db.rollback()

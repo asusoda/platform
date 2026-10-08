@@ -1,17 +1,18 @@
 """Fetching pages for crawled sources: robots.txt, per-host pacing, public addresses only. No Flask here.
 
 Pages come
-through self-hosted Firecrawl when FIRECRAWL_URL is set (JavaScript rendered, markdown out), else
-through a plain GET. Every URL, and every redirect, must resolve to a public address, so a source
+through Firecrawl when one is set (JavaScript rendered, markdown out), else through a plain GET. An org
+sets its own Firecrawl on the Integrations page; else FIRECRAWL_URL and FIRECRAWL_API_KEY in .env give
+the deployment default. Every URL, and every redirect, must resolve to a public address, so a source
 cannot make the platform read its own network.
 """
 
-import ipaddress
 import os
-import socket
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -19,6 +20,9 @@ from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import requests
+
+from core import net
+from core.integrations.registry import Field, Integration, IntegrationError, org_values, register, use
 
 USER_AGENT = os.environ.get("KNOWLEDGE_USER_AGENT", "PlatformKnowledgeBot/1.0")
 TIMEOUT_SECONDS = 30
@@ -54,17 +58,12 @@ class Fetched:
 
 def check_url(url: str) -> None:
     """Raise FetchRejected unless url is http(s) on a host that resolves only to public addresses."""
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise FetchRejected(f"Only http and https URLs can be fetched: {url}")
     try:
-        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
-    except socket.gaierror as e:
-        raise FetchError(f"{parts.hostname} does not resolve") from e
-    for info in infos:
-        address = ipaddress.ip_address(str(info[4][0]).split("%")[0])
-        if not address.is_global:
-            raise FetchRejected(f"{parts.hostname} resolves to a non-public address")
+        net.check_public(url)
+    except net.NoHost as e:
+        raise FetchError(str(e)) from e
+    except net.NotPublic as e:
+        raise FetchRejected(str(e)) from e
 
 
 def _get(url: str, *, limit: int = MAX_BYTES) -> _Response:
@@ -149,14 +148,55 @@ def parse_firecrawl(url: str, payload: Any) -> Fetched:
     )
 
 
-def fetch_firecrawl(url: str, base_url: str) -> Fetched:
-    key = os.environ.get("FIRECRAWL_API_KEY", "")
+FIRECRAWL_URL_SECRET = "firecrawl_url"  # nosec B105 - the name of an org secret, not its value
+FIRECRAWL_KEY_SECRET = "firecrawl_api_key"  # nosec B105 - the name of an org secret, not its value
+
+
+@dataclass(frozen=True)
+class Firecrawl:
+    url: str
+    api_key: str | None = None
+    # An org's own server must stay on a public address; the deployment's may be on the private network
+    public_only: bool = False
+
+
+def deployment_firecrawl() -> Firecrawl | None:
+    """The deployment default from .env, or None."""
+    url = os.environ.get("FIRECRAWL_URL", "").strip()
+    return Firecrawl(url, os.environ.get("FIRECRAWL_API_KEY") or None) if url else None
+
+
+def firecrawl_for(db, org_id: int) -> Firecrawl | None:
+    """The org's own Firecrawl, else the deployment default, else None."""
+    saved = org_values(db, org_id, "firecrawl")
+    if saved is None:
+        return deployment_firecrawl()
+    return Firecrawl(saved[FIRECRAWL_URL_SECRET], saved.get(FIRECRAWL_KEY_SECRET), public_only=True)
+
+
+_FIRECRAWL: ContextVar[Firecrawl | None] = ContextVar("firecrawl", default=None)
+
+
+@contextmanager
+def firecrawl_scope(firecrawl: Firecrawl | None) -> Iterator[None]:
+    """fetch() inside the block uses firecrawl, or a plain GET when it is None."""
+    token = _FIRECRAWL.set(firecrawl)
+    try:
+        yield
+    finally:
+        _FIRECRAWL.reset(token)
+
+
+def fetch_firecrawl(url: str, firecrawl: Firecrawl) -> Fetched:
+    if firecrawl.public_only:
+        check_url(firecrawl.url)
     try:
         response = requests.post(
-            base_url.rstrip("/") + "/v2/scrape",
+            firecrawl.url.rstrip("/") + "/v2/scrape",
             json={"url": url, "formats": ["markdown"], "onlyMainContent": True, "timeout": 60000},
-            headers={"Authorization": f"Bearer {key}"} if key else {},
+            headers={"Authorization": f"Bearer {firecrawl.api_key}"} if firecrawl.api_key else {},
             timeout=90,
+            allow_redirects=False,
         )
     except requests.RequestException as e:
         raise FetchError("Firecrawl could not be reached") from e
@@ -164,6 +204,8 @@ def fetch_firecrawl(url: str, base_url: str) -> Fetched:
         raise FetchError(f"Firecrawl returned {response.status_code}")
     if response.status_code >= 400:
         raise FetchRejected(f"Firecrawl returned {response.status_code}")
+    if response.status_code != 200:
+        raise FetchError(f"Firecrawl returned {response.status_code}")
     try:
         return parse_firecrawl(url, response.json())
     except ValueError as e:
@@ -171,12 +213,47 @@ def fetch_firecrawl(url: str, base_url: str) -> Fetched:
 
 
 def fetch(url: str) -> Fetched:
-    """A page that robots.txt allows us to read."""
+    """A page that robots.txt allows us to read, through the Firecrawl of the current firecrawl_scope."""
     check_url(url)
     if not robots_allowed(url):
         raise FetchRejected(f"robots.txt disallows {url}")
-    firecrawl = os.environ.get("FIRECRAWL_URL", "").strip()
+    firecrawl = _FIRECRAWL.get()
     return fetch_firecrawl(url, firecrawl) if firecrawl else fetch_http(url)
+
+
+def _test(db, org_id: int) -> str:
+    firecrawl = firecrawl_for(db, org_id)
+    if firecrawl is None:
+        raise IntegrationError("Set a Firecrawl server first")
+    try:
+        page = fetch_firecrawl("https://example.com/", firecrawl)
+    except (FetchError, FetchRejected) as e:
+        raise IntegrationError(str(e)) from e
+    return f"Connected. Read {len(page.text or '')} characters from example.com."
+
+
+register(
+    Integration(
+        key="firecrawl",
+        title="Firecrawl",
+        description="Renders pages that need JavaScript before knowledge reads them. Without it, pages are read with a plain GET.",
+        fields=(
+            Field(
+                FIRECRAWL_URL_SECRET,
+                "Server URL",
+                "For example https://api.firecrawl.dev. It must be on a public address.",
+                kind="url",
+                secret=False,
+            ),
+            Field(FIRECRAWL_KEY_SECRET, "API key", "Leave empty for a server that needs no key.", optional=True),
+        ),
+        docs="modules/knowledge",
+        deployment=lambda: deployment_firecrawl() is not None,
+        test=_test,
+    )
+)
+use("firecrawl", "knowledge")
+use("firecrawl", "asu")
 
 
 class HostPacer:

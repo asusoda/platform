@@ -151,7 +151,7 @@ def rollback_app(db, org, name):
 @_route("/knowledge/sources", ["GET"])
 def list_sources(db, org):
     sources = knowledge.list_sources(db, _org_id(org), request.args.get("category"))
-    return {"sources": sources, "can_publish": knowledge.can_publish(str(org.prefix))}
+    return {"sources": sources, "can_publish": knowledge.can_publish(db, str(org.prefix))}
 
 
 @_route("/knowledge/sources/<path:key>", ["DELETE"])
@@ -196,7 +196,7 @@ def search(db, org):
         data.get("query"),
         category=data.get("category"),
         top_k=data.get("top_k"),
-        embedder=embedder.configured(),
+        embedder=embedder.for_org(db, _org_id(org)),
     )
 
 
@@ -206,21 +206,21 @@ def upload_documents(db, org):
     uploads = [documents.Upload(f.filename or "document", f.read()) for f in request.files.getlist("files")]
     form = {"category": request.form.get("category"), "folder": request.form.get("folder")}
     form["public"] = request.form.get("public") == "true"
-    return documents.upload(db, _org_id(org), str(org.prefix), uploads, form, embedder.configured())
+    return documents.upload(db, _org_id(org), str(org.prefix), uploads, form, embedder.for_org(db, _org_id(org)))
 
 
 @_route("/knowledge/settings", ["GET"])
 def get_knowledge_settings(db, org):
-    return _settings_body(settings.for_org(db, _org_id(org)))
+    return _settings_body(db, _org_id(org), settings.for_org(db, _org_id(org)))
 
 
 @_route("/knowledge/settings", ["PUT"])
 def set_knowledge_settings(db, org):
-    return _settings_body(settings.update(db, _org_id(org), json_body()))
+    return _settings_body(db, _org_id(org), settings.update(db, _org_id(org), json_body()))
 
 
-def _settings_body(values: dict) -> dict:
-    model = embedder.configured()
+def _settings_body(db, org_id: int, values: dict) -> dict:
+    model = embedder.for_org(db, org_id)
     return {
         "settings": values,
         "defaults": settings.defaults(),

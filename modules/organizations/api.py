@@ -16,6 +16,10 @@ logger = get_logger(__name__)
 organizations_blueprint = Blueprint("organizations", __name__)
 
 
+# Org config keys that their own routes write
+OWN_ROUTE_KEYS = ("modules", "leetcode", "knowledge", "branding", "dashboard", "compute", "access")
+
+
 @organizations_blueprint.route("/", methods=["GET"])
 @auth_required
 def get_organizations():
@@ -123,8 +127,8 @@ def update_organization_settings(org_id):
             return jsonify({"error": "Organization not found"}), 404
 
         if "config" in data:
-            # Module switches and LeetCode settings have their own routes; keep them when the rest is replaced
-            kept = {k: v for k, v in (org.config or {}).items() if k in ("modules", "leetcode")}
+            # Keys with their own routes are kept when the rest is replaced
+            kept = {k: v for k, v in (org.config or {}).items() if k in OWN_ROUTE_KEYS}
             org.config = data["config"]
             if isinstance(org.config, dict):
                 org.config = {**kept, **org.config}

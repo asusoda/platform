@@ -58,7 +58,7 @@ The sign-in page, the sign-in return and the org list use `AuthFrame`. It shows 
 
 A resolved notification stays hidden while its problem has the same message. When the message changes, it is open again. The resolved ids are in the org config key `dashboard.resolved`.
 
-The org marks (`OrgMarks` in `src/components/org-marks.tsx`) show the orgs that build Platform as a row of round logos, one over the next. They show on the sign-in pages and at the bottom of the sidebar. To add an org:
+The org marks (`OrgMarks` in `src/components/built-by.tsx`) show the orgs that build Platform as a row of round logos, one over the next. They show on the sign-in pages and at the bottom of the sidebar. To add an org:
 
 1. Put a square SVG logo with a transparent background in `dashboard/public/orgs/` and in `site/public/orgs/`.
 2. Add one entry to `BUILT_BY` in `dashboard/src/lib/links.ts` and to `orgs` in `site/lib/orgs.ts`: the name, the short name, the website, the logo path and the fill of the disk. The fill is fixed, so the logo looks the same on light and dark pages.
@@ -92,7 +92,7 @@ These files hold the parts that two or more pages use. Use them on a new page. D
 
 | File | Holds |
 | --- | --- |
-| `src/components/ui.tsx` | `PageHeader`, `Card`, `CardHeader`, `Row`, `Stat`, `StatGrid`, `Table`, `Th`, `Td`, `Tr`, `Button`, `DeleteButton`, `Input`, `SearchInput`, `Select`, `Textarea`, `Field`, `Switch`, `CheckOption`, `Badge`, `Dot`, `Mono`, `Code`, `EmptyState`, the loading skeletons, `ErrorNote`, `OkNote`, `Notice`, `Dialog`, `FormActions`, and `useShowMore` with `ShowMore` for long lists |
+| `src/components/ui/` (import from `components/ui`) | `PageHeader`, `Card`, `CardHeader`, `Row`, `Stat`, `StatGrid`, `Table`, `Th`, `Td`, `Tr`, `Button`, `DeleteButton`, `Input`, `SearchInput`, `Select`, `Textarea`, `Field`, `Switch`, `CheckOption`, `Badge`, `Dot`, `Mono`, `Code`, `EmptyState`, the loading skeletons, `ErrorNote`, `OkNote`, `Notice`, `Dialog`, `FormActions`, and `useShowMore` with `ShowMore` for long lists |
 | `src/components/tabs.tsx` | `TabBar` and `useTabParam`: tabs that keep the open tab in `?tab=` |
 | `src/components/tooltip.tsx` | `Tooltip`: a label on hover and keyboard focus, with optional keys. `Kbd` |
 | `src/components/module-gate.tsx` | `ModuleGate` and `useModuleOn` |

@@ -28,7 +28,7 @@ All routes are under `/api/agents/members/<discord_id>`.
 | `GET /profile` | read | Nodes and relations |
 | `POST /profile/facts` | write | `facts: [{subject: {kind, label}, relation, object: {kind, label}, confidence}]`. A row that exists keeps the higher confidence |
 | `GET /profile/matching?subject=&relation=` | read | Relations from a subject. Case does not matter |
-| `GET /profile/similar?text=&limit=` | read | The nodes nearest to the text by embedding, with `distance`. 503 if `EMBEDDINGS_URL` is not set |
+| `GET /profile/similar?text=&limit=` | read | The nodes nearest to the text by embedding, with `distance`. 503 if the org has no embeddings service |
 | `DELETE /profile/relations` | write | Body: `subject`, `relation`, `object` |
 | `DELETE /profile/nodes?label=` | write | Deletes the nodes with that label and their edges |
 | `DELETE /data` | write | Deletes the member's profile graph and memories |
@@ -54,5 +54,5 @@ Agents that write during the turn can use the routes in the first table.
 
 ## Limits
 
-- Profile nodes match by exact kind and label. With `EMBEDDINGS_URL`, each node also gets a vector of "kind: label", so recall can start from what the member said. Platform does not merge similar nodes.
-- The member routes need a Discord session with `discord_id`. The member store sign-in does not set it.
+- Profile nodes match by exact kind and label. With an embeddings service, each node also gets a vector of "kind: label", so recall can start from what the member said. Platform does not merge similar nodes.
+- The member routes need a Discord session with `discord_id`. The member sign-in of `web/` does not set it.

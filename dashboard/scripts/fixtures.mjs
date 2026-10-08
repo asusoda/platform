@@ -540,13 +540,17 @@ export function fixtures(now = Date.now()) {
     notice('p1', 'apps', 'match-scout', 'Health check failed after 5 tries: GET /health answered 502', 'apps', -2 * HOUR),
   ];
 
-  const field = (name, label, hint, setOffset = null, kind = 'text') => ({
+  const field = (name, label, hint, setOffset = null, kind = 'text', more = {}) => ({
     name,
     label,
     hint,
     kind,
+    secret: true,
+    optional: false,
     set: setOffset !== null,
+    value: null,
     updated_at: setOffset === null ? null : at(setOffset),
+    ...more,
   });
   const integrations = [
     {
@@ -563,13 +567,41 @@ export function fixtures(now = Date.now()) {
     {
       key: 'embeddings',
       title: 'Embeddings',
-      description: 'An OpenAI-compatible embeddings service for meaning search. The deployment sets it in .env.',
+      description: 'An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.',
       docs: 'modules/knowledge',
-      fields: [],
-      editable: false,
-      source: 'deployment',
+      fields: [
+        field('embeddings_url', 'Base URL', 'For example https://api.example.com/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
+          secret: false,
+          value: 'https://embed.example.org/v1',
+        }),
+        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B.', -4 * DAY, 'text', {
+          secret: false,
+          value: 'Qwen3-Embedding-0.6B',
+        }),
+        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key.', -4 * DAY, 'text', { optional: true }),
+        field('embeddings_query_prefix', 'Query prefix', 'Text put before each search query. Qwen3-Embedding takes an instruction here.', null, 'text', {
+          secret: false,
+          optional: true,
+        }),
+      ],
+      editable: true,
+      source: 'org',
       testable: true,
-      used_by: ['knowledge'],
+      used_by: ['agents', 'knowledge'],
+    },
+    {
+      key: 'firecrawl',
+      title: 'Firecrawl',
+      description: 'Renders pages that need JavaScript before knowledge reads them. Without it, pages are read with a plain GET.',
+      docs: 'modules/knowledge',
+      fields: [
+        field('firecrawl_url', 'Server URL', 'For example https://api.firecrawl.dev. It must be on a public address.', null, 'url', { secret: false }),
+        field('firecrawl_api_key', 'API key', 'Leave empty for a server that needs no key.', null, 'text', { optional: true }),
+      ],
+      editable: true,
+      source: null,
+      testable: true,
+      used_by: ['asu', 'knowledge'],
     },
     {
       key: 'github',
@@ -614,6 +646,20 @@ export function fixtures(now = Date.now()) {
       source: 'org',
       testable: true,
       used_by: ['compute', 'runpod'],
+    },
+    {
+      key: 'searxng',
+      title: 'Web search (SearXNG)',
+      description: 'Answers the web live query that agents use. Without it, that query answers 503.',
+      docs: 'modules/asu',
+      fields: [
+        field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
+        field('searxng_engines', 'Engines', 'Comma-separated. Leave empty for google,brave,bing.', null, 'text', { secret: false, optional: true }),
+      ],
+      editable: true,
+      source: 'deployment',
+      testable: true,
+      used_by: ['asu'],
     },
   ];
 
@@ -840,6 +886,7 @@ export function fixtures(now = Date.now()) {
       ],
     },
     '/api/superadmin/audit': { entries: crossAudit },
+    '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
     [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
@@ -870,6 +917,9 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/knowledge/settings`]: knowledgeSettings,
     [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs: knowledgeRuns },
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
+    [`/api/compute/${ORG.prefix}/settings`]: {
+      settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'theaisocietyasu/godfather-base:latest' },
+    },
     ...Object.fromEntries(
       livePods.map((pod) => [
         `/api/compute/${ORG.prefix}/pods/${pod.id}/sessions`,

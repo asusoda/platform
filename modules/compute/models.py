@@ -1,21 +1,15 @@
 """GPU and CPU pods an org runs for its members, and the SSH keys its pods trust."""
 
-import uuid
-
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
-from core.db import Base
+from core.db import Base, new_uuid
 from core.time import utcnow
-
-
-def _uuid() -> str:
-    return str(uuid.uuid4())
 
 
 class ComputePod(Base):
     __tablename__ = "compute_pods"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     pod_id = Column(String(64), nullable=False)  # RunPod's id
     name = Column(String(100), nullable=False)

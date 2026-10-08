@@ -106,6 +106,8 @@
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions GET,HEAD,OPTIONS compute.list_sessions
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions OPTIONS,POST compute.add_session
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions/<int:session_id> DELETE,OPTIONS compute.delete_session
+/api/compute/<string:org_prefix>/settings GET,HEAD,OPTIONS compute.get_settings
+/api/compute/<string:org_prefix>/settings OPTIONS,PUT compute.put_settings
 /api/compute/cli/callback GET,HEAD,OPTIONS compute.cli_callback
 /api/dashboard/<string:org_prefix>/apps GET,HEAD,OPTIONS dashboard.list_apps
 /api/dashboard/<string:org_prefix>/apps/<string:name> DELETE,OPTIONS dashboard.delete_app
@@ -211,6 +213,8 @@
 /api/superadmin/check GET,HEAD,OPTIONS superadmin.check_superadmin
 /api/superadmin/dashboard GET,HEAD,OPTIONS superadmin.get_dashboard
 /api/superadmin/guild_roles/<guild_id> GET,HEAD,OPTIONS superadmin.get_guild_roles
+/api/superadmin/publishers GET,HEAD,OPTIONS superadmin.get_publishers
+/api/superadmin/publishers/<int:org_id> OPTIONS,PUT superadmin.put_publisher
 /api/superadmin/remove_org/<int:org_id> DELETE,OPTIONS superadmin.remove_organization
 /api/superadmin/update_officer_role/<int:org_id> OPTIONS,PUT superadmin.update_officer_role
 /api/tools GET,HEAD,OPTIONS tools.list_tools

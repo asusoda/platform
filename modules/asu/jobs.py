@@ -13,6 +13,6 @@ def index_result(org_id: int, org_prefix: str, query_key: str, url: str, text: s
 
     db = db_connect.SessionLocal()
     try:
-        service.index_result(db, org_id, org_prefix, query_key, url, text, embedder.configured())
+        service.index_result(db, org_id, org_prefix, query_key, url, text, embedder.for_org(db, org_id))
     finally:
         db.close()

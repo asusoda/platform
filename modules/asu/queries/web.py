@@ -5,9 +5,9 @@ from __future__ import annotations
 import urllib.parse
 from typing import Any
 
-from modules.asu.http import get_json, plain
+from modules.asu.http import plain
 from modules.asu.queries.params import text
-from modules.asu.settings import settings
+from modules.asu.settings import search_json, settings
 from modules.asu.types import QueryError, QueryParam, QuerySource
 
 _TIME_RANGES = ("day", "week", "month", "year")
@@ -27,7 +27,7 @@ def answer(params: dict[str, str]) -> tuple[str, str]:
     time_range = text(params, "time_range").lower()
     if time_range:
         search["time_range"] = time_range
-    found = get_json(f"{cfg.base_url.rstrip('/')}/search?{urllib.parse.urlencode(search)}")
+    found = search_json(f"{cfg.base_url.rstrip('/')}/search?{urllib.parse.urlencode(search)}", cfg.public_only)
     citation = "https://www.google.com/search?" + urllib.parse.urlencode({"q": query})
     return citation, render(query, found, cfg.max_results, cfg.snippet_chars)
 
