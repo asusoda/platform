@@ -1,7 +1,8 @@
 """Apps on RunPod: manifests, deploys, health checks, rollback. No Flask here.
 
-An officer registers an app's manifest (the pod's hardware, ports, env and health path). The app's
-CI then deploys a new image tag with a token that can do nothing else. The first deploy creates the
+An officer registers an app's manifest (the pod's hardware, ports, env and health path), or the
+app's repo, whose platform.app.yaml is then read at the deployed git ref. The app's CI deploys a
+new image tag with a token that can do nothing else. The first deploy creates the
 pod; later deploys change its image, which restarts it. A job polls the health path and marks the
 deployment healthy or failed. Each org pays with its own RunPod key, the org secret runpod_api_key.
 """
@@ -10,9 +11,11 @@ import datetime
 import json
 import re
 from typing import Any
+from urllib.parse import quote
 
 import jsonschema
 import requests
+import yaml
 
 from core import runpod, secrets
 from core.logging_config import get_logger
@@ -23,6 +26,8 @@ logger = get_logger("runpod")
 
 SECRET_PREFIX = "app_"  # nosec B105 - a secret name prefix, not a value
 secrets.declare(runpod.SECRET_NAME, "RunPod API key the org's apps are deployed and billed with")
+GITHUB_SECRET = "github_token"  # nosec B105 - a secret name, not a value
+secrets.declare(GITHUB_SECRET, "GitHub token that can read the contents of the org's private app repos")
 secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named in its manifest's secret_env")
 
 scopes.declare("apps:read", "List apps on RunPod, their pods and deployments")
@@ -31,6 +36,11 @@ scopes.declare("apps:deploy", "Deploy a new image tag of an app")
 
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 TAG_PATTERN = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|sha256:[a-f0-9]{64})$")
+REPO_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
+PATH_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]{0,199}$")
+REF_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]{0,99}$")
+DEFAULT_MANIFEST_PATH = "platform.app.yaml"
+MAX_MANIFEST_BYTES = 100_000
 HEALTH_TIMEOUT = datetime.timedelta(minutes=15)
 REDACTED = "(secret)"
 
@@ -113,6 +123,48 @@ def _manifest(app: App) -> dict:
     return json.loads(str(app.manifest))
 
 
+def _validated(manifest: Any) -> dict:
+    try:
+        jsonschema.validate(manifest, MANIFEST_SCHEMA)
+    except jsonschema.ValidationError as e:
+        raise AppError(f"Invalid manifest: {e.message}") from e
+    return manifest
+
+
+def _safe_path(value: str, pattern: re.Pattern, name: str) -> str:
+    if not isinstance(value, str) or not pattern.match(value) or ".." in value:
+        raise AppError(f"{name} is not valid")
+    return value
+
+
+def fetch_manifest(db, org_id: int, repo: str, path: str, ref: str | None) -> dict:
+    """The manifest file in a GitHub repo at ref (the default branch when None), validated."""
+    url = f"https://api.github.com/repos/{repo}/contents/{quote(path)}"
+    headers = {"Accept": "application/vnd.github.raw+json", "User-Agent": "platform-runpod"}
+    token = secrets.get_secret(db, org_id, GITHUB_SECRET)
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        response = requests.get(url, params={"ref": ref} if ref else {}, headers=headers, timeout=15)
+    except requests.RequestException as e:
+        raise AppError("GitHub could not be reached", 502) from e
+    where = f"{repo} at {ref or 'its default branch'}"
+    if response.status_code == 404:
+        raise AppError(f"{path} was not found in {where}; private repos need the org secret {GITHUB_SECRET}", 422)
+    if response.status_code != 200:
+        raise AppError(f"GitHub answered {response.status_code} for {path} in {where}", 502)
+    if len(response.content) > MAX_MANIFEST_BYTES:
+        raise AppError(f"{path} is larger than {MAX_MANIFEST_BYTES} bytes", 422)
+    try:
+        manifest = yaml.safe_load(response.text)
+    except yaml.YAMLError as e:
+        raise AppError(f"{path} in {where} is not valid YAML", 422) from e
+    try:
+        return _validated(manifest)
+    except AppError as e:
+        raise AppError(f"{path} in {where}: {e.message}", 422) from e
+
+
 def _deployment_dict(d: AppDeployment) -> dict:
     return {
         "id": d.id,
@@ -120,6 +172,7 @@ def _deployment_dict(d: AppDeployment) -> dict:
         "status": d.status,
         "actor": d.actor,
         "error": d.error,
+        "manifest_ref": d.manifest_ref,
         "started_at": _iso(d.started_at),
         "finished_at": _iso(d.finished_at),
     }
@@ -134,6 +187,8 @@ def _app_dict(db, app: App) -> dict:
     return {
         "name": app.name,
         "manifest": _manifest(app),
+        "repo": app.repo,
+        "manifest_path": app.manifest_path,
         "pod_id": app.pod_id,
         "current_tag": app.current_tag,
         "latest_deployment": _deployment_dict(latest) if latest else None,
@@ -141,18 +196,25 @@ def _app_dict(db, app: App) -> dict:
     }
 
 
-def put_app(db, org_id: int, name: str, manifest: Any) -> dict:
-    """Create an app or replace its manifest. Commits."""
+def put_app(db, org_id: int, name: str, manifest: Any = None, repo: Any = None, manifest_path: Any = None) -> dict:
+    """Create an app or replace its manifest. Takes a manifest, or a repo whose manifest file is read
+    now from the default branch and again at each deploy's ref. Commits."""
     if not NAME_PATTERN.match(name):
         raise AppError("name must be lowercase letters, digits and dashes, up to 63")
-    try:
-        jsonschema.validate(manifest, MANIFEST_SCHEMA)
-    except jsonschema.ValidationError as e:
-        raise AppError(f"Invalid manifest: {e.message}") from e
+    if (manifest is None) == (repo is None):
+        raise AppError("Send either manifest or repo")
+    path = None
+    if repo is not None:
+        repo = _safe_path(repo, REPO_PATTERN, "repo (owner/name)")
+        path = _safe_path(manifest_path or DEFAULT_MANIFEST_PATH, PATH_PATTERN, "manifest_path")
+        manifest = fetch_manifest(db, org_id, repo, path, None)
+    else:
+        _validated(manifest)
     app = db.query(App).filter_by(organization_id=org_id, name=name).first()
     if app is None:
         app = App(organization_id=org_id, name=name)
         db.add(app)
+    app.repo, app.manifest_path = repo, path
     app.manifest = json.dumps(manifest, sort_keys=True)
     app.updated_at = _now()
     db.commit()
@@ -212,9 +274,10 @@ def _env(db, org_id: int, manifest: dict, redact: bool) -> dict[str, str]:
     return env
 
 
-def _request(db, org_id: int, org_prefix: str, app: App, tag: str, redact: bool) -> tuple[str, str, dict]:
+def _request(
+    db, org_id: int, org_prefix: str, app: App, manifest: dict, tag: str, redact: bool
+) -> tuple[str, str, dict]:
     """The RunPod call a deploy makes: create the pod, or change the existing one."""
-    manifest = _manifest(app)
     image = f"{manifest['image']}@{tag}" if tag.startswith("sha256:") else f"{manifest['image']}:{tag}"
     body: dict[str, Any] = {"image": image, "env": _env(db, org_id, manifest, redact)}
     for field in ("disk", "ports", "args", "registry"):
@@ -229,22 +292,46 @@ def _request(db, org_id: int, org_prefix: str, app: App, tag: str, redact: bool)
     return "POST", "/pods", body
 
 
-def deploy(db, org_id: int, org_prefix: str, name: str, tag: Any, actor: str | None, dry_run: bool = False) -> dict:
-    """Point the app's pod at a new image tag, creating the pod on the first deploy. Commits."""
+def deploy(
+    db,
+    org_id: int,
+    org_prefix: str,
+    name: str,
+    tag: Any,
+    actor: str | None,
+    dry_run: bool = False,
+    ref: Any = None,
+    manifest: dict | None = None,
+) -> dict:
+    """Point the app's pod at a new image tag, creating the pod on the first deploy. Commits.
+
+    An app with a repo reads its manifest file at ref first. manifest, from a rollback, skips that.
+    """
     if not isinstance(tag, str) or not TAG_PATTERN.match(tag):
         raise AppError("tag must be an image tag or a sha256 digest")
     app = _find(db, org_id, name)
+    manifest_ref = None
+    if manifest is None and app.repo:
+        manifest_ref = _safe_path(ref, REF_PATTERN, "ref") if ref is not None else None
+        manifest = fetch_manifest(db, org_id, str(app.repo), str(app.manifest_path), manifest_ref)
+    elif ref is not None and manifest is None:
+        raise AppError("ref applies only to apps registered with a repo")
+    manifest = manifest if manifest is not None else _manifest(app)
     if dry_run:
-        method, path, body = _request(db, org_id, org_prefix, app, tag, redact=True)
-        return {"dry_run": True, "request": {"method": method, "path": path, "body": body}}
+        method, path, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=True)
+        return {"dry_run": True, "manifest": manifest, "request": {"method": method, "path": path, "body": body}}
 
     client = client_for(db, org_id)
-    method, _, body = _request(db, org_id, org_prefix, app, tag, redact=False)
+    method, _, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=False)
     db.query(AppDeployment).filter_by(app_id=app.id, status="deploying").update(
         {"status": "failed", "finished_at": _now(), "error": "Replaced by a later deployment"},
         synchronize_session=False,
     )
-    deployment = AppDeployment(app_id=app.id, tag=tag, status="deploying", actor=actor)
+    stored = json.dumps(manifest, sort_keys=True)
+    deployment = AppDeployment(
+        app_id=app.id, tag=tag, status="deploying", actor=actor, manifest=stored, manifest_ref=manifest_ref
+    )
+    app.manifest = stored
     db.add(deployment)
     try:
         if method == "POST":
@@ -264,7 +351,7 @@ def deploy(db, org_id: int, org_prefix: str, name: str, tag: Any, actor: str | N
 
 
 def rollback(db, org_id: int, org_prefix: str, name: str, actor: str | None, dry_run: bool = False) -> dict:
-    """Deploy the newest healthy tag other than the current one."""
+    """Deploy the newest healthy tag other than the current one, with the manifest it ran with."""
     app = _find(db, org_id, name)
     previous = (
         db.query(AppDeployment)
@@ -274,7 +361,8 @@ def rollback(db, org_id: int, org_prefix: str, name: str, actor: str | None, dry
     )
     if previous is None:
         raise AppError("No earlier healthy deployment to roll back to", 409)
-    return deploy(db, org_id, org_prefix, name, str(previous.tag), actor, dry_run)
+    manifest = json.loads(str(previous.manifest)) if previous.manifest else None
+    return deploy(db, org_id, org_prefix, name, str(previous.tag), actor, dry_run, manifest=manifest)
 
 
 def _healthy(url: str) -> bool:

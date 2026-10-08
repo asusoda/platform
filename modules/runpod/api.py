@@ -64,7 +64,8 @@ def get_app(db, org, name):
 
 @_route("/<string:name>", "apps:manage", ["PUT"])
 def put_app(db, org, name):
-    return service.put_app(db, _org_id(org), name, _body().get("manifest"))
+    data = _body()
+    return service.put_app(db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"))
 
 
 @_route("/<string:name>", "apps:manage", ["DELETE"])
@@ -86,7 +87,14 @@ def get_pod(db, org, name):
 def deploy(db, org, name):
     data = _body()
     result = service.deploy(
-        db, _org_id(org), str(org.prefix), name, data.get("tag"), _actor(), dry_run=data.get("dry_run") is True
+        db,
+        _org_id(org),
+        str(org.prefix),
+        name,
+        data.get("tag"),
+        _actor(),
+        dry_run=data.get("dry_run") is True,
+        ref=data.get("ref"),
     )
     return result, 200 if result.get("dry_run") else 202
 
