@@ -1,4 +1,4 @@
-import { CalendarCheck, Coins, Plus, Upload, Users } from 'lucide-react';
+import { CalendarCheck, Coins, Plus, Upload, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { TabBar, useTabParam } from '../../components/tabs';
 import { Button, PageHeader, Stat, StatGrid } from '../../components/ui';
@@ -8,6 +8,7 @@ import type { PointsMember } from '../../lib/types';
 import { AwardDialog } from './award';
 import { EventsTab } from './events';
 import { HistoryDialog } from './history';
+import { MemberDialog } from './member-form';
 import { MembersTab } from './members';
 import { entryCount, type EventGroup, usePoints } from './shared';
 import { UploadDialog } from './upload';
@@ -23,6 +24,7 @@ export function PointsPage() {
   const [awarding, setAwarding] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [viewing, setViewing] = useState<PointsMember | null>(null);
+  const [editing, setEditing] = useState<{ member: PointsMember | null } | null>(null);
   const { members, entries } = usePoints(prefix);
   const list = members.data?.users ?? [];
 
@@ -49,6 +51,9 @@ export function PointsPage() {
         description="Members and their points, and the events that gave points."
         action={
           <>
+            <Button onClick={() => setEditing({ member: null })}>
+              <UserPlus className="size-4" /> Add member
+            </Button>
             <Button onClick={() => setUploading(true)}>
               <Upload className="size-4" /> Upload CSV
             </Button>
@@ -80,7 +85,16 @@ export function PointsPage() {
       )}
       <AwardDialog prefix={prefix} members={list} open={awarding} onClose={() => setAwarding(false)} />
       <UploadDialog prefix={prefix} open={uploading} onClose={() => setUploading(false)} />
-      <HistoryDialog prefix={prefix} member={viewing} onClose={() => setViewing(null)} />
+      <HistoryDialog
+        prefix={prefix}
+        member={viewing}
+        onClose={() => setViewing(null)}
+        onEdit={(m) => {
+          setViewing(null);
+          setEditing({ member: m });
+        }}
+      />
+      <MemberDialog prefix={prefix} member={editing?.member ?? null} open={Boolean(editing)} onClose={() => setEditing(null)} />
     </>
   );
 }

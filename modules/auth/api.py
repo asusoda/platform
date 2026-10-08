@@ -24,7 +24,7 @@ logger.info(f"Auth API using CLIENT_ID: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_
 
 
 # One-time login codes: the OAuth callback hands the browser a code, not the tokens, and the
-# web app trades it for the tokens with POST /exchange. Held in memory, so this assumes one API
+# client trades it for the tokens with POST /exchange. Held in memory, so this assumes one API
 # process (main.py runs one). Codes live LOGIN_CODE_SECONDS and work once.
 LOGIN_CODE_SECONDS = 60
 _login_codes: dict[str, tuple[float, str, str]] = {}

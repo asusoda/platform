@@ -11,7 +11,7 @@ The procedures are in `.agents/skills/` (linked from `.claude/skills/`) and list
 - `check`: before each commit.
 - `new-module`: to add a module.
 - `migration`: after a model change.
-- `api-contract`: to change a route that thesoda.io or `web/` calls.
+- `api-contract`: to change a route that thesoda.io or `dashboard/` calls.
 - `technical-writing`: for all prose, comments and messages.
 - `pr-ready`: before you open a PR.
 
@@ -41,7 +41,7 @@ flask --app main org|jobs|config ...
 | `alembic/` | Migrations. Nothing creates tables at startup |
 | `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
 | `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
-| `web/`, `dashboard/`, `site/` | Older React web app, officer dashboard (Vite), docs and landing site |
+| `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
 Modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users.

@@ -1,6 +1,6 @@
 # games
 
-Runs Jeopardy games in an org's Discord server. Officers upload games, select the active one and run it from the web app. `GameCog` makes the team roles and channels, posts questions and keeps the scoreboard.
+Runs Jeopardy games in an org's Discord server. Officers upload games, select the active one and run it with the bot commands. `GameCog` makes the team roles and channels, posts questions and keeps the scoreboard.
 
 ## Files
 

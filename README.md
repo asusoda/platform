@@ -32,8 +32,7 @@ Each org route checks access. The audit log records each change that an officer 
 | Discord bot | `bot_main.py` | |
 | Job worker | `worker_main.py` (Postgres only) | |
 | MCP server | `mcp_main.py` | 8001 |
-| Web app | `web/` | 5000 |
-| Officer dashboard | `dashboard/` | 5173 in dev |
+| Dashboard and member store | `dashboard/` | 5000 (5173 in dev) |
 
 The database is Postgres, or SQLite for a small deployment. Alembic makes the schema.
 
@@ -50,7 +49,7 @@ cp .env.template .env      # Discord app, bot token, secrets
 make dev
 ```
 
-The API is at http://localhost:8000 and the web app at http://localhost:5000. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
+The API is at http://localhost:8000 and the dashboard at http://localhost:5000. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
 
 ## Commands
 

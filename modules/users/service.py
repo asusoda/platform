@@ -12,7 +12,7 @@ from modules.users.models import User, UserOrganizationMembership
 
 logger = get_logger(__name__)
 
-# Request and response keys kept for thesoda.io and web/, and the column each one names
+# Request and response keys kept for thesoda.io and the dashboard, and the column each one names
 LEGACY_MEMBER_KEYS = {"asu_id": "student_id", "academic_standing": "class_standing"}
 
 UNIQUE_USER_FIELDS = ("username", "email", "discord_id", "student_id")

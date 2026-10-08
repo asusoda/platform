@@ -10,7 +10,7 @@ This page tells you how to deploy Platform, roll it back, move it to Postgres, t
 | --- | --- | --- |
 | `api` | `alembic upgrade head`, then gunicorn with 1 worker and 8 threads on port 8000 | default |
 | `bot` | `python3 bot_main.py`. Run exactly one, or each scheduled post goes out more than once | default |
-| `web` | The static React build on port 5000 | default |
+| `dashboard` | The dashboard build (`Dockerfile.dashboard`) on port 5000 | default |
 | `postgres` | Postgres 16 with pgvector | `postgres` |
 | `worker` | `python3 worker_main.py` | `postgres` |
 | `mcp` | `python3 mcp_main.py` on port 8001 | `mcp` |
@@ -26,11 +26,11 @@ The API uses one gunicorn worker because the one-time sign-in codes are in proce
 | Workflow | Does |
 | --- | --- |
 | `check.yml` | On each push and PR: `make ci` and bandit; migrations and tests on Postgres 16; the dashboard tests and build |
-| `images.yml` | Builds the API and web images on each PR. On `main` it pushes them to GHCR as `ghcr.io/<owner>/<repo>-api` and `-web` |
+| `images.yml` | Builds the API and dashboard images on each PR. On `main` it pushes them to GHCR as `ghcr.io/<owner>/<repo>-api` and `-dashboard` |
 | `hermes-image.yml` | Builds `deploy/hermes` when it changes. On `main` it pushes `ghcr.io/<owner>/<repo>-hermes` |
 | `cd.yml` | Deploys the example SoDA server after `check.yml` passes on `main`. It runs only in `asusoda/platform` |
 
-`Dockerfile.api` uses `uv sync --frozen`. If `uv.lock` does not agree with `pyproject.toml`, the build fails. Commit the two files together. The web image gets `REACT_APP_API_URL` at build time, so a change to it needs a new build.
+`Dockerfile.api` uses `uv sync --frozen`. If `uv.lock` does not agree with `pyproject.toml`, the build fails. Commit the two files together. The dashboard image gets `VITE_API_URL` and `VITE_SITE_URL` at build time (repository variables in CI), so a change to them needs a new build.
 
 ## Deploy
 
@@ -48,7 +48,7 @@ If `make deploy` or `make health` fails, it runs `make rollback`.
 `make deploy` does these steps:
 
 1. Get `origin/main` and find the changed files.
-2. Select the images to build. A change in `web/` or `Dockerfile.web` builds `web`. A change in a compose file or the `Makefile` builds both. A change in `.github/` or a `.md` file builds nothing. All other changes build `api`.
+2. Select the images to build. A change in `dashboard/` or `Dockerfile.dashboard` builds `dashboard`. A change in a compose file or the `Makefile` builds both. A change in `.github/` or a `.md` file builds nothing. All other changes build `api`.
 3. Run `uv run alembic upgrade head` on the host. If it fails, the deploy stops and the old containers keep running.
 4. Tag the current images as `:previous`.
 5. Build and start the changed services, then wait up to 60 seconds for each to be healthy. When it builds `api`, it also starts `bot` again, because the bot uses the same image.
@@ -57,7 +57,7 @@ If `make deploy` or `make health` fails, it runs `make rollback`.
 
 `make rollback` tags `soda-internal-api:previous` as `latest` and starts the containers again.
 
-Caution: the rollback does not change the web image or the database. If the failed deploy ran a migration, run `uv run alembic downgrade -1`, or copy back the file that `make backup` wrote to `data/backups/`.
+Caution: the rollback does not change the dashboard image or the database. If the failed deploy ran a migration, run `uv run alembic downgrade -1`, or copy back the file that `make backup` wrote to `data/backups/`.
 
 ## Move to Postgres
 

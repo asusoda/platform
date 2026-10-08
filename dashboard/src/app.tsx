@@ -4,6 +4,8 @@ import { Shell } from './components/shell';
 import { tokens } from './lib/auth';
 import { AuthCallbackPage } from './pages/auth-callback';
 import { LoginPage } from './pages/login';
+import { MemberStorePage } from './pages/member-store';
+import { MemberLoginPage } from './pages/member-store/login';
 import { OrganizationsPage } from './pages/orgs';
 import { PAGES, pageElement, REDIRECTS } from './pages/registry';
 
@@ -17,6 +19,8 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth" element={<AuthCallbackPage />} />
+      <Route path="/store/:prefix" element={<MemberStorePage />} />
+      <Route path="/store/:prefix/login" element={<MemberLoginPage />} />
       <Route path="/" element={<SignedIn><OrganizationsPage /></SignedIn>} />
       <Route path="/:org" element={<SignedIn><Shell /></SignedIn>}>
         {PAGES.map((p) =>

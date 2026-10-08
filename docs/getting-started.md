@@ -9,7 +9,7 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
 | uv | Python 3.12, dependencies and the virtual environment |
 | Podman and podman-compose, or Docker | The containers. The Makefile finds the one you have |
 | make | Every command |
-| Node 20 | Only to run `web/`, `dashboard/` or `site/` outside a container |
+| Node 20 | Only to run `dashboard/` or `site/` outside a container |
 
 ## Run it on your machine
 
@@ -21,7 +21,7 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
    ```
 
 2. Copy `.env.template` to `.env`. Set the values in the table below.
-3. Start the containers with `make dev`. The API is at http://localhost:8000 and the web app at http://localhost:5000.
+3. Start the containers with `make dev`. The API is at http://localhost:8000 and the dashboard at http://localhost:5000.
 4. Create an org:
 
    ```bash
@@ -41,7 +41,7 @@ To run the API with no container, run `uv run alembic upgrade head`, then `uv ru
 | `BOT_TOKEN` | The Discord bot token. The API also uses it to read servers, roles and members. If it is not set, sign-in returns 503 |
 | `CLIENT_ID`, `CLIENT_SECRET` | The Discord OAuth app for officer sign-in. It must be the app of `BOT_TOKEN` |
 | `REDIRECT_URI` | `<API URL>/api/auth/callback`. It must be a redirect of the Discord app |
-| `CLIENT_URL` | The web app URL. Sign-in sends the browser back to it |
+| `CLIENT_URL` | Sign-in from a client other than the dashboard sends the browser back to it |
 | `SYS_ADMIN` | The Discord user id of the superadmin |
 | `SECRET_KEY` or `FLASK_SECRET_KEY` | Signs session cookies. If neither is set, a random key is used and sessions end at each restart |
 | `SECRETS_KEY` | A Fernet key that encrypts org secrets. If it is not set, orgs cannot save secrets |
@@ -74,7 +74,7 @@ To run one test file: `uv run pytest tests/contract/test_compute.py -v`. The tes
 
 ## Run it on one RunPod pod
 
-`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the web app on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Set `RUN_BOT=false` to use the token of a bot that runs elsewhere, such as an agent bot: the API then uses the token only for Discord's REST API, and the bot commands, LeetCode posts and games do not run. Do not run two bot processes with one token. Jobs run in threads of the API, on SQLite.
+`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the dashboard on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Set `RUN_BOT=false` to use the token of a bot that runs elsewhere, such as an agent bot: the API then uses the token only for Discord's REST API, and the bot commands, LeetCode posts and games do not run. Do not run two bot processes with one token. Jobs run in threads of the API, on SQLite.
 
 At each start the script gets the head of `PLATFORM_BRANCH`. A pod restart thus deploys the branch.
 

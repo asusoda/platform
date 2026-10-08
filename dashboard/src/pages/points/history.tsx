@@ -1,11 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { cx, DeleteButton, Dialog, ErrorNote, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
+import { Button, cx, DeleteButton, Dialog, ErrorNote, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import { compact, timeAgo } from '../../lib/format';
 import type { PointsHistory, PointsMember } from '../../lib/types';
 import { entryCount, memberKey, signed } from './shared';
 
-export function HistoryDialog({ prefix, member, onClose }: { prefix: string; member: PointsMember | null; onClose: () => void }) {
+export function HistoryDialog({
+  prefix,
+  member,
+  onClose,
+  onEdit,
+}: {
+  prefix: string;
+  member: PointsMember | null;
+  onClose: () => void;
+  onEdit: (member: PointsMember) => void;
+}) {
   const client = useQueryClient();
   const key = member ? memberKey(member) : '';
   const history = useQuery({
@@ -26,6 +36,16 @@ export function HistoryDialog({ prefix, member, onClose }: { prefix: string; mem
       description={history.data ? `${compact(history.data.total_points)} points, ${entryCount(entries.length)}` : member?.email}
       wide
     >
+      {member ? (
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+          {member.asu_id ? <span>Student ID {member.asu_id}</span> : null}
+          {member.academic_standing ? <span>{member.academic_standing}</span> : null}
+          {member.major ? <span>{member.major}</span> : null}
+          <Button className="ml-auto" onClick={() => onEdit(member)}>
+            Edit details
+          </Button>
+        </div>
+      ) : null}
       {history.error ? <ErrorNote error={history.error} /> : null}
       {remove.error ? (
         <div className="mb-3">

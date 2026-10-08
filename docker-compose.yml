@@ -119,16 +119,17 @@ services:
     networks:
       - soda-network
 
-  web:
+  dashboard:
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: Dockerfile.dashboard
       cache_from:
-        - soda-web:latest
+        - soda-dashboard:latest
       args:
-        - REACT_APP_API_URL=${REACT_APP_API_URL}
-    image: soda-web:latest
-    container_name: soda-web
+        - VITE_API_URL=${VITE_API_URL}
+        - VITE_SITE_URL=${VITE_SITE_URL:-}
+    image: soda-dashboard:latest
+    container_name: soda-dashboard
     restart: unless-stopped
     ports:
       - "5000:5000"

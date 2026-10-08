@@ -20,7 +20,6 @@ This page lists what is left to build and the known faults. The other pages desc
 - [ ] Dashboard pages for job history and retry.
 - [ ] A member page for compute, so that members can see their pods and sessions without the CLI.
 - [ ] Shared tracing for agents on Platform (OpenTelemetry, with a self-hosted viewer).
-- [ ] Replace Create React App in `web/`, which is deprecated, with Vite.
 
 ## Modules
 
@@ -57,7 +56,6 @@ Campus source modules such as `asu` are examples. Another campus adds its own pa
 - `GameCog` and `HelperCog` use `bot.guilds[0]`, the first server of the bot, not the org of the request. Game state is in memory and a restart loses it.
 - The calendar sync needs the Notion properties `Name`, `Date`, `Location`, `Description` and `gcal_id`. If one has a different name, the sync skips the event and logs a warning.
 - The points CSV upload gives no progress or result. Errors go only to the log.
-- The CORS list in `main.py` does not have `localhost:5000`, the dev port of `web/`. Add it with `CORS_EXTRA_ORIGINS`.
 
 ## Not planned
 
