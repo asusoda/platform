@@ -64,7 +64,7 @@ def get_organization_stats(org_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        # Return mock stats for now - implement actual stats logic later
+        # Fixed sample values, not computed from the org's data
         stats = {"totalMembers": 25, "totalPoints": 1250, "activeEvents": 3, "monthlyPoints": 340}
 
         return jsonify(stats)
@@ -86,7 +86,7 @@ def get_organization_activity(org_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        # Return mock activity for now - implement actual activity logic later
+        # Fixed sample values, not read from the org's data
         activity = [
             {
                 "user_name": "John Doe",
@@ -122,7 +122,6 @@ def update_organization_settings(org_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        # Update organization settings
         if "config" in data:
             # Module switches and LeetCode settings have their own routes; keep them when the rest is replaced
             kept = {k: v for k, v in (org.config or {}).items() if k in ("modules", "leetcode")}
@@ -132,7 +131,6 @@ def update_organization_settings(org_id):
         if "prefix" in data:
             new_prefix = data["prefix"].strip()
 
-            # Validate prefix format
             if not new_prefix or len(new_prefix) < 2:
                 return jsonify({"error": "Prefix must be at least 2 characters"}), 400
             if len(new_prefix) > 20:
@@ -142,7 +140,6 @@ def update_organization_settings(org_id):
                     {"error": "Prefix can only contain lowercase letters, numbers, hyphens, and underscores"}
                 ), 400
 
-            # Check if prefix is already taken by another organization
             existing_org = service.find_by_prefix(db, new_prefix)
             if existing_org and existing_org.id != org_id:
                 return jsonify({"error": "Prefix is already taken by another organization"}), 400
@@ -177,7 +174,6 @@ def update_organization_calendar_settings(org_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        # Update calendar-related settings
         if "notion_database_id" in data:
             org.notion_database_id = data["notion_database_id"].strip() if data["notion_database_id"] else None
         if "calendar_sync_enabled" in data:
@@ -224,7 +220,7 @@ def get_organization_calendar_settings(org_id):
 def get_organization_roles(org_id):
     """Get Discord roles for the organization"""
     try:
-        # Return mock roles for now - implement actual Discord role fetching later
+        # Fixed sample values, not read from Discord
         roles = [
             {"id": "123456789", "name": "Officer"},
             {"id": "987654321", "name": "Member"},

@@ -94,7 +94,7 @@ class LeetCodeCog(commands.Cog):
             await ctx.followup.send("❌ Username cannot be empty.", ephemeral=True)
             return
 
-        # Validate by fetching recent AC submissions — raises RuntimeError for invalid usernames
+        # An unknown username makes the submissions fetch raise RuntimeError
         try:
             await fetch_recent_ac_submissions(username, limit=1)
         except RuntimeError as exc:

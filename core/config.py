@@ -14,7 +14,7 @@ class Config:
     def __init__(self) -> None:
         load_dotenv()
         try:
-            # Core Application Config
+            # Discord OAuth app and client URLs
             self.CLIENT_ID = os.environ.get("CLIENT_ID", "test-client-id")
             self.CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "test-client-secret")
             self.REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/callback")
@@ -24,10 +24,9 @@ class Config:
 
             self.DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/user.db")
 
-            # Service Tokens
             self.BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-            # Auth
+            # Clerk, for member sign-in on the website
             self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
             self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
                 "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
@@ -48,7 +47,6 @@ class Config:
             self.NOTION_API_KEY = os.environ.get("NOTION_API_KEY", "")
             self.TIMEZONE = os.environ.get("TIMEZONE", "America/Phoenix")
 
-            # Monitoring Configuration (Optional)
             self.SENTRY_DSN = os.environ.get("SENTRY_DSN")
 
             # Superadmin config: the Discord user id in SYS_ADMIN

@@ -62,8 +62,7 @@ CORS(
     },
 )
 
-# Session cookies are signed with this key. A known default would let anyone forge a session,
-# so without FLASK_SECRET_KEY or SECRET_KEY a random key is used and sessions end on restart.
+# Signs session cookies. Without FLASK_SECRET_KEY or SECRET_KEY, a random key is used and sessions end at restart.
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY")
 if not app.secret_key:
     logger.warning("FLASK_SECRET_KEY is not set; using a random session key until restart")
@@ -109,10 +108,8 @@ def health():
     ), 200
 
 
-# Log one structured line per API request
 register_request_logging(app, token_manager)
 
-# Record every successful API write in the audit_log table
 register_audit(app, token_manager)
 
 
@@ -126,8 +123,7 @@ def refuse_disabled_routes():
 register_modules(app)
 load_tools()
 
-# Background jobs. On Postgres the worker process (worker_main.py) runs them; on SQLite
-# periodic jobs run from a thread here, as the token cleanup always has.
+# On Postgres the worker process (worker_main.py) runs the jobs; on SQLite a thread here runs the periodic jobs.
 load_jobs()
 jobs.start_inline_scheduler()
 
@@ -163,11 +159,9 @@ def initialize_app():
     is_prod = os.environ.get("IS_PROD", "").lower() == "true"
     use_reloader = not is_prod
 
-    # With the reloader on, Werkzeug executes this file in both a parent (watcher) and a child
-    # (server) process. Starting the bot in both logs the same token in twice, so every scheduled
-    # post -- the daily LeetCode question in particular -- goes out twice. Only the child, marked
-    # by WERKZEUG_RUN_MAIN, owns the bot.
-    # In production the bot runs as its own process (bot_main.py) and RUN_BOT_IN_API is false.
+    # With the reloader, Werkzeug runs this file in a parent and a child process. Only the child
+    # (WERKZEUG_RUN_MAIN) starts the bot, so each scheduled post goes out once.
+    # In production RUN_BOT_IN_API is false and bot_main.py runs the bot.
     run_bot = os.environ.get("RUN_BOT_IN_API", "true").lower() == "true"
     if not run_bot:
         logger.info("RUN_BOT_IN_API is false; the bot runs in its own process")

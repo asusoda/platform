@@ -144,11 +144,9 @@ def callback():
             except DiscordUnavailable:
                 name = None
             name = name or user_info.get("global_name") or user_info.get("username")
-            # Generate token pair with both access and refresh tokens
             access_token, refresh_token = token_manager.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
             )
-            # Store user info in session with officer guilds
             session["user"] = {
                 "username": name,
                 "discord_id": user_id,
@@ -180,7 +178,6 @@ def refresh_token():
 
         refresh_token = data["refresh_token"]
 
-        # Generate new access token
         new_access_token = token_manager.refresh_access_token(refresh_token)
 
         if new_access_token:
@@ -211,9 +208,7 @@ def revoke_token():
 
         refresh_token = data["refresh_token"]
 
-        # Revoke the refresh token
         if token_manager.revoke_refresh_token(refresh_token):
-            # Also revoke the current access token
             current_token = bearer_token()
             if current_token:
                 token_manager.delete_token(current_token)
@@ -282,15 +277,12 @@ def logout():
     try:
         data = request.get_json()
         if data and "refresh_token" in data:
-            # Revoke refresh token
             token_manager.revoke_refresh_token(data["refresh_token"])
 
-        # Also blacklist current access token if provided
         token = bearer_token()
         if token:
             token_manager.delete_token(token)
 
-        # Clear session
         session.clear()
 
         return jsonify({"message": "Logged out successfully"}), 200

@@ -70,7 +70,6 @@ class OrganizationConfig(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Relationship
     organization = relationship("Organization", backref="configurations")
 
     def __repr__(self):
@@ -99,5 +98,4 @@ class Officer(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Relationship
     organization = relationship("Organization", backref="officers")

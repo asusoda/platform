@@ -30,7 +30,6 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, default=str)
 
 
-# Configure logging with colors and improved formatting
 def setup_logger():
     """Configure and return the root logger: colored text by default, JSON lines with LOG_FORMAT=json"""
     if os.environ.get("LOG_FORMAT", "").lower() == "json":
@@ -62,7 +61,6 @@ def setup_logger():
     return root_logger
 
 
-# Initialize root logger
 logger = setup_logger()
 
 

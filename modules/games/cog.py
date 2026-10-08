@@ -108,7 +108,6 @@ class GameCog(commands.Cog):
         await self.bot.execute("HelperCog", "delete_text_channel", self.announcement_channel)
         await self.bot.execute("HelperCog", "delete_text_channel", self.scoreboard_channel)
 
-        # Resetting attributes
         self.roles = []
         self.voice_channels = []
         self.game_category = None
@@ -172,7 +171,6 @@ class GameCog(commands.Cog):
         if team_count == 0:
             raise ValueError("No teams are set up in the game.")
 
-        # Clear current members from each team
         for team in self.game.teams:
             team.members.clear()
 

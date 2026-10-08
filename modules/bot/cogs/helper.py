@@ -5,7 +5,6 @@ from discord.ext import commands
 
 from core.log import get_logger
 
-# Get module logger
 logger = get_logger("bot.helpercog")
 
 
@@ -296,11 +295,10 @@ class HelperCog(commands.Cog):
         description="Clears the game environment from the Discord server.",
         guild_ids=[1011586463219060807],
     )
-    async def clear(self, interaction, dummy: str | None = None):  # Removed Interaction type hint
+    async def clear(self, interaction, dummy: str | None = None):
         """
         Clears the game environment from the Discord server.
         """
-        # dummy parameter is not used
         await interaction.response.defer()
         guild = self.bot.guilds[0]
         for category in guild.categories:

@@ -26,14 +26,12 @@ def verify_clerk_token(token):
     try:
         clerk = get_clerk_client()
 
-        # Create an httpx.Request object with the Authorization header
         req = httpx.Request(
             method="GET",
             url="https://api.clerk.com/v1",  # URL doesn't matter for token verification
             headers={"Authorization": f"Bearer {token}"},
         )
 
-        # Use Clerk's authenticate_request to verify the token
         if authorized_parties_env:
             authorized_parties = [party.strip() for party in authorized_parties_env.split(",") if party.strip()]
         else:

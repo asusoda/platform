@@ -8,7 +8,6 @@ from modules.auth.access import any_officer_denial
 
 from . import service
 
-# Get module logger
 logger = get_logger("games.api")
 
 game_blueprint = Blueprint("game", __name__, template_folder=None, static_folder=None)
@@ -70,7 +69,6 @@ def start_game():
     logger.info(f"Starting game: {game_name}")
     try:
         db.get_game(game_name)  # type: ignore[attr-defined]
-        # Implement game start logic here
         return jsonify({"message": f"Game {game_name} started", "status": "success"}), 200
     except Exception as e:
         logger.error(f"Error starting game {game_name}: {str(e)}", exc_info=True)
@@ -81,7 +79,6 @@ def start_game():
 def stop_game():
     logger.info("Stopping current game")
     try:
-        # Implement game stop logic here
         return jsonify({"message": "Game stopped", "status": "success"}), 200
     except Exception as e:
         logger.error(f"Error stopping game: {str(e)}", exc_info=True)
@@ -210,16 +207,13 @@ async def clean_active_game():
 
     logger.info("Cleaning active game via auth_bot")
     try:
-        # Assuming `clean_game` might be a direct method on the bot or a cog method
-        # If it's a cog method, need to get cog first.
-        # For now, assuming it's a method on a cog or bot that `execute` can handle if it were there.
-        # Let's assume it is on GameCog for consistency
+        # GameCog.clear_game, else a clean_game method on the bot
         cog = bot.get_cog("GameCog")  # type: ignore[attr-defined]
-        if cog and hasattr(cog, "clear_game"):  # clear_game seems more appropriate based on GameCog.py
+        if cog and hasattr(cog, "clear_game"):
             await cog.clear_game()
             logger.info("Active game cleaned successfully via GameCog")
             return jsonify({"message": "Active game cleaned successfully"}), 200
-        elif hasattr(bot, "clean_game"):  # Fallback if it was a direct bot method
+        elif hasattr(bot, "clean_game"):
             await bot.clean_game()  # type: ignore[attr-defined]
             logger.info("Active game cleaned successfully via bot.clean_game()")
             return jsonify({"message": "Active game cleaned successfully"}), 200
@@ -240,13 +234,11 @@ def get_active_game_state():
 
     logger.info("Getting active game state from auth_bot")
     try:
-        # Accessing bot.active_game directly is not safe if it's not a public/stable API of your BotFork or GameCog
-        # Prefer using a method from the cog if possible
+        # The state of GameCog.game, else of bot.active_game
         cog = bot.get_cog("GameCog")  # type: ignore[attr-defined]
         if cog and hasattr(cog, "game") and cog.game is not None and hasattr(cog.game, "get_state"):
             state = cog.game.get_state()
             return jsonify(state), 200
-        # Fallback for direct access if `active_game` was a custom attribute on your bot instance
         elif hasattr(bot, "active_game") and bot.active_game not in [None, ""]:
             return jsonify(bot.active_game.get_state()), 200  # type: ignore[attr-defined]
         else:

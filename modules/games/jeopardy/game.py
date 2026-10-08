@@ -140,7 +140,6 @@ class JeopardyGame:
         Returns:
             bool: True if the question was successfully marked as answered, False otherwise.
         """
-        # Find question by category and value
         if category in self.questions:
             for question in self.questions[category]:
                 if question.value == value:
