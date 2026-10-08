@@ -84,7 +84,7 @@ export function RegisterApp({ prefix, onDone }: { prefix: string; onDone: (name:
       <SourceChoice value={source} onChange={setSource} />
       {source === 'repo' ? (
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Repository" hint={repoOk ? 'owner/name. Private repos need the org secret github_token.' : 'Use the form owner/name.'}>
+          <Field label="Repository" hint={repoOk ? 'owner/name. Private repos need GitHub on Integrations.' : 'Use the form owner/name.'}>
             <Input value={repo} onChange={(e) => setRepo(e.target.value.trim())} placeholder="example-club/club-bot" aria-invalid={!repoOk} required />
           </Field>
           <Field label="Manifest path" hint="Read from the default branch now, and at the git ref of each deploy.">

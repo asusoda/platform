@@ -4,7 +4,7 @@ GPU and CPU pods on an org's own RunPod account that members connect to over SSH
 
 ## Setup
 
-1. Save the org's RunPod key as the org secret `runpod_api_key`. The runpod module uses the same key. `SECRETS_KEY` must be set.
+1. Connect RunPod on the dashboard's Integrations page. This saves the org secret `runpod_api_key`. The runpod module uses the same key. `SECRETS_KEY` must be set.
 2. Keep the `compute` module on for the org. It is on by default.
 3. Optional: set these in the server's `.env`.
    - `COMPUTE_CLI_NAME`: the CLI name in sign-in pages and errors. Default `the compute CLI`. The example AIS server sets `godfather`.

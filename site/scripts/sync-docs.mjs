@@ -32,6 +32,7 @@ const sections = {
       ['architecture.md', 'architecture'],
       ['data-model.md', 'data-model'],
       ['authentication.md', 'authentication'],
+      ['integrations.md', 'integrations'],
       ['writing-a-module.md', 'writing-a-module'],
       ['api-contract.md', 'api-contract'],
       ['operations.md', 'operations'],

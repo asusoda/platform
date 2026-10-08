@@ -17,6 +17,7 @@ Lists that can be long (knowledge sources, points members and events, knowledge 
 | Page | Shows |
 | --- | --- |
 | Overview | A link to open notifications, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
+| Integrations | Notion, Google, GitHub, RunPod, Discord and embeddings: state, keys, Test. See [integrations.md](./integrations.md) |
 | Notifications | Problems that need an officer: failed alert runs, failed deploys, knowledge sources that could not be fetched. Resolve or reopen each one. The bell in the top bar shows the open count and the newest ones |
 | Points | Members ranked by points, with the entries of each member. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV. Events grouped by name, with delete for all entries of an event |
 | Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: change the status, add a message to the member, delete |
@@ -45,7 +46,7 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 
 The other pages use the routes of their modules: `/api/points`, `/api/storefront`, `/api/calendar`, `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
 
-For private repos, save a read-only GitHub token with Actions read access as the org secret `github_token`.
+For private repos, connect GitHub on the Integrations page with a read-only token that can read Actions.
 
 The Settings page has these sections: General (description, points per message, points cooldown), Branding, Modules and Secrets. The calendar and LeetCode settings are on the Calendar and LeetCode pages. The old links `settings#calendar` and `settings#leetcode` open those pages. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
 

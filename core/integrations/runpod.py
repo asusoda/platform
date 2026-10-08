@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 import requests
 
+from core import secrets
+from core.integrations.registry import Field, Integration, IntegrationError, register
 from core.log import get_logger
 
 logger = get_logger("runpod")
@@ -78,3 +80,26 @@ class RunPodClient:
 def proxy_url(pod_id: str, port: int, path: str) -> str:
     """The public HTTPS address RunPod gives an http port of a pod."""
     return f"https://{pod_id}-{port}.proxy.runpod.net{path}"
+
+
+def _test(db, org_id: int) -> str:
+    key = secrets.get_secret(db, org_id, SECRET_NAME)
+    if not key:
+        raise IntegrationError("Set the RunPod API key first")
+    try:
+        pods = RunPodClient(key)._request("GET", "/pods") or []
+    except RunPodError as e:
+        raise IntegrationError(e.args[0]) from e
+    return f"Connected. {len(pods)} pods on the account."
+
+
+register(
+    Integration(
+        key="runpod",
+        title="RunPod",
+        description="The org's RunPod account: compute pods for members and deploys of org apps.",
+        fields=(Field(SECRET_NAME, "API key", "RunPod > Settings > API Keys, with read and write access."),),
+        docs="modules/compute",
+        test=_test,
+    )
+)
