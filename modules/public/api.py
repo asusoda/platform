@@ -5,8 +5,8 @@ from flask import Blueprint, jsonify, send_from_directory
 from sqlalchemy import and_, case, func
 
 from core.db import db_connect
+from core.http.responses import error_handler
 from modules.auth.access import member_details_allowed
-from modules.auth.decoraters import error_handler
 from modules.points.models import Points, User
 
 # Update the blueprint to include the static folder

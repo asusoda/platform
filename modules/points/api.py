@@ -9,9 +9,10 @@ from sqlalchemy.exc import IntegrityError
 
 from core import jobs
 from core.db import db_connect
+from core.http.request_log import bearer_token
 from core.log import logger
 from modules.auth.access import awarded_by, decide
-from modules.auth.decoraters import auth_required
+from modules.auth.decorators import auth_required
 from modules.auth.tokens import token_manager
 from modules.points.models import Points, User
 from modules.points.service import (
@@ -410,11 +411,11 @@ def _clerk_email() -> str | None:
     """The email of the Clerk session token on this request, or None."""
     from modules.auth import clerk
 
-    header = request.headers.get("Authorization", "")
-    if not header.startswith("Bearer ") or not header[7:].strip():
+    token = bearer_token()
+    if not token:
         return None
     try:
-        result = clerk.verify_clerk_token(header[7:].strip())
+        result = clerk.verify_clerk_token(token)
     except Exception:
         logger.debug("Clerk token verification failed in member_login", exc_info=True)
         return None
@@ -828,23 +829,17 @@ def get_org_points(org_prefix):
 @points_blueprint.route("/<string:org_prefix>/leaderboard", methods=["GET"])
 def get_org_leaderboard(org_prefix):
     """Get leaderboard for a specific organization"""
-    token = None
-    show_email = False  # Default to showing UUID unless authentication succeeds
-
-    # Extract token from Authorization header
-    if "Authorization" in request.headers:
-        token = request.headers["Authorization"].split(" ")[1]  # Get the token part
-
-    # If the token is present, validate it
+    # A valid platform token shows emails; without one the board shows UUIDs
+    show_email = False
+    token = bearer_token()
     if token:
         try:
-            # Check if the token is valid and not expired
             if token_manager.is_token_valid(token) and not token_manager.is_token_expired(token):
-                show_email = True  # If valid, set to show email
+                show_email = True
             elif token_manager.is_token_expired(token):
-                return jsonify({"message": "Token is expired!"}), 403  # Expired token
+                return jsonify({"message": "Token is expired!"}), 403
         except Exception as e:
-            return jsonify({"message": str(e)}), 401  # Token is invalid or some error occurred
+            return jsonify({"message": str(e)}), 401
 
     cache_key = (org_prefix, show_email)
     cache_entry = leaderboard_cache.get(cache_key)

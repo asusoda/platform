@@ -5,7 +5,7 @@ from core.db import db_connect
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from modules.auth.access import discord_directory
-from modules.auth.decoraters import superadmin_required
+from modules.auth.decorators import superadmin_required
 from modules.auth.tokens import token_manager
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization

@@ -5,7 +5,8 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from core.db import db_connect
-from modules.auth.decoraters import auth_required, error_handler
+from core.http.responses import error_handler
+from modules.auth.decorators import auth_required
 from modules.points.models import Points, User
 from modules.points.service import member_fields, member_input, merge_profile_fields
 

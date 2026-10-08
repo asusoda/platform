@@ -1,5 +1,6 @@
 """HTTP routes for pods. Officers manage an org's pods; members list and connect to the ones shared with them."""
 
+import functools
 import html
 import io
 import secrets
@@ -12,7 +13,7 @@ from core.config import config
 from core.db import db_connect
 from modules.accounts import providers
 from modules.auth import access
-from modules.auth.decoraters import auth_required, member_required
+from modules.auth.routes import member_view, officer_route, respond
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -25,29 +26,7 @@ def _body():
     return request.get_json(silent=True)
 
 
-def _officer_route(rule: str, methods: list[str]):
-    """An officer route under /<org_prefix>. The view gets (db, org, **path args)."""
-
-    def decorator(view):
-        def wrapper(org_prefix, **kwargs):
-            db = db_connect.SessionLocal()
-            try:
-                org = db.query(Organization).filter_by(prefix=org_prefix, is_active=True).first()
-                if org is None:
-                    return jsonify({"error": "Organization not found"}), 404
-                result = view(db, org, **kwargs)
-                return result if isinstance(result, tuple) else jsonify(result)
-            except (service.ComputeError, files.FilesError) as e:
-                db.rollback()
-                return jsonify({"error": e.message}), e.status
-            finally:
-                db.close()
-
-        wrapper.__name__ = view.__name__
-        compute_blueprint.route(f"/<string:org_prefix>{rule}", methods=methods)(auth_required(wrapper))
-        return view
-
-    return decorator
+_officer_route = functools.partial(officer_route, compute_blueprint)
 
 
 def _member_route(rule: str, methods: list[str]):
@@ -57,22 +36,7 @@ def _member_route(rule: str, methods: list[str]):
     """
 
     def decorator(view):
-        def run(db, org, discord_id, kwargs):
-            try:
-                result = view(db, org, str(discord_id), **kwargs)
-                return result if isinstance(result, tuple) else jsonify(result)
-            except service.ComputeError as e:
-                db.rollback()
-                return jsonify({"error": e.message}), e.status
-
-        def with_session(org_prefix, user_discord_id=None, organization=None, **kwargs):
-            db = db_connect.SessionLocal()
-            try:
-                return run(db, organization, user_discord_id, kwargs)
-            finally:
-                db.close()
-
-        session_route = member_required(with_session)
+        session_route = member_view(view)
 
         def wrapper(org_prefix, **kwargs):
             header = request.headers.get("Authorization", "")
@@ -91,7 +55,7 @@ def _member_route(rule: str, methods: list[str]):
                     return jsonify({"error": "Discord is not available; try again shortly"}), 503
                 if not membership:
                     return jsonify({"error": "You are no longer a member of this organization"}), 403
-                return run(db, org, discord_id, kwargs)
+                return respond(db, view, org, str(discord_id), **kwargs)
             finally:
                 db.close()
 

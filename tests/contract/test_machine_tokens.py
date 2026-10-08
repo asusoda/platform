@@ -85,7 +85,7 @@ def test_machine_token_cannot_use_officer_routes(client, officer_headers, soda_i
 
 @pytest.fixture
 def scoped_app(app):
-    from modules.auth.decoraters import machine_scope_required
+    from modules.auth.decorators import machine_scope_required
 
     probe = Flask("probe")
 

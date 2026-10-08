@@ -7,10 +7,12 @@ from flask import Blueprint, jsonify, redirect, request, session
 
 from core.config import config
 from core.db import db_connect
+from core.http.request_log import bearer_token
+from core.http.responses import error_handler
 from core.integrations.discord import DiscordUnavailable
 from core.log import logger
 from modules.auth.access import decide, discord_directory, officer_guilds
-from modules.auth.decoraters import auth_required, error_handler
+from modules.auth.decorators import auth_required
 from modules.auth.tokens import token_manager
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)
@@ -78,7 +80,7 @@ def validToken():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
+    token = bearer_token()
     if token_manager.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
@@ -211,10 +213,9 @@ def revoke_token():
 
         # Revoke the refresh token
         if token_manager.revoke_refresh_token(refresh_token):
-            # Also blacklist the current access token
-            auth_header = request.headers.get("Authorization")
-            if auth_header:
-                current_token = auth_header.split(" ")[1]
+            # Also revoke the current access token
+            current_token = bearer_token()
+            if current_token:
                 token_manager.delete_token(current_token)
 
             return jsonify({"message": "Token revoked successfully"}), 200
@@ -230,7 +231,7 @@ def valid_token():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
+    token = bearer_token()
     if token_manager.is_token_valid(token):
         if token_manager.is_token_expired(token):
             logger.info("Token is valid but expired.")
@@ -250,7 +251,7 @@ def get_app_token():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"error": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
+    token = bearer_token()
     appname = request.args.get("appname")
     if not appname:
         return jsonify({"error": "appname query parameter is required"}), 400
@@ -270,9 +271,7 @@ def get_name():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"error": "No authorization header"}), 401
-    autorisation = auth_header.split(" ")[1]
-
-    return jsonify({"name": token_manager.retrieve_username(autorisation)}), 200
+    return jsonify({"name": token_manager.retrieve_username(bearer_token())}), 200
 
 
 @auth_blueprint.route("/logout", methods=["POST"])
@@ -287,8 +286,8 @@ def logout():
             token_manager.revoke_refresh_token(data["refresh_token"])
 
         # Also blacklist current access token if provided
-        if "Authorization" in request.headers:
-            token = request.headers["Authorization"].split(" ")[1]
+        token = bearer_token()
+        if token:
             token_manager.delete_token(token)
 
         # Clear session
@@ -359,8 +358,7 @@ def revoke_app_token(token_id):
 def _caller_discord_id():
     token = session.get("token")
     if not token:
-        header = request.headers.get("Authorization", "")
-        token = header[7:].strip() if header.startswith("Bearer ") else None
+        token = bearer_token()
     return token_manager.retrieve_discord_id(token) if token else None
 
 
@@ -370,8 +368,7 @@ def machine_whoami():
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
 
-    header = request.headers.get("Authorization", "")
-    token = header[7:].strip() if header.startswith("Bearer ") else None
+    token = bearer_token()
     db = db_connect.SessionLocal()
     try:
         caller = machine_tokens.verify(db, token)

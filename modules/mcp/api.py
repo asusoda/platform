@@ -6,6 +6,7 @@ Both take a machine token (Bearer plat_...). The body of a call is the tool's ar
 from flask import Blueprint, jsonify, request
 
 from core.db import db_connect
+from core.http.request_log import bearer_token
 from core.tools import ToolError
 from modules.auth import machine_tokens
 from modules.mcp import runtime
@@ -14,8 +15,7 @@ tools_blueprint = Blueprint("tools", __name__)
 
 
 def _caller(db):
-    header = request.headers.get("Authorization", "")
-    return machine_tokens.verify(db, header[7:].strip() if header.startswith("Bearer ") else None)
+    return machine_tokens.verify(db, bearer_token())
 
 
 @tools_blueprint.route("", methods=["GET"])

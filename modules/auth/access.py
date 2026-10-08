@@ -16,6 +16,7 @@ from flask import current_app, request, session
 
 from core.config import config
 from core.db import db_connect
+from core.http.request_log import bearer_token
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from modules.auth.tokens import token_manager
@@ -42,9 +43,7 @@ def current_principal() -> Principal | None:
     """Read the platform credential on this request without re-validating it."""
     token = session.get("token")
     if not token:
-        header = request.headers.get("Authorization", "")
-        if header.startswith("Bearer ") and header[7:].strip():
-            token = header[7:].strip()
+        token = bearer_token()
     if not token:
         return None
     try:
@@ -67,8 +66,7 @@ def awarded_by(typed_name: str | None) -> str | None:
     """
     token = session.get("token")
     if not token:
-        header = request.headers.get("Authorization", "")
-        token = header[7:].strip() if header.startswith("Bearer ") else None
+        token = bearer_token()
     try:
         signed_in = token_manager.retrieve_username(token) if token else None
     except jwt.InvalidTokenError:

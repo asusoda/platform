@@ -11,7 +11,8 @@ Shared code the modules build on: configuration, database, logging, HTTP hooks, 
 | `db/` | `Base`, `DBConnect`, the `db_connect` instance, `session()`, and storefront query helpers |
 | `errors.py` | `ServiceError`, the error services raise with an HTTP status |
 | `http/audit_hook.py` | After-request hook that records successful API writes in the audit log |
-| `http/request_log.py` | One log line per API request: route, org, credential kind, origin |
+| `http/responses.py` | `json_body`, `error()` and `error_handler` |
+| `http/request_log.py` | One log line per API request: route, org, credential kind, origin; `bearer_token()` |
 | `integrations/discord.py` | `DiscordDirectory` (guilds, roles and members, cached), `send_message` and `add_reaction`, over Discord's REST API with the bot token |
 | `integrations/runpod.py` | RunPod REST client; each org's key is the org secret `runpod_api_key` |
 | `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres (run by `worker_main.py`), threads on SQLite |

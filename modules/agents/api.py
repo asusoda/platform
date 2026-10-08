@@ -7,10 +7,9 @@ superadmins have no route to read agent data.
 
 from flask import Blueprint, g, jsonify, request
 
-from core.db import db_connect
 from core.http import audit_hook
-from modules.auth.decoraters import machine_scope_required, member_required
-from modules.auth.routes import INACTIVE_ORG, json_body, token_org
+from core.http.responses import json_body
+from modules.auth.routes import machine_route, member_view
 from modules.knowledge import embedder
 from modules.organizations.models import Organization
 
@@ -36,31 +35,16 @@ audit_hook.SKIPPED_ROUTES.update(
 )
 
 
-def _error(e: service.AgentError):
-    return jsonify({"error": e.message}), e.status
-
-
 def _agent_route(rule: str, scope: str, methods: list[str]):
-    """Register a machine route. The view gets (db, who, **path args) and returns a JSON-able value or a response."""
+    """A machine route under /members/<discord_id>. The view gets (db, who, **path args)."""
 
     def decorator(view):
-        def wrapper(discord_id, **kwargs):
+        def bound(db, org, discord_id, **kwargs):
             caller = g.machine_caller
-            db = db_connect.SessionLocal()
-            try:
-                if token_org(db) is None:
-                    return jsonify({"error": INACTIVE_ORG}), 403
-                who = service.owner(caller.organization_id, discord_id, caller.token_id)
-                result = view(db, who, **kwargs)
-                return result if isinstance(result, tuple) else jsonify(result)
-            except service.AgentError as e:
-                db.rollback()
-                return _error(e)
-            finally:
-                db.close()
+            return view(db, service.owner(caller.organization_id, discord_id, caller.token_id), **kwargs)
 
-        wrapper.__name__ = view.__name__
-        agents_blueprint.route(M + rule, methods=methods)(machine_scope_required(scope)(wrapper))
+        bound.__name__ = view.__name__
+        machine_route(agents_blueprint, M + rule, scope, methods)(bound)
         return view
 
     return decorator
@@ -232,23 +216,14 @@ def turn_commit(db, who):
 # Member self-service: a member sees and deletes what agents keep about them.
 
 
-def _member(organization, user_discord_id):
-    return service.owner(int(organization.id), str(user_discord_id))
-
-
 def _member_view(view):
-    def wrapper(org_prefix, user_discord_id=None, organization=None, **kwargs):
-        db = db_connect.SessionLocal()
-        try:
-            return view(db, _member(organization, user_discord_id), **kwargs)
-        except service.AgentError as e:
-            db.rollback()
-            return _error(e)
-        finally:
-            db.close()
+    """A member route. The view gets (db, who, **path args)."""
 
-    wrapper.__name__ = view.__name__
-    return member_required(wrapper)
+    def bound(db, org, discord_id, **kwargs):
+        return view(db, service.owner(int(org.id), discord_id), **kwargs)
+
+    bound.__name__ = view.__name__
+    return member_view(bound)
 
 
 @agents_blueprint.route("/<string:org_prefix>/me", methods=["GET"])

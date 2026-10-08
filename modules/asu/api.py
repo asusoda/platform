@@ -5,8 +5,9 @@ from functools import partial
 from flask import Blueprint, jsonify
 
 from core.http import audit_hook
-from modules.auth.decoraters import machine_scope_required
-from modules.auth.routes import json_body, machine_route
+from core.http.responses import json_body
+from modules.auth.decorators import machine_scope_required
+from modules.auth.routes import machine_route
 
 from . import service
 

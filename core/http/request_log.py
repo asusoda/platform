@@ -17,7 +17,8 @@ logger = get_logger("request_log")
 SKIPPED_PATHS = ("/health", "/build/", "/api/public/static/", "/api/public/favicon.ico")
 
 
-def _bearer_token() -> str | None:
+def bearer_token() -> str | None:
+    """The token of an Authorization: Bearer header, or None."""
     header = request.headers.get("Authorization", "")
     if header.startswith("Bearer ") and header[7:].strip():
         return header[7:].strip()
@@ -26,7 +27,7 @@ def _bearer_token() -> str | None:
 
 def credential(token_manager) -> tuple[str, str | None]:
     """Classify the request's credential and return (kind, discord_id)."""
-    token = _bearer_token()
+    token = bearer_token()
     if token is None:
         if session.get("token") or session.get("discord_id"):
             return "session", session.get("discord_id")
