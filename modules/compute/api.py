@@ -1,16 +1,21 @@
 """HTTP routes for pods. Officers manage an org's pods; members list and connect to the ones shared with them."""
 
+import html
 import io
+import secrets
 from typing import cast
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, redirect, request, send_file, session
 
+from core import audit
+from modules.accounts import providers
 from modules.auth import access
 from modules.auth.decoraters import auth_required, member_required
+from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from shared import db_connect
+from shared import config, db_connect
 
-from . import files, schedule, service
+from . import cli_login, files, schedule, service
 
 compute_blueprint = Blueprint("compute", __name__)
 
@@ -45,25 +50,62 @@ def _officer_route(rule: str, methods: list[str]):
 
 
 def _member_route(rule: str, methods: list[str]):
-    """A member route under /<org_prefix>/me. The view gets (db, org, discord_id, **path args)."""
+    """A member route under /<org_prefix>/me. The view gets (db, org, discord_id, **path args).
+
+    Members come with a Discord login session or with a godfather CLI token (Bearer plat_...).
+    """
 
     def decorator(view):
-        def wrapper(org_prefix, user_discord_id=None, organization=None, **kwargs):
-            db = db_connect.SessionLocal()
+        def run(db, org, discord_id, kwargs):
             try:
-                result = view(db, organization, str(user_discord_id), **kwargs)
+                result = view(db, org, str(discord_id), **kwargs)
                 return result if isinstance(result, tuple) else jsonify(result)
             except service.ComputeError as e:
                 db.rollback()
                 return jsonify({"error": e.message}), e.status
+
+        def with_session(org_prefix, user_discord_id=None, organization=None, **kwargs):
+            db = db_connect.SessionLocal()
+            try:
+                return run(db, organization, user_discord_id, kwargs)
+            finally:
+                db.close()
+
+        session_route = member_required(with_session)
+
+        def wrapper(org_prefix, **kwargs):
+            header = request.headers.get("Authorization", "")
+            if not header.startswith("Bearer plat_"):
+                return session_route(org_prefix=org_prefix, **kwargs)
+            db = db_connect.SessionLocal()
+            try:
+                org = db.query(Organization).filter_by(prefix=org_prefix, is_active=True).first()
+                if org is None:
+                    return jsonify({"error": "Organization not found"}), 404
+                discord_id = cli_login.member_for(db, _org_id(org), header[7:].strip())
+                if discord_id is None:
+                    return jsonify({"error": "The CLI token is invalid or expired. Run godfather auth again."}), 401
+                membership = _is_member(org, discord_id)
+                if membership is None:
+                    return jsonify({"error": "Discord is not available; try again shortly"}), 503
+                if not membership:
+                    return jsonify({"error": "You are no longer a member of this organization"}), 403
+                return run(db, org, discord_id, kwargs)
             finally:
                 db.close()
 
         wrapper.__name__ = view.__name__
-        compute_blueprint.route(f"/<string:org_prefix>/me{rule}", methods=methods)(member_required(wrapper))
+        compute_blueprint.route(f"/<string:org_prefix>/me{rule}", methods=methods)(wrapper)
         return view
 
     return decorator
+
+
+def _is_member(org, discord_id: str) -> bool | None:
+    directory = access.discord_directory()
+    if directory is None or not directory.is_ready():
+        return None
+    return bool(directory.check_user_membership(int(discord_id), int(org.guild_id)))
 
 
 def _org_id(org) -> int:
@@ -224,3 +266,74 @@ def add_session(db, org, pod_id):
 def delete_session(db, org, pod_id, session_id):
     schedule.delete_session(db, _org_id(org), pod_id, session_id)
     return {"deleted": session_id}
+
+
+# Godfather CLI sign-in: Discord login in the browser, then a page with a token to paste.
+
+
+def _page(message: str, token: str | None = None, status: int = 200):
+    block = (
+        "<p>Copy this token and paste it into <code>godfather auth</code>. It is shown once and works for "
+        f"{cli_login.EXPIRES_DAYS} days.</p>"
+        '<pre style="padding: 1rem; background: #eee; white-space: pre-wrap; word-break: break-all">'
+        f"{html.escape(token)}</pre>"
+        if token
+        else ""
+    )
+    body = (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Godfather CLI</title></head>'
+        '<body style="font-family: system-ui, sans-serif; max-width: 36rem; margin: 4rem auto; padding: 0 1rem; '
+        f'line-height: 1.5"><p>{html.escape(message)}</p>{block}</body></html>'
+    )
+    return body, status, {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store"}
+
+
+def _callback_url() -> str:
+    return f"{providers.base_url()}/api/compute/cli/callback"
+
+
+@compute_blueprint.route("/<string:org_prefix>/cli/login", methods=["GET"])
+def cli_sign_in(org_prefix):
+    if not providers.base_url():
+        return _page("This server has no ACCOUNTS_BASE_URL, so Discord sign-in is not set up.", status=503)
+    state = secrets.token_urlsafe(24)
+    session["compute_cli_login"] = {"state": state, "org_prefix": org_prefix}
+    return redirect(providers.discord_consent_url(config.CLIENT_ID, state, _callback_url()))
+
+
+@compute_blueprint.route("/cli/callback", methods=["GET"])
+def cli_callback():
+    started = session.pop("compute_cli_login", None) or {}
+    if not started.get("state") or started["state"] != request.args.get("state") or not request.args.get("code"):
+        return _page("This sign-in was not started here, or was cancelled. Run godfather auth again.", status=400)
+    try:
+        discord_id = providers.discord_user_id(
+            config.CLIENT_ID, config.CLIENT_SECRET, request.args["code"], _callback_url()
+        )
+    except providers.ProviderError:
+        return _page("Discord sign-in failed. Run godfather auth again.", status=502)
+    db = db_connect.SessionLocal()
+    try:
+        org = db.query(Organization).filter_by(prefix=started.get("org_prefix"), is_active=True).first()
+        if org is None:
+            return _page("Organization not found.", status=404)
+        if not organizations.module_enabled(org, "compute"):
+            return _page("Compute is turned off for this organization.", status=404)
+        membership = _is_member(org, discord_id)
+        if membership is None:
+            return _page("Discord is not available right now. Try again shortly.", status=503)
+        org_name = str(org.name)
+        if not membership:
+            return _page(f"You need to be in the {org_name} Discord server to use its pods.", status=403)
+        token = cli_login.issue(db, _org_id(org), discord_id)
+    finally:
+        db.close()
+    audit.record(
+        "compute cli token issued",
+        source="http",
+        org=str(started.get("org_prefix")),
+        actor_kind="member",
+        actor_id=discord_id,
+    )
+    return _page(f"Signed in to {org_name}.", token)

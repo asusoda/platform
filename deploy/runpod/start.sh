@@ -32,6 +32,7 @@ API_URL="${API_URL:-https://${RUNPOD_POD_ID}-8000.proxy.runpod.net}"
 WEB_URL="${WEB_URL:-https://${RUNPOD_POD_ID}-5000.proxy.runpod.net}"
 export DATABASE_URL="${DATABASE_URL:-sqlite:///$DATA/user.db}"
 export REDIRECT_URI="${REDIRECT_URI:-$API_URL/api/auth/callback}"
+export ACCOUNTS_BASE_URL="${ACCOUNTS_BASE_URL:-$API_URL}"
 export CLIENT_URL="${CLIENT_URL:-$WEB_URL}"
 export CORS_EXTRA_ORIGINS="${CORS_EXTRA_ORIGINS:-$WEB_URL}"
 export IS_PROD=true FLASK_ENV=production FLASK_DEBUG=0 RUN_BOT_IN_API=false LOG_FORMAT=json
