@@ -8,7 +8,6 @@ import { AgentsPage } from './pages/agents';
 import { AlertsPage } from './pages/alerts';
 import { AppsPage } from './pages/apps';
 import { AuthCallbackPage } from './pages/auth-callback';
-import { CiPage } from './pages/ci';
 import { ComputePage } from './pages/compute';
 import { KnowledgePage } from './pages/knowledge';
 import { LoginPage } from './pages/login';
@@ -34,7 +33,7 @@ export function App() {
         <Route path="apps" element={<AppsPage />} />
         <Route path="knowledge" element={<KnowledgePage />} />
         <Route path="agents" element={<AgentsPage />} />
-        <Route path="ci" element={<CiPage />} />
+        <Route path="ci" element={<Navigate to="../activity?tab=ci" replace />} />
         <Route path="tokens" element={<TokensPage />} />
         <Route path="activity" element={<ActivityPage />} />
         <Route path="settings" element={<SettingsPage />} />

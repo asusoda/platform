@@ -24,6 +24,11 @@ def get_feed(db, org, key):
     return {"feed": service.get_feed(db, int(org.id), key)}
 
 
+@_route("/feeds/<string:key>/history", ["GET"])
+def feed_history(db, org, key):
+    return service.history(db, int(org.id), key)
+
+
 @_route("/feeds/<string:key>", ["PUT"])
 def put_feed(db, org, key):
     feed, created = service.put_feed(db, int(org.id), key, json_body())

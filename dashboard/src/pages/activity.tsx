@@ -1,13 +1,51 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ActivityList } from '../components/activity-list';
-import { Button, Card, ErrorNote, PageHeader, SkeletonRows } from '../components/ui';
+import { useSearchParams } from 'react-router';
+import { Button, Card, cx, ErrorNote, PageHeader, SkeletonRows } from '../components/ui';
 import { api } from '../lib/api';
 import { useCurrentOrg } from '../lib/org';
 import type { AuditEntry } from '../lib/types';
+import { CiRuns } from './ci';
 
 const PAGE = 50;
 
+const TABS = [
+  { id: 'changes', label: 'Changes' },
+  { id: 'ci', label: 'CI runs' },
+] as const;
+
 export function ActivityPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'ci' ? 'ci' : 'changes';
+  return (
+    <>
+      <PageHeader
+        title="Activity"
+        description="Every change an officer, token or job made in this organization, and the CI runs of its repositories."
+      />
+      <div role="tablist" aria-label="Activity" className="mb-6 flex gap-1 border-b border-line">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setParams(t.id === 'changes' ? {} : { tab: t.id }, { replace: true })}
+            className={cx(
+              '-mb-px h-9 border-b-2 px-3 text-sm transition-colors',
+              tab === t.id ? 'border-fg font-medium text-fg' : 'border-transparent text-muted hover:text-fg',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === 'ci' ? <CiRuns /> : <AuditLog />}
+    </>
+  );
+}
+
+function AuditLog() {
   const { org } = useCurrentOrg();
   const log = useInfiniteQuery({
     queryKey: ['audit', org?.id],
@@ -22,7 +60,6 @@ export function ActivityPage() {
   const entries = log.data?.pages.flatMap((p) => p.entries) ?? [];
   return (
     <>
-      <PageHeader title="Activity" description="Every change an officer, token or job made in this organization." />
       {log.error ? (
         <div className="mb-4">
           <ErrorNote error={log.error} />

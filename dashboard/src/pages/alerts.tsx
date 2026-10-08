@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellRing, Play, Plus, Trash2 } from 'lucide-react';
+import { BellRing, History, Play, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
   Badge,
   Button,
   Card,
   CardHeader,
+  Dialog,
   Dot,
   EmptyState,
   ErrorNote,
@@ -15,11 +16,15 @@ import {
   Select,
   SkeletonRows,
   Switch,
+  Table,
+  Td,
+  Th,
+  Tr,
 } from '../components/ui';
 import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
-import type { AlertFeed } from '../lib/types';
+import type { AlertFeed, AlertHistory, AlertRun } from '../lib/types';
 
 type Draft = { key: string; kind: AlertFeed['kind']; repo: string; label: string; webhook: string; every: string };
 const EMPTY: Draft = { key: '', kind: 'github_jobs', repo: '', label: 'Internship', webhook: '', every: '3' };
@@ -90,10 +95,90 @@ function NewFeed({ prefix, onDone }: { prefix: string; onDone: () => void }) {
   );
 }
 
+function runSummary(r: AlertRun): string {
+  if (r.found === null) return 'source not read';
+  if (r.recorded) return `${r.found} listed, ${r.new} recorded without posting`;
+  return `${r.found} listed, ${r.new} new, ${r.posted} posted`;
+}
+
+function FeedHistory({ prefix, feed, onClose }: { prefix: string; feed: string | null; onClose: () => void }) {
+  const history = useQuery({
+    queryKey: ['alerts', prefix, 'history', feed],
+    queryFn: () => api<AlertHistory>(`/api/alerts/${prefix}/feeds/${feed}/history`),
+    enabled: Boolean(feed),
+    refetchInterval: 10_000,
+  });
+  const runs = history.data?.runs ?? [];
+  const items = history.data?.items ?? [];
+  return (
+    <Dialog
+      open={Boolean(feed)}
+      onClose={onClose}
+      title={`History of ${feed ?? ''}`}
+      description="The last 50 runs, scheduled or started with Run now, and the last 50 items."
+      wide
+    >
+      {history.error ? <ErrorNote error={history.error} /> : null}
+      {history.isLoading ? (
+        <SkeletonRows />
+      ) : (
+        <>
+          <h3 className="mb-2 text-sm font-medium">Runs</h3>
+          {runs.length ? (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>When</Th>
+                  <Th>Result</Th>
+                  <Th className="hidden sm:table-cell">Took</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map((r, i) => (
+                  <Tr key={`${r.started_at}-${i}`}>
+                    <Td className="whitespace-nowrap">
+                      <span className="flex items-center gap-2">
+                        <Dot tone={r.error ? 'bad' : 'ok'} />
+                        {timeAgo(r.started_at)}
+                      </span>
+                    </Td>
+                    <Td className="text-sm">
+                      {runSummary(r)}
+                      {r.error ? <div className="text-xs text-bad">{r.error}</div> : null}
+                    </Td>
+                    <Td className="hidden whitespace-nowrap text-muted sm:table-cell">{(r.duration_ms / 1000).toFixed(1)}s</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted">No runs yet.</p>
+          )}
+          <h3 className="mb-2 mt-6 text-sm font-medium">Items</h3>
+          {items.length ? (
+            <ul className="divide-y divide-line text-sm">
+              {items.map((item, i) => (
+                <li key={`${item.created_at}-${i}`} className="flex items-center gap-3 py-2">
+                  <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                  <Badge>{item.posted ? 'posted' : 'recorded'}</Badge>
+                  <span className="whitespace-nowrap text-xs text-muted">{timeAgo(item.created_at)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted">No items yet.</p>
+          )}
+        </>
+      )}
+    </Dialog>
+  );
+}
+
 export function AlertsPage() {
   const { prefix } = useCurrentOrg();
   const client = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [viewing, setViewing] = useState<string | null>(null);
   const feeds = useQuery({
     queryKey: ['alerts', prefix],
     queryFn: () => api<{ feeds: AlertFeed[] }>(`/api/alerts/${prefix}/feeds`),
@@ -149,6 +234,9 @@ export function AlertsPage() {
               </div>
               <div className="flex items-center gap-1">
                 <Switch checked={f.enabled} onChange={() => toggle.mutate(f)} label={`Feed ${f.key} on`} />
+                <Button variant="ghost" size="icon" title="History" aria-label={`History of ${f.key}`} onClick={() => setViewing(f.key)}>
+                  <History className="size-4" />
+                </Button>
                 <Button variant="ghost" size="icon" title="Run now" aria-label={`Run ${f.key} now`} onClick={() => run.mutate(f.key)}>
                   <Play className="size-4" />
                 </Button>
@@ -173,6 +261,7 @@ export function AlertsPage() {
           </EmptyState>
         )}
       </Card>
+      <FeedHistory prefix={prefix} feed={viewing} onClose={() => setViewing(null)} />
     </>
   );
 }

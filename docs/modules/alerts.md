@@ -21,6 +21,7 @@ All routes are under `/api/alerts/<org>`, for officers of the org. The `alerts` 
 | `GET /feeds/<key>` | One feed |
 | `PUT /feeds/<key>` | Creates (201) or updates (200) a feed. Body below |
 | `DELETE /feeds/<key>` | Deletes the feed, its posted items and its webhook secret |
+| `GET /feeds/<key>/history` | The last 50 runs (time, duration, items found, new and posted, error) and the last 50 items the feed posted or recorded |
 | `POST /feeds/<key>/run` | Starts a run now and returns 202. With `{"post_existing": true}`, a first run posts the current items |
 
 ```json
@@ -61,7 +62,7 @@ A hackathon feed fails only if all its sources fail. MLH and Devpost refuse auto
 
 ## Schedule
 
-The `alerts.run_due` job runs every 15 minutes. It runs each enabled feed whose `every_hours` has passed since its last run, in orgs that have the module on. A failed run keeps its reason in `last_error`. The next run occurs at the next due time.
+The `alerts.run_due` job runs every 15 minutes. It runs each enabled feed whose `every_hours` has passed since its last run, in orgs that have the module on. A failed run keeps its reason in `last_error`. Each run, scheduled or started with Run now, adds a row to `alert_runs`; Platform keeps the last 50 for each feed. The next run occurs at the next due time.
 
 ## Move from a webhook script
 

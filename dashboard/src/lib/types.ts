@@ -95,6 +95,21 @@ export type AlertFeed = {
   posted: number;
 };
 
+export type AlertRun = {
+  started_at: string;
+  duration_ms: number;
+  found: number | null;
+  new: number | null;
+  posted: number;
+  recorded: boolean;
+  error: string | null;
+};
+
+export type AlertHistory = {
+  runs: AlertRun[];
+  items: { title: string; posted: boolean; created_at: string }[];
+};
+
 export type MachineToken = {
   id: number;
   name: string;
