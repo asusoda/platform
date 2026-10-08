@@ -20,3 +20,8 @@ Keeps the org record (Discord server, URL prefix, officer role, config) and the 
 - Tables: `organizations`, `organization_configs`, `officers`.
 
 Config keys: `modules` (a module name set to false for each module that is off), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.
+
+## Known gaps
+
+- Views in `api.py` open their own session and query the org. The settings route checks the prefix in the view, not with `PREFIX_PATTERN` in `service.py`.
+- `/stats`, `/activity` and `/roles` return fixed sample data.

@@ -15,3 +15,8 @@ Routes for the one superadmin of the deployment (`SYS_ADMIN`): add and remove or
 - Jobs: none.
 - Tools: none.
 - Tables: none.
+
+## Known gaps
+
+- `/add_org` makes the org with `service.new_organization`, not with `organizations.service.create_organization`. A taken prefix is not checked.
+- `/remove_org` deletes the org row with no cascade.

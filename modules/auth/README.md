@@ -23,3 +23,7 @@ Signs officers and members in with Discord and decides who can call a route: pla
 - Tables: `refresh_tokens`, `revoked_tokens`, `app_tokens`, `machine_tokens`, `sessions` (not used).
 
 See [docs/authentication.md](../../docs/authentication.md).
+
+## Known gaps
+
+- No `service.py`. The app token routes in `api.py` query and commit `app_tokens` in the view.

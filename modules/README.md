@@ -25,4 +25,6 @@ One folder for each module. Each folder has a `README.md` with its files and its
 | [superadmin](superadmin/README.md) | Orgs for the whole deployment | |
 | [users](users/README.md) | Members and memberships | |
 
-`registry.py` mounts each blueprint. `manifest.py` lists the model, job and tool modules. `cli.py` has the `flask --app main org`, `jobs` and `config` commands.
+`registry.py` mounts each blueprint. `manifest.py` lists the model, job and tool modules. `cli.py` has the `flask --app main org`, `jobs` and `config` commands. `tests/test_module_layout.py` checks that each module is in these lists and in the docs.
+
+The modules from SoDA (points, storefront, users, superadmin, calendar, organizations, public, auth, games) do not follow the module pattern in full. Each README lists its Known gaps.

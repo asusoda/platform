@@ -16,3 +16,8 @@ Members and their org memberships. Officer routes list, show, create and update 
 - Jobs: none.
 - Tools: none.
 - Tables: `users`, `user_organization_memberships`.
+
+## Known gaps
+
+- Views in `api.py` open their own session, query and commit. `service.py` has the lookups that points and storefront share.
+- `/<org_prefix>/submit-form` is not used. See Cleanup in `docs/roadmap.md`.
