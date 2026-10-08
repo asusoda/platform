@@ -148,8 +148,10 @@ deploy:
 			echo -e "$(GREEN)[INFO]$(NC) Building changed service images:$$SERVICES_TO_BUILD"; \
 			export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 			BUILDAH_LAYERS=true DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build $$SERVICES_TO_BUILD; \
-			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_BUILD"; \
-			$(COMPOSE_CMD) -f docker-compose.yml up -d $$SERVICES_TO_BUILD; \
+			SERVICES_TO_START="$$SERVICES_TO_BUILD"; \
+			if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_START="$$SERVICES_TO_START bot"; fi; \
+			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_START"; \
+			$(COMPOSE_CMD) -f docker-compose.yml up -d $$SERVICES_TO_START; \
 		else \
 			echo -e "$(YELLOW)[WARNING]$(NC) No deploy-impacting service changes detected. Skipping build/restart."; \
 		fi; \
