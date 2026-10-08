@@ -50,6 +50,7 @@ for model_module in (
     "modules.calendar.models",
     "modules.organizations.models",
     "modules.points.models",
+    "modules.runpod.models",
     "modules.storefront.models",
 ):
     import_module(model_module)

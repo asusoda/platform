@@ -20,6 +20,7 @@ from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
 from modules.points.api import points_blueprint
 from modules.public.api import public_blueprint
+from modules.runpod.api import apps_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
@@ -49,6 +50,7 @@ MOUNTS = [
     Mount(agents_blueprint, "/api/agents"),
     Mount(knowledge_blueprint, "/api/knowledge"),
     Mount(accounts_blueprint, "/api/accounts"),
+    Mount(apps_blueprint, "/api/apps"),
 ]
 
 
@@ -60,6 +62,7 @@ JOB_MODULES = [
     "modules.calendar.jobs",
     "modules.agents.jobs",
     "modules.accounts.jobs",
+    "modules.runpod.jobs",
 ]
 
 
@@ -69,6 +72,7 @@ TOOL_MODULES = [
     "modules.calendar.tools",
     "modules.points.tools",
     "modules.knowledge.tools",
+    "modules.runpod.tools",
 ]
 
 

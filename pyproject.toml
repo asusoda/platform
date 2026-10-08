@@ -142,5 +142,6 @@ source_modules = [
     "modules.mcp.runtime",
     "modules.organizations.service",
     "modules.points.service",
+    "modules.runpod.service",
 ]
 forbidden_modules = ["flask"]
