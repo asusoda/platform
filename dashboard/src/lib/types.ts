@@ -2,7 +2,7 @@
 
 export type Organization = { id: number; name: string; prefix: string; guild_id: string; icon_url: string | null };
 
-export type Branding = { logo_url: string | null; accent_color: string | null };
+export type Branding = { logo_url: string | null; accent_color: string | null; website_url: string | null };
 
 export type ModuleState = { name: string; description: string; enabled: boolean };
 

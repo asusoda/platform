@@ -1,5 +1,6 @@
 import {
   Activity,
+  Globe,
   BellRing,
   Bot,
   Boxes,
@@ -104,6 +105,7 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const { prefix } = useCurrentOrg();
   const navigate = useNavigate();
   const { data: superadmin } = useSuperadmin();
+  const website = useBranding(prefix).data?.website_url;
   const items = superadmin ? [...NAV, { to: 'admin', label: 'Superadmin', icon: ShieldCheck, end: false }] : NAV;
   return (
     <div className="flex h-full flex-col gap-5 p-3">
@@ -127,6 +129,17 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
           </NavLink>
         ))}
       </nav>
+      {website ? (
+        <a
+          href={website}
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-8 min-w-0 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"
+        >
+          <Globe className="size-4 shrink-0" />
+          <span className="truncate">{new URL(website).host}</span>
+        </a>
+      ) : null}
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
         <button
           className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"

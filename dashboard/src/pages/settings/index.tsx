@@ -94,7 +94,7 @@ function BrandingSection({ org, prefix }: { org: Organization; prefix: string })
   const branding = useBranding(prefix);
   return (
     <Card>
-      <CardHeader title="Branding" hint="The logo and accent color officers see in this dashboard." />
+      <CardHeader title="Branding" hint="The logo, website and accent color officers see in this dashboard." />
       {branding.data ? (
         <BrandingForm key={JSON.stringify(branding.data)} prefix={prefix} name={org.name} saved={branding.data} />
       ) : (

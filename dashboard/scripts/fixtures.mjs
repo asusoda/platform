@@ -6,7 +6,7 @@ const DAY = 24 * HOUR;
 
 export const ORG = { id: 1, name: 'Robotics Club', prefix: 'robotics', guild_id: '1290000000000000000', icon_url: null };
 
-export const BRANDING = { logo_url: null, accent_color: '#2563eb' };
+export const BRANDING = { logo_url: null, accent_color: '#2563eb', website_url: 'https://robotics.example.org' };
 
 const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
