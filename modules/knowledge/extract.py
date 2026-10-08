@@ -1,4 +1,4 @@
-"""HTML to text, and text to chunks. Ported from SparkyAI's scraper (ingest/extract.py, ingest/chunk.py)."""
+"""HTML to text, and text to chunks."""
 
 import re
 

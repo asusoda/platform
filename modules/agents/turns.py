@@ -1,6 +1,6 @@
 """One read and one write per agent turn. No Flask here.
 
-An agent such as Sparky reads the turn context before it calls its model, and commits the turn
+An agent reads the turn context before it calls its model, and commits the turn
 after it answers. The context holds who the member is in the org (from Discord, never from the
 agent), the conversation so far, memories and the profile graph. The commit writes the new
 messages, summary, memories, facts and pending actions in one transaction, so a failed turn

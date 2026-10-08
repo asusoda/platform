@@ -1,145 +1,33 @@
-# Utilities Module
+# core
 
-The utilities module provides shared functionality and helper classes used across the SoDA Internal API.
+Shared code the modules build on: configuration, database, logging, tokens, Discord REST access, jobs, tools, audit and org secrets.
 
-## Structure
+## Files
 
-```
-utils/
-├── config.py         # Configuration management
-├── TokenManager.py   # Token handling utilities
-└── db.py            # Database utilities
-```
+| File | Holds |
+| --- | --- |
+| `TokenManager.py` | `TokenManager`: RS256 keys in `./data`, access and refresh token pairs, app tokens, revocation, refresh token cleanup |
+| `audit.py` | The `audit_log` table, `record()`, and the `audit.prune` job (cron `30 3 * * *`, `AUDIT_RETENTION_DAYS`) |
+| `audit_http.py` | After-request hook that records successful API writes in the audit log |
+| `base.py` | The SQLAlchemy declarative `Base` |
+| `clerk_auth.py` | Clerk client and `verify_clerk_token` |
+| `config.py` | `Config`: settings from `.env` and the environment |
+| `db.py` | `DBConnect`: engine, sessions, `get_db`, and user, point and storefront query helpers |
+| `discord_directory.py` | `DiscordDirectory`: guilds, roles and members over Discord's REST API with the bot token, cached |
+| `discord_messages.py` | Sends messages and reactions over Discord's REST API without the gateway bot |
+| `errors.py` | `ServiceError`, the error services raise with an HTTP status |
+| `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres (run by `worker_main.py`), threads on SQLite |
+| `logging_config.py` | Logger setup, JSON formatting of request and access lines, `get_logger` |
+| `request_log.py` | One log line per API request: route, org, credential kind, origin |
+| `runpod.py` | RunPod REST client; each org's key is the org secret `runpod_api_key` |
+| `secrets.py` | The `org_secrets` table, `declare()`, and Fernet-encrypted `set_secret` and `get_secret` keyed by `SECRETS_KEY` |
+| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) served over MCP and `/api/tools` |
+| `types.py` | `ExtendedRequest`, a typed Flask request; nothing imports it |
 
-## Features
+## Rule
 
-### Configuration Management
-- Environment variable handling
-- Configuration validation
-- Default value management
-- Secret management
-- Configuration reloading
+core imports nothing from `modules/`. The import-linter contract `core imports no module` in `[tool.importlinter]` of `pyproject.toml` enforces it (`make check` runs `lint-imports`), with three listed exceptions: `core.db -> modules.storefront.models`, `core.TokenManager -> modules.auth.models`, `core.discord_directory -> modules.organizations.models`.
 
-### Database Utilities
-- Connection pooling
-- Query building
-- Transaction management
-- Error handling
-- Connection retry logic
+## More
 
-### Token Management
-- Token generation
-- Token validation
-- Token storage
-- Token rotation
-- Token cleanup
-
-## Components
-
-### Config
-- Environment loading
-- Configuration validation
-- Secret management
-- Default values
-- Type conversion
-
-### Database
-- Connection management
-- Query execution
-- Transaction handling
-- Error recovery
-- Connection pooling
-
-### TokenManager
-- Token generation
-- Token validation
-- Token storage
-- Token rotation
-- Token cleanup
-
-## Usage Examples
-
-### Configuration
-```python
-from core.config import config
-
-# Access configuration values
-db_url = config.DB_URL
-api_key = config.API_KEY
-
-# Set configuration values
-config.set('DEBUG', True)
-```
-
-### Database
-```python
-from core.db import DBConnect
-
-# Create database connection
-db = DBConnect()
-
-# Execute query
-result = db.execute("SELECT * FROM users")
-
-# Use context manager
-with db.transaction():
-    db.execute("INSERT INTO users (name) VALUES ('John')")
-```
-
-### Token Management
-```python
-from core.TokenManager import TokenManager
-
-# Initialize token manager
-token_manager = TokenManager()
-
-# Generate token
-token = token_manager.generate_token(user_id="123")
-
-# Validate token
-is_valid = token_manager.validate_token(token)
-```
-
-## Configuration
-
-Required environment variables:
-- `DATABASE_URL`: Database connection URL
-- `TOKEN_SECRET`: Token signing secret
-- `TOKEN_EXPIRY`: Token expiration time
-- `ENVIRONMENT`: Application environment
-
-## Error Handling
-
-The module handles various utility-related errors:
-- Configuration errors
-- Database connection errors
-- Token validation errors
-- Environment errors
-- Type conversion errors
-
-## Security Considerations
-
-1. **Configuration Security**
-   - Secret encryption
-   - Environment isolation
-   - Access control
-   - Audit logging
-
-2. **Database Security**
-   - Connection encryption
-   - Query sanitization
-   - Access control
-   - Error masking
-
-3. **Token Security**
-   - Secure generation
-   - Proper validation
-   - Secure storage
-   - Regular rotation
-
-## Dependencies
-
-- `python-dotenv`: Environment management
-- `SQLAlchemy`: Database ORM
-- `PyJWT`: Token handling
-- `cryptography`: Encryption utilities 
+[docs/02-architecture.md](../docs/02-architecture.md)

@@ -1,6 +1,6 @@
 """Pods an org runs on its own RunPod account for members to SSH into. No Flask here.
 
-Ported from Godfather. Officers create, share, start, stop and terminate pods. Members list the
+Officers create, share, start, stop and terminate pods. Members list the
 running pods shared with them and get a short-lived certificate for their own SSH key. The org's
 RunPod key is the org secret runpod_api_key, shared with the runpod apps module.
 """
@@ -11,6 +11,7 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 
 from core import runpod, secrets
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
@@ -27,11 +28,8 @@ CLOUD_TYPES = ("COMMUNITY", "SECURE")
 MAX_ALLOWED_USERS = 500
 
 
-class ComputeError(Exception):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class ComputeError(ServiceError):
+    pass
 
 
 def _client(db, org_id: int) -> runpod.RunPodClient:

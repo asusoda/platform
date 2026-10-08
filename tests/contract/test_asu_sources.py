@@ -1,4 +1,4 @@
-"""ASU page extractors and live query sources, ported from SparkyAI's scraper tests. No network."""
+"""ASU page extractors and live query sources. No network."""
 
 import datetime
 import xml.etree.ElementTree as ET  # nosec B405 - parses literal test feeds

@@ -1,6 +1,7 @@
 # Compute pods (compute module)
 
-GPU and CPU pods on an org's own RunPod account that members SSH into. Ported from Godfather.
+GPU and CPU pods on an org's own RunPod account that members SSH into with the `godfather` CLI
+(`pip install godfather-cli`).
 Officers create pods and choose who may use them. Members get a certificate for their own SSH key
 that works on one pod for twelve hours.
 

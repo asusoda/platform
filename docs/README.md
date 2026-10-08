@@ -1,18 +1,20 @@
-# SoDA Platform — Documentation
+# Platform documentation
 
-This folder is the knowledge-transfer pack for the SoDA Platform codebase. It is written for
+This folder is the knowledge-transfer pack for the Platform codebase. It is written for
 someone who has never seen this repo before. Read the pages in order the first time; after that,
 use it as a reference.
 
 ## What this project is, in one paragraph
 
-The Software Developers Association (SoDA) at ASU runs its club operations on this platform. It is
-a **Flask REST API** plus a **React admin web app** plus a **Discord bot**, all in one repository
-and deployed as two containers. The API tracks club members, awards them "points" for showing up
-to events, lets them spend those points in a merch storefront, syncs the club's Notion event
-database into Google Calendar, and runs a Discord bot that posts the daily LeetCode challenge and
-hosts Jeopardy games. Everything is scoped to an **organization** (a Discord server), so the same
-deployment can serve multiple clubs.
+Platform is shared infrastructure for student organizations. It started as the platform the
+Software Developers Association (SoDA) at ASU runs its club on: a **Flask REST API**, a **React
+admin web app** and a **Discord bot**, tracking members, event points, a merch store, a Notion to
+Google Calendar sync, a daily LeetCode post and Jeopardy. Everything is scoped to an
+**organization** (a Discord server), and each org turns modules on or off. AI Society at ASU added
+modules for agents and compute: pods on RunPod that members SSH into (`compute`), per-member agent memory
+(`agents`), document search with an example campus source (`knowledge`, `asu`), linked Canvas, Google and Outlook accounts
+(`accounts`), app deploys (`runpod`), and an MCP server that exposes them to agents through scoped
+tokens. It runs as an API, a web app, a bot process, a job worker and an MCP server.
 
 ## Read these in order
 
@@ -29,30 +31,45 @@ deployment can serve multiple clubs.
 | 9 | [Deployment & Operations](./09-deployment-and-operations.md) | Docker, the Makefile, CI/CD, migrations in production, rollback |
 | 10 | [Gotchas & Known Issues](./10-gotchas-and-known-issues.md) | The traps. **Read this before you change anything.** |
 | 11 | [API Contract](./api-contract.md) | Every endpoint a client depends on, the contract tests that guard them, and the request log |
-| 12 | [Roadmap](./roadmap.md) | The plan for multi-org platform: phases, what moves in from Sparky, Godfather and Bedrock, status |
+| 12 | [Writing a module](./writing-a-module.md) | The files a module has, where it is registered, the rules CI checks |
+| 13 | [Roadmap](./roadmap.md) | What is left to build |
+
+## Agent and compute modules
+
+| Page | Module |
+|------|--------|
+| [Compute](./compute.md) | RunPod pods, SSH certificates, file manager, sessions, godfather CLI sign-in |
+| [Agents](./agents.md) | Conversations, memories, profile graph, turn context and commit |
+| [Knowledge](./knowledge.md) | Sources, crawls, hybrid search |
+| [ASU](./asu.md) | Example campus source: ASU pages and live queries |
+| [Accounts](./accounts.md) | Canvas, Google and Outlook sign-in for members |
+| [RunPod apps](./runpod-apps.md) | App manifests, deploys, health checks, rollback |
+| [Tools and MCP](./tools-and-mcp.md) | Machine tokens, scopes, /api/tools, the MCP server |
+| [RunPod deploy](./runpod-deploy.md) | Running the whole platform on one RunPod pod |
 
 ## The 60-second orientation
 
 ```
 platform/
-├── main.py                 Entry point. Registers blueprints, starts the bot thread, runs Flask.
-├── shared.py               Global singletons: Flask app, config, DB, token manager, Notion client.
-├── modules/                All backend code. One folder per domain.
-│   ├── auth/               Discord OAuth login + the auth decorators everything else uses
-│   ├── bot/                Discord bot (BotFork), cogs, Jeopardy game engine, LeetCode
-│   ├── calendar/           Notion → Google Calendar sync
-│   ├── organizations/      Multi-tenancy: orgs, their config, their officers
-│   ├── points/             Members, memberships, point transactions, leaderboards
-│   ├── public/             Unauthenticated read-only endpoints
-│   ├── storefront/         Products, orders, checkout paid in points
-│   ├── superadmin/         Add/remove organizations, manage officer roles
-│   ├── users/              Member CRUD within an organization
-│   └── utils/              Config, DB connection, logging, JWT, Clerk verification
-├── web/                    React admin app (Create React App)
+├── main.py                 API entry point. Registers blueprints, serves Flask under gunicorn.
+├── bot_main.py             Discord bot process.
+├── worker_main.py          Job worker (Procrastinate on Postgres).
+├── mcp_main.py             MCP server for agents.
+├── shared.py               Flask app, config, DB and token manager.
+├── core/                   Shared code: database, config, jobs, secrets, audit, logging, RunPod client.
+├── modules/                One folder per domain. Each has api.py, models.py and, where it has
+│                           logic, a Flask-free service.py. modules/registry.py lists them.
+│   ├── auth/               Discord login, access checks, machine tokens and scopes
+│   ├── organizations/      Orgs, their config, officers, module switches
+│   ├── points/, storefront/, calendar/, leetcode/, games/, users/, superadmin/, public/
+│   ├── compute/            RunPod pods, SSH certificates, file manager, sessions, CLI sign-in
+│   ├── agents/, knowledge/, asu/, accounts/, runpod/, mcp/
+│   └── bot/                Discord bot cogs
+├── web/                    React admin app
 ├── alembic/                Database migrations
-├── tests/                  Pytest suite (integration-style, skipped without env vars)
-├── Makefile                Every command you will run
-└── docker-compose.yml      Two services: api (port 8000), web (port 5000)
+├── deploy/runpod/          Start script for a single RunPod pod
+├── tests/                  Pytest suite, including contract tests for every route clients call
+└── Makefile                Every command you will run
 ```
 
 ## Conventions used in these docs

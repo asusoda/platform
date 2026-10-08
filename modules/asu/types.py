@@ -1,4 +1,4 @@
-"""Data types for ASU sources and live queries, as SparkyAI's scraper defines them (core/types.py)."""
+"""Data types for ASU sources and live queries."""
 
 from collections.abc import Callable
 from dataclasses import dataclass

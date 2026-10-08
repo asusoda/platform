@@ -1,151 +1,28 @@
-# Points Module
+# points
 
-The points module manages the Distinguished Members program's point system, handling point transactions, balances, and leaderboards.
+Tracks an organization's members and the points they earn. Officers add members, award points by hand or from an event attendance CSV, and read the leaderboard; members sign in with Clerk to see their profile.
 
-## Structure
+## Files
 
-```
-points/
-├── api.py           # Points API endpoints
-└── models.py        # Points-related models
-```
+| File | Holds |
+| --- | --- |
+| `api.py` | Member and points routes, CSV upload, leaderboard, member login and profile; also the user helpers (`get_or_create_user`, `link_or_create_user`, `get_or_create_user_from_clerk`) that users and storefront import |
+| `service.py` | The leaderboard query; declares the `points:read` scope |
+| `models.py` | Users, org memberships, point entries |
+| `tools.py` | The `points.leaderboard` tool |
+| `jobs.py` | The CSV import job |
 
-## Features
+## Surface
 
-### Point Management
-- Point awarding and deduction
-- Transaction history
-- Balance tracking
-- Point validation
-- Automated point rules
+- Routes: `/api/points`, gated by the `points` switch. Most routes need an officer of the org; `/<org_prefix>/leaderboard` is open and shows emails only to a signed-in caller; `/member_login` takes a Clerk token and `/member_profile` reads the session it sets.
+- Jobs: `points.import_event_csv`, deferred by the CSV upload, no schedule.
+- Tools: `points.leaderboard` (scope `points:read`, gated by `points`).
+- Tables: `users`, `user_organization_memberships`, `points`.
 
-### Leaderboard
-- Real-time rankings
-- Category-based leaderboards
-- Historical rankings
-- Achievement tracking
-- Progress monitoring
+## Depends on
 
-### Reporting
-- Point summaries
-- Transaction reports
-- User statistics
-- Activity tracking
-- Export capabilities
+`core.clerk_auth`, `core.jobs`, `core.tools`, `core.logging_config`, `core.base`; `modules.auth` (decorators, access, scopes), `modules.organizations.models`; `shared` (`db_connect`, `tokenManager`).
 
-## API Endpoints
+## More
 
-### Point Transactions
-- `POST /points/award`
-  - Awards points to a user
-  - Validates point amount
-  - Records transaction
-  - Updates leaderboard
-
-- `POST /points/deduct`
-  - Deducts points from a user
-  - Validates deduction
-  - Records transaction
-  - Updates balance
-
-- `GET /points/balance`
-  - Returns user's point balance
-  - Shows transaction history
-  - Displays achievements
-
-### Leaderboard
-- `GET /points/leaderboard`
-  - Returns current rankings
-  - Supports filtering
-  - Shows progress
-  - Includes statistics
-
-- `GET /points/history`
-  - Returns transaction history
-  - Supports filtering
-  - Includes metadata
-  - Export capabilities
-
-## Models
-
-### PointTransaction
-- Transaction ID
-- User ID
-- Point amount
-- Transaction type
-- Timestamp
-- Description
-- Validator ID
-
-### PointBalance
-- User ID
-- Current balance
-- Total earned
-- Total spent
-- Last updated
-- Achievement level
-
-### PointRule
-- Rule ID
-- Point amount
-- Conditions
-- Expiration
-- Category
-- Description
-
-## Configuration
-
-Required environment variables:
-- `POINTS_DATABASE_URL`: Database connection URL
-- `POINTS_MIN_AWARD`: Minimum point award
-- `POINTS_MAX_AWARD`: Maximum point award
-- `POINTS_CATEGORIES`: Point categories
-
-## Usage Example
-
-```python
-from modules.points.api import award_points, get_balance
-
-# Award points to a user
-await award_points(user_id="123", amount=10, reason="Event participation")
-
-# Get user's point balance
-balance = await get_balance(user_id="123")
-print(f"Current balance: {balance}")
-```
-
-## Error Handling
-
-The module handles various point-related errors:
-- Invalid point amounts
-- Insufficient balance
-- Duplicate transactions
-- Validation errors
-- Database errors
-
-## Security Considerations
-
-1. **Transaction Security**
-   - Point validation
-   - User verification
-   - Transaction logging
-   - Audit trail
-
-2. **Data Integrity**
-   - Atomic transactions
-   - Balance verification
-   - History tracking
-   - Backup systems
-
-3. **Access Control**
-   - Role-based permissions
-   - Transaction limits
-   - Approval workflows
-   - Audit logging
-
-## Dependencies
-
-- `SQLAlchemy`: Database ORM
-- `pandas`: Data analysis
-- `python-dateutil`: Date handling
-- `pytz`: Timezone support 
+[docs/05-backend-modules.md](../../docs/05-backend-modules.md)

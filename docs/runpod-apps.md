@@ -1,6 +1,6 @@
 # RunPod apps (runpod module)
 
-Deploys apps such as Sparky to RunPod pods. An officer registers the app's manifest once. After
+Deploys an org's own apps (a Discord bot, an agent, a model server) to RunPod pods. An officer registers the app's manifest once. After
 that, the app's CI deploys each new image tag with a token that can do nothing else. Each org
 deploys with its own RunPod API key, so each org pays for its own pods.
 
@@ -28,13 +28,13 @@ The same fields as YAML in `platform.app.yaml`, or as JSON inline:
 
 ```json
 {
-  "image": "ghcr.io/ashworks1706/sparky-engine",
+  "image": "ghcr.io/example-club/club-bot",
   "gpu": {"id": "NVIDIA RTX A5000", "count": 1},
   "cloud": "SECURE",
   "disk": 50,
   "ports": ["8080/http"],
-  "env": {"SPARKY_ENGINE__MODE": "prod"},
-  "secret_env": {"DISCORD_TOKEN": "app_sparky_discord_token"},
+  "env": {"MODE": "prod"},
+  "secret_env": {"DISCORD_TOKEN": "app_club_bot_discord_token"},
   "mounts": {"network": [{"volumeId": "vol_xyz", "path": "/runpod-volume"}]},
   "health": {"port": 8080, "path": "/health"}
 }
@@ -79,7 +79,7 @@ After the image is pushed. Drop `ref` for an app registered with an inline manif
 ```yaml
 - name: Deploy to RunPod
   run: |
-    curl -fsS -X POST "$PLATFORM_URL/api/apps/sparky/deploy" \
+    curl -fsS -X POST "$PLATFORM_URL/api/apps/club-bot/deploy" \
       -H "Authorization: Bearer $DEPLOY_TOKEN" -H "Content-Type: application/json" \
       -d "{\"tag\": \"${GITHUB_SHA}\", \"ref\": \"${GITHUB_SHA}\"}"
   env:

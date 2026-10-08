@@ -1,6 +1,6 @@
 """Crawled sources: the platform fetches a URL on a schedule, extracts, chunks, embeds and indexes it.
 
-Ported from SparkyAI's scraper pipeline (apps/scraper/ingest/pipeline.py). A run is skipped after
+A run is skipped after
 the fetch when the page hash is unchanged, and refused when the extracted text shrank below half
 of the last indexed version, so a broken page cannot wipe a good index. No Flask here.
 """
@@ -152,7 +152,7 @@ def index_text(
                 f"Extracted {len(text)} characters against {floor} last time; the index is kept. Run with force to accept"
             )
 
-    # Each chunk carries the page title, as SparkyAI indexes them
+    # Each chunk carries the page title
     rows: list[dict] = [
         {"ordinal": i, "level": 0, "parent_ordinal": None, "content": f"{label}\n{piece}", "embedding": None}
         for i, piece in enumerate(pieces)

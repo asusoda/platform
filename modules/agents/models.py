@@ -1,8 +1,7 @@
 """Conversations, messages, memories, the profile graph and pending actions of any agent.
 
-Rows are scoped by organization and the member's Discord id. The columns follow SparkyAI's schema
-(apps/scraper/migrations) so its engine can move here without changing its logic. Ids are UUID
-strings so they work on SQLite and Postgres alike.
+Rows are scoped by organization and the member's Discord id. Ids are UUID strings so they work on
+SQLite and Postgres alike.
 """
 
 import datetime
@@ -91,7 +90,7 @@ class AgentProfileNode(Base):
     kind = Column(String(100), nullable=False)
     label = Column(String(500), nullable=False)
     confidence = Column(Float, nullable=False, default=1.0)
-    embedding = Column(Embedding(), nullable=True)  # of "kind: label", as Sparky embeds nodes
+    embedding = Column(Embedding(), nullable=True)  # of "kind: label"
     embedding_model = Column(String(200), nullable=True)
     agent_token_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, nullable=False, default=_now)

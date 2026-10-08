@@ -1,4 +1,3 @@
-# ben was here
 import csv
 import time
 import uuid

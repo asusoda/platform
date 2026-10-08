@@ -1,75 +1,79 @@
-This project provides a modular internal API and Discord bots for the Software Developers Association (SoDA) at ASU. The server side is developed using Flask, handling API requests, Discord bot interactions, and data management across all modules.
+# Platform
 
-Documentation is in [docs/](docs/README.md). The plan for making platform shared infrastructure for several orgs is in [docs/roadmap.md](docs/roadmap.md).
+Platform is shared infrastructure for student organizations. Each org is a Discord server. One deployment serves many orgs, and each org turns on only the modules it uses.
 
-## Getting Started
+It started as the platform the Software Developers Association (SoDA) at ASU runs its club on. AI Society at ASU added the agent and compute modules. Both clubs run on it.
 
-### Prerequisites
+## What it does
 
-- Podman and podman-compose
-- Make
-- uv
+Club operations, from SoDA's platform:
 
-### Development Setup
+| Module | What it does |
+| --- | --- |
+| `points` | Members, event attendance points, leaderboards, CSV imports |
+| `storefront` | Merch store paid in points, with server-checked prices |
+| `calendar` | Notion events synced to Google Calendar, per-org credentials |
+| `leetcode`, `games` | Daily LeetCode post and Jeopardy in Discord |
+| `organizations`, `superadmin`, `users` | Orgs, officers, module switches, member records |
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/asusoda/platform.git
-   cd platform
-   ```
-  
-2. **Install dependencies & hooks:**
-   ```bash
-   uv sync
-   uv run pre-commit install
-   ```
+Agents and compute:
 
-3. **Configure environment variables:**
-   ```bash
-   # Copy the template environment file
-   cp .env.template .env
-   
-   # Edit the .env file with your configuration values
-   # This includes API keys, Discord bot token, etc.
-   ```
+| Module | What it does |
+| --- | --- |
+| `compute` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates through the godfather CLI. Officers get a file manager and scheduled sessions that start and stop pods around workshops. |
+| `agents` | Conversations, memories and a profile graph for each member, kept for agents that talk to members. Retention is 180 days by default. |
+| `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
+| `asu` | Example campus source: 226 public ASU pages and 16 live queries (dining, library hours, events), indexed into knowledge |
+| `accounts` | Canvas, Google and Outlook sign-in for a member, bound to their Discord account, so agents can act for them |
+| `runpod` | Deploy an org's apps to RunPod from a manifest in the app's repo, with health checks and rollback |
+| `mcp` | An MCP server and `/api/tools` that expose the modules above to agents through scoped machine tokens |
 
-4. **Start the development environment:**
-   ```bash
-   make dev
-   ```
+Every org route checks access, every change an officer or token makes is in the audit log, and org secrets are encrypted at rest. Background work runs as jobs on Procrastinate (Postgres) or in threads (SQLite).
 
-That's it! The application will be available at:
-- API: http://localhost:8000
-- Web Frontend: http://localhost:5000
+## Processes
 
+| Process | Entry point | Port |
+| --- | --- | --- |
+| API | `main.py` (gunicorn) | 8000 |
+| Web app (React) | `web/` | 5000 |
+| Discord bot | `bot_main.py` | |
+| Job worker | `worker_main.py` | |
+| MCP server | `mcp_main.py` | 8001 |
 
-## Common Commands
+The database is Postgres in production, or SQLite for small deployments. The schema is managed by Alembic.
+
+## Getting started
+
+You need Podman with podman-compose (or Docker), Make and uv.
 
 ```bash
-# Start development environment (with logs)
+git clone https://github.com/asusoda/platform.git
+cd platform
+uv sync
+uv run pre-commit install
+cp .env.template .env      # Discord app, bot token, secrets
 make dev
-
-# Start services in background
-make up
-
-# Stop services
-make down
-
-# View logs
-make logs
-
-# Check container status
-make status
-
-# Run all checks (lint, format, typecheck, tests)
-make check
-
-# Open shell in API container
-make shell
-
-# Build images
-make build
-
-# Deploy to production
-make deploy
 ```
+
+The API is at http://localhost:8000 and the web app at http://localhost:5000. Create an org with `flask --app main org create`.
+
+To run everything on one RunPod pod without Docker, see [docs/runpod-deploy.md](docs/runpod-deploy.md).
+
+## Commands
+
+```bash
+make dev       # start with logs
+make up        # start in the background
+make down      # stop
+make check     # lint, format, typecheck, tests
+make shell     # shell in the API container
+make deploy    # deploy to production
+```
+
+## Documentation
+
+[docs/](docs/README.md) explains the codebase page by page, with one page per module. [docs/roadmap.md](docs/roadmap.md) is the plan and its status.
+
+## License
+
+BSD 3-Clause (modified for web attribution). Copyright The Software Developers Association at ASU. See [LICENSE](LICENSE).
