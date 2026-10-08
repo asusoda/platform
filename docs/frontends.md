@@ -1,6 +1,6 @@
 # Frontends
 
-Platform has two officer frontends. `dashboard/` is the officer dashboard: one page for each org that shows what runs and what failed. `web/` is the older web app with the points, store, calendar, compute and Jeopardy pages, and the member store.
+Platform has two officer frontends. `dashboard/` is the officer dashboard: officers see and control what each org runs. `web/` is the older web app with the points, store, calendar, compute and Jeopardy pages, and the member store.
 
 ## Officer dashboard
 
@@ -17,7 +17,8 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: one p
 | CI | The latest GitHub Actions runs for the repos the org lists |
 | Tokens | Machine tokens: create and revoke |
 | Activity | The org's audit log, with pages |
-| Settings | Branding, module switches and org secrets |
+| Settings | General, branding, module switches, calendar, LeetCode and org secrets |
+| Superadmin | Orgs, officer roles, Discord servers without an org, and the audit log of all orgs. Only the superadmin sees it |
 
 The dashboard uses these officer routes in `modules/dashboard/`:
 
@@ -27,6 +28,10 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `GET /api/dashboard/<org>/ci` | The latest runs for each listed repo, kept in a cache for 120 seconds |
 | `PUT /api/dashboard/<org>/ci/repos` | Sets the repo list: `{"repos": ["owner/name"]}`, 20 or fewer |
 | `GET`, `PUT /api/dashboard/<org>/branding` | Gets or sets `logo_url` (https) and `accent_color` (`#RRGGBB`). An empty string or null removes a value |
+| `/api/dashboard/<org>/apps/...` | List, register, delete, deploy and roll back apps, and read the pod. The same operations as `/api/apps` in [runpod-apps](modules/runpod-apps.md), for officers |
+| `/api/dashboard/<org>/knowledge/...` | List and delete sources, add and run crawls, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
+
+The other pages use the routes of their modules: `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
 
 For private repos, save a read-only GitHub token with Actions read access as the org secret `github_token`.
 
