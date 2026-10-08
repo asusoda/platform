@@ -148,6 +148,8 @@ source_modules = [
     "modules.auth.machine_tokens",
     "modules.calendar.service",
     "modules.compute.cli_login",
+    "modules.dashboard.ci",
+    "modules.dashboard.service",
     "modules.compute.files",
     "modules.compute.schedule",
     "modules.compute.service",

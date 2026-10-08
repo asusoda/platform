@@ -35,11 +35,18 @@ def _issue_login_code(access_token: str, refresh_token: str) -> str:
     return code
 
 
+def _client_url(client: str | None) -> str:
+    """Where the browser goes after login: the dashboard when it started there and DASHBOARD_URL is set."""
+    dashboard = getattr(config, "DASHBOARD_URL", "")
+    return dashboard if client == "dashboard" and dashboard else config.CLIENT_URL
+
+
 @auth_blueprint.route("/login", methods=["GET"])
 def login():
     logger.info(f"Redirecting to Discord OAuth login for client_id: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
     state = secrets.token_urlsafe(24)
     session["oauth_state"] = state
+    session["oauth_client"] = "dashboard" if request.args.get("client") == "dashboard" else "web"
     query = urlencode(
         {
             "client_id": CLIENT_ID,
@@ -90,9 +97,10 @@ def callback():
 
     # The state must match the one /login stored, so a login started elsewhere is not accepted
     expected_state = session.pop("oauth_state", None)
+    client_url = _client_url(session.pop("oauth_client", None))
     if not expected_state or not secrets.compare_digest(expected_state, request.args.get("state", "")):
         if decide("oauth_state_mismatch"):
-            return redirect(f"{config.CLIENT_URL}/auth/?error=Login expired, please try again")
+            return redirect(f"{client_url}/auth/?error=Login expired, please try again")
 
     logger.info("Received authorization code, exchanging for token.")
     token_response = requests.post(
@@ -147,9 +155,9 @@ def callback():
             session["refresh_token"] = refresh_token
             # Redirect to the React frontend with a one-time code; the tokens stay out of the URL
             login_code = _issue_login_code(access_token, refresh_token)
-            return redirect(f"{config.CLIENT_URL}/auth/?code={login_code}")
+            return redirect(f"{client_url}/auth/?code={login_code}")
         else:
-            full_url = f"{config.CLIENT_URL}/auth/?error=Unauthorized Access"
+            full_url = f"{client_url}/auth/?error=Unauthorized Access"
             return redirect(full_url)
     else:
         logger.error(f"Failed to retrieve access token from Discord: {token_response_data}")

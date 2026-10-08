@@ -39,5 +39,5 @@ def delete_feed(db, org, key):
 def run_feed(db, org, key):
     service.get_feed(db, int(org.id), key)
     post_existing = json_body().get("post_existing") is True
-    defer("alerts.run_feed", org_id=int(org.id), key=key, post_existing=post_existing)
+    defer("alerts.run_feed", org_id=int(org.id), key=key, post_existing=post_existing, org_prefix=str(org.prefix))
     return {"queued": True}, 202

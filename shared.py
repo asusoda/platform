@@ -35,6 +35,7 @@ CORS(
                 "https://admin.thesoda.io",
                 # Extra origins for other deployments, comma-separated
                 *[o.strip() for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()],
+                *([os.environ["DASHBOARD_URL"].rstrip("/")] if os.environ.get("DASHBOARD_URL") else []),
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Organization-ID", "X-Organization-Prefix"],

@@ -17,7 +17,7 @@ def run_due() -> None:
 
 
 @job("alerts.run_feed")
-def run_feed(org_id: int, key: str, post_existing: bool = False) -> None:
+def run_feed(org_id: int, key: str, post_existing: bool = False, org_prefix: str | None = None) -> None:
     """Run one feed now, on request."""
     from modules.alerts import service
     from shared import db_connect
