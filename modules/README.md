@@ -27,5 +27,5 @@ and where a new one is registered.
 | [superadmin](superadmin/README.md) | Installing and managing organizations across the deployment | |
 | [users](users/README.md) | Member records within an org | |
 
-`registry.py` mounts every blueprint and lists the job and tool modules. `cli.py` holds the
+`registry.py` mounts every blueprint. `manifest.py` lists the model, job and tool modules. `cli.py` holds the
 `flask --app main org` commands.

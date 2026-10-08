@@ -1,5 +1,4 @@
 import os
-from importlib import import_module
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
@@ -7,32 +6,15 @@ from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import make_url
 
 from alembic import context
-from core.base import Base
+from core.db import Base
+from modules.manifest import load_models
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Every model module, so Base.metadata has every table for autogenerate and alembic check
-for model_module in (
-    "core.audit",
-    "core.secrets",
-    "modules.accounts.models",
-    "modules.alerts.models",
-    "modules.agents.models",
-    "modules.auth.models",
-    "modules.games.models",
-    "modules.knowledge.models",
-    "modules.leetcode.models",
-    "modules.calendar.models",
-    "modules.compute.models",
-    "modules.organizations.models",
-    "modules.points.models",
-    "modules.runpod.models",
-    "modules.storefront.models",
-):
-    import_module(model_module)
+load_models()
 
 target_metadata = Base.metadata
 

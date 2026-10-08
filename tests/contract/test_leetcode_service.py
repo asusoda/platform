@@ -93,7 +93,7 @@ def test_daily_post_happens_once_after_the_time(db, daily_env):
 
 
 def test_a_failed_post_gives_the_day_back(db, daily_env):
-    from core.discord_directory import DiscordUnavailable
+    from core.integrations.discord import DiscordUnavailable
     from modules.leetcode import daily
 
     _, send = daily_env

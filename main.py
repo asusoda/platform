@@ -10,16 +10,17 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 from core import jobs
-from core.audit_http import register_audit
 from core.config import config
-from core.discord_directory import DiscordDirectory
-from core.logging_config import get_logger, init_sentry
-from core.request_log import register_request_logging
+from core.http.audit_hook import register_audit
+from core.http.request_log import register_request_logging
+from core.integrations.discord import DiscordDirectory
+from core.log import get_logger, init_sentry
 from modules.auth.tokens import token_manager
 from modules.bot.discord_modules.bot import BotFork
 from modules.bot.factory import create_bot
 from modules.cli import register_cli
-from modules.registry import load_jobs, load_tools, register_modules
+from modules.manifest import load_jobs, load_tools
+from modules.registry import register_modules
 
 logger = get_logger(__name__)
 

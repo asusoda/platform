@@ -7,7 +7,7 @@ from notion_client.helpers import collect_paginated_api
 from sentry_sdk import capture_exception, set_context, start_transaction
 
 from core.config import config
-from core.logging_config import get_logger
+from core.log import get_logger
 
 from .errors import APIErrorHandler
 from .utils import batch_operation, operation_span

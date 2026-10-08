@@ -5,9 +5,9 @@ from typing import cast
 
 from flask import Blueprint, g, jsonify, redirect, request, session
 
-from core import audit_http
 from core.config import config
 from core.db import db_connect
+from core.http import audit_hook
 from modules.auth.decoraters import machine_scope_required, member_required
 from modules.organizations.models import Organization
 
@@ -18,7 +18,7 @@ accounts_blueprint = Blueprint("accounts", __name__)
 M = "/members/<string:discord_id>"
 
 # Releasing a token is a read worth recording
-audit_http.AUDITED_READS.add(f"/api/accounts{M}/<string:provider>/token")
+audit_hook.AUDITED_READS.add(f"/api/accounts{M}/<string:provider>/token")
 
 
 def _page(message: str, status: int = 200):

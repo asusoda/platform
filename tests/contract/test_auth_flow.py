@@ -11,7 +11,7 @@ class LoginBot:
     def is_ready(self):
         return True
 
-    def check_officer(self, user_id, superadmin_user_id):
+    def officer_guilds(self, user_id, org_roles):
         return [1001] if str(user_id) == OFFICER_DISCORD_ID else []
 
     def get_display_name(self, guild_id, user_id):

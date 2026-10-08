@@ -3,7 +3,8 @@ import datetime
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
-from core.base import Base
+from core.db import Base
+from core.time import utcnow
 
 
 class Session(Base):
@@ -36,10 +37,6 @@ class RefreshToken(Base):
         return f"<RefreshToken {self.token[:8]}...>"
 
 
-def _utcnow():
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
 class RevokedToken(Base):
     """A revoked access or app token, kept until it would have expired anyway."""
 
@@ -47,7 +44,7 @@ class RevokedToken(Base):
     id = Column(Integer, primary_key=True)
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=_utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class AppToken(Base):
@@ -61,7 +58,7 @@ class AppToken(Base):
     discord_id = Column(String(255), nullable=True)
     expires_at = Column(DateTime, nullable=False)
     revoked_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=_utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class MachineToken(Base):
@@ -76,7 +73,7 @@ class MachineToken(Base):
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
     display = Column(String(20), nullable=False)  # first characters, to tell tokens apart in a list
     created_by = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=_utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     revoked_at = Column(DateTime, nullable=True)

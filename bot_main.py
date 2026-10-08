@@ -11,7 +11,7 @@ import sys
 import discord
 
 from core.config import config
-from core.logging_config import get_logger, init_sentry
+from core.log import get_logger, init_sentry
 from modules.bot.factory import create_bot
 
 logger = get_logger(__name__)

@@ -10,6 +10,7 @@ Signs officers and members in with Discord and decides who may call what: platfo
 | `decoraters.py` | Route decorators: `auth_required`, `dual_auth_required`, `member_required`, `org_officer_required`, `superadmin_required`, `machine_scope_required`, `error_handler` |
 | `access.py` | The caller behind a credential, officer and superadmin checks; refusals are logged only until `ACCESS_ENFORCE=true` |
 | `tokens.py` | `TokenManager` and the `token_manager` instance: RS256 keys in `./data`, access and refresh tokens, app tokens, revocation |
+| `clerk.py` | Clerk client and `verify_clerk_token` |
 | `machine_tokens.py` | Issue, verify, revoke and list machine tokens; only a hash is stored |
 | `scopes.py` | The registry of scopes that modules declare |
 | `routes.py` | `officer_route` and `machine_route` route helpers, `json_body` and `token_org` |

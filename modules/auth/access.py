@@ -16,8 +16,8 @@ from flask import current_app, request, session
 
 from core.config import config
 from core.db import db_connect
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import get_logger
+from core.integrations.discord import DiscordUnavailable
+from core.log import get_logger
 from modules.auth.tokens import token_manager
 
 logger = get_logger("access")
@@ -91,6 +91,23 @@ def discord_directory():
     return getattr(current_app, "discord_directory", None)
 
 
+def officer_guilds(directory, discord_id) -> list:
+    """Guild ids of active orgs where the user holds the org's officer role.
+
+    The superadmin gets every active org's guild. Raises DiscordUnavailable.
+    """
+    from modules.organizations.models import Organization
+
+    db = db_connect.SessionLocal()
+    try:
+        org_roles = [(str(o.guild_id), o.officer_role_id) for o in db.query(Organization).filter_by(is_active=True)]
+    finally:
+        db.close()
+    if is_superadmin(discord_id):
+        return [guild_id for guild_id, _ in org_roles]
+    return directory.officer_guilds(discord_id, org_roles)
+
+
 def officer_guild_ids(discord_id: str) -> frozenset[str] | None:
     """Guild ids where the user holds the officer role, or None if Discord cannot tell."""
     now = time.monotonic()
@@ -101,7 +118,7 @@ def officer_guild_ids(discord_id: str) -> frozenset[str] | None:
     if directory is None or not directory.is_ready():
         return None
     try:
-        guilds = frozenset(str(g) for g in directory.check_officer(discord_id, config.SUPERADMIN_USER_ID))
+        guilds = frozenset(str(g) for g in officer_guilds(directory, discord_id))
     except DiscordUnavailable:
         logger.warning("Discord unavailable while checking officer guilds", exc_info=True)
         return None

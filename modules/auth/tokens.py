@@ -10,14 +10,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from core.db import db_connect
-from core.logging_config import get_logger
+from core.log import get_logger
+from core.time import utcnow
 from modules.auth.models import AppToken, RefreshToken, RevokedToken
 
 logger = get_logger(__name__)
-
-
-def _utcnow() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 class TokenManager:
@@ -102,7 +99,7 @@ class TokenManager:
                     token=self._hash_token(raw_token),
                     username=username,
                     discord_id=str(discord_id) if discord_id else None,
-                    expires_at=_utcnow() + datetime.timedelta(days=exp_days),
+                    expires_at=utcnow() + datetime.timedelta(days=exp_days),
                 )
             )
             db.commit()
@@ -125,7 +122,7 @@ class TokenManager:
             expires_at = db_token.expires_at
             if expires_at.tzinfo is not None:
                 expires_at = expires_at.replace(tzinfo=None)
-            if _utcnow() > expires_at:
+            if utcnow() > expires_at:
                 db.delete(db_token)
                 db.commit()
                 return None
@@ -158,7 +155,7 @@ class TokenManager:
         """Remove expired refresh tokens, and revocations of tokens that have expired anyway."""
         db = db_connect.SessionLocal()
         try:
-            now = _utcnow()
+            now = utcnow()
             deleted = db.query(RefreshToken).filter(RefreshToken.expires_at < now).delete()
             db.query(RevokedToken).filter(RevokedToken.expires_at < now).delete()
             db.commit()

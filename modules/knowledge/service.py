@@ -9,7 +9,6 @@ On Postgres with pgvector, both legs run in SQL. Elsewhere, including Postgres w
 the vector leg runs in Python over the stored vectors, and on SQLite so does the text leg.
 """
 
-import datetime
 import hashlib
 import math
 import os
@@ -19,7 +18,8 @@ from typing import Any
 from sqlalchemy import or_, text
 
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.log import get_logger
+from core.time import iso, utcnow
 from modules.auth import scopes
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import DIMENSIONS, Embedding, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
@@ -56,14 +56,6 @@ def max_distance() -> float:
 def can_publish(org_prefix: str) -> bool:
     publishers = {p.strip() for p in os.environ.get("KNOWLEDGE_PUBLISHERS", "").split(",") if p.strip()}
     return org_prefix in publishers
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
-def _iso(value) -> str | None:
-    return value.isoformat() if value else None
 
 
 _PGVECTOR: dict[str, bool] = {}
@@ -122,15 +114,15 @@ def _source_dict(source: KnowledgeSource, version: KnowledgeVersion | None = Non
         "content_hash": version.content_hash if version else None,
         "embedding_model": version.embedding_model if version else None,
         "chunk_count": version.chunk_count if version else 0,
-        "fetched_at": _iso(version.fetched_at) if version else None,
-        "updated_at": _iso(source.updated_at),
+        "fetched_at": iso(version.fetched_at) if version else None,
+        "updated_at": iso(source.updated_at),
         "crawl": None
         if source.fetch_every_hours is None
         else {
             "fetch_every_hours": source.fetch_every_hours,
             "extractor": source.extractor,
             "enabled": bool(source.enabled),
-            "last_attempt_at": _iso(source.last_attempt_at),
+            "last_attempt_at": iso(source.last_attempt_at),
             "last_error": source.last_error,
         },
     }
@@ -219,7 +211,7 @@ def put_source(db, org_id: int, org_prefix: str, key: str, data: dict, embedder:
         db.flush()
     current = db.query(KnowledgeVersion).filter_by(id=source.current_version_id).first()
     source.title, source.url, source.category, source.public = title, url, category, public
-    source.updated_at = _now()
+    source.updated_at = utcnow()
 
     if current is not None and current.content_hash == content_hash:
         db.query(KnowledgeChunk).filter_by(version_id=current.id).update(
@@ -506,7 +498,7 @@ def _widen(db, ordered: list, window: int) -> list[dict]:
                 "public": bool(chunk.public),
                 "content": content,
                 "score": round(score, 6),
-                "fetched_at": _iso(chunk.fetched_at),
+                "fetched_at": iso(chunk.fetched_at),
             }
         )
     return results

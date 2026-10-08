@@ -10,8 +10,9 @@ import datetime
 from collections.abc import Callable
 from typing import Any, cast
 
-from core import runpod
-from core.logging_config import get_logger
+from core.integrations import runpod
+from core.log import get_logger
+from core.time import utcnow
 from modules.compute import service
 from modules.compute.models import ComputePod, ComputeSession
 
@@ -20,10 +21,6 @@ logger = get_logger("compute.schedule")
 START_LEAD = datetime.timedelta(minutes=10)
 MAX_LENGTH = datetime.timedelta(hours=24)
 MAX_UPCOMING = 100
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 def _time(data: dict, key: str) -> datetime.datetime:
@@ -74,7 +71,7 @@ def add_session(db, org_id: int, pod_id: str, data: object, creator: str | None,
         raise service.ComputeError("Send start_at and stop_at")
     data = cast(dict, data)
     start, stop = _time(data, "start_at"), _time(data, "stop_at")
-    now = now or _now()
+    now = now or utcnow()
     if stop <= start:
         raise service.ComputeError("stop_at must be after start_at")
     if stop - start > MAX_LENGTH:
@@ -102,7 +99,7 @@ def delete_session(db, org_id: int, pod_id: str, session_id: int) -> None:
         raise service.ComputeError("Session not found", 404)
     if row.started and not row.finished:
         # Ending it now lets the next run stop the pod
-        row.stop_at = _now()  # type: ignore[assignment]
+        row.stop_at = utcnow()  # type: ignore[assignment]
     else:
         db.delete(row)
     db.commit()
@@ -114,7 +111,7 @@ def delete_pod_sessions(db, org_id: int, pod_id: str) -> None:
 
 def run(db, now=None, client_for: Callable[[Any, int], runpod.RunPodClient] | None = None) -> dict:
     """Start pods whose session is about to begin and stop pods whose sessions have ended. Commits."""
-    now = now or _now()
+    now = now or utcnow()
     client_for = client_for or service._client
     due = (
         db.query(ComputeSession)

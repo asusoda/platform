@@ -141,7 +141,7 @@ def alerts(app, monkeypatch):
     state: dict = {"readme": _readme(_row("Acme", "Intern", "https://jobs.acme.com/1")), "sent": []}
     monkeypatch.setattr(service, "http_get", lambda url: state["readme"])
     monkeypatch.setattr(service, "post_webhook", lambda url, payload: state["sent"].append((url, payload)))
-    monkeypatch.setattr(service, "_now", lambda: datetime.datetime(2026, 10, 8, 12))
+    monkeypatch.setattr(service, "utcnow", lambda: datetime.datetime(2026, 10, 8, 12))
     yield state
     db = db_connect.SessionLocal()
     db.query(AlertPost).delete()

@@ -3,7 +3,7 @@ import asyncio
 import discord
 from discord.ext import commands
 
-from core.logging_config import get_logger
+from core.log import get_logger
 
 # Get module logger
 logger = get_logger("bot.helpercog")

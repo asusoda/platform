@@ -9,7 +9,7 @@ from core import secrets
 from core.config import config
 from core.db import db_connect
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.auth import scopes
 from modules.organizations.models import Organization
 

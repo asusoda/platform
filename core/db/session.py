@@ -6,19 +6,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import config
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger(__name__)
 
 
 class DBConnect:
+    """The engine and session factory for one database URL. Alembic migrations make the schema."""
+
     def __init__(self, db_url="sqlite:///./data/user.db") -> None:
         self.SQLALCHEMY_DATABASE_URL = db_url
-
-        # Ensure the database directory exists
         self._ensure_db_directory()
-
-        # The schema comes from Alembic migrations (alembic upgrade head), not create_all at startup
         if self.SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
             self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
         else:
@@ -26,18 +24,9 @@ class DBConnect:
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
     def _ensure_db_directory(self):
-        """Extract the database file path and ensure its directory exists"""
+        """Create the directory of a SQLite database file if it does not exist."""
         if self.SQLALCHEMY_DATABASE_URL.startswith("sqlite:///"):
-            # Remove sqlite:/// prefix to get the file path
-            db_path = self.SQLALCHEMY_DATABASE_URL[10:]
-
-            # Normalize path to handle potential ./ prefix
-            db_path = os.path.normpath(db_path)
-
-            # Get the directory part of the path
-            db_dir = os.path.dirname(db_path)
-
-            # If there's a directory component and it doesn't exist, create it
+            db_dir = os.path.dirname(os.path.normpath(self.SQLALCHEMY_DATABASE_URL[10:]))
             if db_dir and not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
                 logger.info(f"Created database directory: {db_dir}")
@@ -49,7 +38,7 @@ class DBConnect:
         finally:
             db.close()
 
-    # Storefront-related methods
+    # Storefront queries
     def create_storefront_product(self, db, product, organization_id):
         """Create a new storefront product for a specific organization"""
         try:

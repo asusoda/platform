@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from core.audit import logger, record
 from core.db import session
-from core.request_log import _credential, _org
+from core.http.request_log import credential, org_from_request
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # Writes that are too frequent or carry nothing worth keeping; tool calls audit themselves.
@@ -23,14 +23,14 @@ def _org_prefix(db) -> str | None:
     if "org_id" in args:
         row = db.execute(text("SELECT prefix FROM organizations WHERE id = :id"), {"id": args["org_id"]}).first()
         return row[0] if row else str(args["org_id"])
-    return _org()
+    return org_from_request()
 
 
 def _actor(token_manager) -> tuple[str | None, str | None]:
     machine = g.get("machine_caller")
     if machine is not None:
         return "machine", f"{machine.kind}:{machine.name}#{machine.token_id}"
-    kind, discord_id = _credential(token_manager)
+    kind, discord_id = credential(token_manager)
     if discord_id:
         return kind, str(discord_id)
     email = getattr(request, "clerk_user_email", None)

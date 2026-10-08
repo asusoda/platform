@@ -25,9 +25,7 @@ class ScopedBot:
     def is_ready(self):
         return self.ready
 
-    def check_officer(self, user_id, superadmin_user_id):
-        if str(user_id) == str(superadmin_user_id):
-            return [1001, 1002]
+    def officer_guilds(self, user_id, org_roles):
         return OFFICER_GUILDS.get(str(user_id), [])
 
     def check_user_officer_status(self, user_id, guild_id, role_id):

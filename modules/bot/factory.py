@@ -5,7 +5,7 @@ import asyncio
 import discord
 
 from core.db import db_connect
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.bot.discord_modules.bot import BotFork
 from modules.bot.discord_modules.cogs.HelperCog import HelperCog
 from modules.games.cog import GameCog

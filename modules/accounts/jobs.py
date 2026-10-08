@@ -7,7 +7,7 @@ from core.jobs import job
 @job("accounts.prune", cron="40 * * * *")
 def prune() -> None:
     """Delete account logins past their expiry."""
-    from core.logging_config import get_logger
+    from core.log import get_logger
     from modules.accounts import service
 
     db = db_connect.SessionLocal()

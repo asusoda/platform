@@ -4,7 +4,7 @@ import inspect
 import nest_asyncio
 from discord.ext import commands
 
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger(__name__)
 

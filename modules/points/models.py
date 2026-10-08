@@ -4,7 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integ
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from core.base import Base
+from core.db import Base
 
 
 # Updated User model to support multiple organizations

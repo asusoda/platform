@@ -8,9 +8,9 @@ import os
 import uvicorn
 
 from core.config import config
-from core.logging_config import get_logger, init_sentry
+from core.log import get_logger, init_sentry
+from modules.manifest import load_tools
 from modules.mcp.server import build_app
-from modules.registry import load_tools
 
 logger = get_logger(__name__)
 

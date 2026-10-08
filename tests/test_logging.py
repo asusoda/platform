@@ -3,7 +3,7 @@
 import json
 import logging
 
-from core.logging_config import JsonFormatter
+from core.log import JsonFormatter
 
 
 def _format(name, message):

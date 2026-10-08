@@ -9,7 +9,7 @@ leaves nothing half written.
 
 from typing import Any
 
-from core.discord_directory import DiscordUnavailable
+from core.integrations.discord import DiscordUnavailable
 from modules.agents import service
 from modules.agents.service import AgentError, Owner
 from modules.knowledge.embedder import Embedder

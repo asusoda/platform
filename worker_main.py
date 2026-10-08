@@ -9,8 +9,8 @@ import sys
 
 from core import jobs
 from core.config import config
-from core.logging_config import get_logger, init_sentry
-from modules.registry import load_jobs
+from core.log import get_logger, init_sentry
+from modules.manifest import load_jobs
 
 logger = get_logger(__name__)
 

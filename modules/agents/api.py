@@ -7,8 +7,8 @@ superadmins have no route to read agent data.
 
 from flask import Blueprint, g, jsonify, request
 
-from core import audit_http
 from core.db import db_connect
+from core.http import audit_hook
 from modules.auth.decoraters import machine_scope_required, member_required
 from modules.auth.routes import INACTIVE_ORG, json_body, token_org
 from modules.knowledge import embedder
@@ -21,7 +21,7 @@ agents_blueprint = Blueprint("agents", __name__)
 M = "/members/<string:discord_id>"
 
 # Per-turn writes; recording each would flood the audit log. Deletes and confirmations are recorded.
-audit_http.SKIPPED_ROUTES.update(
+audit_hook.SKIPPED_ROUTES.update(
     {
         f"/api/agents{M}/conversations/<string:conversation_id>",
         f"/api/agents{M}/conversations/<string:conversation_id>/messages",

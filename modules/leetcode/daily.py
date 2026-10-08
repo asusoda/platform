@@ -13,10 +13,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.exc import IntegrityError
 
-from core import discord_messages
 from core.config import config
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import get_logger
+from core.integrations.discord import DiscordDirectory, DiscordUnavailable, add_reaction, send_message
+from core.log import get_logger
 from modules.leetcode import client, service
 from modules.leetcode.models import LeetCodeDaily
 
@@ -49,10 +48,6 @@ def question_embed(question: dict, is_daily: bool = False) -> dict:
     return embed
 
 
-def _config():
-    return config
-
-
 def _int(value: object, name: str) -> int | None:
     if value in (None, ""):
         return None
@@ -65,9 +60,9 @@ def _int(value: object, name: str) -> int | None:
 
 def _zone() -> ZoneInfo:
     try:
-        return ZoneInfo(_config().TIMEZONE)
+        return ZoneInfo(config.TIMEZONE)
     except ZoneInfoNotFoundError:
-        logger.warning("Unknown timezone %r, using UTC", _config().TIMEZONE)
+        logger.warning("Unknown timezone %r, using UTC", config.TIMEZONE)
         return ZoneInfo("UTC")
 
 
@@ -96,7 +91,6 @@ def targets(db) -> list[Target]:
     from modules.organizations import service as organizations
     from modules.organizations.models import Organization
 
-    config = _config()
     found = []
     channel = _int(config.LEETCODE_CHANNEL_ID, "LEETCODE_CHANNEL_ID")
     if channel is not None:
@@ -129,8 +123,8 @@ def post_daily(
     db,
     now: datetime.datetime | None = None,
     fetch: Callable[[], dict] | None = None,
-    send: Callable[..., dict] = discord_messages.send_message,
-    react: Callable[..., None] = discord_messages.add_reaction,
+    send: Callable[..., dict] = send_message,
+    react: Callable[..., None] = add_reaction,
 ) -> dict[str, dict]:
     """Post today's question once per target, at or after its time in TIMEZONE. Commits. Returns scope to result."""
     local = (now or datetime.datetime.now(datetime.UTC)).astimezone(_zone())
@@ -170,7 +164,7 @@ def _post(db, target: Target, today: datetime.date, question: dict, send, react)
         "embeds": [question_embed(question, is_daily=True)],
     }
     try:
-        message = send(_config().BOT_TOKEN, target.channel_id, payload)
+        message = send(config.BOT_TOKEN, target.channel_id, payload)
     except DiscordUnavailable:
         # Give the day back so the next run tries again
         db.query(LeetCodeDaily).filter_by(post_date=today, scope=target.scope).delete()
@@ -180,7 +174,7 @@ def _post(db, target: Target, today: datetime.date, question: dict, send, react)
     row.message_id = str(message["id"])
     db.commit()
     try:
-        react(_config().BOT_TOKEN, target.channel_id, message["id"], CHECK_MARK)
+        react(config.BOT_TOKEN, target.channel_id, message["id"], CHECK_MARK)
     except DiscordUnavailable:
         logger.warning("Could not react to the daily post", exc_info=True)
     logger.info("Posted daily LeetCode %s for %s", question["titleSlug"], target.scope)
@@ -201,9 +195,7 @@ def _solved_on(submissions: list[dict], slugs: set[str], day: datetime.date, zon
 
 
 def _member_check() -> Callable[[str, str], bool]:
-    from core.discord_directory import DiscordDirectory
-
-    directory = DiscordDirectory(_config().BOT_TOKEN)
+    directory = DiscordDirectory(config.BOT_TOKEN)
     return lambda guild_id, discord_id: directory.check_user_membership(discord_id, guild_id)
 
 
@@ -211,7 +203,7 @@ def verify(
     db,
     now: datetime.datetime | None = None,
     submissions: Callable[[str], list[dict]] | None = None,
-    send: Callable[..., dict] = discord_messages.send_message,
+    send: Callable[..., dict] = send_message,
     is_member: Callable[[str, str], bool] | None = None,
 ) -> dict:
     """Check today's linked members who have not solved yet, record solves, reply under each post. Commits.
@@ -244,7 +236,7 @@ def verify(
                 continue
             try:
                 send(
-                    _config().BOT_TOKEN,
+                    config.BOT_TOKEN,
                     post.channel_id,
                     {
                         "content": f"{CHECK_MARK} <@{discord_id}> solved today's challenge as **{username}**!",

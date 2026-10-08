@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core import jobs
 from core.db import db_connect
-from core.logging_config import logger
+from core.log import logger
 from modules.auth.access import awarded_by, decide
 from modules.auth.decoraters import auth_required
 from modules.auth.tokens import token_manager
@@ -408,13 +408,13 @@ def index():
 
 def _clerk_email() -> str | None:
     """The email of the Clerk session token on this request, or None."""
-    from core import clerk_auth
+    from modules.auth import clerk
 
     header = request.headers.get("Authorization", "")
     if not header.startswith("Bearer ") or not header[7:].strip():
         return None
     try:
-        result = clerk_auth.verify_clerk_token(header[7:].strip())
+        result = clerk.verify_clerk_token(header[7:].strip())
     except Exception:
         logger.debug("Clerk token verification failed in member_login", exc_info=True)
         return None

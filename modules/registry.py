@@ -1,10 +1,11 @@
 """Every module's blueprint, where it is mounted, and which optional module gates it.
 
+Model, job and tool modules are listed in modules/manifest.py.
+
 To add a module: give it an api.py with a blueprint, add it here, and if orgs should be
 able to turn it off, add its name to OPTIONAL_MODULES in modules/organizations/service.py.
 """
 
-import importlib
 from dataclasses import dataclass, field
 
 from flask import Blueprint, Flask, jsonify, request
@@ -61,44 +62,6 @@ MOUNTS = [
     Mount(alerts_blueprint, "/api/alerts", module="alerts"),
     Mount(dashboard_blueprint, "/api/dashboard"),
 ]
-
-
-# Modules with background jobs. Importing a jobs.py registers its jobs with core.jobs.
-JOB_MODULES = [
-    "core.audit",
-    "modules.auth.jobs",
-    "modules.points.jobs",
-    "modules.calendar.jobs",
-    "modules.agents.jobs",
-    "modules.accounts.jobs",
-    "modules.runpod.jobs",
-    "modules.knowledge.jobs",
-    "modules.asu.jobs",
-    "modules.leetcode.jobs",
-    "modules.compute.jobs",
-    "modules.alerts.jobs",
-]
-
-
-# Modules with MCP tools. Importing a tools.py registers its tools with core.tools.
-TOOL_MODULES = [
-    "modules.organizations.tools",
-    "modules.calendar.tools",
-    "modules.points.tools",
-    "modules.knowledge.tools",
-    "modules.runpod.tools",
-    "modules.asu.tools",
-]
-
-
-def load_tools() -> None:
-    for name in TOOL_MODULES:
-        importlib.import_module(name)
-
-
-def load_jobs() -> None:
-    for name in JOB_MODULES:
-        importlib.import_module(name)
 
 
 def _gate(mount: Mount):

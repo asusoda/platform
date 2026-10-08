@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 
-from core.discord_directory import DiscordUnavailable
+from core.integrations.discord import DiscordUnavailable
 from tests.contract.conftest import FakeBot
 
 

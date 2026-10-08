@@ -1,19 +1,15 @@
 """Members' connected accounts (OAuth grants) and logins in progress. Tokens are stored encrypted."""
 
-import datetime
 import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
-from core.base import Base
+from core.db import Base
+from core.time import utcnow
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 class AccountGrant(Base):
@@ -27,8 +23,8 @@ class AccountGrant(Base):
     refresh_token = Column(Text, nullable=True)  # Fernet ciphertext
     scopes = Column(Text, nullable=False, default="")  # space separated, as the provider granted
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
-    updated_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "discord_id", "provider", name="uq_account_grant_owner"),)
 
@@ -43,7 +39,7 @@ class AccountLogin(Base):
     discord_id = Column(String(32), nullable=False)
     provider = Column(String(50), nullable=False)
     verified_at = Column(DateTime, nullable=True)  # set once Discord confirmed the member
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
     expires_at = Column(DateTime, nullable=False)
 
     __table_args__ = (Index("ix_account_logins_expires_at", "expires_at"),)

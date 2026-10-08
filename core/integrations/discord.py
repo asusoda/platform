@@ -1,18 +1,16 @@
-"""Read Discord guilds, roles and members over the REST API with the bot token.
+"""Discord over the REST API with the bot token, without the gateway bot.
 
-The API process used to answer "is this user an officer?" from the in-process bot's member cache,
-which tied the API to the bot: one bot per API worker, and no answers while the bot reconnects.
-This reads the same facts from Discord's REST API, cached for a short time, so the API runs
-without the bot.
+DiscordDirectory reads guilds, roles and members, cached for a short time. send_message and
+add_reaction post to channels.
 """
 
 import threading
 import time
+from urllib.parse import quote
 
 import requests
 
-from core.db import db_connect
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger("discord_directory")
 
@@ -121,23 +119,33 @@ class DiscordDirectory:
         member = self.get_member(guild_id, user_id)
         return bool(member) and str(role_id) in {str(r) for r in member.get("roles", [])}
 
-    def check_officer(self, user_id, superadmin_user_id) -> list[str]:
-        """Guild ids of active orgs where the user holds the org's officer role.
-
-        The superadmin gets every active org's guild.
-        """
-        from modules.organizations.models import Organization
-
-        db = db_connect.SessionLocal()
-        try:
-            orgs = db.query(Organization).filter_by(is_active=True).all()
-            org_roles = [(str(o.guild_id), o.officer_role_id) for o in orgs]
-        finally:
-            db.close()
-        if superadmin_user_id and str(user_id) == str(superadmin_user_id):
-            return [guild_id for guild_id, _ in org_roles]
+    def officer_guilds(self, user_id, org_roles: list[tuple[str, str | None]]) -> list[str]:
+        """Guild ids from org_roles, (guild id, officer role id) pairs, where the user holds the role."""
         return [
             guild_id
             for guild_id, role_id in org_roles
             if role_id and self.check_user_officer_status(user_id, guild_id, role_id)
         ]
+
+
+def _call(method: str, path: str, token: str | None, payload: dict | None = None) -> dict:
+    if not token:
+        raise DiscordUnavailable("BOT_TOKEN is not set")
+    try:
+        response = requests.request(
+            method, f"{API}{path}", json=payload, headers={"Authorization": f"Bot {token}"}, timeout=10
+        )
+    except requests.RequestException as e:
+        raise DiscordUnavailable(str(e)) from e
+    if response.status_code >= 300:
+        raise DiscordUnavailable(f"{method} {path} returned {response.status_code}")
+    return response.json() if response.content else {}
+
+
+def send_message(token: str | None, channel_id: int | str, payload: dict) -> dict:
+    """Post a message (content, embeds, message_reference) to a channel. Returns the message."""
+    return _call("POST", f"/channels/{int(channel_id)}/messages", token, payload)
+
+
+def add_reaction(token: str | None, channel_id: int | str, message_id: int | str, emoji: str) -> None:
+    _call("PUT", f"/channels/{int(channel_id)}/messages/{int(message_id)}/reactions/{quote(emoji)}/@me", token)

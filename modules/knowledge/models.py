@@ -5,7 +5,6 @@ GIN index (both created in the migration, named pg_*). On SQLite, embeddings are
 search runs in Python, which is enough for development and tests.
 """
 
-import datetime
 import json
 import uuid
 
@@ -22,17 +21,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
-from core.base import Base
+from core.db import Base
+from core.time import utcnow
 
 DIMENSIONS = 1024  # Qwen3-Embedding-0.6B
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 class _PgVector(UserDefinedType):
@@ -88,8 +84,8 @@ class KnowledgeSource(Base):
     enabled = Column(Boolean, nullable=False, default=True)
     last_attempt_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
-    updated_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "key", name="uq_knowledge_source_key"),)
 
@@ -103,7 +99,7 @@ class KnowledgeVersion(Base):
     embedding_model = Column(String(200), nullable=True)
     chunk_count = Column(Integer, nullable=False, default=0)
     text_chars = Column(Integer, nullable=True)  # extracted text length, for crawled sources
-    fetched_at = Column(DateTime, nullable=False, default=_now)
+    fetched_at = Column(DateTime, nullable=False, default=utcnow)
 
 
 class KnowledgeChunk(Base):
@@ -120,7 +116,7 @@ class KnowledgeChunk(Base):
     parent_ordinal = Column(Integer, nullable=True)  # the summary row that covers this one
     content = Column(Text, nullable=False)
     embedding = Column(Embedding(), nullable=True)
-    fetched_at = Column(DateTime, nullable=False, default=_now)
+    fetched_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("version_id", "ordinal", name="uq_knowledge_chunk_ordinal"),

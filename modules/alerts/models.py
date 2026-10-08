@@ -1,14 +1,9 @@
 """Alert feeds an org posts to Discord, and the items each feed has already posted."""
 
-import datetime
-
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 
-from core.base import Base
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+from core.db import Base
+from core.time import utcnow
 
 
 class AlertFeed(Base):
@@ -26,7 +21,7 @@ class AlertFeed(Base):
     seeded_at = Column(DateTime, nullable=True)  # first run, which records items without posting them
     last_run_at = Column(DateTime, nullable=True)
     last_error = Column(String(1000), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "key", name="uq_alert_feed_key"),)
 
@@ -41,6 +36,6 @@ class AlertPost(Base):
     item_key = Column(String(255), nullable=False)
     title = Column(String(300), nullable=False)
     posted = Column(Boolean, nullable=False)  # false when recorded by the first run
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("feed_id", "item_key", name="uq_alert_post_item"),)

@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify
 from sentry_sdk import set_tag, start_transaction
 
 from core.db import db_connect
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.auth.access import any_officer_denial
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization

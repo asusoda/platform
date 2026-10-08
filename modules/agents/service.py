@@ -18,7 +18,8 @@ from sqlalchemy import func, or_, text
 
 from core import secrets
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.log import get_logger
+from core.time import iso, utcnow
 from modules.agents.models import (
     AgentConversation,
     AgentMemory,
@@ -62,14 +63,6 @@ def _save(db, commit: bool) -> None:
         db.commit()
     else:
         db.flush()
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
-def _iso(value) -> str | None:
-    return value.isoformat() if value else None
 
 
 def _limit(value: object, default: int) -> int:
@@ -202,7 +195,7 @@ def _write(
     conversation = _owned(db, who, cid)
     if conversation is None:
         raise AgentError("Conversation is not owned by this member", 409)
-    conversation.updated_at = _now()
+    conversation.updated_at = utcnow()
     messages = [
         AgentMessage(conversation_id=cid, role=role, content=content, covers_seq=covers)
         for role, content, covers in rows
@@ -259,7 +252,7 @@ def end(db, who: Owner, channel_id: object) -> int:
     ended = (
         db.query(AgentConversation)
         .filter_by(organization_id=who.organization_id, discord_id=who.discord_id, channel_id=channel, ended_at=None)
-        .update({"ended_at": _now()})
+        .update({"ended_at": utcnow()})
     )
     db.commit()
     return int(ended)
@@ -270,9 +263,9 @@ def conversation_dict(row: AgentConversation) -> dict:
         "id": row.id,
         "channel_id": row.channel_id,
         "visibility": row.visibility,
-        "created_at": _iso(row.created_at),
-        "updated_at": _iso(row.updated_at),
-        "ended_at": _iso(row.ended_at),
+        "created_at": iso(row.created_at),
+        "updated_at": iso(row.updated_at),
+        "ended_at": iso(row.ended_at),
     }
 
 
@@ -321,8 +314,8 @@ def memory_dict(row: AgentMemory, content: str | None) -> dict:
         "sensitivity": row.sensitivity,
         "confidence": row.confidence,
         "source_seq": row.source_seq,
-        "created_at": _iso(row.created_at),
-        "expires_at": _iso(row.expires_at),
+        "created_at": iso(row.created_at),
+        "expires_at": iso(row.expires_at),
     }
 
 
@@ -357,7 +350,7 @@ def remember(
         confidence=_confidence(confidence),
         source_seq=source_seq,
         agent_token_id=who.token_id,
-        expires_at=_now() + datetime.timedelta(days=expires_in_days) if expires_in_days else None,
+        expires_at=utcnow() + datetime.timedelta(days=expires_in_days) if expires_in_days else None,
     )
     db.add(row)
     _save(db, commit)
@@ -371,7 +364,7 @@ def recall(db, who: Owner, kinds: object = None, limit: object = None) -> list[d
     query = db.query(AgentMemory).filter(
         AgentMemory.organization_id == who.organization_id,
         AgentMemory.discord_id == who.discord_id,
-        or_(AgentMemory.expires_at.is_(None), AgentMemory.expires_at > _now()),
+        or_(AgentMemory.expires_at.is_(None), AgentMemory.expires_at > utcnow()),
     )
     if kinds:
         query = query.filter(AgentMemory.kind.in_(kinds))
@@ -422,7 +415,7 @@ def _node(db, who: Owner, kind: str, label: str, confidence: float) -> AgentProf
         db.flush()
     else:
         node.confidence = max(float(node.confidence), confidence)
-        node.updated_at = _now()
+        node.updated_at = utcnow()
     return node
 
 
@@ -494,8 +487,8 @@ def _node_dict(n: AgentProfileNode) -> dict:
         "kind": n.kind,
         "label": n.label,
         "confidence": n.confidence,
-        "created_at": _iso(n.created_at),
-        "updated_at": _iso(n.updated_at),
+        "created_at": iso(n.created_at),
+        "updated_at": iso(n.updated_at),
     }
 
 
@@ -720,7 +713,7 @@ def hold(
             action=action,
             payload_hash=digest,
             agent_token_id=who.token_id,
-            expires_at=_now() + datetime.timedelta(seconds=ttl_seconds),
+            expires_at=utcnow() + datetime.timedelta(seconds=ttl_seconds),
         )
     )
     _save(db, commit)
@@ -732,7 +725,7 @@ def claim(db, who: Owner, token: object, approved: object) -> dict | None:
     if not isinstance(approved, bool):
         raise AgentError("approved must be true or false")
     tid = _conversation_id(token)
-    now = _now()
+    now = utcnow()
     claimed = (
         db.query(AgentPendingAction)
         .filter(
@@ -759,7 +752,7 @@ RETENTION_DAYS = int(os.environ.get("AGENT_RETENTION_DAYS", "180"))
 
 def prune(db, now: datetime.datetime | None = None) -> dict:
     """Delete conversations not updated in RETENTION_DAYS, expired memories and old pending actions. Commits."""
-    now = now or _now()
+    now = now or utcnow()
     cutoff = now - datetime.timedelta(days=RETENTION_DAYS)
     stale = [row.id for row in db.query(AgentConversation.id).filter(AgentConversation.updated_at < cutoff).all()]
     if stale:

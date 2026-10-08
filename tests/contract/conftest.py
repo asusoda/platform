@@ -29,7 +29,7 @@ class FakeBot:
     def is_ready(self):
         return True
 
-    def check_officer(self, user_id, superadmin_user_id):
+    def officer_guilds(self, user_id, org_roles):
         return [1001]
 
     def check_user_membership(self, user_id, guild_id):
@@ -130,10 +130,10 @@ def app():
 @pytest.fixture(autouse=True)
 def stubs(app, monkeypatch):
     """Replace Clerk and Notion with local stand-ins so no test reaches the network."""
-    import core.clerk_auth as clerk_auth
+    from modules.auth import clerk
     from modules.calendar import service as calendar_service
 
-    monkeypatch.setattr(clerk_auth, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
+    monkeypatch.setattr(clerk, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
     monkeypatch.setattr(calendar_service.get_service().notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
 
 

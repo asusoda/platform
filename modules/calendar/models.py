@@ -5,8 +5,8 @@ from typing import Any, Optional
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from core.base import Base
-from core.logging_config import get_logger
+from core.db import Base
+from core.log import get_logger
 
 from .utils import DateParser, extract_property
 

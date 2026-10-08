@@ -12,7 +12,7 @@ from typing import Any, cast
 
 import paramiko
 
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger("compute.files")
 

@@ -2,7 +2,7 @@ import uuid
 
 import discord
 
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.games.jeopardy.JeopardyQuestion import JeopardyQuestion
 from modules.games.jeopardy.Team import Team
 

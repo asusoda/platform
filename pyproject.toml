@@ -126,8 +126,7 @@ source_modules = ["core"]
 forbidden_modules = ["modules"]
 # Existing exceptions, to be moved into core or behind a service function:
 ignore_imports = [
-    "core.db -> modules.storefront.models",
-    "core.discord_directory -> modules.organizations.models",
+    "core.db.session -> modules.storefront.models",
 ]
 
 [[tool.importlinter.contracts]]
@@ -143,7 +142,9 @@ source_modules = [
     "modules.alerts.types",
     "modules.agents.turns",
     "modules.asu.service",
+    "modules.auth.clerk",
     "modules.auth.machine_tokens",
+    "modules.auth.tokens",
     "modules.calendar.service",
     "modules.compute.cli_login",
     "modules.dashboard.ci",
@@ -159,6 +160,7 @@ source_modules = [
     "modules.knowledge.service",
     "modules.leetcode.daily",
     "modules.leetcode.service",
+    "modules.manifest",
     "modules.mcp.runtime",
     "modules.organizations.service",
     "modules.points.service",

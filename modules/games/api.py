@@ -4,7 +4,7 @@ import os
 from flask import Blueprint, current_app, jsonify, request
 
 from core.db import db_connect as db
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.auth.access import any_officer_denial
 
 # Get module logger

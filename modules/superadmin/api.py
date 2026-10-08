@@ -2,8 +2,8 @@ from flask import Blueprint, jsonify, request, session
 
 from core.config import config
 from core.db import db_connect
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import get_logger
+from core.integrations.discord import DiscordUnavailable
+from core.log import get_logger
 from modules.auth.access import discord_directory
 from modules.auth.decoraters import superadmin_required
 from modules.auth.tokens import token_manager

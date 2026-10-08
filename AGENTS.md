@@ -88,23 +88,23 @@ All core functionality is organized in `/modules/`, one folder per feature. A mo
 - `models.py` - SQLAlchemy models
 - `jobs.py`, `tools.py` - background jobs (`@job`) and agent tools (`@tool`)
 
-Blueprints, jobs and tools are registered in `modules/registry.py`. `docs/writing-a-module.md` lists every place a new module is registered.
+Blueprints are mounted in `modules/registry.py`; model, job and tool modules are listed in `modules/manifest.py`. `docs/writing-a-module.md` lists every place a new module is registered.
 
-Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
+Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, logging, HTTP hooks, Discord and RunPod clients) is in `core/`.
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
-- Base model class in `core/base.py`
+- Base model class in `core/db/base.py`
 - Centralized connection management via `DBConnect` class
 - Schema managed by Alembic migrations (`alembic upgrade head`); no table creation at startup
 
 #### Discord Integration
 - BotFork instance in `modules/bot/`, loading cogs from `modules/games` and `modules/leetcode`
-- Runs in its own process (`bot_main.py`); the API reaches Discord over REST (`core/discord_directory.py`)
+- Runs in its own process (`bot_main.py`); the API reaches Discord over REST (`core/integrations/discord.py`)
 - Bot token managed via environment variable (`BOT_TOKEN`)
 
 #### Background Jobs
-- Declared per module in `jobs.py` with `@job` from `core/jobs.py`, listed in `modules/registry.py`
+- Declared per module in `jobs.py` with `@job` from `core/jobs.py`, listed in `modules/manifest.py`
 - Postgres: Procrastinate queue, run by `worker_main.py`. SQLite: run in threads of the API process
 - Hourly refresh-token cleanup, CSV point imports, calendar sync when `CALENDAR_SYNC_CRON` is set
 

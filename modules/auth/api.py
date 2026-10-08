@@ -7,9 +7,9 @@ from flask import Blueprint, jsonify, redirect, request, session
 
 from core.config import config
 from core.db import db_connect
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import logger
-from modules.auth.access import decide, discord_directory
+from core.integrations.discord import DiscordUnavailable
+from core.log import logger
+from modules.auth.access import decide, discord_directory, officer_guilds
 from modules.auth.decoraters import auth_required, error_handler
 from modules.auth.tokens import token_manager
 
@@ -130,15 +130,15 @@ def callback():
         user_info = user_response.json()
         user_id = user_info["id"]
         try:
-            officer_guilds = directory.check_officer(user_id, config.SUPERADMIN_USER_ID)
+            guilds = officer_guilds(directory, user_id)
         except DiscordUnavailable:
             logger.exception("Discord unavailable during /callback")
             return jsonify({"error": "Authentication service temporarily unavailable."}), 503
-        logger.debug(f"Officer guilds: {officer_guilds}")
-        if officer_guilds:  # If user is officer in at least one organization
+        logger.debug(f"Officer guilds: {guilds}")
+        if guilds:  # If user is officer in at least one organization
             # Server nickname in the first officer guild, else the Discord display name
             try:
-                name = directory.get_display_name(officer_guilds[0], user_id)
+                name = directory.get_display_name(guilds[0], user_id)
             except DiscordUnavailable:
                 name = None
             name = name or user_info.get("global_name") or user_info.get("username")
@@ -151,7 +151,7 @@ def callback():
                 "username": name,
                 "discord_id": user_id,
                 "role": "officer",
-                "officer_guilds": officer_guilds,  # Store the list of guild IDs where user is officer
+                "officer_guilds": guilds,  # Store the list of guild IDs where user is officer
             }
             session["token"] = access_token
             session["refresh_token"] = refresh_token

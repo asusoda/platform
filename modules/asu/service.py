@@ -10,7 +10,7 @@ import hashlib
 from typing import Any
 
 from core.jobs import defer
-from core.logging_config import get_logger
+from core.log import get_logger
 from modules.asu import registry
 from modules.asu.settings import settings
 from modules.asu.sources import SOURCES

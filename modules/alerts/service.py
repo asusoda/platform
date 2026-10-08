@@ -14,7 +14,8 @@ import requests
 
 from core import secrets
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.log import get_logger
+from core.time import utcnow
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -38,10 +39,6 @@ secrets.declare_prefix(SECRET_PREFIX, "Discord webhook URL an alert feed posts t
 
 class AlertError(ServiceError, ValueError):
     pass
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 def http_get(url: str) -> str:
@@ -74,7 +71,7 @@ def embed(item: Item, kind: str) -> dict:
         "fields": [
             {"name": name, "value": value[:1024] or "-", "inline": len(value) < 40} for name, value in item.fields
         ],
-        "timestamp": _now().isoformat() + "Z",
+        "timestamp": utcnow().isoformat() + "Z",
     }
     if item.url:
         body["url"] = item.url
@@ -178,7 +175,7 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
 
     On the first run, items are recorded without posting unless post_existing is true.
     """
-    feed.last_run_at = _now()
+    feed.last_run_at = utcnow()
     webhook = _webhook(db, feed)
     if webhook is None:
         return _fail(db, feed, "The webhook URL is not set, or SECRETS_KEY is missing")
@@ -211,7 +208,7 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
         db.add(AlertPost(feed_id=feed.id, item_key=item.key, title=item.title[:300], posted=not seeding))
         db.commit()
     if feed.seeded_at is None:
-        feed.seeded_at = _now()
+        feed.seeded_at = utcnow()
     feed.last_error = error
     db.commit()
     result = {"key": feed.key, "found": len(items), "new": len(new), "posted": posted, "recorded": seeding}
@@ -224,9 +221,9 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
 def _read(feed: AlertFeed) -> list[Item]:
     config = cast(dict, feed.config) or {}
     if feed.kind == "github_jobs":
-        return jobs_table.fetch(config, http_get, _now().date())
+        return jobs_table.fetch(config, http_get, utcnow().date())
     if feed.kind == "hackathons":
-        return hackathons.fetch(config, http_get, _now())
+        return hackathons.fetch(config, http_get, utcnow())
     raise SourceError(f"Unknown feed kind {feed.kind}")
 
 
@@ -243,7 +240,7 @@ def run_now(db, org_id: int, key: str, post_existing: bool = False) -> dict:
 
 def due(db, now: datetime.datetime | None = None) -> list[AlertFeed]:
     """Enabled feeds whose every_hours has passed, in orgs that have the alerts module on."""
-    now = now or _now()
+    now = now or utcnow()
     feeds = []
     rows = (
         db.query(AlertFeed, Organization)

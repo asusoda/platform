@@ -7,7 +7,7 @@ import pytz
 from sentry_sdk import capture_exception, set_context
 
 from core.config import config
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger(__name__)
 

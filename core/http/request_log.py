@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import jwt
 from flask import Flask, g, request, session
 
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger("request_log")
 
@@ -24,7 +24,7 @@ def _bearer_token() -> str | None:
     return None
 
 
-def _credential(token_manager) -> tuple[str, str | None]:
+def credential(token_manager) -> tuple[str, str | None]:
     """Classify the request's credential and return (kind, discord_id)."""
     token = _bearer_token()
     if token is None:
@@ -48,7 +48,7 @@ def _credential(token_manager) -> tuple[str, str | None]:
     return str(claims.get("type", "untyped")), claims.get("discord_id")
 
 
-def _org() -> str | None:
+def org_from_request() -> str | None:
     args = request.view_args or {}
     for key in ("org_prefix", "org_id", "guild_id"):
         if key in args:
@@ -75,7 +75,7 @@ def register_request_logging(app: Flask, token_manager) -> None:
         if request.path.startswith(SKIPPED_PATHS) or not request.path.startswith("/api/"):
             return response
         try:
-            kind, discord_id = _credential(token_manager)
+            kind, discord_id = credential(token_manager)
             started = g.get("request_started")
             elapsed_ms = round((time.perf_counter() - started) * 1000) if started else None
             route = request.url_rule.rule if request.url_rule else request.path
@@ -84,7 +84,7 @@ def register_request_logging(app: Flask, token_manager) -> None:
                 request.method,
                 route,
                 response.status_code,
-                _org(),
+                org_from_request(),
                 kind,
                 discord_id,
                 _origin(),

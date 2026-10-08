@@ -1,6 +1,6 @@
 """Audit log: a database row for every change made through the API and every job with side effects.
 
-API writes are recorded after the response by core/audit_http.py (POST, PUT, PATCH, DELETE with a
+API writes are recorded after the response by core/http/audit_hook.py (POST, PUT, PATCH, DELETE with a
 status below 400). Request bodies are not stored. This file has no Flask, so services can record. Jobs record their runs from core/jobs.py. Rows older
 than AUDIT_RETENTION_DAYS (default 365) are deleted daily by the audit.prune job.
 """
@@ -10,10 +10,9 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import JSON, Column, DateTime, Integer, String
 
-from core.base import Base
-from core.db import session
+from core.db import Base, session
 from core.jobs import job
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger("audit")
 
