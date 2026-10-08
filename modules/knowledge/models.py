@@ -85,6 +85,7 @@ class KnowledgeSource(Base):
     current_version_id = Column(String(36), nullable=True)
     # Crawled sources: the platform fetches url on this schedule. None means a writer sends chunks.
     fetch_every_hours = Column(Integer, nullable=True)
+    extractor = Column(String(100), nullable=True)  # a name in modules/knowledge/extractors.py
     enabled = Column(Boolean, nullable=False, default=True)
     last_attempt_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)

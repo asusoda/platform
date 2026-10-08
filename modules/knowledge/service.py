@@ -131,6 +131,7 @@ def _source_dict(source: KnowledgeSource, version: KnowledgeVersion | None = Non
         if source.fetch_every_hours is None
         else {
             "fetch_every_hours": source.fetch_every_hours,
+            "extractor": source.extractor,
             "enabled": bool(source.enabled),
             "last_attempt_at": _iso(source.last_attempt_at),
             "last_error": source.last_error,

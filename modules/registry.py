@@ -11,6 +11,7 @@ from flask import Blueprint, Flask, jsonify, request
 
 from modules.accounts.api import accounts_blueprint
 from modules.agents.api import agents_blueprint
+from modules.asu.api import asu_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.games.api import game_blueprint
@@ -51,6 +52,7 @@ MOUNTS = [
     Mount(knowledge_blueprint, "/api/knowledge"),
     Mount(accounts_blueprint, "/api/accounts"),
     Mount(apps_blueprint, "/api/apps"),
+    Mount(asu_blueprint, "/api/asu"),
 ]
 
 
@@ -64,6 +66,7 @@ JOB_MODULES = [
     "modules.accounts.jobs",
     "modules.runpod.jobs",
     "modules.knowledge.jobs",
+    "modules.asu.jobs",
 ]
 
 
@@ -74,6 +77,7 @@ TOOL_MODULES = [
     "modules.points.tools",
     "modules.knowledge.tools",
     "modules.runpod.tools",
+    "modules.asu.tools",
 ]
 
 

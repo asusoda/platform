@@ -8,12 +8,12 @@ of the last indexed version, so a broken page cannot wipe a good index. No Flask
 import datetime
 import hashlib
 import os
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import or_
 
 from core.logging_config import get_logger
-from modules.knowledge import extract, fetch
+from modules.knowledge import extract, extractors, fetch
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import (
@@ -118,15 +118,34 @@ def _crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: boo
     if previous is not None and previous.content_hash == content_hash and not force:
         return {"key": source.key, "changed": False, "chunks": int(previous.chunk_count or 0)}
 
-    if page.text is not None:
+    custom = extractors.get(cast(str | None, source.extractor))
+    if custom is not None:
+        text = custom(page)
+        title = page.title or (extract.title_of(page.body) if page.text is None else None)
+    elif page.text is not None:
         text, title = page.text, page.title
     else:
         text, title = extract.extract_text(page.body), extract.title_of(page.body)
-    title = title or source.title or str(source.key)
+    return index_text(db, source, text, title, content_hash, embedder, previous=previous, force=force)
+
+
+def index_text(
+    db,
+    source: KnowledgeSource,
+    text: str,
+    title: str | None,
+    content_hash: str,
+    embedder: Embedder | None,
+    *,
+    previous: KnowledgeVersion | None = None,
+    force: bool = False,
+) -> dict:
+    """Chunk, embed and store text as the source's new version. Commits."""
+    label: str = title or cast(str | None, source.title) or str(source.key)
     pieces = extract.chunk_text(text, max_chars=chunk_chars(), overlap_chars=0)
     if not pieces:
-        raise KnowledgeError(f"No text was extracted from {len(page.body)} bytes; the index is kept")
-    floor = previous.text_chars if previous is not None else None
+        raise KnowledgeError("No text was extracted; the index is kept")
+    floor = cast(int | None, previous.text_chars) if previous is not None else None
     if not force and floor is not None and floor >= QUALITY_FLOOR_MIN_CHARS:
         if len(text) < int(floor * QUALITY_FLOOR_RATIO):
             raise KnowledgeError(
@@ -135,11 +154,11 @@ def _crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: boo
 
     # Each chunk carries the page title, as SparkyAI indexes them
     rows: list[dict] = [
-        {"ordinal": i, "level": 0, "parent_ordinal": None, "content": f"{title}\n{piece}", "embedding": None}
+        {"ordinal": i, "level": 0, "parent_ordinal": None, "content": f"{label}\n{piece}", "embedding": None}
         for i, piece in enumerate(pieces)
     ]
     model = _embed(rows, embedder)
-    source.title = title[:500]
+    source.title = label[:500]
     _write_version(db, source, rows, content_hash, model, text_chars=len(text))
     db.commit()
     return {"key": source.key, "changed": True, "chunks": len(rows)}
