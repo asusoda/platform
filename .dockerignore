@@ -40,14 +40,14 @@ docker-compose*.yml
 Dockerfile*
 .dockerignore
 
-# Node: web/ is built by Dockerfile.web; the dashboard and the site deploy on their own
+# Node: web/ is built by Dockerfile.web; the site deploys on its own
 **/node_modules/
 web/build/
 web/dist/
 web/.env
 web/.env.*
 web/npm-debug.log*
-dashboard/
+dashboard/dist/
 site/
 
 # Documentation
