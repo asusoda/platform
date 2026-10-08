@@ -6,7 +6,7 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 
 `dashboard/` is a Vite and React app with Tailwind and TanStack Query. It calls the API and has no server code.
 
-The sidebar puts the pages in sections: Members (Points, Store), Automations (Alerts, Calendar, LeetCode), Knowledge and agents, and Infrastructure (Compute, Apps, Tokens). The page of an optional module shows only when the module is on for the org. A section with no pages has no header. If you open the page of a module that is off, the page links to Settings, Modules.
+The sidebar puts the pages in sections: Members (Points, Store), Automations (Alerts, Calendar, LeetCode), Knowledge and agents, and Infrastructure (Compute, Apps, Tokens). The sidebar hides the page of an optional module when the module is off for the org. A section with no pages has no header. If you open the Points, Store, Calendar or LeetCode page while its module is off, the page links to Settings, Modules.
 
 | Page | Shows |
 | --- | --- |
@@ -46,8 +46,6 @@ Each org sets its logo, accent color and website on the Settings page. The sideb
 
 The dashboard uses the same type and colors as `site/`: Geist, Geist Mono and the gray tokens of the fumadocs-ui theme. The tokens are in `dashboard/src/index.css`. Light and dark follow the system; the switch at the bottom of the sidebar sets one.
 
-`dashboard/src/components/ui.tsx` has the shared parts: `PageHeader`, `Card`, `Table`, `Button`, `Input`, `Select`, `Textarea`, `Badge`, `EmptyState` and the loading skeletons. Use them on a new page. Do not style a one-off control.
-
 The landing page shows dashboard screenshots from `site/public/screenshots/`. After a UI change, run `npm run screenshots` in `dashboard/`. The script builds the dashboard, serves it with `vite preview` and answers each API call from `scripts/fixtures.mjs`, a fictional org. It needs Playwright with Chromium. If the Chromium version does not match Playwright, set `PLAYWRIGHT_CHROMIUM` to the browser binary.
 
 Officers sign in at `/api/auth/login?client=dashboard`. After Discord, the API sends them to `DASHBOARD_URL/auth/` with a one-time code.
@@ -66,6 +64,43 @@ To deploy the dashboard:
 1. Host `dashboard/` as a static site. On Vercel, set the root folder to `dashboard`, the build to `npm run build` and the output to `dist`. Send every path to `index.html`.
 2. Set `VITE_API_URL` to the API URL.
 3. Set `DASHBOARD_URL` on the API to the dashboard URL. The API adds it to CORS and uses it for the sign-in return.
+
+### Code layout
+
+`dashboard/src/pages/registry.tsx` lists every org page: its path, sidebar label, icon, sidebar section, optional module and page component. `src/app.tsx` makes the routes from this list, and `src/components/shell.tsx` makes the sidebar from it. A small page is one file in `src/pages/`. A large page is a folder, such as `src/pages/apps/`: `index.tsx` exports the page, and each other file holds one part. `shared.tsx` in a page folder holds the parts that two or more files of that page use.
+
+These files hold the parts that two or more pages use. Use them on a new page. Do not style a one-off control.
+
+| File | Holds |
+| --- | --- |
+| `src/components/ui.tsx` | `PageHeader`, `Card`, `CardHeader`, `Row`, `Stat`, `StatGrid`, `Table`, `Th`, `Td`, `Tr`, `Button`, `DeleteButton`, `Input`, `Select`, `Textarea`, `Field`, `Switch`, `CheckOption`, `Badge`, `Dot`, `Mono`, `Code`, `EmptyState`, the loading skeletons, `ErrorNote`, `OkNote`, `Notice`, `Dialog` and `FormActions` |
+| `src/components/tabs.tsx` | `TabBar` and `useTabParam`: tabs that keep the open tab in `?tab=` |
+| `src/components/module-gate.tsx` | `ModuleGate` and `useModuleOn` |
+| `src/components/activity-list.tsx` | The list of audit log entries |
+| `src/lib/api.ts` | `api` and `send`, which call the API with the officer token |
+| `src/lib/queries.ts` | Queries that two or more pages use, such as `useOverview` and `useModules` |
+| `src/lib/format.ts` | Times, numbers, bytes and status tones |
+| `src/lib/org.ts` | `useCurrentOrg`: the org in the URL |
+| `src/lib/types/` | The shapes of the API responses, one file for each domain. `index.ts` exports all of them |
+
+Put a part in `src/components/` or `src/lib/` only when two or more pages use it.
+
+### Add a dashboard page
+
+1. Write the page in `dashboard/src/pages/`. For a large page, make a folder with an `index.tsx` that exports the page.
+2. Add one entry to `PAGES` in `src/pages/registry.tsx`. The order of `PAGES` is the order in the sidebar.
+3. Add the types of the API responses to the domain file in `src/lib/types/`. If you add a file, export it from `src/lib/types/index.ts`.
+4. Add a response for each API path the page reads to `dashboard/scripts/fixtures.mjs`.
+5. Add a row for the page to the page table in this file.
+6. Run `npm test` and `npm run build`.
+
+These fields of a registry entry control who sees the page:
+
+- `module`: the sidebar hides the page when the API says that this module is off for the org.
+- `gate`: with `module`, the page shows a note with a link to Settings, Modules while the module is off. Without `gate`, the page opens and its API calls return 404.
+- `superadmin`: only the superadmin sees the page in the sidebar. The page must also check `useSuperadmin()`.
+
+An old path that opens another page goes in `REDIRECTS` in the same file.
 
 ## Web app
 

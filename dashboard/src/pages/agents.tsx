@@ -9,6 +9,7 @@ import {
   PageSkeleton,
   Row,
   Stat,
+  StatGrid,
   Table,
   Td,
   Th,
@@ -32,12 +33,12 @@ export function AgentsPage() {
         title="Agents"
         description="Counts only. Conversations and memories belong to the member; officers cannot read them."
       />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatGrid>
         <Stat label="Conversations this week" value={compact(a.active_7_days)} sub={`${compact(a.conversations)} kept`} />
         <Stat label="Members this week" value={compact(a.members_7_days)} />
         <Stat label="Memories" value={compact(a.memories)} />
         <Stat label="Waiting for confirmation" value={a.pending_actions} />
-      </div>
+      </StatGrid>
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Agent tokens" hint="Agents call the platform with these" />

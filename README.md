@@ -22,6 +22,7 @@ Each org route checks access. The audit log records each change that an officer 
 | `runpod` | Deploys of an org's apps to RunPod from a manifest, with health checks and rollback |
 | `dashboard` | One page for each org with problems, activity, jobs, CI runs and module state |
 | `mcp` | An MCP server and `/api/tools` that give agents the module tools through scoped machine tokens |
+| `auth`, `public`, `bot` | Discord sign-in, tokens and access checks; open reads for public pages; the Discord bot |
 
 ## Processes
 

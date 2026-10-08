@@ -40,6 +40,7 @@ flask --app main org|jobs|config ...
 | `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; model, job and tool modules |
 | `alembic/` | Migrations. Nothing creates tables at startup |
 | `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
+| `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
 | `web/`, `dashboard/`, `site/` | Older React web app, officer dashboard (Vite), docs and landing site |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
@@ -47,7 +48,8 @@ Modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard,
 
 ## Rules
 
-- `core/` imports nothing from `modules/`. A `service.py` does not import Flask. `make ci` checks both with import-linter.
+- `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
+- A new module is registered in each place that `docs/writing-a-module.md` lists. `tests/test_module_layout.py` checks them.
 - A service takes a database session and plain values and raises a `core.errors.ServiceError` subclass.
 - Use `officer_route`, `machine_route` and `member_view` from `modules/auth/routes.py` for new routes.
 - A model change needs an Alembic migration. `make ci` runs `alembic check`.

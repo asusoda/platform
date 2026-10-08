@@ -130,14 +130,8 @@ def schedule_crawl(db, org, key):
 
 @_route("/knowledge/crawls/<path:key>/run", ["POST"])
 def run_crawl(db, org, key):
-    """Queue a crawl of one source now. The result shows on the source as last_attempt_at and last_error."""
-    from core.jobs import defer
-
-    source = knowledge.get_source(db, _org_id(org), key)
-    if source["crawl"] is None:
-        raise knowledge.KnowledgeError("This source is written by a client, not crawled", 409)
-    force = json_body().get("force") is True
-    defer("knowledge.crawl_source", org_id=_org_id(org), key=key, force=force, org_prefix=str(org.prefix))
+    """Queue a crawl of one source now."""
+    crawl.queue(db, _org_id(org), str(org.prefix), key, force=json_body().get("force") is True)
     return {"queued": True}, 202
 
 

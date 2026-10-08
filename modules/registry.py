@@ -1,9 +1,7 @@
 """Every module's blueprint, where it is mounted, and which optional module gates it.
 
-Model, job and tool modules are listed in modules/manifest.py.
-
-To add a module: give it an api.py with a blueprint, add it here, and if orgs should be
-able to turn it off, add its name to OPTIONAL_MODULES in modules/organizations/service.py.
+Model, job and tool modules are listed in modules/manifest.py. docs/writing-a-module.md lists every
+place to register a new module, and tests/test_module_layout.py checks them.
 """
 
 from dataclasses import dataclass, field

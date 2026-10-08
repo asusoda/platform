@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BellRing, History, Play, Plus, Trash2 } from 'lucide-react';
+import { BellRing, History, Play, Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
   Badge,
   Button,
   Card,
   CardHeader,
+  DeleteButton,
   Dialog,
   Dot,
   EmptyState,
@@ -240,18 +241,11 @@ export function AlertsPage() {
                 <Button variant="ghost" size="icon" title="Run now" aria-label={`Run ${f.key} now`} onClick={() => run.mutate(f.key)}>
                   <Play className="size-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="Delete"
-                  aria-label={`Delete ${f.key}`}
-                  className="hover:text-bad"
-                  onClick={() => {
-                    if (confirm(`Delete feed ${f.key} and its webhook?`)) remove.mutate(f.key);
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <DeleteButton
+                  label={`Delete ${f.key}`}
+                  question={`Delete feed ${f.key} and its webhook?`}
+                  onDelete={() => remove.mutate(f.key)}
+                />
               </div>
             </div>
           ))

@@ -84,6 +84,16 @@ def run(db, org_id: int, key: str, embedder: Embedder | None, force: bool = Fals
     return crawl(db, source, embedder, force=force)
 
 
+def queue(db, org_id: int, org_prefix: str, key: str, force: bool = False) -> None:
+    """Start the crawl job for one source of the org. The result shows on the source as last_attempt_at and last_error."""
+    from core.jobs import defer
+
+    source = _find(db, org_id, key)
+    if source.fetch_every_hours is None:
+        raise KnowledgeError("This source is written by a client, not crawled", 409)
+    defer("knowledge.crawl_source", org_id=org_id, key=key, force=force, org_prefix=org_prefix)
+
+
 def crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: bool = False, pacer: Any = None) -> dict:
     """Fetch, extract, chunk, embed and index one crawled source. Commits; records any error on the source."""
     started = runs.Timer()

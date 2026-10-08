@@ -15,7 +15,7 @@ This page lists what is left to build and the known faults. The other pages desc
 - [ ] Terms and role assignments for each term. Officer access stops when the term stops.
 - [ ] Handover: a list of the org's outside accounts and the role that owns each. Show an alert when that role is empty.
 - [ ] Visibility levels on shared tables (public, member, officer, restricted), applied in queries.
-- [ ] Sync run history: a table of runs for each source with cursors, so that a sync can continue and a failure is visible.
+- [ ] Sync cursors, so that a sync continues from where the last run stopped. `knowledge_runs` and `alert_runs` already log each run and its error.
 - [ ] Webhooks that start jobs, at `/api/webhooks/<module>/<name>`.
 - [ ] Dashboard pages for job history and retry.
 - [ ] A member page for compute, so that members can see their pods and sessions without the CLI.

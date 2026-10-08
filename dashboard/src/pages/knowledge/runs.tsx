@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Card, CardHeader, Dot, EmptyState, ErrorNote, Select, SkeletonRows, Table, Td, Th, Tr } from '../components/ui';
-import { api } from '../lib/api';
-import { timeAgo } from '../lib/format';
-import { useCurrentOrg } from '../lib/org';
-import type { KnowledgeRun } from '../lib/types';
+import { Badge, Card, CardHeader, Dot, EmptyState, ErrorNote, Select, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
+import { api } from '../../lib/api';
+import { timeAgo } from '../../lib/format';
+import { useCurrentOrg } from '../../lib/org';
+import type { KnowledgeRun } from '../../lib/types';
 
 function result(r: KnowledgeRun): string {
   if (r.error) return 'failed';

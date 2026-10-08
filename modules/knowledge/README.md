@@ -9,7 +9,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 | `api.py`, `tools.py` | Machine routes for sources, search and crawls; the `knowledge.search` tool |
 | `service.py` | Sources, versions and chunks; declares `knowledge:read` and `knowledge:write`; checks `KNOWLEDGE_PUBLISHERS` |
 | `search.py` | Hybrid search with reciprocal rank fusion |
-| `crawl.py` | Crawls: fetch, extract, chunk, embed, index |
+| `crawl.py` | Crawls: fetch, extract, chunk, embed, index; `queue` starts the crawl job for one source |
 | `fetch.py` | Fetches with robots.txt, per-host pauses and public addresses only; Firecrawl if `FIRECRAWL_URL` is set |
 | `extract.py` | HTML to text, text to chunks, and the extractors that other modules register |
 | `documents.py` | Uploaded files (text, Markdown, HTML, PDF, Word) indexed as sources |
@@ -21,7 +21,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 
 ## Surface
 
-- Routes: `/api/knowledge`. Machine tokens only, with `knowledge:read` or `knowledge:write`.
+- Routes: `/api/knowledge`. Machine tokens only, with `knowledge:read` or `knowledge:write`. The officer routes for sources, crawls, uploads, settings, runs, packs and reindex are in `modules/dashboard/api.py`.
 - Jobs: `knowledge.crawl_due`, schedule `*/10 * * * *`; `knowledge.crawl_source` and `knowledge.reindex`, on request.
 - Tools: `knowledge.search` (scope `knowledge:read`).
 - Tables: `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs`.

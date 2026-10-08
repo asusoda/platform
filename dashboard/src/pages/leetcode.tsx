@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ModuleGate } from '../components/module-gate';
 import { Badge, Button, Card, CardHeader, Code, ErrorNote, Field, FormActions, Input, PageHeader, Row, SkeletonRows } from '../components/ui';
 import { api, send } from '../lib/api';
 import { useCurrentOrg } from '../lib/org';
@@ -88,7 +87,7 @@ export function LeetCodePage() {
   });
   const settings = leetcode.data?.settings;
   return (
-    <ModuleGate module="leetcode" title="LeetCode">
+    <>
       <PageHeader title="LeetCode" description="The daily problem post in the org's Discord server, and the commands members use there." />
       <div className="space-y-6">
         <Card>
@@ -123,6 +122,6 @@ export function LeetCodePage() {
           ))}
         </Card>
       </div>
-    </ModuleGate>
+    </>
   );
 }

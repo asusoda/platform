@@ -12,11 +12,11 @@ import {
   Field,
   SkeletonRows,
   Textarea,
-} from '../components/ui';
-import { send } from '../lib/api';
-import { runTone, timeAgo } from '../lib/format';
-import { useCurrentOrg } from '../lib/org';
-import { useCi } from '../lib/queries';
+} from '../../components/ui';
+import { send } from '../../lib/api';
+import { runTone, timeAgo } from '../../lib/format';
+import { useCurrentOrg } from '../../lib/org';
+import { useCi } from '../../lib/queries';
 
 // GitHub Actions runs of the org's repositories, and the form that lists the repositories. Shown on the Activity page.
 export function CiRuns() {
