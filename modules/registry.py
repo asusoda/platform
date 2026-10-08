@@ -27,7 +27,7 @@ from modules.organizations.api import organizations_blueprint
 from modules.points.api import points_blueprint
 from modules.public.api import public_blueprint
 from modules.runpod.api import apps_blueprint
-from modules.storefront.api import storefront_blueprint
+from modules.storefront.member_api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
 

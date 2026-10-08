@@ -14,7 +14,7 @@ inside functions, to break cycles).
 | File | Contents |
 |------|----------|
 | `base.py` | Four lines: the single `Base = declarative_base()`. Every model inherits from this one object, which is what makes `create_all` and Alembic autogenerate work. |
-| `db.py` | `DBConnect`: creates the engine and `SessionLocal`, ensures `./data/` exists. It does not create tables; Alembic does. Also carries a set of storefront CRUD helpers (`create_storefront_product`, `get_storefront_orders`, `update_storefront_product_stock`, …) that the storefront API calls into. |
+| `db.py` | `DBConnect`: creates the engine and `SessionLocal`, ensures `./data/` exists. It does not create tables; Alembic does. |
 | `config.py` | `Config`: reads `.env` via python-dotenv into ~40 attributes. Also loads `google-secret.json` from the repo root into `GOOGLE_SERVICE_ACCOUNT` (warns and sets `None` if absent). |
 | `logging_config.py` | `setup_logger()` builds a colorlog handler on the root logger at INFO. Use `get_logger(__name__)` in new code. **Never use `print()`** — the project instruction is explicit about this. |
 | `TokenManager.py` | RSA keypair management and all JWT issue/verify/refresh/revoke logic. See [Authentication](./04-authentication.md). |
@@ -114,7 +114,7 @@ Three concentric surfaces, each with different auth:
 | **Discord member** | `members/store`, `members/orders`, `members/orders/<id>`, `members/points` | `@member_required` |
 | **Anonymous** | `products` (GET), `products/<id>` (GET), `store` (GET) | none |
 
-### Checkout (`clerk_checkout`, `modules/storefront/api.py:964`)
+### Checkout (`clerk_checkout`, `modules/storefront/member_api.py`)
 
 The most important transaction in the codebase:
 
@@ -126,7 +126,7 @@ The most important transaction in the codebase:
 4. points_sum = SUM(Points.points) for (user, org)
 5. points_sum < total_amount?                            → 400 "Insufficient points"
 6. For each item: validate keys, load product, check stock, decrement stock in memory
-7. Create Order (status="completed") + OrderItems via db_connect.create_storefront_order
+7. Create Order (status="completed") + OrderItems via service.create_order
 8. Insert a Points row of -total_amount, event="Storefront Purchase - Order #<id>"
 9. db.commit()
 ```

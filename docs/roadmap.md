@@ -52,7 +52,7 @@ the same way.
 Found while documenting the modules. Each is small and local.
 
 - [ ] Rename `modules/auth/decoraters.py` to `decorators.py`.
-- [ ] Move the shared `users` and memberships tables and their helpers out of `modules/points` into
+- [x] Move the shared `users` and memberships tables and their helpers out of `modules/points` into
   `modules/users`, and the storefront queries out of `core/db.py` into `modules/storefront`.
 - [ ] Move the logic in `points/api.py` and `storefront/api.py` into a `service.py` each.
 - [ ] Remove dead routes and code: duplicate camelCase aliases in points, `/submit-form` in users,

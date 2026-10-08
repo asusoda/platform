@@ -124,10 +124,6 @@ name = "core imports no module"
 type = "forbidden"
 source_modules = ["core"]
 forbidden_modules = ["modules"]
-# Existing exceptions, to be moved into core or behind a service function:
-ignore_imports = [
-    "core.db.session -> modules.storefront.models",
-]
 
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
@@ -166,6 +162,7 @@ source_modules = [
     "modules.points.csv_import",
     "modules.points.service",
     "modules.runpod.service",
+    "modules.storefront.service",
     "modules.users.service",
 ]
 forbidden_modules = ["flask"]

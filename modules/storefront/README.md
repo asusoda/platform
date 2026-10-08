@@ -6,10 +6,10 @@ A merch store paid with points. Officers manage products and orders; members buy
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Product, order, store, member and checkout routes |
+| `api.py` | `storefront_blueprint`; product, order and store routes |
+| `member_api.py` | Member routes on the same blueprint: `/members/...`, `/orders/<email>`, `/wallet/<email>`, `/checkout` |
+| `service.py` | Product and order queries, category clean-up, the catalog price check |
 | `models.py` | Products, orders, order items |
-
-The product and order queries live in `core/db/session.py` (`DBConnect.get_storefront_products` and the others).
 
 ## Surface
 

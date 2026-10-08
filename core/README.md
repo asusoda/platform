@@ -8,7 +8,7 @@ Shared code the modules build on: configuration, database, logging, HTTP hooks, 
 | --- | --- |
 | `audit.py` | The `audit_log` table, `record()`, and the `audit.prune` job (cron `30 3 * * *`, `AUDIT_RETENTION_DAYS`) |
 | `config.py` | `Config` and the `config` instance: settings from `.env` and the environment |
-| `db/` | `Base`, `DBConnect`, the `db_connect` instance, `session()`, and storefront query helpers |
+| `db/` | `Base`, `DBConnect`, the `db_connect` instance and `session()` |
 | `errors.py` | `ServiceError`, the error services raise with an HTTP status |
 | `http/audit_hook.py` | After-request hook that records successful API writes in the audit log |
 | `http/responses.py` | `json_body`, `error()` and `error_handler` |
@@ -23,7 +23,7 @@ Shared code the modules build on: configuration, database, logging, HTTP hooks, 
 
 ## Rule
 
-core imports nothing from `modules/`. The import-linter contract `core imports no module` in `[tool.importlinter]` of `pyproject.toml` enforces it (`make check` runs `lint-imports`), with one listed exception: `core.db.session -> modules.storefront.models`.
+core imports nothing from `modules/`. The import-linter contract `core imports no module` in `[tool.importlinter]` of `pyproject.toml` enforces it (`make check` runs `lint-imports`). It has no exceptions.
 
 ## More
 

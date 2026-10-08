@@ -164,11 +164,11 @@ modules/<name>/
 A module has only the files it needs. REST routes, the bot, jobs and tools all call the same
 `service.py` functions, which raise a subclass of `core.errors.ServiceError(message, status)`.
 Routes for machine tokens use `machine_route` from `modules/auth/routes.py`. The older SoDA modules
-(`points`, `storefront`, `users`) still keep most logic in `api.py`.
+(`points`, `storefront`, `users`) still keep part of their logic in `api.py`.
 
 Shared code that is not a feature lives in `core/` (database, config, jobs, tools, secrets, audit,
-logging, Discord and RunPod clients). `core/` must not import from `modules/`; three existing
-imports are listed as exceptions in `pyproject.toml` until they are moved.
+logging, Discord and RunPod clients). `core/` must not import from `modules/`, with no
+exceptions.
 
 `make ci` runs `lint-imports` (import-linter) to enforce both rules. [Writing a
 module](./writing-a-module.md) lists every place a new module is registered.
