@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Runs the platform on one RunPod pod: API on 8000, web app on 5000, MCP server on 8001, bot when BOT_TOKEN is set.
+# RUN_BOT=false skips the bot, for a BOT_TOKEN that another bot process already uses.
 # The pod clones PLATFORM_BRANCH into /workspace on each start, so a restart deploys the branch head.
 # State (SQLite database, generated keys) lives in /workspace/data on the pod's volume.
 set -euo pipefail
@@ -41,6 +42,8 @@ python3 -m pip install -q uv
 uv sync --frozen --no-dev
 (cd web && corepack enable && pnpm install --frozen-lockfile && REACT_APP_API_URL="$API_URL" pnpm run build)
 uv run alembic upgrade head
+# Logs the Discord app of BOT_TOKEN and any setting that is missing. A failure does not stop the start.
+uv run flask --app main config check || true
 
 # First boot: create the org named by ORG_PREFIX, ORG_NAME and ORG_GUILD_ID if it does not exist yet
 if [ -n "${ORG_PREFIX:-}" ] && [ -n "${ORG_GUILD_ID:-}" ]; then
@@ -53,7 +56,7 @@ fi
 
 npx --yes serve@14 -s web/build -l 5000 &
 uv run python mcp_main.py &
-if [ -n "${BOT_TOKEN:-}" ]; then
+if [ -n "${BOT_TOKEN:-}" ] && [ "${RUN_BOT:-true}" != "false" ]; then
   uv run python bot_main.py &
 fi
 exec uv run gunicorn --workers 1 --threads 8 --timeout 120 --bind 0.0.0.0:8000 main:app

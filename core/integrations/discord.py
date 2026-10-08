@@ -67,6 +67,12 @@ class DiscordDirectory:
         with self._lock:
             self._cache.clear()
 
+    def identity(self) -> dict:
+        """The Discord app that owns the token: {app_id, app_name, bot_name}."""
+        app = self._get("/oauth2/applications/@me", ttl=3600) or {}
+        bot = app.get("bot") or {}
+        return {"app_id": str(app.get("id", "")), "app_name": app.get("name"), "bot_name": bot.get("username")}
+
     # Guilds and roles
 
     def list_guilds(self) -> list[dict]:
