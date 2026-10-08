@@ -14,8 +14,8 @@ Steps:
 5. `tools.py` with `@tool` from `core/tools.py` when agents call the module. No try/except: `ServiceError` becomes a tool error.
 6. Register: `MOUNTS` in `modules/registry.py`; `MODEL_MODULES`, `JOB_MODULES`, `TOOL_MODULES` in `modules/manifest.py`; `OPTIONAL_MODULES` in `modules/organizations/service.py` if orgs can switch it off; the Flask-free files in the import-linter contract in `pyproject.toml`.
 7. Migration: see the `migration` skill.
-8. Tests in `tests/contract/test_<name>.py`. Fake every network call by monkeypatching the module's fetch or client function. Add the module to the expected list in `tests/contract/test_modules.py` when it is switchable.
-9. Docs: `modules/<name>/README.md` in the same sections as the others, `docs/<name>.md`, a row in `docs/README.md`, `modules/README.md`, the README module table, the active modules line in `CLAUDE.md`, and the page in `site/scripts/sync-docs.mjs`.
+8. Tests in `tests/contract/test_<name>.py`. Fake every network call by monkeypatching the module's fetch or client function. Add the module to the expected list in `tests/contract/test_modules.py` when it is switchable. Add the new routes to `tests/contract/routes.txt` with `UPDATE_ROUTES=1 uv run pytest tests/contract/test_routes.py`.
+9. Docs: `modules/<name>/README.md` with a Files table and a Surface list, 25 lines or fewer; a row in `modules/README.md` and the README module table; the modules line in `AGENTS.md` and `CLAUDE.md`. If the module needs more than its README: `docs/modules/<name>.md`, a row in `docs/README.md`, and the page in `site/scripts/sync-docs.mjs`.
 10. Run the `check` skill.
 
-Comments and docs are plain and monotone: what the code does, no justification, no marketing words.
+Write comments and docs with the `technical-writing` skill.

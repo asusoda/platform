@@ -1,31 +1,28 @@
 # Modules
 
-One folder per feature. Each folder has a `README.md` with its files, routes, jobs, tools and
-tables. [docs/writing-a-module.md](../docs/writing-a-module.md) describes the files a module has
-and where a new one is registered.
+One folder for each module. Each folder has a `README.md` with its files and its surface: routes, jobs, tools and tables. [docs/writing-a-module.md](../docs/writing-a-module.md) gives the rules and the places to register a new module.
 
-| Module | What it does | Org switch |
+| Module | Does | Org switch |
 | --- | --- | --- |
-| [accounts](accounts/README.md) | Canvas, Google and Outlook sign-in for a member, bound to their Discord account | |
-| [alerts](alerts/README.md) | Job and hackathon listings posted to Discord webhooks | `alerts` |
-| [dashboard](dashboard/README.md) | Overview and CI runs for the officer dashboard | |
+| [accounts](accounts/README.md) | Canvas, Google and Outlook sign-in for a member | |
 | [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | |
-| [asu](asu/README.md) | Example campus source: public ASU pages and live queries, indexed into knowledge | |
-| [auth](auth/README.md) | Discord login, JWTs, access checks, machine tokens and scopes | |
-| [bot](bot/README.md) | The Discord bot process and its cogs | |
+| [alerts](alerts/README.md) | Job and hackathon listings posted to Discord webhooks | `alerts` |
+| [asu](asu/README.md) | Example campus source: ASU pages and live queries | |
+| [auth](auth/README.md) | Discord sign-in, tokens, access checks, machine tokens and scopes | |
+| [bot](bot/README.md) | The Discord bot and its helper cog | |
 | [calendar](calendar/README.md) | Notion events synced to Google Calendar | `calendar` |
-| [compute](compute/README.md) | RunPod pods members SSH into, file manager, scheduled sessions | `compute` |
+| [compute](compute/README.md) | RunPod pods that members connect to over SSH | `compute` |
+| [dashboard](dashboard/README.md) | Overview, branding and CI runs for the officer dashboard | |
 | [games](games/README.md) | Jeopardy in Discord | |
 | [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | |
-| [leetcode](leetcode/README.md) | Daily LeetCode post and solve checks | `leetcode` |
-| [mcp](mcp/README.md) | MCP server and `/api/tools` over every module's tools | |
-| [organizations](organizations/README.md) | Orgs, officers, config and module switches | |
-| [points](points/README.md) | Members, points, leaderboards, CSV imports | `points` |
-| [public](public/README.md) | Unauthenticated reads | |
-| [runpod](runpod/README.md) | App deploys to RunPod with health checks and rollback | |
+| [leetcode](leetcode/README.md) | The daily LeetCode post and solve checks | `leetcode` |
+| [mcp](mcp/README.md) | The MCP server and `/api/tools` | |
+| [organizations](organizations/README.md) | Orgs, config, module switches, secrets and machine tokens | |
+| [points](points/README.md) | Points, leaderboards and CSV imports | `points` |
+| [public](public/README.md) | Open reads | |
+| [runpod](runpod/README.md) | App deploys to RunPod | |
 | [storefront](storefront/README.md) | Merch store paid in points | `storefront` |
-| [superadmin](superadmin/README.md) | Installing and managing organizations across the deployment | |
-| [users](users/README.md) | Member records within an org | |
+| [superadmin](superadmin/README.md) | Orgs for the whole deployment | |
+| [users](users/README.md) | Members and memberships | |
 
-`registry.py` mounts every blueprint. `manifest.py` lists the model, job and tool modules. `cli.py` holds the
-`flask --app main org` commands.
+`registry.py` mounts each blueprint. `manifest.py` lists the model, job and tool modules. `cli.py` has the `flask --app main org`, `jobs` and `config` commands.

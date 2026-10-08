@@ -1,0 +1,86 @@
+# Authentication
+
+This page tells you how callers sign in and how a route decides who may call it. The code is in `modules/auth/`.
+
+## Credentials
+
+| Credential | Who uses it | Made by |
+| --- | --- | --- |
+| Platform access token and refresh token | Officers in `web/` and `dashboard/` | Discord sign-in at `/api/auth/login` |
+| Session cookie | The same officers, and members who signed in with Discord | Flask, signed with `SECRET_KEY` |
+| Clerk session token | Members on the public website storefront | Clerk |
+| Machine token (`plat_...`) | Apps, agents and CLIs | An officer, or the compute CLI sign-in |
+| App token | Older integrations | `GET /api/auth/appToken`. Use a machine token for new work |
+
+## Officer sign-in
+
+1. The browser opens `GET /api/auth/login`. The API stores a random `state` in the session and sends the browser to Discord.
+2. Discord sends the browser to `REDIRECT_URI` (`/api/auth/callback`) with a code.
+3. The API checks the `state`, gets the Discord user, and finds the orgs where the user has the officer role. It reads the roles over Discord's REST API with `BOT_TOKEN`.
+4. If the user is an officer of one or more orgs, the API makes a token pair. It sends the browser to `<CLIENT_URL>/auth/?code=...` with a one-time code that is valid for 60 seconds. If the user is not an officer, the URL has `error=Unauthorized Access`.
+5. The client sends the code to `POST /api/auth/exchange` and gets `access_token` and `refresh_token`.
+
+With `?client=dashboard`, step 4 uses `DASHBOARD_URL` in place of `CLIENT_URL`. If `BOT_TOKEN` is not set or Discord does not answer, the callback returns 503.
+
+The API keeps the one-time codes in process memory. Thus the API runs one gunicorn worker.
+
+## Platform tokens
+
+`modules/auth/tokens.py` signs tokens with RS256. The key pair is in `./data/jwt_private.pem` and `./data/jwt_public.pem`. The API makes the pair at the first start.
+
+Caution: do not delete the key files. If you delete them, all tokens become invalid and every officer must sign in again.
+
+- An access token is valid for 30 minutes. It has `username` and `discord_id`.
+- A refresh token is valid for 7 days. The database keeps only its SHA-256 hash.
+- `POST /api/auth/revoke` and `POST /api/auth/logout` delete the refresh token and write the access token to `revoked_tokens`. A revoked token stays revoked after a restart and in every process.
+- An app token is valid for 120 days and has `type: "app"` and the `discord_id` of the officer who made it. Officers list and revoke their app tokens at `/api/auth/appTokens`.
+
+Clients use the status code to decide what to do:
+
+- 401: the token is missing or invalid. Sign out.
+- 403 on a token in the `Authorization` header: the token is expired. Call `POST /api/auth/refresh`, then send the request again.
+
+A bad or expired token in the session cookie always gets 401.
+
+## Machine tokens
+
+An officer makes a machine token with `POST /api/organizations/<id>/tokens` (`name`, `kind` of `app`, `agent` or `cli`, `scopes`, optional `expires_days`). The response shows the token once. The database keeps its SHA-256 hash and its first characters. `DELETE .../tokens/<id>` revokes it.
+
+- A machine token belongs to one org. A route for a different org refuses it with 403.
+- A module declares its scopes with `scopes.declare(name, description)` from `modules/auth/scopes.py`. `GET .../tokens` lists all scopes.
+- Officer routes do not accept a machine token. It is not a JWT, so they return 401.
+- `GET /api/auth/machine/whoami` returns the org, name, kind and scopes of a token.
+
+## Decorators
+
+The decorators are in `modules/auth/decorators.py`. `officer_route`, `machine_route` and `member_view` in `modules/auth/routes.py` add the decorator, a database session and the org to a view.
+
+| Decorator | The caller must have |
+| --- | --- |
+| `auth_required` | A platform token, from an officer of the org in the URL (`org_prefix` or `org_id`) |
+| `dual_auth_required` | A Clerk token, or a platform token. It sets `request.clerk_user_email` to the Clerk email or to the token's `username` |
+| `org_officer_required` | After `dual_auth_required`: an officer of the org in the URL |
+| `superadmin_required` | A platform token whose `discord_id` is `SYS_ADMIN` |
+| `member_required` | A Discord session (`session["discord_id"]`) of a member of the org's server |
+| `machine_scope_required(scope)` | A machine token with the scope. It sets `g.machine_caller` |
+
+`error_handler` from `core/http/responses.py` changes an unhandled error into `{"error": str(e)}` with status 500. Put the auth decorator above it. If you do not, an auth refusal becomes a 500.
+
+## Access checks
+
+`modules/auth/access.py` decides whether a caller may act on the org in the URL. A caller may act on an org if they have its officer role in Discord, or if they are the superadmin. The result for a Discord id stays in a cache for 60 seconds.
+
+The checks have two modes:
+
+- `ACCESS_ENFORCE=false` (default): the request goes through. The API logs one line for each request that it would refuse: `access decision=would_deny reason=... route=... org=... credential=...`.
+- `ACCESS_ENFORCE=true`: the API refuses the same requests with 403 (503 for `bot_unavailable`) and logs `decision=deny`.
+
+The reasons are `not_org_officer`, `not_officer`, `not_superadmin`, `no_discord_id`, `no_platform_credential`, `bot_unavailable`, `oauth_state_mismatch`, `member_login_unverified`, `checkout_price_mismatch` (409) and `member_details_hidden`. For `member_details_hidden`, public member lists remove emails and student ids. They do not refuse the request.
+
+Turn on enforcement when the log shows no `would_deny` lines from real callers.
+
+## Members
+
+- Clerk: `modules/auth/clerk.py` checks the token against `CLERK_SECRET_KEY` and `CLERK_AUTHORIZED_PARTIES` and gets the primary email. The email is the identity: the API finds the member by `users.email`.
+- `POST /api/points/<org>/member_login` needs a Clerk token with the same email as the body. In report mode it logs `member_login_unverified` and goes through.
+- `/api/accounts/discord/callback` writes `session["discord_id"]`, which `member_required` reads.

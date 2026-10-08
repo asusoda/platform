@@ -1,6 +1,6 @@
 # storefront
 
-A merch store paid with points. Officers manage products and orders; members buy with their points balance, signed in with Discord or Clerk.
+A merch store paid with points. Officers manage products and orders. Members buy with their points balance, signed in with Discord or Clerk.
 
 ## Files
 
@@ -13,11 +13,7 @@ A merch store paid with points. Officers manage products and orders; members buy
 
 ## Surface
 
-- Routes: `/api/storefront`, gated by the `storefront` switch. Product and order changes need an officer of the org; `/members/...` routes need a Discord session of a guild member; `/checkout`, `/wallet/<email>`, `/orders/<email>` and `POST /orders` take a Clerk or Discord token; product lists and `/store` are open.
+- Routes: `/api/storefront`, behind the `storefront` switch. Product and order changes need an officer of the org. `/members/...` routes need a Discord session of a server member. `/checkout`, `/wallet/<email>`, `/orders/<email>` and `POST /orders` need a Clerk or platform token. Product lists and `/store` are open.
 - Jobs: none.
 - Tools: none.
 - Tables: `products`, `orders`, `order_items`.
-
-## More
-
-[docs/05-backend-modules.md](../../docs/05-backend-modules.md)

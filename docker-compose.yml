@@ -151,7 +151,7 @@ services:
       - soda-network
 
   # Postgres, off unless started with --profile postgres and DATABASE_URL points at it.
-  # See docs/09-deployment-and-operations.md, "Moving to Postgres".
+  # See docs/operations.md, "Move to Postgres".
   postgres:
     # Postgres 16 with pgvector, for knowledge search
     image: pgvector/pgvector:pg16
