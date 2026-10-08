@@ -11,7 +11,7 @@ import { type Theme, useTheme } from '../lib/theme';
 import { type PageEntry, PAGES, SECTIONS } from '../pages/registry';
 import { NotificationsBell } from './notifications';
 import { OrgMark } from './org-mark';
-import { OrgMarks } from './org-marks';
+import { OrgMarks } from './built-by';
 import { MOD_KEY, Tooltip } from './tooltip';
 import { cx } from './ui';
 

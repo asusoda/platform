@@ -66,7 +66,7 @@ The API reads `DATABASE_URL`. CI runs the tests on SQLite and Postgres 16. Do th
 1. Add `POSTGRES_PASSWORD` to `.env`. Start the database: `docker compose --profile postgres up -d postgres`.
 2. Make the schema: `DATABASE_URL=postgresql://platform:<password>@localhost:5432/platform uv run alembic upgrade head`.
 3. Stop the writers: `docker compose stop api bot`.
-4. Copy the data: `uv run python scripts/copy_sqlite_to_postgres.py sqlite:///./data/user.db <postgres url>`. The script refuses tables that have rows. It stops with an error if a row count or an org's points total is different.
+4. Copy the data: `uv run python deploy/copy_sqlite_to_postgres.py sqlite:///./data/user.db <postgres url>`. The script refuses tables that have rows. It stops with an error if a row count or an org's points total is different.
 5. Set `DATABASE_URL=postgresql://platform:<password>@postgres:5432/platform` in `.env`. Run `docker compose --profile postgres up -d`. The `worker` service starts and runs the jobs.
 6. Keep `data/user.db` for two weeks or more. To go back, remove `DATABASE_URL` and restart.
 

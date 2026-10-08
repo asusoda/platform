@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { ABOUT_URL, builtByLabel, DOCS_URL, REPO_URL } from '../lib/links';
 import { GitHubIcon } from './brand-icons';
 import { Logo } from './logo';
-import { OrgMarks } from './org-marks';
+import { OrgMarks } from './built-by';
 
 const LINKS = [
   { label: 'Docs', href: DOCS_URL, icon: BookOpen },
