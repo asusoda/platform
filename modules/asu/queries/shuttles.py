@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from modules.asu.http import ARIZONA, clock, get_json, get_text
-from modules.asu.params import text
+from modules.asu.queries.params import text
 from modules.asu.types import QueryError, QueryParam, QuerySource
 
 TRACKER = "https://asu-shuttles.rider.peaktransit.com/"

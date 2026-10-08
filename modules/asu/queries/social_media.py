@@ -6,7 +6,7 @@ import datetime
 import xml.etree.ElementTree as ET  # nosec B405 - types only; parsing goes through defusedxml
 
 from modules.asu.http import day, get_xml, plain
-from modules.asu.params import text
+from modules.asu.queries.params import text
 from modules.asu.types import QueryParam, QuerySource
 
 _FEED = "https://www.youtube.com/feeds/videos.xml?channel_id="

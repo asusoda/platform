@@ -1,0 +1,69 @@
+"""Superadmin logic: guilds without an org, an officer's orgs, guild roles and new orgs. No Flask here."""
+
+from typing import Any
+
+from core.config import config
+from core.integrations.discord import DiscordUnavailable
+from core.log import get_logger
+from modules.organizations.config import OrganizationSettings
+from modules.organizations.models import Organization
+
+logger = get_logger(__name__)
+
+
+def is_superadmin(discord_id: object) -> bool:
+    """Whether the Discord id is SUPERADMIN_USER_ID."""
+    return str(discord_id) == str(config.SUPERADMIN_USER_ID)
+
+
+def available_guilds(guilds: list[dict], orgs: list[Organization]) -> list[dict]:
+    """The bot's guilds that have no org yet."""
+    taken = {org.guild_id for org in orgs}
+    return [
+        {"id": guild["id"], "name": guild["name"], "icon": {"url": guild["icon_url"]}}
+        for guild in guilds
+        if guild["id"] not in taken
+    ]
+
+
+def officer_orgs(directory, orgs: list[Organization], officer_id: object) -> list[Organization]:
+    """The orgs whose guild has the member. An org whose guild cannot be read is left out."""
+    if not officer_id:
+        return []
+    found = []
+    for org in orgs:
+        try:
+            if directory.check_user_membership(officer_id, org.guild_id):
+                found.append(org)
+        except (ValueError, DiscordUnavailable) as e:
+            logger.debug(f"Error checking organization {org.name}: {e}")
+    return found
+
+
+def guild_roles(directory, guild_id: int) -> list[dict]:
+    """The guild's roles without @everyone and integration roles, highest position first."""
+    roles = [
+        {key: role[key] for key in ("id", "name", "color", "position", "permissions")}
+        for role in directory.get_guild_roles(guild_id)
+        if role["name"] != "@everyone" and not role["managed"]
+    ]
+    roles.sort(key=lambda x: x["position"], reverse=True)
+    return roles
+
+
+def role_in_guild(directory, guild_id: Any, role_id: Any) -> bool:
+    """Whether the guild has the role. Raises ValueError when an id is not a number."""
+    role_ids = {role["id"] for role in directory.get_guild_roles(int(guild_id))}
+    return str(int(role_id)) in role_ids
+
+
+def new_organization(guild: dict) -> Organization:
+    """An unsaved org for a guild, with a prefix from the guild name and default settings."""
+    return Organization(
+        name=guild["name"],
+        guild_id=guild["id"],
+        prefix=guild["name"].lower().replace(" ", "_").replace("-", "_"),
+        description=f"Discord server: {guild['name']}",
+        icon_url=guild["icon_url"],
+        config=OrganizationSettings().to_dict(),
+    )

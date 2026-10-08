@@ -8,14 +8,13 @@ An example campus source module, for Arizona State University. It registers publ
 | --- | --- |
 | `api.py` | Machine routes: list live queries, run one, sync ASU pages into the org's knowledge |
 | `service.py` | `sync()`, `query()` and indexing of query results; registers the ASU extractors with knowledge |
-| `registry.py` | The live query sources, the parameter checks every query passes, and how a query runs |
 | `queries/` | One module per live query source (courses, course catalog, dining, events, library, shuttles, sports, study rooms, web search through SearXNG, and others) |
+| `queries/registry.py` | The live query sources, the parameter checks every query passes, and how a query runs |
+| `queries/params.py` | Maps query parameters to search URL values, such as term codes |
 | `sources/` | ASU pages crawled on a schedule: one module per source with its own extractor, plus the static page list in `pages.py` |
 | `types.py` | `Source`, `QuerySource`, `QueryParam`, `QueryError` |
-| `params.py` | Maps query parameters to search URL values, such as term codes |
-| `http.py` | Reads JSON, feeds and plain text for sources that use several endpoints |
-| `text.py` | HTML to normalized text |
-| `fetching.py` | The fetch the sources call, through the knowledge fetcher |
+| `http.py` | `fetch()`, the page fetch the queries call through the knowledge fetcher, and readers for JSON, feeds and plain text |
+| `text.py` | `page_text()` and `form_page_text()` around `knowledge.extract.extract_text`, and markdown line helpers |
 | `settings.py` | Env settings: `ASU_QUERY_MAX_CHARS`, `SEARXNG_URL`, `SEARXNG_ENGINES` |
 | `tools.py` | The `asu.query` tool |
 | `jobs.py` | The indexing job |

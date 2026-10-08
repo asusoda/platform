@@ -1,12 +1,9 @@
-"""Knowledge sources and hybrid search over their chunks. No Flask here.
+"""Knowledge sources, their versions and chunks. No Flask here.
 
 Writers (a scraper, an import script) send a source as chunks, or crawl.py fetches a crawled source.
 A source is replaced whole: when its content hash changes, a new version and its chunks replace the
-old ones. Search fuses a vector leg and a text leg with reciprocal rank fusion over the caller's organization
-plus public sources. Only organizations listed in KNOWLEDGE_PUBLISHERS may write public sources.
-
-On Postgres with pgvector, both legs run in SQL. Elsewhere, including Postgres without pgvector,
-the vector leg runs in Python over the stored vectors, and on SQLite so does the text leg.
+old ones. Only organizations listed in KNOWLEDGE_PUBLISHERS may write public sources. search.py
+searches the chunks.
 """
 
 import hashlib
@@ -15,16 +12,11 @@ import os
 import re
 from typing import Any
 
-from sqlalchemy import or_, text
-
 from core.errors import ServiceError
-from core.log import get_logger
 from core.time import iso, utcnow
 from modules.auth import scopes
 from modules.knowledge.embedder import Embedder, EmbeddingError
-from modules.knowledge.models import DIMENSIONS, Embedding, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
-
-logger = get_logger("knowledge")
+from modules.knowledge.models import DIMENSIONS, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
 
 scopes.declare("knowledge:read", "Search the organization's knowledge and public sources")
 scopes.declare("knowledge:write", "Write and delete the organization's knowledge sources")
@@ -32,54 +24,16 @@ scopes.declare("knowledge:write", "Write and delete the organization's knowledge
 MAX_CHUNKS = 5000
 MAX_CHUNK_CHARS = 20000
 MAX_LEVEL = 10
-MAX_TOP_K = 50
-MAX_WINDOW = 5
-CANDIDATES = 50
-RRF_K = 60.0
 KEY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}$")
-TEXT_CONFIG = "english"
 
 
 class KnowledgeError(ServiceError, ValueError):
     pass
 
 
-def max_distance() -> float:
-    """Cosine distance above which a vector match is dropped. KNOWLEDGE_MAX_DISTANCE, default 0.6."""
-    try:
-        value = float(os.environ.get("KNOWLEDGE_MAX_DISTANCE", "0.6"))
-    except ValueError:
-        return 0.6
-    return value if 0 < value <= 2 else 0.6
-
-
 def can_publish(org_prefix: str) -> bool:
     publishers = {p.strip() for p in os.environ.get("KNOWLEDGE_PUBLISHERS", "").split(",") if p.strip()}
     return org_prefix in publishers
-
-
-_PGVECTOR: dict[str, bool] = {}
-
-
-def _dialect(db) -> str:
-    return db.get_bind().dialect.name
-
-
-def _vector_sql(db) -> bool:
-    """Whether the vector leg can run in SQL: Postgres with the embedding column as pgvector."""
-    bind = db.get_bind()
-    if bind.dialect.name != "postgresql":
-        return False
-    url = str(bind.url)
-    if url not in _PGVECTOR:
-        row = db.execute(
-            text(
-                "SELECT data_type FROM information_schema.columns "
-                "WHERE table_name = 'knowledge_chunks' AND column_name = 'embedding'"
-            )
-        ).first()
-        _PGVECTOR[url] = row is not None and row[0] == "USER-DEFINED"
-    return _PGVECTOR[url]
 
 
 def _vector(value: Any, field: str) -> list[float]:
@@ -301,204 +255,3 @@ def delete_source(db, org_id: int, key: str) -> None:
     _drop_versions(db, source.id)
     db.delete(source)
     db.commit()
-
-
-# Search
-
-
-def _scope(query, org_id: int, category: str | None):
-    query = query.filter(or_(KnowledgeChunk.organization_id == org_id, KnowledgeChunk.public.is_(True)))
-    return query.filter(KnowledgeChunk.category == category) if category else query
-
-
-def _dense_sql(db, org_id: int, category: str | None, vector: list[float], model: str) -> list[str]:
-    params: dict[str, Any] = {
-        "org": org_id,
-        "vec": Embedding().process_bind_param(vector, None),
-        "model": model,
-        "n": CANDIDATES,
-        "max": max_distance(),
-    }
-    where = "(c.organization_id = :org OR c.public) AND c.embedding IS NOT NULL AND v.embedding_model = :model"
-    if category:
-        where += " AND c.category = :category"
-        params["category"] = category
-    sql = (
-        "SELECT id FROM ("  # nosec B608 - only fixed fragments are formatted
-        " SELECT c.id, c.embedding <=> CAST(:vec AS vector) AS distance"
-        " FROM knowledge_chunks c JOIN knowledge_versions v ON v.id = c.version_id"
-        f" WHERE {where} ORDER BY distance LIMIT :n"
-        ") nearest WHERE distance <= :max"
-    )
-    return [row[0] for row in db.execute(text(sql), params)]
-
-
-def _dense_python(db, org_id: int, category: str | None, vector: list[float], model: str) -> list[str]:
-    query = db.query(KnowledgeChunk.id, KnowledgeChunk.embedding).join(
-        KnowledgeVersion, KnowledgeVersion.id == KnowledgeChunk.version_id
-    )
-    query = _scope(query, org_id, category).filter(
-        KnowledgeVersion.embedding_model == model, KnowledgeChunk.embedding.isnot(None)
-    )
-    norm = math.sqrt(sum(x * x for x in vector)) or 1.0
-    limit = max_distance()
-    scored = []
-    for chunk_id, embedding in query.all():
-        other = math.sqrt(sum(x * x for x in embedding)) or 1.0
-        distance = 1.0 - sum(a * b for a, b in zip(vector, embedding, strict=False)) / (norm * other)
-        if distance <= limit:
-            scored.append((distance, chunk_id))
-    scored.sort()
-    return [chunk_id for _, chunk_id in scored[:CANDIDATES]]
-
-
-def _lexical_sql(db, org_id: int, category: str | None, query_text: str) -> list[str]:
-    params: dict[str, Any] = {"org": org_id, "q": query_text, "n": CANDIDATES}
-    where = "(c.organization_id = :org OR c.public)"
-    if category:
-        where += " AND c.category = :category"
-        params["category"] = category
-    tsv = f"to_tsvector('{TEXT_CONFIG}', c.content)"
-    tsq = f"websearch_to_tsquery('{TEXT_CONFIG}', :q)"
-    sql = (
-        f"SELECT c.id FROM knowledge_chunks c WHERE {where} AND {tsv} @@ {tsq}"  # nosec B608 - fixed fragments
-        f" ORDER BY ts_rank_cd({tsv}, {tsq}) DESC LIMIT :n"
-    )
-    return [row[0] for row in db.execute(text(sql), params)]
-
-
-def _terms(value: str) -> set[str]:
-    return {t for t in re.findall(r"[a-z0-9]+", value.lower()) if len(t) > 1}
-
-
-def _lexical_python(db, org_id: int, category: str | None, query_text: str) -> list[str]:
-    terms = _terms(query_text)
-    if not terms:
-        return []
-    query = _scope(db.query(KnowledgeChunk.id, KnowledgeChunk.content), org_id, category)
-    scored = []
-    for chunk_id, content in query.all():
-        score = len(terms & _terms(content))
-        if score:
-            scored.append((-score, chunk_id))
-    scored.sort()
-    return [chunk_id for _, chunk_id in scored[:CANDIDATES]]
-
-
-def rrf(lists: list[list[str]], k: float = RRF_K) -> list[tuple[str, float]]:
-    """Reciprocal rank fusion. Each ranked list contributes 1 / (k + rank)."""
-    scores: dict[str, float] = {}
-    for ranked in lists:
-        for rank, item in enumerate(ranked):
-            scores[item] = scores.get(item, 0.0) + 1.0 / (k + rank + 1)
-    return sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
-
-
-def _int(value: Any, field: str, default: int, low: int, high: int) -> int:
-    if value is None:
-        return default
-    if not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high:
-        raise KnowledgeError(f"{field} must be an integer from {low} to {high}")
-    return value
-
-
-def search(
-    db,
-    org_id: int,
-    query: Any,
-    *,
-    category: Any = None,
-    top_k: Any = None,
-    window: Any = None,
-    embedding: Any = None,
-    embedding_model: Any = None,
-    embedder: Embedder | None = None,
-) -> dict:
-    """Ranked passages for a query from the org's sources and public ones. Arguments come from callers."""
-    query_text = _text(query, "query", 1000) or ""
-    category = _text(category, "category", 100, required=False)
-    top_k = _int(top_k, "top_k", 8, 1, MAX_TOP_K)
-    window = _int(window, "window", 0, 0, MAX_WINDOW)
-
-    vector, model = None, None
-    if embedding is not None:
-        vector = _vector(embedding, "embedding")
-        model = _text(embedding_model, "embedding_model", 200)
-    elif embedder is not None:
-        try:
-            vector, model = _vector(embedder.embed_query(query_text), "query embedding"), embedder.model
-        except (EmbeddingError, KnowledgeError):
-            logger.warning("query embedding failed, searching on text only")
-
-    legs: list[list[str]] = []
-    if vector is not None and model is not None:
-        dense = _dense_sql if _vector_sql(db) else _dense_python
-        legs.append(dense(db, org_id, category, vector, model))
-    lexical = _lexical_sql if _dialect(db) == "postgresql" else _lexical_python
-    legs.append(lexical(db, org_id, category, query_text))
-
-    fused = rrf(legs)
-    if not fused:
-        return {"results": [], "dense": vector is not None}
-    rows = {
-        chunk.id: (chunk, source)
-        for chunk, source in db.query(KnowledgeChunk, KnowledgeSource)
-        .join(KnowledgeSource, KnowledgeSource.id == KnowledgeChunk.source_id)
-        .filter(KnowledgeChunk.id.in_([chunk_id for chunk_id, _ in fused]))
-        .all()
-    }
-
-    # A row whose summary already ranked higher adds nothing.
-    seen: set[tuple[str, int]] = set()
-    ordered = []
-    for chunk_id, score in fused:
-        if chunk_id not in rows:
-            continue
-        chunk, source = rows[chunk_id]
-        if chunk.parent_ordinal is not None and (chunk.version_id, chunk.parent_ordinal) in seen:
-            continue
-        seen.add((chunk.version_id, chunk.ordinal))
-        ordered.append((chunk, source, score))
-        if len(ordered) == top_k:
-            break
-
-    return {"results": _widen(db, ordered, window), "dense": vector is not None}
-
-
-def _widen(db, ordered: list, window: int) -> list[dict]:
-    """Each hit as evidence; page text hits carry `window` neighbors on each side, without repeats."""
-    covered: dict[str, list[tuple[int, int]]] = {}
-    results = []
-    for chunk, source, score in ordered:
-        content = chunk.content
-        if window and chunk.level == 0:
-            spans = covered.setdefault(chunk.version_id, [])
-            if any(lo <= chunk.ordinal <= hi for lo, hi in spans):
-                continue
-            lo, hi = chunk.ordinal - window, chunk.ordinal + window
-            spans.append((lo, hi))
-            neighbors = (
-                db.query(KnowledgeChunk.content)
-                .filter(
-                    KnowledgeChunk.version_id == chunk.version_id,
-                    KnowledgeChunk.level == 0,
-                    KnowledgeChunk.ordinal.between(lo, hi),
-                )
-                .order_by(KnowledgeChunk.ordinal)
-                .all()
-            )
-            content = "\n".join(row[0] for row in neighbors) or content
-        results.append(
-            {
-                "chunk_id": chunk.id,
-                "source_key": source.key,
-                "title": source.title,
-                "url": source.url,
-                "category": chunk.category,
-                "public": bool(chunk.public),
-                "content": content,
-                "score": round(score, 6),
-                "fetched_at": iso(chunk.fetched_at),
-            }
-        )
-    return results

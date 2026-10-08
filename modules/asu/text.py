@@ -1,32 +1,14 @@
-"""HTML to normalized text."""
+"""ASU page text: wrappers around knowledge.extract.extract_text and markdown line helpers."""
 
 from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
 
-from bs4 import BeautifulSoup
-
 from modules.asu.types import Fetched
+from modules.knowledge.extract import extract_text
 
-_DROP_TAGS = ("script", "style", "noscript", "svg", "nav", "footer", "header", "form", "iframe")
-_BLOCK_TAGS = (
-    "p",
-    "li",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "tr",
-    "br",
-    "div",
-    "section",
-    "article",
-)
 _WS = re.compile(r"[ \t\r\f\v]+")
-_BLANKS = re.compile(r"\n{3,}")
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _BREAK = re.compile(r"<br\s*/?>", re.IGNORECASE)
@@ -36,35 +18,6 @@ _HEADING_LINE = re.compile(r"^\s{0,3}#{1,6}\s")
 _LINK_ONLY = re.compile(r"^\s*[-*+]?\s*\[[^\]]+\]\([^)]*\)\s*$")
 _LABEL = re.compile(r"^(?:\*\*)?(?P<label>[A-Za-z][A-Za-z &/'-]{1,28}?)(?:\*\*)?\s*:\s*(?P<value>\S.*)$")
 _FIELDS = " | "
-
-
-def extract_text(html: bytes | str, *, main_only: bool = True, keep_forms: bool = False) -> str:
-    """Visible text, one block per line, nav/boilerplate gone; keep_forms keeps result-page text."""
-    soup = BeautifulSoup(html, "lxml")
-    dropped = tuple(t for t in _DROP_TAGS if not (keep_forms and t == "form"))
-    for tag in soup(dropped):
-        tag.decompose()
-    root = soup
-    if main_only:
-        main = soup.find("main") or soup.select_one('[role="main"]') or soup.find("article")
-        if main is not None:
-            root = main
-    for tag in root.find_all(_BLOCK_TAGS):
-        tag.insert_before("\n")
-        tag.insert_after("\n")
-    text = root.get_text(" ")
-    lines = [_WS.sub(" ", line).strip() for line in text.split("\n")]
-    text = "\n".join(line for line in lines if line)
-    return _BLANKS.sub("\n\n", text).strip()
-
-
-def title_of(html: bytes | str) -> str | None:
-    """The page title, else the first h1, else None."""
-    soup = BeautifulSoup(html, "lxml")
-    if soup.title and soup.title.string:
-        return soup.title.string.strip()
-    h1 = soup.find("h1")
-    return h1.get_text(" ", strip=True) if h1 else None
 
 
 def page_text(fetched: Fetched) -> str:

@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from modules.knowledge import embedder as embedder_module
-from modules.knowledge import service
+from modules.knowledge import search
 from modules.knowledge.models import DIMENSIONS
 
 
@@ -213,5 +213,5 @@ def test_search_tool(client, writer):
 
 
 def test_rrf_prefers_items_ranked_by_both_lists():
-    fused = service.rrf([["a", "b", "c"], ["b", "d"]])
+    fused = search.rrf([["a", "b", "c"], ["b", "d"]])
     assert [item for item, _ in fused][0] == "b"

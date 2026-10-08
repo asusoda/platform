@@ -1,11 +1,12 @@
 import json
-import os
 
 from flask import Blueprint, current_app, jsonify, request
 
 from core.db import db_connect as db
 from core.log import get_logger
 from modules.auth.access import any_officer_denial
+
+from . import service
 
 # Get module logger
 logger = get_logger("games.api")
@@ -57,24 +58,7 @@ def get_game_data():
     file_name = request.args.get("file_name")
     logger.info(f"Getting game data for file: {file_name}")
     try:
-        if not file_name or not isinstance(file_name, str):
-            raise Exception("Missing or invalid file_name parameter")
-
-        # Only allow safe filenames: alphanumeric, dash, underscore
-        import re
-
-        SAFE_FILENAME_RE = r"^[\w\-]+$"
-        if not re.match(SAFE_FILENAME_RE, file_name):
-            raise Exception("Invalid file name")
-
-        base_dir = os.path.abspath("./data")
-        requested_path = os.path.abspath(os.path.join(base_dir, f"{file_name}.json"))
-        if not requested_path.startswith(base_dir + os.sep):
-            raise Exception("Attempted path traversal or invalid path")
-
-        with open(requested_path) as f:
-            game_data = json.load(f)
-        return jsonify(game_data)
+        return jsonify(service.read_game_file(file_name))
     except Exception as e:
         logger.error(f"Error retrieving game data: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -104,29 +88,6 @@ def stop_game():
         return jsonify({"error": str(e)}), 400
 
 
-def is_valid_game_json(data):
-    if "game" not in data or "questions" not in data:
-        return False
-    game_info = data["game"]
-    required_game_keys = {
-        "name",
-        "description",
-        "players",
-        "categories",
-        "per_category",
-        "teams",
-        "uuid",
-    }
-    if not all(key in game_info for key in required_game_keys):
-        return False
-    for _category, questions in data["questions"].items():
-        for question in questions:
-            required_question_keys = {"question", "answer", "value", "uuid"}
-            if not all(key in question for key in required_question_keys):
-                return False
-    return True
-
-
 @game_blueprint.route("/uploadgame", methods=["POST"])
 def upload_game():
     if "file" not in request.files:
@@ -143,7 +104,7 @@ def upload_game():
         # Read the file content first since FileStorage is not directly compatible with json.load
         file_content = file.read()
         game_data = json.loads(file_content.decode("utf-8"))
-        if not is_valid_game_json(game_data):
+        if not service.is_valid_game(game_data):
             logger.warning("Invalid game JSON format")
             return jsonify({"error": "Invalid game JSON format"}), 400
 

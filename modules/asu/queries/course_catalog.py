@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from modules.asu.params import term_code, text, url
+from modules.asu.queries.params import term_code, text, url
 from modules.asu.types import QueryParam, QuerySource
 
 

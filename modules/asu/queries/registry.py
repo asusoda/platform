@@ -1,6 +1,6 @@
 """The live query sources, the checks every query passes, and how one is run."""
 
-from modules.asu import fetching as fetch
+from modules.asu import http
 from modules.asu.queries import (
     campus_map,
     course_catalog,
@@ -80,6 +80,6 @@ def run(source: QuerySource, params: dict[str, str]) -> tuple[str, str]:
         check(source, params)
         return source.answer(params)
     url = url_for(source, params)
-    fetched = fetch.fetch(url, needs_js=source.needs_js)
+    fetched = http.fetch(url, needs_js=source.needs_js)
     text = source.extractor(fetched) if source.extractor else page_text(fetched)
     return url, text

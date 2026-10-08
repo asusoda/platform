@@ -60,9 +60,7 @@ Found while documenting the modules. Each is small and local.
   unused models (`Session`, `OrganizationConfig`, `Officer`), `games/jeopardy/QuestionPost.py`.
 - [ ] Remove hardcoded guild ids in `HelperCog` and the bot's own officer and member lookups, which
   repeat `core/discord_directory.py`.
-- [ ] `superadmin` creates organizations through `organizations.service` so prefixes are validated,
-  and stops logging the Authorization header.
-- [ ] Share one HTML-to-text function between `asu/text.py` and `knowledge/extract.py`.
+- [ ] `superadmin` creates organizations through `organizations.service` so prefixes are validated.
 
 ## Not planned
 

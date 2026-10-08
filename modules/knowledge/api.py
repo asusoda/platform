@@ -9,6 +9,7 @@ from core.http.responses import json_body
 from modules.auth.routes import machine_route
 
 from . import embedder, service
+from .search import search as search_chunks
 
 knowledge_blueprint = Blueprint("knowledge", __name__)
 _route = partial(machine_route, knowledge_blueprint)
@@ -42,7 +43,7 @@ def delete_source(db, org, key):
 @_route("/search", "knowledge:read", ["POST"])
 def search(db, org):
     data = json_body()
-    return service.search(
+    return search_chunks(
         db,
         int(org.id),
         data.get("query"),

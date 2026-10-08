@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
@@ -25,6 +26,27 @@ from core.db import Base
 from core.time import utcnow
 
 DIMENSIONS = 1024  # Qwen3-Embedding-0.6B
+
+
+_PGVECTOR: dict[tuple[str, str], bool] = {}
+
+
+def vector_sql(db, table: str) -> bool:
+    """Whether the embedding column of table is pgvector, so nearest rows come from SQL."""
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return False
+    key = (str(bind.url), table)
+    if key not in _PGVECTOR:
+        row = db.execute(
+            text(
+                "SELECT data_type FROM information_schema.columns "
+                "WHERE table_name = :table AND column_name = 'embedding'"
+            ),
+            {"table": table},
+        ).first()
+        _PGVECTOR[key] = row is not None and row[0] == "USER-DEFINED"
+    return _PGVECTOR[key]
 
 
 def _uuid() -> str:
@@ -80,7 +102,7 @@ class KnowledgeSource(Base):
     current_version_id = Column(String(36), nullable=True)
     # Crawled sources: the platform fetches url on this schedule. None means a writer sends chunks.
     fetch_every_hours = Column(Integer, nullable=True)
-    extractor = Column(String(100), nullable=True)  # a name in modules/knowledge/extractors.py
+    extractor = Column(String(100), nullable=True)  # a name registered in modules/knowledge/extract.py
     enabled = Column(Boolean, nullable=False, default=True)
     last_attempt_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from modules.asu.http import get_json, plain
-from modules.asu.params import text, url
+from modules.asu.queries.params import text, url
 from modules.asu.types import QueryError, QueryParam, QuerySource
 
 MAP = "https://www.asu.edu/about/map"

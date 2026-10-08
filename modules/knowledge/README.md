@@ -7,13 +7,13 @@ Holds an organization's knowledge sources and searches them. Writers send a sour
 | File | Holds |
 | --- | --- |
 | `api.py` | Machine routes: sources, search, crawled source registration, crawl runs |
-| `service.py` | Sources, versions, chunks and hybrid search; declares the `knowledge:read` and `knowledge:write` scopes; only orgs in `KNOWLEDGE_PUBLISHERS` write public sources |
+| `service.py` | Sources, versions and chunks; declares the `knowledge:read` and `knowledge:write` scopes; only orgs in `KNOWLEDGE_PUBLISHERS` write public sources |
+| `search.py` | Hybrid search: a vector ranking and a text ranking fused with reciprocal rank fusion |
 | `crawl.py` | Scheduled crawls: fetch, extract, chunk, embed, index; refuses a run whose text shrank below half of the last version |
 | `fetch.py` | Fetching with robots.txt, per-host pacing and public addresses only; through Firecrawl when `FIRECRAWL_URL` is set |
-| `extract.py` | HTML to text, and text to chunks |
-| `extractors.py` | Named extractors that other modules register for their sources |
+| `extract.py` | HTML to text, text to chunks, and the named extractors that other modules register for their sources |
 | `embedder.py` | OpenAI-compatible embeddings client, configured by `EMBEDDINGS_URL` |
-| `models.py` | Sources, versions, chunks; pgvector on Postgres, JSON vectors on SQLite |
+| `models.py` | Sources, versions, chunks; pgvector on Postgres, JSON vectors on SQLite; `vector_sql()` |
 | `tools.py` | The `knowledge.search` tool |
 | `jobs.py` | The crawl jobs |
 

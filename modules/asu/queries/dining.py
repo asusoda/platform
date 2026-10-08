@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from modules.asu.params import text
+from modules.asu.queries.params import text
 from modules.asu.sources.dining_hours import SOURCES, extract_dining_hours
 from modules.asu.types import QueryError, QueryParam, QuerySource
 

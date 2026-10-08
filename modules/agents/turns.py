@@ -10,7 +10,7 @@ leaves nothing half written.
 from typing import Any
 
 from core.integrations.discord import DiscordUnavailable
-from modules.agents import service
+from modules.agents import conversations, memories, pending, profile, service
 from modules.agents.service import AgentError, Owner
 from modules.knowledge.embedder import Embedder
 
@@ -60,19 +60,19 @@ def context(db, who: Owner, member_info: dict, data: dict, embedder: Embedder | 
     memory_limit = _int(data.get("memory_limit"), "memory_limit", 20)
     profile_limit = _int(data.get("profile_limit"), "profile_limit", 100)
 
-    owned = service.owns(db, who, conversation_id, visibility)
+    owned = conversations.owns(db, who, conversation_id, visibility)
     profile_query = data.get("profile_query")
     similar = []
     if profile_query is not None and embedder is not None and profile_limit:
-        similar = service.similar(db, who, profile_query, min(profile_limit, 20), embedder)
+        similar = profile.similar(db, who, profile_query, min(profile_limit, 20), embedder)
     return {
         "member": member_info,
         "conversation": {"id": conversation_id, "owned": owned},
-        "messages": service.load(db, who, conversation_id, message_limit) if owned and message_limit else [],
-        "memories": service.recall(db, who, data.get("memory_kinds"), memory_limit) if memory_limit else [],
+        "messages": conversations.load(db, who, conversation_id, message_limit) if owned and message_limit else [],
+        "memories": memories.recall(db, who, data.get("memory_kinds"), memory_limit) if memory_limit else [],
         "profile": {
-            "nodes": service.profile_nodes(db, who, profile_limit) if profile_limit else [],
-            "relations": service.relations(db, who, profile_limit) if profile_limit else [],
+            "nodes": profile.profile_nodes(db, who, profile_limit) if profile_limit else [],
+            "relations": profile.relations(db, who, profile_limit) if profile_limit else [],
             "similar": similar,
         },
     }
@@ -94,36 +94,38 @@ def commit(db, who: Owner, data: dict, embedder: Embedder | None = None) -> dict
     """
     conversation_id = data.get("conversation_id")
     messages = _list(data, "messages")
-    memories = _list(data, "memories")
+    memory_items = _list(data, "memories")
     facts = _list(data, "facts")
-    pending = _list(data, "pending")
+    held = _list(data, "pending")
     summary = data.get("summary")
     if summary is not None and not isinstance(summary, dict):
         raise AgentError("summary must be an object with content and covers")
-    if not (messages or summary or memories or facts or pending):
+    if not (messages or summary or memory_items or facts or held):
         raise AgentError("Nothing to commit")
 
     try:
-        cid = service.ensure(db, who, conversation_id, data.get("channel_id"), data.get("visibility"), commit=False)
-        seqs = service.append(db, who, cid, messages, commit=False) if messages else []
+        cid = conversations.ensure(
+            db, who, conversation_id, data.get("channel_id"), data.get("visibility"), commit=False
+        )
+        seqs = conversations.append(db, who, cid, messages, commit=False) if messages else []
         summary_seq = (
-            service.append_summary(db, who, cid, summary.get("content"), summary.get("covers"), commit=False)
+            conversations.append_summary(db, who, cid, summary.get("content"), summary.get("covers"), commit=False)
             if summary
             else None
         )
         saved = []
-        for m in memories:
+        for m in memory_items:
             if not isinstance(m, dict):
                 raise AgentError("each memory must be an object")
             optional = ("sensitivity", "confidence", "source_seq", "expires_in_days")
             given = {k: m[k] for k in optional if k in m}
-            row = service.remember(db, who, kind=m.get("kind"), content=m.get("content"), commit=False, **given)
+            row = memories.remember(db, who, kind=m.get("kind"), content=m.get("content"), commit=False, **given)
             saved.append(row["id"])
-        fact_count = service.upsert(db, who, facts, commit=False, embedder=embedder) if facts else 0
-        for p in pending:
+        fact_count = profile.upsert(db, who, facts, commit=False, embedder=embedder) if facts else 0
+        for p in held:
             if not isinstance(p, dict):
                 raise AgentError("each pending action must be an object")
-            service.hold(
+            pending.hold(
                 db,
                 who,
                 p.get("token"),
@@ -142,5 +144,5 @@ def commit(db, who: Owner, data: dict, embedder: Embedder | None = None) -> dict
         "summary_seq": summary_seq,
         "memory_ids": saved,
         "facts": fact_count,
-        "pending": len(pending),
+        "pending": len(held),
     }

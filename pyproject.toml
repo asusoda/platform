@@ -131,6 +131,10 @@ type = "forbidden"
 source_modules = [
     "modules.accounts.providers",
     "modules.accounts.service",
+    "modules.agents.conversations",
+    "modules.agents.memories",
+    "modules.agents.pending",
+    "modules.agents.profile",
     "modules.agents.service",
     "modules.alerts.hackathons",
     "modules.alerts.jobs_table",
@@ -154,10 +158,12 @@ source_modules = [
     "modules.compute.schedule",
     "modules.compute.service",
     "modules.compute.ssh",
+    "modules.games.service",
     "modules.knowledge.crawl",
     "modules.knowledge.embedder",
     "modules.knowledge.extract",
     "modules.knowledge.fetch",
+    "modules.knowledge.search",
     "modules.knowledge.service",
     "modules.leetcode.daily",
     "modules.leetcode.service",
@@ -168,6 +174,7 @@ source_modules = [
     "modules.points.service",
     "modules.runpod.service",
     "modules.storefront.service",
+    "modules.superadmin.service",
     "modules.users.service",
 ]
 forbidden_modules = ["flask"]

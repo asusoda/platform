@@ -7,6 +7,7 @@ Routes for the platform's single superadmin (`SUPERADMIN_USER_ID`): add and remo
 | File | Holds |
 | --- | --- |
 | `api.py` | `/check`, `/dashboard`, `/guild_roles/<guild_id>`, `/add_org/<guild_id>`, `/remove_org/<org_id>`, `/update_officer_role/<org_id>`, `/audit` |
+| `service.py` | The superadmin check, guilds without an org, an officer's orgs, guild roles, role checks and new orgs |
 
 ## Surface
 

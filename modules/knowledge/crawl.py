@@ -14,7 +14,7 @@ from sqlalchemy import or_
 
 from core.log import get_logger
 from core.time import utcnow
-from modules.knowledge import extract, extractors, fetch
+from modules.knowledge import extract, fetch
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import (
@@ -115,7 +115,7 @@ def _crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: boo
     if previous is not None and previous.content_hash == content_hash and not force:
         return {"key": source.key, "changed": False, "chunks": int(previous.chunk_count or 0)}
 
-    custom = extractors.get(cast(str | None, source.extractor))
+    custom = extract.extractor(cast(str | None, source.extractor))
     if custom is not None:
         text = custom(page)
         title = page.title or (extract.title_of(page.body) if page.text is None else None)

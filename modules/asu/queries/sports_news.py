@@ -7,7 +7,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET  # nosec B405 - types only; parsing goes through defusedxml
 
 from modules.asu.http import day, get_xml, plain
-from modules.asu.params import text
+from modules.asu.queries.params import text
 from modules.asu.types import QueryParam, QuerySource
 
 NEWS = "https://thesundevils.com/news"

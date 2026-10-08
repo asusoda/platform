@@ -7,7 +7,7 @@ Holds the organization record (Discord guild, URL prefix, officer role, settings
 | File | Holds |
 | --- | --- |
 | `api.py` | Officer routes under `/<org_id>` |
-| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`; declares the `org:read` scope |
+| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`, and the org's secrets and machine tokens; declares the `org:read` scope |
 | `config.py` | `OrganizationSettings`, the default settings written into a new org's config |
 | `models.py` | Organizations, org config rows, officers |
 | `tools.py` | The `org.info` tool |

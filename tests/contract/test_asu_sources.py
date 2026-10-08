@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from modules.asu.params import term_code
-from modules.asu.registry import QUERY_SOURCES, check, url_for
+from modules.asu.queries.params import term_code
+from modules.asu.queries.registry import QUERY_SOURCES, check, url_for
 from modules.asu.sources import SOURCES
 from modules.asu.sources.courses import extract_courses
 from modules.asu.sources.dining_hours import extract_dining_hours

@@ -7,7 +7,11 @@ Stores what an organization's agents keep about the members they talk to: conver
 | File | Holds |
 | --- | --- |
 | `api.py` | Agent routes under `/members/<discord_id>` (conversations, memories, profile, pending actions, turn context and commit) and member routes under `/<org_prefix>/me` |
-| `service.py` | Storage scoped to one org and member, encryption of sensitive memories, pruning; declares the `agents:read` and `agents:write` scopes |
+| `service.py` | `Owner`, `AgentError`, input checks shared by the storage files, and pruning; declares the `agents:read` and `agents:write` scopes |
+| `conversations.py` | Conversations and their messages and summaries |
+| `memories.py` | Memories; sensitive ones are encrypted with `SECRETS_KEY` |
+| `profile.py` | The profile graph of facts, nearest nodes by embedding, and deletes of a member's agent data |
+| `pending.py` | Actions held until the member confirms or denies them |
 | `turns.py` | The turn context an agent reads before calling its model, and the turn commit written in one transaction |
 | `models.py` | Conversations, messages, memories, profile nodes and edges, pending actions |
 | `jobs.py` | The prune job |

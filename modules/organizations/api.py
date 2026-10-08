@@ -1,13 +1,17 @@
-import logging
 import re
 
 from flask import Blueprint, jsonify, request
 
+from core import secrets
 from core.db import db_connect
-from modules.auth.access import visible_org_filter
+from core.log import get_logger
+from modules.auth import machine_tokens
+from modules.auth.access import current_principal, visible_org_filter
 from modules.auth.decorators import auth_required
 from modules.organizations import service
 from modules.organizations.models import Organization
+
+logger = get_logger(__name__)
 
 organizations_blueprint = Blueprint("organizations", __name__)
 
@@ -25,7 +29,7 @@ def get_organizations():
 
         return jsonify([org.to_dict() for org in organizations])
     except Exception:
-        logging.exception("Error while fetching organizations")
+        logger.exception("Error while fetching organizations")
         return jsonify({"error": "Internal server error"}), 500
     finally:
         db.close()
@@ -65,7 +69,7 @@ def get_organization_stats(org_id):
 
         return jsonify(stats)
     except Exception:
-        logging.exception("Error while fetching organization stats for org_id=%s", org_id)
+        logger.exception("Error while fetching organization stats for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500
     finally:
         db.close()
@@ -100,7 +104,7 @@ def get_organization_activity(org_id):
 
         return jsonify(activity)
     except Exception:
-        logging.exception("Error while fetching organization activity for org_id=%s", org_id)
+        logger.exception("Error while fetching organization activity for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500
     finally:
         db.close()
@@ -209,7 +213,7 @@ def get_organization_calendar_settings(org_id):
 
         return jsonify(calendar_settings)
     except Exception:
-        logging.exception("Error while fetching organization calendar settings for org_id=%s", org_id)
+        logger.exception("Error while fetching organization calendar settings for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500
     finally:
         db.close()
@@ -229,7 +233,7 @@ def get_organization_roles(org_id):
 
         return jsonify(roles)
     except Exception:
-        logging.exception("Error while fetching organization roles for org_id=%s", org_id)
+        logger.exception("Error while fetching organization roles for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -325,21 +329,15 @@ def get_organization_audit(org_id):
         db.close()
 
 
-def _active_org(db, org_id):
-    return db.query(Organization).filter_by(id=org_id, is_active=True).first()
-
-
 @organizations_blueprint.route("/<int:org_id>/secrets", methods=["GET"])
 @auth_required
 def list_organization_secrets(org_id):
     """Which secrets this org has saved. Values are never returned."""
-    from core import secrets
-
     db = next(db_connect.get_db())
     try:
-        if not _active_org(db, org_id):
+        if not service.active_org(db, org_id):
             return jsonify({"error": "Organization not found"}), 404
-        return jsonify({"configured": secrets.configured(), "secrets": secrets.list_secrets(db, org_id)})
+        return jsonify(service.secret_names(db, org_id))
     finally:
         db.close()
 
@@ -348,17 +346,14 @@ def list_organization_secrets(org_id):
 @auth_required
 def set_organization_secret(org_id, name):
     """Save a secret. Body: {"value": "..."}."""
-    from core import secrets
-    from modules.auth.access import current_principal
-
     data = request.get_json(silent=True) or {}
     db = next(db_connect.get_db())
     try:
-        if not _active_org(db, org_id):
+        if not service.active_org(db, org_id):
             return jsonify({"error": "Organization not found"}), 404
         principal = current_principal()
         try:
-            secrets.set_secret(db, org_id, name, data.get("value"), principal.discord_id if principal else None)
+            service.save_secret(db, org_id, name, data.get("value"), principal.discord_id if principal else None)
         except secrets.SecretsError as e:
             return jsonify({"error": str(e)}), 400
         return jsonify({"name": name, "set": True})
@@ -369,13 +364,11 @@ def set_organization_secret(org_id, name):
 @organizations_blueprint.route("/<int:org_id>/secrets/<string:name>", methods=["DELETE"])
 @auth_required
 def delete_organization_secret(org_id, name):
-    from core import secrets
-
     db = next(db_connect.get_db())
     try:
-        if not _active_org(db, org_id):
+        if not service.active_org(db, org_id):
             return jsonify({"error": "Organization not found"}), 404
-        if not secrets.delete_secret(db, org_id, name):
+        if not service.delete_secret(db, org_id, name):
             return jsonify({"error": "Secret not set"}), 404
         return jsonify({"name": name, "set": False})
     finally:
@@ -386,14 +379,11 @@ def delete_organization_secret(org_id, name):
 @auth_required
 def list_machine_tokens(org_id):
     """Active machine tokens for this org, and the scopes a token can hold."""
-    from modules.auth import machine_tokens
-    from modules.auth.scopes import SCOPES
-
     db = next(db_connect.get_db())
     try:
-        if not _active_org(db, org_id):
+        if not service.active_org(db, org_id):
             return jsonify({"error": "Organization not found"}), 404
-        return jsonify({"tokens": machine_tokens.list_active(db, org_id), "scopes": SCOPES})
+        return jsonify(service.token_list(db, org_id))
     finally:
         db.close()
 
@@ -403,28 +393,17 @@ def list_machine_tokens(org_id):
 def create_machine_token(org_id):
     """Issue a token. Body: {"name", "kind": app|agent|cli, "scopes": [...], "expires_days"?}.
     The token value is in this response only."""
-    from modules.auth import machine_tokens
-    from modules.auth.access import current_principal
-
     data = request.get_json(silent=True) or {}
     db = next(db_connect.get_db())
     try:
-        if not _active_org(db, org_id):
+        if not service.active_org(db, org_id):
             return jsonify({"error": "Organization not found"}), 404
         principal = current_principal()
         try:
-            value, row = machine_tokens.issue(
-                db,
-                organization_id=org_id,
-                name=data.get("name"),
-                kind=data.get("kind"),
-                scopes=data.get("scopes"),
-                created_by=principal.discord_id if principal else None,
-                expires_days=data.get("expires_days"),
-            )
+            issued = service.issue_token(db, org_id, data, principal.discord_id if principal else None)
         except machine_tokens.TokenError as e:
             return jsonify({"error": str(e)}), 400
-        return jsonify({"token": value, **machine_tokens.to_dict(row)}), 201
+        return jsonify(issued), 201
     finally:
         db.close()
 
@@ -432,11 +411,9 @@ def create_machine_token(org_id):
 @organizations_blueprint.route("/<int:org_id>/tokens/<int:token_id>", methods=["DELETE"])
 @auth_required
 def revoke_machine_token(org_id, token_id):
-    from modules.auth import machine_tokens
-
     db = next(db_connect.get_db())
     try:
-        if not machine_tokens.revoke(db, org_id, token_id):
+        if not service.revoke_token(db, org_id, token_id):
             return jsonify({"error": "Token not found"}), 404
         return jsonify({"message": "Token revoked"})
     finally:

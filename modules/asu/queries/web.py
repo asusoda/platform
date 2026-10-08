@@ -6,7 +6,7 @@ import urllib.parse
 from typing import Any
 
 from modules.asu.http import get_json, plain
-from modules.asu.params import text
+from modules.asu.queries.params import text
 from modules.asu.settings import settings
 from modules.asu.types import QueryError, QueryParam, QuerySource
 
