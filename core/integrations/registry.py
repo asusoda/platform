@@ -1,0 +1,140 @@
+"""The outside services an org connects, the keys each one needs, and the modules that use it. No Flask here.
+
+An integration has fields, each one an org secret, so its keys are saved encrypted with core.secrets. Some
+integrations have a default for the whole deployment from .env; the org's own keys replace it. An integration
+with no fields is set only in .env, and the dashboard shows its state. Modules call register() for the
+services they own and use() for the services they read.
+"""
+
+import json
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any, cast
+
+from core import secrets
+from core.errors import ServiceError
+
+
+class IntegrationError(ServiceError):
+    """A test of an integration failed. The message says why, with no secret in it."""
+
+
+@dataclass(frozen=True)
+class Field:
+    """One key of an integration, saved as the org secret name."""
+
+    name: str
+    label: str
+    hint: str = ""
+    # text: one line; json: a JSON document, such as a Google service account key
+    kind: str = "text"
+
+
+@dataclass(frozen=True)
+class Integration:
+    key: str
+    title: str
+    description: str
+    fields: tuple[Field, ...] = ()
+    # The docs page under docs/, without .md
+    docs: str | None = None
+    # Whether .env gives a default for the whole deployment
+    deployment: Callable[[], bool] | None = None
+    # Connects with the org's keys, or the deployment default, and returns a short result
+    test: Callable[[object, int], str] | None = None
+    used_by: list[str] = field(default_factory=list)
+
+
+INTEGRATIONS: dict[str, Integration] = {}
+
+
+def register(integration: Integration) -> None:
+    """Add an integration and declare its fields as org secrets."""
+    INTEGRATIONS[integration.key] = integration
+    for f in integration.fields:
+        secrets.declare(f.name, f"{integration.title}: {f.label}")
+
+
+def use(key: str, module: str) -> None:
+    """Record that module reads the integration key."""
+    integration = INTEGRATIONS.get(key)
+    if integration is not None and module not in integration.used_by:
+        integration.used_by.append(module)
+
+
+def secret_names() -> set[str]:
+    """The org secrets that integrations own."""
+    return {f.name for i in INTEGRATIONS.values() for f in i.fields}
+
+
+def status(db, org_id: int) -> list[dict]:
+    """Each integration with its fields, whether the org set them, and where the keys come from."""
+    saved = {s["name"]: s for s in secrets.list_secrets(db, org_id)}
+    result = []
+    for i in sorted(INTEGRATIONS.values(), key=lambda x: x.title.lower()):
+        fields = [
+            {
+                "name": f.name,
+                "label": f.label,
+                "hint": f.hint,
+                "kind": f.kind,
+                "set": bool(saved.get(f.name, {}).get("set")),
+                "updated_at": saved.get(f.name, {}).get("updated_at"),
+            }
+            for f in i.fields
+        ]
+        org_set = bool(fields) and all(f["set"] for f in fields)
+        deployment = bool(i.deployment and i.deployment())
+        result.append(
+            {
+                "key": i.key,
+                "title": i.title,
+                "description": i.description,
+                "docs": i.docs,
+                "fields": fields,
+                "editable": bool(fields),
+                "source": "org" if org_set else "deployment" if deployment else None,
+                "testable": i.test is not None,
+                "used_by": sorted(i.used_by),
+            }
+        )
+    return result
+
+
+def save(db, org_id: int, key: str, values: object, actor: str | None) -> None:
+    """Set or clear the fields of an integration. A null value clears that field; a missing key leaves it."""
+    integration = INTEGRATIONS.get(key)
+    if integration is None or not integration.fields:
+        raise IntegrationError("This integration has no keys to set")
+    if not isinstance(values, dict) or not values:
+        raise IntegrationError("fields must be an object of field names and values")
+    names = {f.name for f in integration.fields}
+    unknown = set(values) - names
+    if unknown:
+        raise IntegrationError(f"Unknown fields: {', '.join(sorted(unknown))}")
+    kinds = {f.name: f.kind for f in integration.fields}
+    for name, value in cast(dict[str, Any], values).items():
+        if value is not None and kinds[name] == "json" and not _json_object(value):
+            raise IntegrationError(f"{name} must be a JSON object")
+        if value is None:
+            secrets.delete_secret(db, org_id, name)
+        else:
+            try:
+                secrets.set_secret(db, org_id, name, value, actor)
+            except secrets.SecretsError as e:
+                raise IntegrationError(str(e)) from e
+
+
+def _json_object(value: object) -> bool:
+    try:
+        return isinstance(value, str) and isinstance(json.loads(value), dict)
+    except ValueError:
+        return False
+
+
+def test(db, org_id: int, key: str) -> str:
+    """Run the integration's test. Raises IntegrationError when it fails."""
+    integration = INTEGRATIONS.get(key)
+    if integration is None or integration.test is None:
+        raise IntegrationError("This integration has no test")
+    return integration.test(db, org_id)

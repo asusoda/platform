@@ -10,6 +10,7 @@ Platform is shared infrastructure for student orgs. One deployment serves many o
 | [Architecture](./architecture.md) | Learn the processes, the module pattern, jobs, tools and the MCP server |
 | [Data model](./data-model.md) | Find a table and the module that owns it, and write a migration |
 | [Authentication](./authentication.md) | Learn the sign-in types, tokens, decorators and access checks |
+| [Integrations](./integrations.md) | Connect Notion, Google, GitHub, RunPod; add an integration |
 | [API contract](./api-contract.md) | Change a route that a live client uses |
 | [Writing a module](./writing-a-module.md) | Add a module and register it |
 | [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes, run Hermes |
@@ -28,8 +29,12 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 | [ASU](./modules/asu.md) | Example campus source: ASU pages and live queries |
 | [Calendar](./modules/calendar.md) | Notion events synced to Google Calendar |
 | [Compute](./modules/compute.md) | RunPod pods, SSH certificates, file manager, sessions |
+| [Discord bot](./modules/discord-bot.md) | The bot process, its setup and its commands |
 | [Knowledge](./modules/knowledge.md) | Sources, crawls and hybrid search |
+| [LeetCode](./modules/leetcode.md) | Daily question post, solve checks and slash commands |
+| [Points](./modules/points.md) | Members, points from events and the leaderboard |
 | [RunPod apps](./modules/runpod-apps.md) | App manifests, deploys, health checks and rollback |
+| [Store](./modules/storefront.md) | Merch store paid with points |
 
 ## Notes
 

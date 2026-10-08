@@ -19,7 +19,7 @@ import yaml
 
 from core import secrets
 from core.errors import ServiceError
-from core.integrations import runpod
+from core.integrations import github, registry, runpod
 from core.log import get_logger
 from core.time import iso, utcnow
 from modules.auth import scopes
@@ -28,9 +28,9 @@ from modules.runpod.models import App, AppDeployment
 logger = get_logger("runpod")
 
 SECRET_PREFIX = "app_"  # nosec B105 - a secret name prefix, not a value
-secrets.declare(runpod.SECRET_NAME, "RunPod API key the org's apps are deployed and billed with")
-GITHUB_SECRET = "github_token"  # nosec B105 - a secret name, not a value
-secrets.declare(GITHUB_SECRET, "GitHub token that can read the contents of the org's private app repos")
+GITHUB_SECRET = github.SECRET_NAME
+registry.use("runpod", "runpod")
+registry.use("github", "runpod")
 secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named in its manifest's secret_env")
 
 scopes.declare("apps:read", "List apps on RunPod, their pods and deployments")

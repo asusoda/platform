@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import requests
 
+from core.integrations.registry import Integration, IntegrationError, register, use
 from core.log import get_logger
 
 logger = get_logger("knowledge.embedder")
@@ -69,3 +70,27 @@ def configured() -> Embedder | None:
         api_key=os.environ.get("EMBEDDINGS_API_KEY") or None,
         query_prefix=os.environ.get("EMBEDDINGS_QUERY_PREFIX", ""),
     )
+
+
+def _test(db, org_id: int) -> str:
+    embedder = configured()
+    if embedder is None:
+        raise IntegrationError("EMBEDDINGS_URL is not set on the API")
+    try:
+        vector = embedder.embed(["test"])[0]
+    except EmbeddingError as e:
+        raise IntegrationError(str(e)) from e
+    return f"Connected. {embedder.model} returns {len(vector)} dimensions."
+
+
+register(
+    Integration(
+        key="embeddings",
+        title="Embeddings",
+        description="An OpenAI-compatible embeddings service for meaning search. The deployment sets it in .env.",
+        docs="modules/knowledge",
+        deployment=lambda: configured() is not None,
+        test=_test,
+    )
+)
+use("embeddings", "knowledge")

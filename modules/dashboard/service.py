@@ -24,6 +24,8 @@ from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
 from modules.users.models import UserOrganizationMembership
 
+from . import notices
+
 
 def overview(db, org: Organization) -> dict:
     """Modules, counts, problems and recent activity for one organization."""
@@ -54,7 +56,7 @@ def overview(db, org: Organization) -> dict:
             for name, text in organizations.OPTIONAL_MODULES.items()
         ],
         "sections": sections,
-        "problems": _problems(sections),
+        "problems": notices.unresolved(org, _problems(sections)),
         "activity": [e for e in entries if e.get("source") != "job"][:25],
         "jobs": [e for e in entries if e.get("source") == "job"][:25],
         "generated_at": now.isoformat(),
@@ -201,7 +203,7 @@ def _tokens(db, org_id: int, now: datetime.datetime) -> dict:
 
 
 def _problems(sections: dict) -> list[dict]:
-    """Things an officer should look at, from the sections above."""
+    """Things an officer should look at, from the sections above. The same problems as notices.problems."""
     problems = []
     for feed in sections["alerts"]["feeds"]:
         if feed["enabled"] and feed["last_error"]:

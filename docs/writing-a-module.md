@@ -25,6 +25,7 @@ If `service.py` has more than one concern, split it into more Flask-free files. 
 | Tools | `TOOL_MODULES` in `modules/manifest.py` |
 | Machine token scopes | `scopes.declare(...)` from `modules/auth/scopes.py`, at the top of `service.py` |
 | Org secrets | `secrets.declare(...)` or `secrets.declare_prefix(...)` from `core/secrets.py`, at the top of `service.py` |
+| Outside services | `register(...)` and `use(...)` from `core/integrations/registry.py`. See [integrations.md](./integrations.md) |
 | Flask-free files | `service.py`, `models.py`, `jobs.py` and `tools.py` are in the "service modules do not import Flask" contract in `pyproject.toml` by wildcard. Add each other Flask-free file, such as `crawl.py`, to that list |
 | Routes | `tests/contract/routes.txt`: run `UPDATE_ROUTES=1 uv run pytest tests/contract/test_routes.py` |
 | Docs | The module `README.md`, a row in `modules/README.md` and in the module table of `README.md`, the `Modules:` line in `AGENTS.md` and `CLAUDE.md`, and each table in `docs/data-model.md` |

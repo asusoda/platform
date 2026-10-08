@@ -524,6 +524,99 @@ export function fixtures(now = Date.now()) {
     generated_at: at(-20 * 1000),
   };
 
+  const notice = (id, module, subject, message, link, resolvedOffset = null) => ({
+    id,
+    module,
+    subject,
+    message,
+    link,
+    resolved_at: resolvedOffset === null ? null : at(resolvedOffset),
+    resolved_by: resolvedOffset === null ? null : 'officer:1290000000000000101',
+  });
+  const notifications = [
+    notice('a1', 'alerts', 'new-grad', 'The feed answered 404 Not Found', 'alerts'),
+    notice('k1', 'knowledge', 'club/sponsor-packet', 'sponsors.robotics.example.org does not resolve', 'knowledge'),
+    notice('k2', 'knowledge', 'asu/parking_rates', 'The page answered 503 Service Unavailable', 'knowledge'),
+    notice('p1', 'apps', 'match-scout', 'Health check failed after 5 tries: GET /health answered 502', 'apps', -2 * HOUR),
+  ];
+
+  const field = (name, label, hint, setOffset = null, kind = 'text') => ({
+    name,
+    label,
+    hint,
+    kind,
+    set: setOffset !== null,
+    updated_at: setOffset === null ? null : at(setOffset),
+  });
+  const integrations = [
+    {
+      key: 'discord',
+      title: 'Discord',
+      description: 'The bot and officer sign-in. One Discord app serves every org; the deployment sets it in .env.',
+      docs: 'modules/discord-bot',
+      fields: [],
+      editable: false,
+      source: 'deployment',
+      testable: true,
+      used_by: ['auth', 'leetcode'],
+    },
+    {
+      key: 'embeddings',
+      title: 'Embeddings',
+      description: 'An OpenAI-compatible embeddings service for meaning search. The deployment sets it in .env.',
+      docs: 'modules/knowledge',
+      fields: [],
+      editable: false,
+      source: 'deployment',
+      testable: true,
+      used_by: ['knowledge'],
+    },
+    {
+      key: 'github',
+      title: 'GitHub',
+      description: "Reads the org's private repos: CI runs on Activity and app manifests for deploys.",
+      docs: 'modules/runpod-apps',
+      fields: [field('github_token', 'Access token', 'A fine-grained token with read access to Actions and Contents.', -9 * DAY)],
+      editable: true,
+      source: 'org',
+      testable: true,
+      used_by: ['dashboard', 'runpod'],
+    },
+    {
+      key: 'google',
+      title: 'Google',
+      description: "A service account that owns the org's Google Calendar.",
+      docs: 'modules/calendar',
+      fields: [field('google_service_account', 'Service account key', 'The JSON key of a service account with the Calendar API on.', -30 * DAY, 'json')],
+      editable: true,
+      source: 'org',
+      testable: true,
+      used_by: ['calendar'],
+    },
+    {
+      key: 'notion',
+      title: 'Notion',
+      description: "Reads the org's events database for calendar sync.",
+      docs: 'modules/calendar',
+      fields: [field('notion_api_key', 'Integration token', 'Notion > Settings > Integrations.')],
+      editable: true,
+      source: null,
+      testable: true,
+      used_by: ['calendar'],
+    },
+    {
+      key: 'runpod',
+      title: 'RunPod',
+      description: "The org's RunPod account: compute pods for members and deploys of org apps.",
+      docs: 'modules/compute',
+      fields: [field('runpod_api_key', 'API key', 'RunPod > Settings > API Keys, with read and write access.', -12 * DAY)],
+      editable: true,
+      source: 'org',
+      testable: true,
+      used_by: ['compute', 'runpod'],
+    },
+  ];
+
   const secret = (name, description, setOffset) => ({
     name,
     description,
@@ -749,6 +842,8 @@ export function fixtures(now = Date.now()) {
     '/api/superadmin/audit': { entries: crossAudit },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
+    [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
+    [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },

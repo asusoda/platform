@@ -10,3 +10,5 @@ export type * from './superadmin';
 export type * from './compute';
 export type * from './points';
 export type * from './store';
+export type * from './notifications';
+export type * from './integrations';

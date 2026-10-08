@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bell,
   BellRing,
   Bot,
   Boxes,
@@ -10,6 +11,7 @@ import {
   Database,
   KeyRound,
   LayoutDashboard,
+  Plug,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -23,8 +25,10 @@ import { AlertsPage } from './alerts';
 import { AppsPage } from './apps';
 import { CalendarPage } from './calendar';
 import { ComputePage } from './compute';
+import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
 import { LeetCodePage } from './leetcode';
+import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
 import { SettingsPage } from './settings';
@@ -62,6 +66,7 @@ export type PageEntry = {
 // Every org page, in sidebar order. To add a page, write the page file and add one entry here.
 export const PAGES: PageEntry[] = [
   { path: '', label: 'Overview', icon: LayoutDashboard, section: 'top', page: OverviewPage },
+  { path: 'notifications', label: 'Notifications', icon: Bell, section: 'top', page: NotificationsPage },
   { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage },
   { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage },
   { path: 'alerts', label: 'Alerts', icon: BellRing, section: 'automations', module: 'alerts', gate: true, page: AlertsPage },
@@ -73,6 +78,7 @@ export const PAGES: PageEntry[] = [
   { path: 'apps', label: 'Apps', icon: Boxes, section: 'infrastructure', page: AppsPage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
+  { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },
 ];

@@ -118,6 +118,9 @@
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
+/api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
+/api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
+/api/dashboard/<string:org_prefix>/integrations/<string:key>/test OPTIONS,POST dashboard.test_integration
 /api/dashboard/<string:org_prefix>/knowledge/crawls/<path:key> OPTIONS,PUT dashboard.schedule_crawl
 /api/dashboard/<string:org_prefix>/knowledge/crawls/<path:key>/run OPTIONS,POST dashboard.run_crawl
 /api/dashboard/<string:org_prefix>/knowledge/documents OPTIONS,POST dashboard.upload_documents
@@ -130,6 +133,9 @@
 /api/dashboard/<string:org_prefix>/knowledge/settings OPTIONS,PUT dashboard.set_knowledge_settings
 /api/dashboard/<string:org_prefix>/knowledge/sources GET,HEAD,OPTIONS dashboard.list_sources
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> DELETE,OPTIONS dashboard.delete_source
+/api/dashboard/<string:org_prefix>/notifications GET,HEAD,OPTIONS dashboard.list_notifications
+/api/dashboard/<string:org_prefix>/notifications/reopen OPTIONS,POST dashboard.reopen_notifications
+/api/dashboard/<string:org_prefix>/notifications/resolve OPTIONS,POST dashboard.resolve_notifications
 /api/dashboard/<string:org_prefix>/overview GET,HEAD,OPTIONS dashboard.overview
 /api/knowledge/crawls/<path:key> OPTIONS,PUT knowledge.schedule_crawl
 /api/knowledge/crawls/run OPTIONS,POST knowledge.run_crawl

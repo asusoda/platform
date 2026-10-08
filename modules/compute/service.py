@@ -12,10 +12,12 @@ from sqlalchemy.exc import IntegrityError
 
 from core import secrets
 from core.errors import ServiceError
-from core.integrations import runpod
+from core.integrations import registry, runpod
 from core.log import get_logger
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
+
+registry.use("runpod", "compute")
 
 logger = get_logger("compute")
 

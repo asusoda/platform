@@ -7,7 +7,8 @@ Syncs an org's Notion events database to its Google Calendar, and serves the org
 | File | Holds |
 | --- | --- |
 | `api.py` | Open events, officer sync and setup, sync of all orgs, and legacy routes that return errors |
-| `service.py` | `MultiOrgCalendarService`, `list_events`, `sync_organization`, `setup_calendar`, `sync_all`; declares `calendar:read` and the `notion_api_key` and `google_service_account` secrets |
+| `service.py` | `MultiOrgCalendarService`, `list_events`, `sync_organization`, `setup_calendar`, `sync_all`; declares `calendar:read` |
+| `integrations.py` | The Notion and Google integrations, their keys and tests |
 | `clients/` | `GoogleCalendarClient` (`google.py`) and `NotionCalendarClient` (`notion.py`) |
 | `sync.py` | Makes a Google Calendar match the Notion events |
 | `events.py`, `dates.py` | `CalendarEventDTO` and Notion property reads; `DateParser` |
