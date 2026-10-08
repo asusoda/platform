@@ -56,8 +56,8 @@ The sign-in page, the sign-in return and the org list use `AuthFrame`. It shows 
 
 The org marks (`OrgMarks` in `src/components/org-marks.tsx`) show the orgs that build Platform as a row of round logos, one over the next. They show on the sign-in pages and at the bottom of the sidebar. To add an org:
 
-1. Put a square SVG logo on a white disk in `dashboard/public/orgs/`. The disk keeps the logo the same on light and dark pages.
-2. Add one line to `BUILT_BY` in `src/lib/links.ts`: the name, the short name, the website and the logo path.
+1. Put a square SVG logo with a transparent background in `dashboard/public/orgs/` and in `site/public/orgs/`.
+2. Add one entry to `BUILT_BY` in `dashboard/src/lib/links.ts` and to `orgs` in `site/lib/orgs.ts`: the name, the short name, the website, the logo path and the fill of the disk. The fill is fixed, so the logo looks the same on light and dark pages.
 
 To check that long lists stay fast, run `npm run perf` in `dashboard/`. It answers the API from `largeFixtures()` in `scripts/fixtures.mjs` (2,000 knowledge sources, 1,500 members, 600 orders, 1,000 audit log entries) and prints the time of each step and its long tasks.
 

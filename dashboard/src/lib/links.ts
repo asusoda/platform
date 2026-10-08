@@ -8,12 +8,25 @@ const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(
 export const DOCS_URL = SITE_URL ? `${SITE_URL}/docs` : `${REPO_URL}/tree/main/docs`;
 export const ABOUT_URL = SITE_URL ?? `${REPO_URL}#readme`;
 
-export type BuiltBy = { name: string; short: string; url: string; logo: string };
+// background is the fill of the mark. The logos have fixed colors, so it does not follow the theme.
+export type BuiltBy = { name: string; short: string; url: string; logo: string; background: string };
 
 // The orgs that build Platform, in the order of the marks. To add an org, add one line and put its logo in public/orgs/.
 export const BUILT_BY: BuiltBy[] = [
-  { name: 'AI Society at ASU', short: 'AI Society', url: 'https://theaisociety.asu.edu', logo: 'orgs/ais.svg' },
-  { name: 'Software Developers Association at ASU', short: 'SoDA', url: 'https://thesoda.io', logo: 'orgs/soda.svg' },
+  {
+    name: 'The AI Society at ASU',
+    short: 'AI Society',
+    url: 'https://theaisociety.asu.edu',
+    logo: 'orgs/ais.svg',
+    background: '#0a0a0a',
+  },
+  {
+    name: 'Software Developers Association at ASU',
+    short: 'SoDA',
+    url: 'https://thesoda.io',
+    logo: 'orgs/soda.svg',
+    background: '#ffffff',
+  },
 ];
 
 // The names with commas between them and "and" before the last one.

@@ -24,7 +24,13 @@ export function OrgMarks({
             target="_blank"
             rel="noreferrer"
             aria-label={org.name}
-            style={{ width: size, height: size, marginLeft: i ? -Math.round(size / 3) : 0, zIndex: orgs.length - i }}
+            style={{
+              width: size,
+              height: size,
+              marginLeft: i ? -Math.round(size / 3) : 0,
+              zIndex: orgs.length - i,
+              backgroundColor: org.background,
+            }}
             className={cx(
               'relative block shrink-0 rounded-full ring-2 transition-transform duration-150 ease-out hover:z-10! hover:-translate-y-0.5',
               'after:absolute after:inset-0 after:rounded-full after:ring-1 after:ring-black/10 after:ring-inset',
