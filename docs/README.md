@@ -46,6 +46,7 @@ tokens. It runs as an API, a web app, a bot process, a job worker and an MCP ser
 | [Alerts](./alerts.md) | Job and hackathon listings posted to Discord webhooks |
 | [Dashboard](./dashboard.md) | Officer dashboard: what is running, what failed, CI runs |
 | [RunPod apps](./runpod-apps.md) | App manifests, deploys, health checks, rollback |
+| [Hermes Agent](./hermes.md) | Running Hermes Agent as an org app that uses Platform tools |
 | [Tools and MCP](./tools-and-mcp.md) | Machine tokens, scopes, /api/tools, the MCP server |
 | [RunPod deploy](./runpod-deploy.md) | Running the whole platform on one RunPod pod |
 
