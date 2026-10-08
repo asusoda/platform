@@ -19,13 +19,15 @@ src/
   main.tsx, app.tsx        start the app; app.tsx makes the routes from pages/registry.tsx
   index.css                theme tokens
   components/
-    ui.tsx                 shared parts: buttons, cards, tables, fields, dialogs, notes, long lists
+    ui/                    shared parts, imported from components/ui: layout (page header, cards, stats),
+                           data (tables, badges), controls (buttons, fields), feedback (states, notes,
+                           long lists), overlays (dialogs, form footers)
     tabs.tsx               TabBar and useTabParam
     tooltip.tsx            Tooltip and Kbd
     module-gate.tsx        the note for a module that is off
     shell.tsx              sidebar, top bar and page frame; the sidebar comes from pages/registry.tsx
     auth-frame.tsx         the frame of the sign-in, sign-in return and org list pages
-    org-marks.tsx          the marks of the orgs that build Platform
+    built-by.tsx           the marks of the orgs that build Platform
     activity-list.tsx, org-mark.tsx, logo.tsx, brand-icons.tsx
   lib/
     api.ts, auth.ts        API client and sign-in tokens

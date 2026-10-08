@@ -22,11 +22,11 @@ The API does not need the bot. It reads Discord servers, roles and members over 
 ```
 main.py, bot_main.py, worker_main.py, mcp_main.py   the four entry points
 core/          shared code: config, database, jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients
-modules/       one folder per module; registry.py mounts the blueprints, manifest.py lists models, jobs and tools
+modules/       one folder per module, not nested; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
 web/, dashboard/, site/   the web app, the officer dashboard, the docs and landing site
-deploy/        the RunPod start script and the Hermes image
+deploy/        the RunPod start script, the Hermes image and the SQLite to Postgres copy script
 ```
 
 `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.

@@ -1,21 +1,15 @@
 """Apps deployed to RunPod pods, and their deployments."""
 
-import uuid
-
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
-from core.db import Base
+from core.db import Base, new_uuid
 from core.time import utcnow
-
-
-def _uuid() -> str:
-    return str(uuid.uuid4())
 
 
 class App(Base):
     __tablename__ = "runpod_apps"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     name = Column(String(63), nullable=False)
     manifest = Column(Text, nullable=False)  # JSON, validated by service.MANIFEST_SCHEMA
@@ -32,7 +26,7 @@ class App(Base):
 class AppDeployment(Base):
     __tablename__ = "runpod_deployments"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     app_id = Column(String(36), ForeignKey("runpod_apps.id", ondelete="CASCADE"), nullable=False)
     tag = Column(String(128), nullable=False)
     status = Column(String(20), nullable=False)  # deploying, healthy, failed

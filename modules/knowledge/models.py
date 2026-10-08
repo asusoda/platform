@@ -6,7 +6,6 @@ search runs in Python, which is enough for development and tests.
 """
 
 import json
-import uuid
 
 from sqlalchemy import (
     Boolean,
@@ -22,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
-from core.db import Base
+from core.db import Base, new_uuid
 from core.time import utcnow
 
 DIMENSIONS = 1024  # Qwen3-Embedding-0.6B
@@ -47,10 +46,6 @@ def vector_sql(db, table: str) -> bool:
         ).first()
         _PGVECTOR[key] = row is not None and row[0] == "USER-DEFINED"
     return _PGVECTOR[key]
-
-
-def _uuid() -> str:
-    return str(uuid.uuid4())
 
 
 class _PgVector(UserDefinedType):
@@ -92,7 +87,7 @@ class Embedding(TypeDecorator):
 class KnowledgeSource(Base):
     __tablename__ = "knowledge_sources"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     key = Column(String(255), nullable=False)  # stable name the writer chooses
     url = Column(Text, nullable=True)
@@ -115,7 +110,7 @@ class KnowledgeSource(Base):
 class KnowledgeVersion(Base):
     __tablename__ = "knowledge_versions"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     source_id = Column(String(36), ForeignKey("knowledge_sources.id", ondelete="CASCADE"), nullable=False, index=True)
     content_hash = Column(String(64), nullable=False)
     embedding_model = Column(String(200), nullable=True)
@@ -127,7 +122,7 @@ class KnowledgeVersion(Base):
 class KnowledgeChunk(Base):
     __tablename__ = "knowledge_chunks"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     source_id = Column(String(36), ForeignKey("knowledge_sources.id", ondelete="CASCADE"), nullable=False)
     version_id = Column(String(36), ForeignKey("knowledge_versions.id", ondelete="CASCADE"), nullable=False)

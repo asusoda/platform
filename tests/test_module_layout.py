@@ -105,6 +105,25 @@ def test_flask_free_files_are_in_the_contract():
 
 
 @pytest.mark.parametrize("name", NAMES)
+def test_module_has_a_category(name):
+    from modules.manifest import CATEGORIES
+
+    found = [category for category, names in CATEGORIES.items() if name in names]
+    assert len(found) == 1, f"Put {name} in one category of CATEGORIES in modules/manifest.py"
+    readme = (MODULES / "README.md").read_text()
+    section = readme.split(f"## {found[0]}\n", 1)[1].split("\n## ", 1)[0]
+    assert f"[{name}]({name}/README.md)" in section, f"Move {name} under ## {found[0]} in modules/README.md"
+
+
+def test_categories_name_real_modules():
+    from modules.manifest import CATEGORIES
+
+    for category, names in CATEGORIES.items():
+        for name in names:
+            assert name in NAMES, f"{name} in CATEGORIES[{category!r}] has no folder in modules/"
+
+
+@pytest.mark.parametrize("name", NAMES)
 def test_module_is_documented(name):
     readme = MODULES / name / "README.md"
     assert readme.exists(), f"Add modules/{name}/README.md"
