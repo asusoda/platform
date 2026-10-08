@@ -17,8 +17,12 @@ const sections = {
       ['modules/asu.md', 'asu'],
       ['modules/calendar.md', 'calendar'],
       ['modules/compute.md', 'compute'],
+      ['modules/discord-bot.md', 'discord-bot'],
       ['modules/knowledge.md', 'knowledge'],
+      ['modules/leetcode.md', 'leetcode'],
+      ['modules/points.md', 'points'],
       ['modules/runpod-apps.md', 'runpod-apps'],
+      ['modules/storefront.md', 'storefront'],
     ],
   },
   codebase: {

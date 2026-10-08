@@ -19,7 +19,7 @@ from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
 from modules.runpod import service as apps
 
-from . import ci, service
+from . import ci, notices, service
 
 dashboard_blueprint = Blueprint("dashboard", __name__)
 _route = partial(officer_route, dashboard_blueprint)
@@ -40,6 +40,21 @@ def _actor() -> str:
 @_route("/overview", ["GET"])
 def overview(db, org):
     return service.overview(db, org)
+
+
+@_route("/notifications", ["GET"])
+def list_notifications(db, org):
+    return notices.listing(db, org)
+
+
+@_route("/notifications/resolve", ["POST"])
+def resolve_notifications(db, org):
+    return notices.resolve(db, org, json_body().get("ids"), _actor())
+
+
+@_route("/notifications/reopen", ["POST"])
+def reopen_notifications(db, org):
+    return notices.reopen(db, org, json_body().get("ids"))
 
 
 @_route("/branding", ["GET"])

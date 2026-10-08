@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { ApiError, api } from './api';
-import type { Branding, CiRepo, ModuleState, OrganizationDetail, Overview } from './types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ApiError, api, send } from './api';
+import type { Branding, CiRepo, ModuleState, NotificationList, OrganizationDetail, Overview } from './types';
 
 export function useOverview(prefix: string) {
   return useQuery({
@@ -66,4 +66,26 @@ export function useModules(id: number | undefined) {
 // Whether an error is the API saying the Discord bot cannot be reached.
 export function isBotDown(error: unknown): boolean {
   return error instanceof ApiError && error.status === 503;
+}
+
+export function useNotifications(prefix: string) {
+  return useQuery({
+    queryKey: ['notifications', prefix],
+    queryFn: () => api<NotificationList>(`/api/dashboard/${prefix}/notifications`),
+    refetchInterval: 60_000,
+    enabled: Boolean(prefix),
+  });
+}
+
+// Resolve or reopen notifications by id. The answer is the new list, so the bell and the page update at once.
+export function useNotificationChange(prefix: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ action, ids }: { action: 'resolve' | 'reopen'; ids: string[] }) =>
+      send<NotificationList>(`/api/dashboard/${prefix}/notifications/${action}`, 'POST', { ids }),
+    onSuccess: (list) => {
+      client.setQueryData(['notifications', prefix], list);
+      client.invalidateQueries({ queryKey: ['overview', prefix] });
+    },
+  });
 }

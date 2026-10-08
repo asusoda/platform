@@ -16,7 +16,7 @@ export const BUILT_BY: BuiltBy[] = [
   {
     name: 'The AI Society at ASU',
     short: 'AI Society',
-    url: 'https://theaisociety.asu.edu',
+    url: 'https://ais-asu.com',
     logo: 'orgs/ais.svg',
     background: '#0a0a0a',
   },

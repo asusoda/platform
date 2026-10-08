@@ -28,8 +28,12 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 | [ASU](./modules/asu.md) | Example campus source: ASU pages and live queries |
 | [Calendar](./modules/calendar.md) | Notion events synced to Google Calendar |
 | [Compute](./modules/compute.md) | RunPod pods, SSH certificates, file manager, sessions |
+| [Discord bot](./modules/discord-bot.md) | The bot process, its setup and its commands |
 | [Knowledge](./modules/knowledge.md) | Sources, crawls and hybrid search |
+| [LeetCode](./modules/leetcode.md) | Daily question post, solve checks and slash commands |
+| [Points](./modules/points.md) | Members, points from events and the leaderboard |
 | [RunPod apps](./modules/runpod-apps.md) | App manifests, deploys, health checks and rollback |
+| [Store](./modules/storefront.md) | Merch store paid with points |
 
 ## Notes
 

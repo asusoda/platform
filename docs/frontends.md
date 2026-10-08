@@ -16,7 +16,8 @@ Lists that can be long (knowledge sources, points members and events, knowledge 
 
 | Page | Shows |
 | --- | --- |
-| Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
+| Overview | A link to open notifications, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
+| Notifications | Problems that need an officer: failed alert runs, failed deploys, knowledge sources that could not be fetched. Resolve or reopen each one. The bell in the top bar shows the open count and the newest ones |
 | Points | Members ranked by points, with the entries of each member. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV. Events grouped by name, with delete for all entries of an event |
 | Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: change the status, add a message to the member, delete |
 | Calendar | The Notion database and Google calendar settings, sync on or off, sync now, create the Google calendar, and the upcoming events |
@@ -53,6 +54,8 @@ Each org sets its logo, accent color and website on the Settings page. The sideb
 The dashboard uses the same type and colors as `site/`: Geist, Geist Mono and the gray tokens of the fumadocs-ui theme. The tokens are in `dashboard/src/index.css`. Light and dark follow the system; the switch at the bottom of the sidebar sets one. Transitions last 150 to 200 ms. If the system asks for reduced motion, the dashboard does not animate.
 
 The sign-in page, the sign-in return and the org list use `AuthFrame`. It shows the Platform mark, the help links (Docs, GitHub, What is this?) and the org marks. Set `VITE_SITE_URL` to the URL of the `site/` deployment, and the Docs and What is this? links go to that site. Without it, they go to the docs and README on GitHub.
+
+A resolved notification stays hidden while its problem has the same message. When the message changes, it is open again. The resolved ids are in the org config key `dashboard.resolved`.
 
 The org marks (`OrgMarks` in `src/components/org-marks.tsx`) show the orgs that build Platform as a row of round logos, one over the next. They show on the sign-in pages and at the bottom of the sidebar. To add an org:
 

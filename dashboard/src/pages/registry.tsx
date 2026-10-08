@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bell,
   BellRing,
   Bot,
   Boxes,
@@ -25,6 +26,7 @@ import { CalendarPage } from './calendar';
 import { ComputePage } from './compute';
 import { KnowledgePage } from './knowledge';
 import { LeetCodePage } from './leetcode';
+import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
 import { SettingsPage } from './settings';
@@ -62,6 +64,7 @@ export type PageEntry = {
 // Every org page, in sidebar order. To add a page, write the page file and add one entry here.
 export const PAGES: PageEntry[] = [
   { path: '', label: 'Overview', icon: LayoutDashboard, section: 'top', page: OverviewPage },
+  { path: 'notifications', label: 'Notifications', icon: Bell, section: 'top', page: NotificationsPage },
   { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage },
   { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage },
   { path: 'alerts', label: 'Alerts', icon: BellRing, section: 'automations', module: 'alerts', gate: true, page: AlertsPage },
