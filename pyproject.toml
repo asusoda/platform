@@ -65,6 +65,8 @@ dependencies = [
     "defusedxml>=0.7.1",
     "pyyaml>=6.0.3",
     "paramiko>=3.4",
+    "httpx>=0.28.1",
+    "uvicorn>=0.54.0",
 ]
 
 [tool.pytest.ini_options]
@@ -73,12 +75,9 @@ python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--verbose"
 
-[tool.hatch.build.targets.wheel]
-packages = ["modules"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+# An application, not a library: uv installs the dependencies only.
+[tool.uv]
+package = false
 
 [dependency-groups]
 dev = [

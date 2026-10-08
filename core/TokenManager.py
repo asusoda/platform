@@ -315,13 +315,6 @@ class TokenManager:
     def decode_token(self, token):
         return jwt.decode(token, self.public_key, algorithms=[self.algorithm])
 
-    def get_username_from_expiration(self, token):
-        try:
-            payload = jwt.decode(token, self.public_key, algorithms=[self.algorithm])
-            return payload["username"]
-        except jwt.InvalidTokenError:
-            return None
-
     def is_token_valid(self, token):
         if token in self.blacklist:
             return False
@@ -354,11 +347,6 @@ class TokenManager:
             return False
         except jwt.ExpiredSignatureError:
             return True
-
-    def refresh_token(self, token):
-        username = self.retrieve_username(token)
-        discord_id = self.retrieve_discord_id(token)
-        return self.generate_token(username, discord_id)
 
     def generate_app_token(self, name, app_name, discord_id=None):
         from modules.auth.models import AppToken

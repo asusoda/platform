@@ -506,30 +506,6 @@ class MultiOrgCalendarService:
                     db.close()
 
 
-# Legacy CalendarService for backward compatibility (deprecated)
-class CalendarService:
-    """Legacy single-organization calendar service (deprecated)."""
-
-    def __init__(self, logger_instance=None):
-        self.logger = logger_instance or logger
-        self.multi_org_service = MultiOrgCalendarService(logger_instance)
-        self.logger.warning("CalendarService is deprecated. Use MultiOrgCalendarService instead.")
-
-    def sync_notion_to_google(self, transaction=None) -> dict[str, Any]:
-        """Legacy method - delegates to multi-org service."""
-        self.logger.warning(
-            "sync_notion_to_google is deprecated. Use MultiOrgCalendarService.sync_all_organizations instead."
-        )
-        return self.multi_org_service.sync_all_organizations(transaction)
-
-    def get_events_for_frontend(self, transaction=None) -> dict[str, Any]:
-        """Legacy method - returns error as this requires organization context."""
-        return {
-            "status": "error",
-            "message": "This method requires organization context. Use MultiOrgCalendarService.get_organization_events_for_frontend instead.",
-        }
-
-
 # Module functions: the calendar's logic for every caller (REST, MCP tools, jobs, the bot).
 # They take a database session and an organization and never read Flask's request or app.
 

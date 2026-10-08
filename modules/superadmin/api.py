@@ -61,10 +61,7 @@ def check_superadmin():
             return jsonify({"is_superadmin": False}), 403
 
     except Exception as e:
-        logger.error(f"Error in check_superadmin: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in check_superadmin: {e}")
         return jsonify({"error": f"Error checking superadmin status: {str(e)}"}), 500
 
 
@@ -128,10 +125,7 @@ def get_dashboard():
         logger.debug("Dashboard data prepared successfully")
         return jsonify(response_data)
     except Exception as e:
-        logger.error(f"Error in get_dashboard: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in get_dashboard: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         if "db" in locals():
@@ -177,10 +171,7 @@ def get_guild_roles(guild_id):
         logger.debug(f"Found {len(roles)} roles for guild {guild['name']}")
         return jsonify({"roles": roles})
     except Exception as e:
-        logger.error(f"Error in get_guild_roles: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in get_guild_roles: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -247,10 +238,7 @@ def update_officer_role(org_id):
 
         return jsonify({"message": f"Officer role updated successfully for {org.name}", "organization": org.to_dict()})
     except Exception as e:
-        logger.error(f"Error in update_officer_role: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"Error in update_officer_role: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         if "db" in locals():

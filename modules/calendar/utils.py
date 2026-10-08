@@ -9,9 +9,6 @@ from sentry_sdk import capture_exception, set_context
 
 from shared import config, logger  # Assuming logger and config are available in shared
 
-# If logger is not in shared, initialize it here:
-# logger = logging.getLogger(__name__)
-
 
 @contextmanager
 def operation_span(transaction, op, description, logger=None):
@@ -283,7 +280,6 @@ def extract_property(properties: dict, name: str, prop_type: str) -> Any | None:
     try:
         prop_data = properties.get(name)
         if not prop_data:
-            # logger.debug(f"Property '{name}' not found.")
             return None
 
         # Check the actual type stored in Notion data if available. Currently this is

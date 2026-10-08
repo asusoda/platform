@@ -2,10 +2,6 @@ from googleapiclient.errors import HttpError
 from notion_client import APIErrorCode, APIResponseError
 from sentry_sdk import capture_exception, set_context, set_tag
 
-# Assuming logger is configured elsewhere, e.g., in shared.py
-# If not, initialize a default logger:
-# logger = logging.getLogger(__name__)
-
 
 class APIErrorHandler:
     """Standardized error handling for API operations."""

@@ -22,7 +22,6 @@ Shared code the modules build on: configuration, database, logging, tokens, Disc
 | `runpod.py` | RunPod REST client; each org's key is the org secret `runpod_api_key` |
 | `secrets.py` | The `org_secrets` table, `declare()`, and Fernet-encrypted `set_secret` and `get_secret` keyed by `SECRETS_KEY` |
 | `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) served over MCP and `/api/tools` |
-| `types.py` | `ExtendedRequest`, a typed Flask request; nothing imports it |
 
 ## Rule
 

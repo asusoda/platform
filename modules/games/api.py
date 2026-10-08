@@ -11,10 +11,6 @@ from shared import db_connect as db
 logger = get_logger("games.api")
 
 game_blueprint = Blueprint("game", __name__, template_folder=None, static_folder=None)
-# bot_running is a complex state now, depends on whether the auth_bot thread is alive and bot is logged in.
-# For simplicity, we remove direct start/stop/status from here or make them reflect Flask app state.
-# Let's assume for now these endpoints manage a conceptual bot state if needed by frontend,
-# but actual bot lifecycle is managed in main.py threads.
 
 logger.info("Bot API module initialized (game_blueprint)")
 
@@ -32,30 +28,6 @@ def require_officer():
 def game_index():
     logger.debug("Game API index endpoint called")
     return jsonify({"message": "game api for auth_bot"}), 200
-
-
-# Routes like /startbot, /stopbot, /botstatus are problematic as the bot runs in a separate thread.
-# comment them out for now as direct control from API is complex with new setup.
-
-# @game_blueprint.route("/botstatus", methods=["GET"])
-# def bot_status():
-#     # This would need to check health of the auth_bot_thread and auth_bot.is_ready()
-#     bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
-#     status = bot.is_ready() if bot else False
-#     logger.debug(f"Bot status requested, auth_bot ready: {status}")
-#     return jsonify({"status": status})
-
-# @game_blueprint.route("/startbot", methods=["POST"])
-# async def start_bot():
-#     # Bot is started in a dedicated thread by main.py, this endpoint is no longer suitable.
-#     logger.warning("Attempted to call /startbot, which is deprecated.")
-#     return jsonify({"message": "Bot is managed by the main application process.", "status": "managed"}), 403
-
-# @game_blueprint.route("/stopbot", methods=["POST"])
-# async def stop_bot():
-#     # Bot is stopped when main application process ends.
-#     logger.warning("Attempted to call /stopbot, which is deprecated.")
-#     return jsonify({"message": "Bot is managed by the main application process.", "status": "managed"}), 403
 
 
 @game_blueprint.route("/getavailablegames", methods=["GET"])

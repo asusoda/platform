@@ -59,7 +59,7 @@ class Organization(Base):
 
 
 class OrganizationConfig(Base):
-    """Model for organization-specific configurations."""
+    """Table kept for schema compatibility; no code reads it."""
 
     __tablename__ = "organization_configs"
 
@@ -89,7 +89,7 @@ class OrganizationConfig(Base):
 
 
 class Officer(Base):
-    """Model for organization officers."""
+    """Table kept for schema compatibility; no code reads it."""
 
     __tablename__ = "officers"
 

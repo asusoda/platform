@@ -16,9 +16,6 @@ from shared import notion as notion_shared_client
 from .errors import APIErrorHandler
 from .utils import batch_operation, operation_span
 
-# If logger is not in shared, initialize it here:
-# logger = logging.getLogger(__name__)
-
 
 class GoogleCalendarClient:
     """Client for Google Calendar API operations."""

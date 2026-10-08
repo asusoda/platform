@@ -260,10 +260,7 @@ def superadmin_required(f):
             logger.debug("Superadmin authentication successful!")
             return f(*args, **kwargs)
         except Exception as e:
-            logger.error(f"General error in superadmin_required: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception(f"General error in superadmin_required: {e}")
             return jsonify({"message": str(e)}), 401
 
     return wrapper

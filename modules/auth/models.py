@@ -7,7 +7,7 @@ from core.base import Base
 
 
 class Session(Base):
-    """Session model for storing user sessions in the database"""
+    """Table kept for schema compatibility; no code reads it."""
 
     __tablename__ = "sessions"
     id = Column(Integer, primary_key=True)

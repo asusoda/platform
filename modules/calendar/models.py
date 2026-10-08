@@ -131,7 +131,7 @@ class CalendarEventDTO:
 
 
 class CalendarEventLink(Base):
-    """Base model linking Notion and Google Calendar events in the DB."""
+    """Table kept for schema compatibility; no code reads it."""
 
     __tablename__ = "calendar_event_links"
 

@@ -1,9 +1,6 @@
-from functools import wraps
-
 import httpx
 from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import AuthenticateRequestOptions
-from flask import jsonify, request
 
 from core.logging_config import get_logger
 from shared import config
@@ -89,37 +86,3 @@ def verify_clerk_token(token):
     except Exception as e:
         logger.error(f"Error verifying token: {e}")
         return None
-
-
-def require_clerk_auth(f):
-    """Decorator to require Clerk authentication"""
-
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Get token from Authorization header
-        auth_header = request.headers.get("Authorization", "")
-
-        if not auth_header.startswith("Bearer "):
-            return jsonify({"error": "No valid authorization header", "message": "Clerk: Token is invalid!"}), 401
-
-        # Safely extract token after 'Bearer '
-        parts = auth_header.split(" ", 1)
-        if len(parts) < 2 or not parts[1].strip():
-            return jsonify({"error": "No valid authorization header", "message": "Clerk: Token is invalid!"}), 401
-
-        token = parts[1].strip()
-
-        # Verify token
-        result = verify_clerk_token(token)
-
-        if not result:
-            return jsonify({"error": "Invalid token", "message": "Token is invalid!"}), 401
-
-        email, clerk_user = result
-        # Add user email and clerk user to request context
-        request.clerk_user_email = email  # type: ignore[attr-defined]
-        request.clerk_user = clerk_user  # type: ignore[attr-defined]
-
-        return f(*args, **kwargs)
-
-    return decorated_function

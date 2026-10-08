@@ -6,13 +6,12 @@ import threading
 from datetime import UTC, datetime
 
 import discord
-from flask import jsonify  # Import current_app
+from flask import jsonify
 
 from core import jobs
 from core.audit_http import register_audit
 from core.discord_directory import DiscordDirectory
 from core.request_log import register_request_logging
-from modules.calendar import service as calendar_service
 from modules.cli import register_cli
 from modules.registry import load_jobs, load_tools, register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
@@ -26,10 +25,6 @@ if not app.secret_key:
 
 # Officer, member and guild lookups go to Discord's REST API, so the API does not need the bot
 app.discord_directory = DiscordDirectory(config.BOT_TOKEN)
-
-# Initialize multi-organization calendar service
-# Kept on the app for code that still reads it; the same instance calendar.service uses
-app.multi_org_calendar_service = calendar_service.get_service()
 
 
 def get_git_commit_hash():
@@ -110,7 +105,7 @@ def run_auth_bot_in_thread():
         # Use bot_instance.start() and manage the loop
         loop.run_until_complete(auth_bot_instance.start(auth_bot_token))
     except discord.errors.LoginFailure:
-        logger.error("Login failed for auth bot. Check AUTH_BOT_TOKEN.")
+        logger.error("Login failed for auth bot. Check BOT_TOKEN.")
     except Exception as e:
         logger.error(f"Error in auth bot thread: {e}", exc_info=True)
     finally:

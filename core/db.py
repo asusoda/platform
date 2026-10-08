@@ -47,18 +47,6 @@ class DBConnect:
         finally:
             db.close()
 
-    def create_user(self, db, user):
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
-
-    def create_point(self, db, point):
-        db.add(point)
-        db.commit()
-        db.refresh(point)
-        return point
-
     # Storefront-related methods
     def create_storefront_product(self, db, product, organization_id):
         """Create a new storefront product for a specific organization"""
@@ -136,21 +124,6 @@ class DBConnect:
         except Exception as e:
             logger.error(f"Error getting storefront order: {str(e)}")
             return None
-
-    def update_storefront_product_stock(self, db, product_id, organization_id, new_stock):
-        """Update storefront product stock for a specific organization"""
-        try:
-            product = self.get_storefront_product(db, product_id, organization_id)
-            if product:
-                product.stock = new_stock
-                db.commit()
-                logger.info(f"Updated stock for storefront product {product_id} to {new_stock}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error updating storefront product stock: {str(e)}")
-            db.rollback()
-            return False
 
     def delete_storefront_product(self, db, product_id, organization_id):
         """Delete a storefront product for a specific organization"""
