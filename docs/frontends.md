@@ -11,7 +11,8 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: one p
 | Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
 | Compute | Pods and their sessions |
 | Alerts | Feeds: create, pause, run now, delete |
-| Apps | RunPod app deploys and their health |
+| Apps | RunPod apps: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
+| Knowledge | Knowledge sources: add, edit, pause and run crawls, delete sources, and test a search |
 | Agents | Conversation, memory and member counts. It shows no conversation text |
 | CI | The latest GitHub Actions runs for the repos the org lists |
 | Tokens | Machine tokens: create and revoke |

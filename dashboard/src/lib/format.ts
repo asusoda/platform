@@ -46,3 +46,15 @@ export function deployTone(status: string | null): Tone {
   if (status === 'deploying') return 'active';
   return 'muted';
 }
+
+export function podTone(status: string | null | undefined): Tone {
+  if (status === 'RUNNING') return 'ok';
+  if (status === 'EXITED' || status === 'TERMINATED') return 'muted';
+  if (status === 'CREATED' || status === 'RESTARTING') return 'active';
+  return 'warn';
+}
+
+// A key with slashes as a URL path: each segment is encoded, the slashes stay.
+export function keyPath(key: string): string {
+  return key.split('/').map(encodeURIComponent).join('/');
+}

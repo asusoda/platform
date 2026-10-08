@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compact, deployTone, duration, runTone, timeAgo } from './format';
+import { compact, deployTone, duration, keyPath, podTone, runTone, timeAgo } from './format';
 
 describe('duration', () => {
   it('shows hours and minutes', () => {
@@ -27,5 +27,13 @@ describe('tones', () => {
     expect(runTone('completed', 'failure')).toBe('bad');
     expect(deployTone('failed')).toBe('bad');
     expect(compact(1250)).toBe('1.3K');
+  });
+});
+
+describe('keyPath', () => {
+  it('encodes each segment and keeps the slashes', () => {
+    expect(keyPath('docs/getting started')).toBe('docs/getting%20started');
+    expect(keyPath('faq:club?')).toBe('faq%3Aclub%3F');
+    expect(podTone('RUNNING')).toBe('ok');
   });
 });

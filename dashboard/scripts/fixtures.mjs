@@ -201,6 +201,175 @@ export function fixtures(now = Date.now()) {
     ],
   };
 
+  const deployment = (id, tag, status, offset, rest = {}) => ({
+    id,
+    tag,
+    status,
+    actor: 'token:rover-deploy',
+    error: null,
+    manifest_ref: null,
+    started_at: at(offset),
+    finished_at: status === 'deploying' ? null : at(offset + 4 * MINUTE),
+    ...rest,
+  });
+
+  const telemetryManifest = {
+    cloud: 'SECURE',
+    disk: 40,
+    env: { LOG_LEVEL: 'info' },
+    gpu: { count: 1, id: 'NVIDIA RTX A5000' },
+    health: { path: '/health', port: 8080 },
+    image: 'ghcr.io/robotics-club/rover-telemetry',
+    ports: ['8080/http'],
+    secret_env: { INFLUX_TOKEN: 'app_rover_influx_token' },
+  };
+
+  const telemetryDeployments = [
+    deployment(41, 'v1.8.2', 'healthy', -2 * HOUR, { manifest_ref: '9f3c2a1' }),
+    deployment(40, 'v1.8.1', 'failed', -26 * HOUR, { manifest_ref: '4be71d0', error: 'The health path did not answer in time', finished_at: at(-26 * HOUR + 15 * MINUTE) }),
+    deployment(39, 'v1.8.0', 'healthy', -4 * DAY, { manifest_ref: 'c02d9e4', actor: 'officer:1290000000000000101' }),
+    deployment(38, 'v1.7.3', 'healthy', -12 * DAY, { manifest_ref: '71aa5b2' }),
+  ];
+
+  const appList = [
+    {
+      name: 'match-scout',
+      manifest: { cpu: { id: 'cpu5c', vcpuCount: 4 }, health: { path: '/healthz', port: 3000 }, image: 'ghcr.io/robotics-club/match-scout', ports: ['3000/http'] },
+      repo: 'robotics-club/match-scout',
+      manifest_path: 'deploy/platform.app.yaml',
+      pod_id: 'p8d3k2mz',
+      current_tag: 'v2.0.0-rc1',
+      latest_deployment: deployment(52, 'v2.0.0-rc1', 'deploying', -3 * MINUTE, { manifest_ref: 'e81b7c3' }),
+      updated_at: at(-3 * MINUTE),
+    },
+    {
+      name: 'parts-inventory',
+      manifest: { cpu: { id: 'cpu3c', vcpuCount: 2 }, health: { path: '/health', port: 8000 }, image: 'ghcr.io/robotics-club/parts-inventory', ports: ['8000/http'] },
+      repo: null,
+      manifest_path: null,
+      pod_id: 'r4n7t1qa',
+      current_tag: 'v0.4.0',
+      latest_deployment: deployment(33, 'v0.4.0', 'healthy', -6 * DAY, { actor: 'officer:1290000000000000101' }),
+      updated_at: at(-6 * DAY),
+    },
+    {
+      name: 'rover-telemetry',
+      manifest: telemetryManifest,
+      repo: 'robotics-club/rover-telemetry',
+      manifest_path: 'platform.app.yaml',
+      pod_id: 'v6h2w9xe',
+      current_tag: 'v1.8.2',
+      latest_deployment: telemetryDeployments[0],
+      updated_at: at(-2 * HOUR),
+    },
+  ];
+
+  const telemetryPod = {
+    id: 'v6h2w9xe',
+    name: 'robotics-rover-telemetry',
+    desiredStatus: 'RUNNING',
+    image: 'ghcr.io/robotics-club/rover-telemetry:v1.8.2',
+    costPerHr: 0.27,
+    gpu: { displayName: 'RTX A5000', count: 1 },
+    machine: { location: 'US' },
+  };
+
+  const preview = (tag) => ({
+    dry_run: true,
+    manifest: telemetryManifest,
+    request: {
+      method: 'PATCH',
+      path: '/pods/v6h2w9xe',
+      body: {
+        image: `ghcr.io/robotics-club/rover-telemetry:${tag}`,
+        env: { LOG_LEVEL: 'info', INFLUX_TOKEN: '(secret)' },
+        disk: 40,
+        ports: ['8080/http'],
+      },
+    },
+  });
+
+  const crawl = (hours, offset, rest = {}) => ({
+    fetch_every_hours: hours,
+    extractor: null,
+    enabled: true,
+    last_attempt_at: at(offset),
+    last_error: null,
+    ...rest,
+  });
+
+  const source = (id, key, category, chunks, offset, rest = {}) => ({
+    id: `00000000-0000-4000-8000-0000000000${String(id).padStart(2, '0')}`,
+    key,
+    url: null,
+    title: null,
+    category,
+    public: false,
+    version_id: null,
+    content_hash: null,
+    embedding_model: 'nomic-embed-text-v1.5',
+    chunk_count: chunks,
+    fetched_at: offset === null ? null : at(offset),
+    updated_at: at(offset ?? -DAY),
+    crawl: null,
+    ...rest,
+  });
+
+  const sources = [
+    source(1, 'club/build-nights', 'club', 18, -3 * HOUR, {
+      url: 'https://robotics.example.org/build-nights',
+      title: 'Build nights',
+      crawl: crawl(6, -3 * HOUR),
+    }),
+    source(2, 'club/faq', 'club', 42, -20 * HOUR, {
+      url: 'https://robotics.example.org/faq',
+      title: 'Club FAQ',
+      crawl: crawl(24, -20 * HOUR),
+    }),
+    source(3, 'competition/rules-2026', 'competition', 236, -2 * DAY, {
+      url: 'https://competition.example.org/2026/game-manual',
+      title: 'Game manual 2026',
+      crawl: crawl(24, -40 * MINUTE, { last_error: 'The page answered 503 Service Unavailable' }),
+    }),
+    source(4, 'competition/team-roster', 'competition', 9, -5 * DAY, {
+      title: 'Team roster',
+    }),
+    source(5, 'docs/onboarding', 'docs', 64, -9 * DAY, { title: 'New member onboarding' }),
+    source(6, 'docs/safety', 'docs', 27, -14 * DAY, {
+      url: 'https://robotics.example.org/safety',
+      title: 'Shop safety rules',
+      crawl: crawl(168, -14 * DAY, { enabled: false }),
+    }),
+  ];
+
+  const search = {
+    dense: true,
+    results: [
+      {
+        chunk_id: 'c1',
+        source_key: 'club/build-nights',
+        title: 'Build nights',
+        url: 'https://robotics.example.org/build-nights',
+        category: 'club',
+        public: false,
+        content: 'Build nights run every Tuesday and Thursday from 6 to 9 pm in the engineering shop, room 120. Bring safety glasses; the club has spares at the door.',
+        score: 0.032787,
+        fetched_at: at(-3 * HOUR),
+      },
+      {
+        chunk_id: 'c2',
+        source_key: 'club/faq',
+        title: 'Club FAQ',
+        url: 'https://robotics.example.org/faq',
+        category: 'club',
+        public: false,
+        content: 'Do I need experience to join a build night? No. New members pair with a sub-team lead for their first three sessions.',
+        score: 0.016129,
+        fetched_at: at(-20 * HOUR),
+      },
+    ],
+  };
+
   const overview = {
     organization: { id: ORG.id, name: ORG.name, prefix: ORG.prefix, branding: BRANDING },
     modules: MODULES,
@@ -227,7 +396,11 @@ export function fixtures(now = Date.now()) {
           { name: 'match-scout', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
         ],
       },
-      knowledge: { sources: 18, crawled: 6, failing: [] },
+      knowledge: {
+        sources: sources.length,
+        crawled: sources.filter((x) => x.crawl).length,
+        failing: sources.filter((x) => x.crawl?.last_error).map((x) => ({ key: x.key, url: x.url, error: x.crawl.last_error })),
+      },
       agents: { conversations: 1290, active_7_days: 342, members_7_days: 87, memories: 2140, pending_actions: 2 },
       accounts: { linked: { google: 41, canvas: 36, microsoft: 12 } },
       tokens: {
@@ -258,6 +431,13 @@ export function fixtures(now = Date.now()) {
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
+    [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },
+    [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry`]: { ...appList[2], deployments: telemetryDeployments },
+    [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/pod`]: { pod: telemetryPod },
+    [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/deploy`]: preview('v1.9.0'),
+    [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/rollback`]: preview('v1.8.0'),
+    [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources },
+    [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
     [`/api/organizations/${ORG.id}/secrets`]: {
       configured: true,
       secrets: [

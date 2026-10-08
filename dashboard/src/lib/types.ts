@@ -108,3 +108,90 @@ export type MachineToken = {
 };
 
 export type SecretState = { name: string; description: string; set: boolean };
+
+// Apps and knowledge
+
+export type AppManifest = Record<string, unknown>;
+
+export type AppDeployment = {
+  id: number;
+  tag: string;
+  status: 'deploying' | 'healthy' | 'failed';
+  actor: string | null;
+  error: string | null;
+  manifest_ref: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export type App = {
+  name: string;
+  manifest: AppManifest;
+  repo: string | null;
+  manifest_path: string | null;
+  pod_id: string | null;
+  current_tag: string | null;
+  latest_deployment: AppDeployment | null;
+  updated_at: string | null;
+};
+
+export type AppDetail = App & { deployments: AppDeployment[] };
+
+// The RunPod call a deploy makes, as a dry run returns it. Secret env values show as (secret).
+export type DeployPreview = {
+  dry_run: true;
+  manifest: AppManifest;
+  request: { method: string; path: string; body: Record<string, unknown> };
+};
+
+// A pod as the RunPod REST API returns it. Only the fields the dashboard reads are named.
+export type RunPodPod = {
+  id?: string;
+  name?: string;
+  desiredStatus?: string;
+  image?: string;
+  costPerHr?: number | string;
+  publicIp?: string | null;
+  lastStartedAt?: string | null;
+  gpu?: { displayName?: string; count?: number } | null;
+  machine?: { gpuDisplayName?: string; cpuTypeId?: string; location?: string; dataCenterId?: string } | null;
+  [field: string]: unknown;
+};
+
+export type KnowledgeCrawl = {
+  fetch_every_hours: number;
+  extractor: string | null;
+  enabled: boolean;
+  last_attempt_at: string | null;
+  last_error: string | null;
+};
+
+export type KnowledgeSource = {
+  id: string;
+  key: string;
+  url: string | null;
+  title: string | null;
+  category: string;
+  public: boolean;
+  version_id: string | null;
+  content_hash: string | null;
+  embedding_model: string | null;
+  chunk_count: number;
+  fetched_at: string | null;
+  updated_at: string | null;
+  crawl: KnowledgeCrawl | null;
+};
+
+export type SearchResult = {
+  chunk_id: string;
+  source_key: string;
+  title: string | null;
+  url: string | null;
+  category: string;
+  public: boolean;
+  content: string;
+  score: number;
+  fetched_at: string | null;
+};
+
+export type SearchResponse = { results: SearchResult[]; dense: boolean };
