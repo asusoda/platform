@@ -237,15 +237,15 @@ Covered in full in [Discord Bot](./07-discord-bot.md). `bot` is the Discord clie
 LeetCode are their own modules that the bot loads as cogs:
 
 ```
-modules/bot/discord_modules/
+modules/bot/
 ├── bot.py                          BotFork (extends commands.Bot)
-└── cogs/HelperCog.py               Guild plumbing: channels, roles, messages, reactions
+└── cogs/helper.py                  HelperCog: channels, roles, messages, reactions
 modules/games/
 ├── api.py                          HTTP control surface for Jeopardy (/api/bot/*)
 ├── models.py                       jeopardy_game, active_game
 ├── cog.py                          GameCog: Jeopardy orchestration inside Discord
 ├── ui.py                           discord.ui.View button components
-└── jeopardy/                       Pure game model: Jeopardy, JeopardyQuestion, Team, QuestionPost
+└── jeopardy/                       Game model: game.py, question.py, team.py
 modules/leetcode/
 ├── models.py                       leetcode_link, leetcode_solve
 ├── service.py                      Links, solves, leaderboard, stats (no Flask, no Discord)

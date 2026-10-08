@@ -10,7 +10,7 @@ Runs Jeopardy games in an organization's Discord server. Officers upload games, 
 | `service.py` | The game JSON format check and reading a game file from `./data` |
 | `cog.py` | `GameCog`: sets up and removes the game's channels and roles, sign-up, questions, scoreboard |
 | `ui.py` | Discord views for question posts and answered questions |
-| `jeopardy/` | The game, question and team classes |
+| `jeopardy/` | `game.py` (`JeopardyGame`), `question.py` (`JeopardyQuestion`), `team.py` (`Team`) |
 | `models.py` | Stored games and the active game |
 
 ## Surface

@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from core.log import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger("modules.bot.discord_modules.bot")
 
 
 class BotFork(commands.Bot):

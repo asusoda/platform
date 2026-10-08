@@ -16,7 +16,7 @@ from core.http.request_log import register_request_logging
 from core.integrations.discord import DiscordDirectory
 from core.log import get_logger, init_sentry
 from modules.auth.tokens import token_manager
-from modules.bot.discord_modules.bot import BotFork
+from modules.bot.bot import BotFork
 from modules.bot.factory import create_bot
 from modules.cli import register_cli
 from modules.manifest import load_jobs, load_tools

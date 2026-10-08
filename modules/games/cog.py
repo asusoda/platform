@@ -5,7 +5,7 @@ from discord.ext import commands
 from sqlalchemy.exc import SQLAlchemyError
 
 from core.db import db_connect
-from modules.games.jeopardy.Jeopardy import JeopardyGame
+from modules.games.jeopardy.game import JeopardyGame
 from modules.games.ui import QuestionPost
 
 

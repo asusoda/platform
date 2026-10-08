@@ -17,7 +17,7 @@ loop.run_until_complete(auth_bot_instance.start(config.BOT_TOKEN))
 `shared.py:create_auth_bot(loop)` builds a `BotFork` with `Intents.default()` plus `members` and
 `guilds`, then registers three cogs:
 
-- `HelperCog` (`modules/bot/discord_modules/cogs/HelperCog.py`)
+- `HelperCog` (`modules/bot/cogs/helper.py`)
 - `GameCog` (`modules/games/cog.py`)
 - `LeetCodeCog(bot, db_connect, channel_id, role_ping, daily_time, timezone)` — the LeetCode config
   values are parsed from the env here, with warnings (not crashes) on bad values.
@@ -26,7 +26,7 @@ loop.run_until_complete(auth_bot_instance.start(config.BOT_TOKEN))
 > your application, or `guild.get_member()` returns `None` for everyone and every officer/membership
 > check silently fails.
 
-## `BotFork` — `modules/bot/discord_modules/bot.py`
+## `BotFork` — `modules/bot/bot.py`
 
 Extends `discord.ext.commands.Bot` (py-cord). It adds the synchronous helpers Flask needs, since
 Flask handlers cannot await inside the bot's loop.

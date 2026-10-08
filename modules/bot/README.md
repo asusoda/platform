@@ -1,14 +1,14 @@
 # bot
 
-The Discord gateway bot. `factory.create_bot` builds the bot from `discord_modules/bot.py` and adds `HelperCog`, `GameCog` from games and `LeetCodeCog` from leetcode. `bot_main.py` runs it as its own process; `main.py` runs it in a thread when `RUN_BOT_IN_API` is true.
+The Discord gateway bot. `factory.create_bot` builds the bot from `bot.py` and adds `HelperCog`, `GameCog` from games and `LeetCodeCog` from leetcode. `bot_main.py` runs it as its own process; `main.py` runs it in a thread when `RUN_BOT_IN_API` is true.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
 | `factory.py` | `create_bot(loop)`: the bot with its cogs |
-| `discord_modules/bot.py` | The bot class, a py-cord `Bot` subclass: start and stop, `execute(cog, method)` to call another cog's method, guild, role and officer lookups |
-| `discord_modules/cogs/HelperCog.py` | Creates and deletes categories, channels and roles for other cogs, sends and edits messages, tracks reactions for game sign-up, and the `/clear` slash command that removes the Jeopardy channels and team roles |
+| `bot.py` | `BotFork`, a py-cord `Bot` subclass: the active game, and `execute(cog, method)` to call another cog's method |
+| `cogs/helper.py` | `HelperCog`: creates and deletes categories, channels and roles for other cogs, sends and edits messages, tracks reactions for game sign-up, and the `/clear` slash command that removes the Jeopardy channels and team roles |
 
 ## Surface
 

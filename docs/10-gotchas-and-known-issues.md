@@ -238,7 +238,7 @@ leaving orphaned Discord channels and roles behind.
 
 ### D13. `BotFork.get_name()` is hardcoded to one guild
 
-`modules/bot/discord_modules/bot.py:208` hardcodes guild `762811961238618122`. Used by
+`modules/bot/bot.py` hardcodes guild `762811961238618122`. Used by
 `/api/auth/callback` to get the display name. An officer of another organization who is not in
 SoDA's own Discord server gets `None` as their username, which then becomes their JWT `username`
 claim.

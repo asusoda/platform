@@ -6,8 +6,8 @@ import discord
 
 from core.db import db_connect
 from core.log import get_logger
-from modules.bot.discord_modules.bot import BotFork
-from modules.bot.discord_modules.cogs.HelperCog import HelperCog
+from modules.bot.bot import BotFork
+from modules.bot.cogs.helper import HelperCog
 from modules.games.cog import GameCog
 from modules.leetcode.cog import LeetCodeCog
 
