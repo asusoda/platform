@@ -69,14 +69,6 @@ function readManifest(text: string): { manifest?: AppManifest; error?: string } 
   return { manifest: m };
 }
 
-// The tag part of an image reference such as repo:tag or repo@sha256:...
-function imageTag(image: unknown): string | null {
-  if (typeof image !== 'string') return null;
-  if (image.includes('@')) return image.slice(image.indexOf('@') + 1);
-  const colon = image.lastIndexOf(':');
-  return colon > image.lastIndexOf('/') ? image.slice(colon + 1) : null;
-}
-
 function JsonBlock({ value, className }: { value: unknown; className?: string }) {
   return (
     <pre
@@ -390,7 +382,7 @@ function RollbackPanel({ prefix, app, onDone }: { prefix: string; app: App; onDo
       onDone();
     },
   });
-  const target = imageTag(preview.data?.request.body.image);
+  const target = preview.data?.tag;
   return (
     <div className="space-y-4 rounded-lg border border-line p-4">
       {preview.isLoading ? (

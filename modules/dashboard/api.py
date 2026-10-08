@@ -113,7 +113,8 @@ def rollback_app(db, org, name):
 
 @_route("/knowledge/sources", ["GET"])
 def list_sources(db, org):
-    return {"sources": knowledge.list_sources(db, _org_id(org), request.args.get("category"))}
+    sources = knowledge.list_sources(db, _org_id(org), request.args.get("category"))
+    return {"sources": sources, "can_publish": knowledge.can_publish(str(org.prefix))}
 
 
 @_route("/knowledge/sources/<path:key>", ["DELETE"])

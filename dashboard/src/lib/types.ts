@@ -140,6 +140,7 @@ export type AppDetail = App & { deployments: AppDeployment[] };
 // The RunPod call a deploy makes, as a dry run returns it. Secret env values show as (secret).
 export type DeployPreview = {
   dry_run: true;
+  tag: string;
   manifest: AppManifest;
   request: { method: string; path: string; body: Record<string, unknown> };
 };

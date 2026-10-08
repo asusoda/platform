@@ -31,7 +31,7 @@ def test_officer_registers_deploys_and_deletes_an_app(client, officer_headers, f
     assert client.put(base, json={"manifest": MANIFEST}, headers=officer_headers).status_code == 200
 
     dry = client.post(f"{base}/deploy", json={"tag": "v1", "dry_run": True}, headers=officer_headers)
-    assert dry.status_code == 200 and dry.get_json()["request"]["method"] == "POST"
+    assert dry.status_code == 200 and dry.get_json()["request"]["method"] == "POST" and dry.get_json()["tag"] == "v1"
     assert fake.calls == []
 
     deployed = client.post(f"{base}/deploy", json={"tag": "v1"}, headers=officer_headers)
@@ -57,8 +57,8 @@ def test_officer_manages_crawls(client, officer_headers, queued):
     scheduled = client.put(f"{base}/crawls/{key}", json=body, headers=officer_headers)
     assert scheduled.status_code == 200 and scheduled.get_json()["crawl"]["fetch_every_hours"] == 12
 
-    sources = client.get(f"{base}/sources", headers=officer_headers).get_json()["sources"]
-    assert key in [s["key"] for s in sources]
+    listed = client.get(f"{base}/sources", headers=officer_headers).get_json()
+    assert key in [s["key"] for s in listed["sources"]] and listed["can_publish"] is False
 
     assert client.post(f"{base}/crawls/{key}/run", json={"force": True}, headers=officer_headers).status_code == 202
     assert queued == [

@@ -276,6 +276,7 @@ export function fixtures(now = Date.now()) {
 
   const preview = (tag) => ({
     dry_run: true,
+    tag,
     manifest: telemetryManifest,
     request: {
       method: 'PATCH',
@@ -436,7 +437,7 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/pod`]: { pod: telemetryPod },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/deploy`]: preview('v1.9.0'),
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/rollback`]: preview('v1.8.0'),
-    [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources },
+    [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
     [`/api/organizations/${ORG.id}/secrets`]: {
       configured: true,

@@ -311,7 +311,12 @@ def deploy(
     manifest = manifest if manifest is not None else _manifest(app)
     if dry_run:
         method, path, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=True)
-        return {"dry_run": True, "manifest": manifest, "request": {"method": method, "path": path, "body": body}}
+        return {
+            "dry_run": True,
+            "tag": tag,
+            "manifest": manifest,
+            "request": {"method": method, "path": path, "body": body},
+        }
 
     client = client_for(db, org_id)
     method, _, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=False)

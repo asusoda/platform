@@ -77,11 +77,13 @@ function CrawlForm({
   prefix,
   source,
   categories,
+  canPublish,
   onDone,
 }: {
   prefix: string;
   source: KnowledgeSource | null;
   categories: string[];
+  canPublish: boolean;
   onDone: () => void;
 }) {
   const invalidate = useInvalidate(prefix);
@@ -175,21 +177,22 @@ function CrawlForm({
           <option key={c} value={c} />
         ))}
       </datalist>
-      <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line p-3 text-sm transition-colors hover:bg-panel-2/50 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
-        <input
-          type="checkbox"
-          className="mt-0.5 size-4 accent-current"
-          checked={draft.public}
-          onChange={(e) => setDraft({ ...draft, public: e.target.checked })}
-        />
-        <span className="min-w-0">
-          <span className="block font-medium">Public</span>
-          <span className="mt-0.5 block text-xs text-muted">
-            Every organization's agents can search a public source. Only organizations the server lists as publishers may publish;
-            others get an error on save.
+      {canPublish || draft.public ? (
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line p-3 text-sm transition-colors hover:bg-panel-2/50 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 accent-current"
+            checked={draft.public}
+            onChange={(e) => setDraft({ ...draft, public: e.target.checked })}
+          />
+          <span className="min-w-0">
+            <span className="block font-medium">Public</span>
+            <span className="mt-0.5 block text-xs text-muted">
+              Every organization's agents can search a public source.
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
+      ) : null}
       <FormActions error={save.error}>
         <Button variant="primary" disabled={!ready || save.isPending}>
           {save.isPending ? <Spinner className="size-3.5" /> : null}
@@ -347,7 +350,7 @@ export function KnowledgePage() {
   const [notice, setNotice] = useState<ReactNode>(null);
   const list = useQuery({
     queryKey: ['knowledge', prefix, 'sources'],
-    queryFn: () => api<{ sources: KnowledgeSource[] }>(`/api/dashboard/${prefix}/knowledge/sources`),
+    queryFn: () => api<{ sources: KnowledgeSource[]; can_publish: boolean }>(`/api/dashboard/${prefix}/knowledge/sources`),
     enabled: Boolean(prefix),
     refetchInterval: () => (Date.now() < watchUntil ? 5_000 : false),
   });
@@ -553,6 +556,7 @@ export function KnowledgePage() {
             prefix={prefix}
             source={editing === 'new' ? null : editing}
             categories={categories}
+            canPublish={list.data?.can_publish ?? false}
             onDone={() => setEditing(null)}
           />
         ) : null}
