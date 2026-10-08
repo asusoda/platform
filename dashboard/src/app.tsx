@@ -3,12 +3,14 @@ import { Navigate, Route, Routes } from 'react-router';
 import { Shell } from './components/shell';
 import { tokens } from './lib/auth';
 import { ActivityPage } from './pages/activity';
+import { AdminPage } from './pages/admin';
 import { AgentsPage } from './pages/agents';
 import { AlertsPage } from './pages/alerts';
 import { AppsPage } from './pages/apps';
 import { AuthCallbackPage } from './pages/auth-callback';
 import { CiPage } from './pages/ci';
 import { ComputePage } from './pages/compute';
+import { KnowledgePage } from './pages/knowledge';
 import { LoginPage } from './pages/login';
 import { OrganizationsPage } from './pages/orgs';
 import { OverviewPage } from './pages/overview';
@@ -30,11 +32,13 @@ export function App() {
         <Route path="compute" element={<ComputePage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="apps" element={<AppsPage />} />
+        <Route path="knowledge" element={<KnowledgePage />} />
         <Route path="agents" element={<AgentsPage />} />
         <Route path="ci" element={<CiPage />} />
         <Route path="tokens" element={<TokensPage />} />
         <Route path="activity" element={<ActivityPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -5,6 +5,7 @@ import {
   Boxes,
   ChevronsUpDown,
   Cpu,
+  Database,
   GitBranch,
   KeyRound,
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
   Monitor,
   Moon,
   Settings,
+  ShieldCheck,
   Sun,
   X,
 } from 'lucide-react';
@@ -21,7 +23,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router';
 import { tokens } from '../lib/auth';
 import { useAccentColor } from '../lib/branding';
 import { useCurrentOrg, useOrganizations } from '../lib/org';
-import { useBranding } from '../lib/queries';
+import { useBranding, useSuperadmin } from '../lib/queries';
 import { type Theme, useTheme } from '../lib/theme';
 import { OrgMark } from './org-mark';
 import { cx } from './ui';
@@ -29,8 +31,9 @@ import { cx } from './ui';
 const NAV = [
   { to: '', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: 'compute', label: 'Compute', icon: Cpu },
+  { to: 'apps', label: 'Apps', icon: Boxes },
+  { to: 'knowledge', label: 'Knowledge', icon: Database },
   { to: 'alerts', label: 'Alerts', icon: BellRing },
-  { to: 'apps', label: 'Apps and knowledge', icon: Boxes },
   { to: 'agents', label: 'Agents', icon: Bot },
   { to: 'ci', label: 'CI runs', icon: GitBranch },
   { to: 'tokens', label: 'Tokens', icon: KeyRound },
@@ -102,11 +105,13 @@ function ThemeSwitch() {
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const { prefix } = useCurrentOrg();
   const navigate = useNavigate();
+  const { data: superadmin } = useSuperadmin();
+  const items = superadmin ? [...NAV, { to: 'admin', label: 'Superadmin', icon: ShieldCheck, end: false }] : NAV;
   return (
     <div className="flex h-full flex-col gap-5 p-3">
       <OrgSwitcher />
       <nav aria-label="Pages" className="flex flex-col gap-0.5">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={label}
             to={`/${prefix}${to ? `/${to}` : ''}`}

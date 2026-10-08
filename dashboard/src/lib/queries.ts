@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { ApiError, api } from './api';
 import type { Branding, CiRepo, Overview } from './types';
 
 export function useOverview(prefix: string) {
@@ -26,5 +26,22 @@ export function useBranding(prefix: string) {
     queryFn: () => api<Branding>(`/api/dashboard/${prefix}/branding`),
     enabled: Boolean(prefix),
     staleTime: 300_000,
+  });
+}
+
+// Whether the signed-in officer is the superadmin. A 403 means no.
+export function useSuperadmin() {
+  return useQuery({
+    queryKey: ['superadmin'],
+    queryFn: () =>
+      api<{ is_superadmin: boolean }>('/api/superadmin/check').then(
+        (body) => body.is_superadmin,
+        (error) => {
+          if (error instanceof ApiError && error.status === 403) return false;
+          throw error;
+        },
+      ),
+    retry: false,
+    staleTime: 600_000,
   });
 }
