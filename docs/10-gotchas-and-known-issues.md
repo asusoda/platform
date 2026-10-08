@@ -58,7 +58,7 @@ The backend serves Jeopardy under `/api/bot/*`. These call something else:
 | `web/src/pages/ActiveGame.js` | `/games/active` | `/api/bot/getactivegame` |
 | `web/src/pages/GamePanel.js` | `/games/list` | `/api/bot/getavailablegames` |
 | `web/src/pages/Jeopardy.js` | `/jeopardy/games` | `/api/bot/getavailablegames` |
-| `web/src/pages/BotControlPanel.js` | `/bot/status` | route is commented out in `modules/bot/api.py:30` |
+| `web/src/pages/BotControlPanel.js` | `/bot/status` | route is commented out in `modules/games/api.py:30` |
 | `web/src/components/AwardPanel.js:25` | `/api/awardpoints` | `/api/bot/awardpoints` |
 | `web/src/components/SetupButton.js:17,28` | `/api/createchannels`, `/api/startactivegame` | `/api/bot/startactivegame`; no `createchannels` route exists |
 | `web/src/components/GameBoard.js:11` | `/api/getgamequestions` | no such route |
@@ -104,7 +104,7 @@ pattern.
 
 ### C1. `/api/bot/*` needs an officer
 
-Every route in `modules/bot/api.py` (start and end games, upload games, award points) had no auth.
+Every route in `modules/games/api.py` (start and end games, upload games, award points) had no auth.
 A `before_request` hook now requires an officer of any org, as does `/api/calendar/debug/organizations`.
 In report mode the call goes through and logs `reason=no_platform_credential` or `reason=not_officer`.
 
@@ -296,7 +296,7 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 | `CalendarEventLink` table | created, but the sync path uses Google extendedProperties instead |
 | `modules/users/user_reader.py` | Google Sheets importer; needs a `token.json` produced by a `generate_token.py` that is not in the repo |
 | `Organization.points_per_message`, `points_cooldown` | no code reads them |
-| `/botstatus`, `/startbot`, `/stopbot` | commented out, `modules/bot/api.py:27-49` |
+| `/botstatus`, `/startbot`, `/stopbot` | commented out, `modules/games/api.py:27-49` |
 | `web/src/components/GameTable.js` | zero-byte file |
 | Commented-out `BotFork.setup_game` | `bot.py:261+` |
 | Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD` |

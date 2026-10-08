@@ -35,7 +35,8 @@ def create_schema():
     # The same model modules alembic/env.py loads, so every table is in Base.metadata
     for model_module in (
         "modules.auth.models",
-        "modules.bot.models",
+        "modules.games.models",
+        "modules.leetcode.models",
         "modules.calendar.models",
         "modules.organizations.models",
         "modules.points.models",

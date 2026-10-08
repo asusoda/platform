@@ -40,7 +40,8 @@ from core.base import Base  # noqa: E402
 
 for model_module in (
     "modules.auth.models",
-    "modules.bot.models",
+    "modules.games.models",
+    "modules.leetcode.models",
     "modules.calendar.models",
     "modules.organizations.models",
     "modules.points.models",

@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from flask import Blueprint, Flask, jsonify, request
 
 from modules.auth.api import auth_blueprint
-from modules.bot.api import game_blueprint
 from modules.calendar.api import calendar_blueprint
+from modules.games.api import game_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
 from modules.points.api import points_blueprint

@@ -217,21 +217,24 @@ schedule.
 
 ---
 
-## `modules/bot` — Discord
+## `modules/bot`, `modules/games`, `modules/leetcode` — Discord
 
-Covered in full in [Discord Bot](./07-discord-bot.md). Structurally:
+Covered in full in [Discord Bot](./07-discord-bot.md). `bot` is the Discord client; games and
+LeetCode are their own modules that the bot loads as cogs:
 
 ```
-modules/bot/
+modules/bot/discord_modules/
+├── bot.py                          BotFork (extends commands.Bot)
+└── cogs/HelperCog.py               Guild plumbing: channels, roles, messages, reactions
+modules/games/
 ├── api.py                          HTTP control surface for Jeopardy (/api/bot/*)
-├── models.py                       jeopardy_game, active_game, leetcode_link, leetcode_solve
-└── discord_modules/
-    ├── bot.py                      BotFork (extends commands.Bot)
-    ├── cogs/
-    │   ├── HelperCog.py            Guild plumbing: channels, roles, messages, reactions
-    │   ├── GameCog.py              Jeopardy orchestration inside Discord
-    │   ├── LeetCodeCog.py          Daily challenge, verification, slash commands
-    │   ├── UI.py                   discord.ui.View button components
-    │   └── jeopardy/               Pure game model: Jeopardy, JeopardyQuestion, Team, QuestionPost
-    └── utils/leetcode.py           LeetCode GraphQL client
+├── models.py                       jeopardy_game, active_game
+├── cog.py                          GameCog: Jeopardy orchestration inside Discord
+├── ui.py                           discord.ui.View button components
+└── jeopardy/                       Pure game model: Jeopardy, JeopardyQuestion, Team, QuestionPost
+modules/leetcode/
+├── models.py                       leetcode_link, leetcode_solve
+├── service.py                      Links, solves, leaderboard, stats (no Flask, no Discord)
+├── client.py                       LeetCode GraphQL client
+└── cog.py                          LeetCodeCog: daily post, verification, slash commands
 ```

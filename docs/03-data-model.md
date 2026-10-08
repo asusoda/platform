@@ -149,14 +149,14 @@ Declared, and the table is created, but **nothing reads or writes it**. Flask se
 cookies, not DB-backed. It also has a latent bug (`func.utcnow()` is not a real SQL function), which
 is harmless only because the table is never inserted into.
 
-### `jeopardy_game` / `active_game` — `modules/bot/models.py`
+### `jeopardy_game` / `active_game` — `modules/games/models.py`
 
 - `jeopardy_game`: `name` + a `data` JSON blob — an uploaded game template.
 - `active_game`: `name`, `game_data` JSON, `helper_data` JSON — the single currently-running game.
   The code treats this as a singleton (queries `.first()`), so only one game runs at a time across
   the whole deployment.
 
-### `leetcode_link` / `leetcode_solve` — `modules/bot/models.py`
+### `leetcode_link` / `leetcode_solve` — `modules/leetcode/models.py`
 
 - `leetcode_link`: `discord_id` (PK) → `leetcode_username`. Written by the `/link` slash command.
 - `leetcode_solve`: `discord_id`, `title_slug`, `solved_date`, with a unique constraint

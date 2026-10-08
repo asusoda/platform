@@ -157,7 +157,7 @@ modules/<name>/
 ```
 
 Some modules add more: `calendar/` has `service.py`, `clients.py`, `utils.py`, `errors.py`;
-`bot/` has the whole `discord_modules/` tree; `organizations/` has `config.py`.
+`bot/` has the Discord client (`discord_modules/`), `games/` and `leetcode/` have a `cog.py` the bot loads; `organizations/` has `config.py`.
 
 Shared code that is not a feature lives in `core/` (database, config, tokens, logging, Discord
 REST client, Clerk). `core/` must not import from `modules/`; three existing imports are listed as
@@ -180,7 +180,7 @@ Blueprints are mounted by `modules/registry.py` (`MOUNTS`), which `main.py` call
 | `users_blueprint` | `/api/users` |
 | `auth_blueprint` | `/api/auth` |
 | `calendar_blueprint` | `/api/calendar` |
-| `game_blueprint` (from `modules/bot`) | `/api/bot` |
+| `game_blueprint` (from `modules/games`) | `/api/bot` |
 | `organizations_blueprint` | `/api/organizations` |
 | `superadmin_blueprint` | `/api/superadmin` |
 | `storefront_blueprint` | `/api/storefront` |
@@ -231,10 +231,10 @@ It also means if the bot is offline, nobody can prove they are an officer.
 
 | Service | Used for | Where |
 |---------|----------|-------|
-| Discord (gateway + REST) | Login, role/membership checks, the bot itself | `modules/bot/`, `modules/auth/api.py` |
+| Discord (gateway + REST) | Login, role/membership checks, the bot itself | `modules/bot/`, `modules/games/`, `modules/leetcode/`, `modules/auth/api.py` |
 | Clerk | Auth for the public-facing member storefront | `core/clerk_auth.py` |
 | Notion | Source of truth for club events | `modules/calendar/clients.py:NotionCalendarClient` |
 | Google Calendar | Destination for synced events | `modules/calendar/clients.py:GoogleCalendarClient` |
-| LeetCode GraphQL | Daily/random problems, verifying solves | `modules/bot/discord_modules/utils/leetcode.py` |
+| LeetCode GraphQL | Daily/random problems, verifying solves | `modules/leetcode/client.py` |
 | Sentry | Errors, logs, and calendar-sync performance traces | `shared.py`, `modules/calendar/utils.py` |
 | Google Sheets | One-off distinguished-member import | `modules/users/user_reader.py` (not wired to any route) |

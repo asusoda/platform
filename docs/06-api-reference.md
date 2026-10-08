@@ -178,7 +178,7 @@ polls this endpoint will hammer the Notion API.
 
 ---
 
-## `/api/bot` — `modules/bot/api.py` (Jeopardy control)
+## `/api/bot` — `modules/games/api.py` (Jeopardy control)
 
 > **No endpoint in this blueprint has an auth decorator.** Anyone who can reach the API can start,
 > stop, upload, and score games. Treat this as a known security gap, listed in

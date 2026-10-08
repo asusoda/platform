@@ -74,9 +74,9 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
 
     auth_bot_instance = BotFork(intents=intents, loop=loop)
     try:
-        from modules.bot.discord_modules.cogs.GameCog import GameCog
         from modules.bot.discord_modules.cogs.HelperCog import HelperCog
-        from modules.bot.discord_modules.cogs.LeetCodeCog import LeetCodeCog
+        from modules.games.cog import GameCog
+        from modules.leetcode.cog import LeetCodeCog
 
         auth_bot_instance.add_cog(HelperCog(auth_bot_instance))
         auth_bot_instance.add_cog(GameCog(auth_bot_instance))

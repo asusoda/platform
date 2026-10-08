@@ -164,7 +164,7 @@ Jeopardy under `/api/bot/*`; these call something else entirely:
 | `pages/ActiveGame.js` | `/games/active` | `/api/bot/getactivegame` |
 | `pages/GamePanel.js` | `/games/list` | `/api/bot/getavailablegames` |
 | `pages/Jeopardy.js` | `/jeopardy/games` | `/api/bot/getavailablegames` |
-| `pages/BotControlPanel.js` | `/bot/status` | *(commented out in `modules/bot/api.py`)* |
+| `pages/BotControlPanel.js` | `/bot/status` | *(commented out in `modules/games/api.py`)* |
 | `components/AwardPanel.js` | `/api/awardpoints` | `/api/bot/awardpoints` |
 | `components/SetupButton.js` | `/api/createchannels`, `/api/startactivegame` | `/api/bot/startactivegame` (no `createchannels` route) |
 | `components/GameBoard.js` | `/api/getgamequestions` | *(no such route)* |

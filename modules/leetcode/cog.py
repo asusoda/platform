@@ -4,17 +4,16 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import discord
 from discord.ext import commands, tasks
-from sqlalchemy import func as sa_func
 
 from core.logging_config import get_logger
-from modules.bot.discord_modules.utils.leetcode import (
+from modules.leetcode import service
+from modules.leetcode.client import (
     fetch_daily_question,
     fetch_random_question,
     fetch_recent_ac_submissions,
 )
-from modules.bot.models import LeetCodeLink, LeetCodeSolve
 
-logger = get_logger("bot.leetcodecog")
+logger = get_logger("leetcode.cog")
 
 DIFFICULTY_COLORS = {
     "Easy": 0x00B8A3,
@@ -222,96 +221,35 @@ class LeetCodeCog(commands.Cog):
         except Exception:
             logger.error(f"Failed to announce verification for {discord_id}", exc_info=True)
 
-    # --- DB helpers ---
+    # --- DB helpers: open a session and call the service ---
+
+    def _with_db(self, fn, *args, **kwargs):
+        db = next(self.db_connect.get_db())
+        try:
+            return fn(db, *args, **kwargs)
+        finally:
+            db.close()
 
     def _get_all_linked_discord_ids(self) -> list[str]:
-        db = next(self.db_connect.get_db())
-        try:
-            return [row.discord_id for row in db.query(LeetCodeLink).all()]
-        finally:
-            db.close()
+        return self._with_db(service.linked_discord_ids)
 
     def _get_links(self, discord_ids: list[str]) -> dict[str, str]:
-        if not discord_ids:
-            return {}
-        db = next(self.db_connect.get_db())
-        try:
-            rows = db.query(LeetCodeLink).filter(LeetCodeLink.discord_id.in_(discord_ids)).all()
-            return {row.discord_id: row.leetcode_username for row in rows}
-        finally:
-            db.close()
+        return self._with_db(service.links_for, discord_ids)
 
     def _upsert_link(self, discord_id: str, username: str):
-        db = next(self.db_connect.get_db())
-        try:
-            existing = db.query(LeetCodeLink).filter_by(discord_id=discord_id).first()
-            if existing:
-                existing.leetcode_username = username
-            else:
-                db.add(LeetCodeLink(discord_id=discord_id, leetcode_username=username))
-            db.commit()
-        finally:
-            db.close()
+        self._with_db(service.link, discord_id, username)
 
     def _record_solve(self, discord_id: str, title_slug: str, solved_date: datetime.date):
-        db = next(self.db_connect.get_db())
-        try:
-            existing = db.query(LeetCodeSolve).filter_by(discord_id=discord_id, solved_date=solved_date).first()
-            if existing:
-                return
-            db.add(LeetCodeSolve(discord_id=discord_id, title_slug=title_slug, solved_date=solved_date))
-            db.commit()
-        except Exception:
-            logger.error(f"Failed to record solve for {discord_id}", exc_info=True)
-            db.rollback()
-        finally:
-            db.close()
+        self._with_db(service.record_solve, discord_id, title_slug, solved_date)
 
     def _get_leaderboard(self, limit: int = 10) -> list[tuple[str, str, int]]:
-        """Returns [(discord_id, leetcode_username, solve_count), ...] sorted desc."""
-        db = next(self.db_connect.get_db())
-        try:
-            rows = (
-                db.query(
-                    LeetCodeSolve.discord_id,
-                    LeetCodeLink.leetcode_username,
-                    sa_func.count(LeetCodeSolve.id).label("solve_count"),
-                )
-                .outerjoin(LeetCodeLink, LeetCodeLink.discord_id == LeetCodeSolve.discord_id)
-                .group_by(LeetCodeSolve.discord_id, LeetCodeLink.leetcode_username)
-                .order_by(sa_func.count(LeetCodeSolve.id).desc())
-                .limit(limit)
-                .all()
-            )
-            return [(r[0], r[1] or "(unlinked)", r[2]) for r in rows]
-        finally:
-            db.close()
+        return self._with_db(service.leaderboard, limit)
 
     def _get_server_stats(self) -> dict:
-        db = next(self.db_connect.get_db())
-        try:
-            total_linked = db.query(LeetCodeLink).count()
-            total_solves = db.query(LeetCodeSolve).count()
-            distinct_solvers = db.query(sa_func.count(sa_func.distinct(LeetCodeSolve.discord_id))).scalar() or 0
-            return {
-                "total_linked": total_linked,
-                "total_solves": total_solves,
-                "distinct_solvers": distinct_solvers,
-            }
-        finally:
-            db.close()
+        return self._with_db(service.stats)
 
     def _delete_link(self, discord_id: str) -> bool:
-        db = next(self.db_connect.get_db())
-        try:
-            existing = db.query(LeetCodeLink).filter_by(discord_id=discord_id).first()
-            if not existing:
-                return False
-            db.delete(existing)
-            db.commit()
-            return True
-        finally:
-            db.close()
+        return self._with_db(service.unlink, discord_id)
 
     # --- Slash commands ---
 
