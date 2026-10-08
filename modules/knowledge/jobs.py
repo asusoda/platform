@@ -11,7 +11,7 @@ def crawl_due() -> None:
 
     db = db_connect.SessionLocal()
     try:
-        result = crawl.crawl_due(db, embedder.configured())
+        result = crawl.crawl_due(db, lambda org_id: embedder.for_org(db, org_id))
         if result["crawled"]:
             crawl.logger.info("crawl run %s", result)
     finally:
@@ -25,7 +25,7 @@ def crawl_source(org_id: int, key: str, force: bool = False, org_prefix: str | N
 
     db = db_connect.SessionLocal()
     try:
-        crawl.run(db, org_id, key, embedder.configured(), force=force)
+        crawl.run(db, org_id, key, embedder.for_org(db, org_id), force=force)
     finally:
         db.close()
 
@@ -37,7 +37,7 @@ def reindex(org_id: int) -> None:
 
     db = db_connect.SessionLocal()
     try:
-        result = crawl.reindex(db, org_id, embedder.configured())
+        result = crawl.reindex(db, org_id, embedder.for_org(db, org_id))
         crawl.logger.info("reindex org=%s %s", org_id, result)
     finally:
         db.close()

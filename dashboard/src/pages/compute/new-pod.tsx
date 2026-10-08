@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, cx, Dialog, Field, FormActions, Input, Select, Switch } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { NewPod } from '../../lib/types';
-import { computePath, useRefreshCompute, UsersEditor } from './shared';
+import { computePath, useComputeSettings, useRefreshCompute, UsersEditor } from './shared';
 
 // Defaults and limits match pod_request in modules/compute/service.py.
 const DEFAULT_GPU = 'NVIDIA RTX A4000';
@@ -88,6 +88,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [nextKey, setNextKey] = useState(1);
   const refresh = useRefreshCompute(prefix);
+  const defaults = useComputeSettings(prefix);
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
   const problem = envProblem(env);
   const create = useMutation({
@@ -127,8 +128,13 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           <Field label="Name" hint="Leave empty for a random name">
             <Input value={draft.name} onChange={set('name')} placeholder="workshop" maxLength={100} />
           </Field>
-          <Field label="Image" hint="Leave empty for the server's default pod image">
-            <Input value={draft.image} onChange={set('image')} placeholder="theaisocietyasu/godfather-base:latest" className="font-mono text-xs" />
+          <Field label="Image" hint="Leave empty for the org's default pod image, set in Compute settings">
+            <Input
+              value={draft.image}
+              onChange={set('image')}
+              placeholder={defaults.data ? (defaults.data.pod_image ?? defaults.data.deployment_pod_image) : ''}
+              className="font-mono text-xs"
+            />
           </Field>
         </div>
 

@@ -8,6 +8,7 @@ import { isBotDown, useSuperadmin } from '../../lib/queries';
 import type { AvailableGuild, OrganizationDetail, SuperadminDashboard } from '../../lib/types';
 import { AuditCard } from './audit';
 import { AddDialog, OfficerRoleDialog, RemoveDialog } from './dialogs';
+import { PublishersCard } from './publishers';
 import { GuildsCard, OrganizationsCard } from './tables';
 
 type Open = { kind: 'role' | 'remove'; org: OrganizationDetail } | { kind: 'add'; guild: AvailableGuild } | null;
@@ -26,7 +27,7 @@ function Superadmin() {
   const close = () => setOpen(null);
   return (
     <>
-      <PageHeader title="Superadmin" description="All orgs, the Discord servers the bot is in, and the audit log of all orgs." />
+      <PageHeader title="Superadmin" description="All orgs, the Discord servers the bot is in, knowledge publishers, and the audit log of all orgs." />
 
       {dashboard.error ? (
         <Card className="mb-6">
@@ -73,6 +74,7 @@ function Superadmin() {
             <CardHeader title="Discord servers without an org" hint="Servers the bot is in that have no org yet." />
             {dashboard.isLoading ? <SkeletonRows rows={2} /> : <GuildsCard guilds={guilds} onAdd={(guild) => setOpen({ kind: 'add', guild })} />}
           </Card>
+          {dashboard.data ? <PublishersCard orgs={orgs} /> : null}
         </div>
       ) : null}
 

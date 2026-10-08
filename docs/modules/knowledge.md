@@ -5,7 +5,7 @@ Sources of text that agents search, such as web pages, handbooks and FAQs. A cli
 ## Access
 
 - Writers and searchers use a machine token with `knowledge:write`, `knowledge:read` or both. The org is the org of the token.
-- Search covers the caller's org and the public sources. A public source shows in the results of every org. Thus only the orgs in `KNOWLEDGE_PUBLISHERS` (org prefixes, comma-separated) can write one.
+- Search covers the caller's org and the public sources. A public source shows in the results of every org. Thus only publishers can write one. The superadmin marks publishers on the Superadmin page of the dashboard (`PUT /api/superadmin/publishers/<org_id>` with `{"publisher": true}`). Orgs in `KNOWLEDGE_PUBLISHERS` (org prefixes, comma-separated) are publishers too.
 - List, read and delete cover only the caller's org.
 - Officers upload documents, manage crawls, change the search settings and test search on the Knowledge page of the dashboard, with no token.
 
@@ -51,7 +51,7 @@ The `knowledge.crawl_due` job runs every 10 minutes. It crawls up to `KNOWLEDGE_
 
 1. Checks that the URL is http or https and resolves only to public addresses. It follows redirects one at a time and checks each one. Thus a source cannot point Platform at its own network.
 2. Reads robots.txt with `KNOWLEDGE_USER_AGENT` and skips pages that it does not allow.
-3. Gets the page through Firecrawl if `FIRECRAWL_URL` is set, else with a GET of up to 10 MB.
+3. Gets the page through the org's Firecrawl (Integrations page, else `FIRECRAWL_URL`), else with a GET of up to 10 MB.
 4. Stops if the page hash did not change, unless `force` is set.
 5. Removes navigation, headers, footers, forms and scripts. Splits the text into chunks of the org's passage size with the page title on each, makes the embeddings and replaces the source's version. The old version and its chunks are deleted.
 6. Refuses the new text if it is less than half of the last version (when that was 500 characters or more), so a broken page cannot remove a good index. `force` accepts it.
@@ -106,16 +106,18 @@ On Postgres with pgvector, the embedding column is `vector(1024)` with an HNSW i
 
 ## Settings
 
+An org sets its own embeddings service and Firecrawl on the Integrations page of the dashboard ([integrations](../integrations.md)). The variables below are the deployment defaults.
+
 | Variable | Default | Does |
 | --- | --- | --- |
-| `EMBEDDINGS_URL` | not set | An OpenAI-compatible base URL (`.../v1`). If it is not set, there is no embedder |
+| `EMBEDDINGS_URL` | not set | An OpenAI-compatible base URL (`.../v1`). If neither the org nor this sets one, there is no embedder |
 | `EMBEDDINGS_MODEL` | `default` | The model name sent to the URL and kept on each version |
 | `EMBEDDINGS_API_KEY` | not set | The bearer token for the URL |
 | `EMBEDDINGS_QUERY_PREFIX` | empty | Text put before queries, for models that need it |
 | `KNOWLEDGE_MAX_DISTANCE` | 0.6 | The default of the org setting `max_distance` |
-| `KNOWLEDGE_PUBLISHERS` | empty | Org prefixes that can write public sources |
+| `KNOWLEDGE_PUBLISHERS` | empty | Org prefixes that can write public sources, in addition to the ones the superadmin marks |
 | `KNOWLEDGE_CHUNK_CHARS` | 300 | The default of the org setting `chunk_chars` |
 | `KNOWLEDGE_CRAWL_BATCH` | 20 | Sources crawled in each run of the job |
 | `KNOWLEDGE_CRAWL_GAP_SECONDS` | 2 | The time between fetches to one host |
 | `KNOWLEDGE_USER_AGENT` | `PlatformKnowledgeBot/1.0` | Sent with fetches and matched against robots.txt |
-| `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | not set | A self-hosted Firecrawl for JavaScript pages |
+| `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | not set | A Firecrawl for JavaScript pages |

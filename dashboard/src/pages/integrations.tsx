@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Brain, CalendarDays, Cloud, FileText, Plug, PlugZap } from 'lucide-react';
+import { BookOpen, Brain, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Search } from 'lucide-react';
 import { type ComponentType, useState } from 'react';
 import { Link } from 'react-router';
 import { DiscordIcon, GitHubIcon } from '../components/brand-icons';
@@ -32,10 +32,14 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   notion: FileText,
   runpod: Cloud,
   embeddings: Brain,
+  firecrawl: Flame,
+  searxng: Search,
 };
 
 // The module names the API sends, with their label and dashboard page.
 const MODULES: Record<string, { label: string; path?: string }> = {
+  agents: { label: 'Agents', path: 'agents' },
+  asu: { label: 'ASU pack', path: 'knowledge' },
   auth: { label: 'Sign-in' },
   calendar: { label: 'Calendar', path: 'calendar' },
   compute: { label: 'Compute', path: 'compute' },
@@ -54,7 +58,10 @@ function StateBadge({ i }: { i: Integration }) {
 
 function KeysForm({ prefix, i, onDone }: { prefix: string; i: Integration; onDone: () => void }) {
   const client = useQueryClient();
-  const [values, setValues] = useState<Record<string, string>>({});
+  // Fields that are not secret start with their saved value; secret ones start empty.
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(i.fields.filter((f) => !f.secret && f.value).map((f) => [f.name, f.value as string])),
+  );
   const save = useMutation({
     mutationFn: (fields: Record<string, string | null>) =>
       send<IntegrationList>(`/api/dashboard/${prefix}/integrations/${i.key}`, 'PUT', { fields }),
@@ -63,7 +70,13 @@ function KeysForm({ prefix, i, onDone }: { prefix: string; i: Integration; onDon
       onDone();
     },
   });
-  const filled = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim()));
+  // Changed fields only. An emptied field that is not secret clears its saved value.
+  const filled: Record<string, string | null> = {};
+  for (const f of i.fields) {
+    const v = (values[f.name] ?? '').trim();
+    if (!f.secret && f.set && !v) filled[f.name] = null;
+    else if (v && (f.secret || v !== f.value)) filled[f.name] = v;
+  }
   const anySet = i.fields.some((f) => f.set);
   return (
     <form
@@ -74,7 +87,11 @@ function KeysForm({ prefix, i, onDone }: { prefix: string; i: Integration; onDon
       }}
     >
       {i.fields.map((f) => (
-        <Field key={f.name} label={f.label} hint={f.set ? `Saved ${timeAgo(f.updated_at)}. Leave empty to keep it. ${f.hint}` : f.hint}>
+        <Field
+          key={f.name}
+          label={f.optional ? `${f.label} (optional)` : f.label}
+          hint={f.set && f.secret ? `Saved ${timeAgo(f.updated_at)}. Leave empty to keep it. ${f.hint}` : f.hint}
+        >
           {f.kind === 'json' ? (
             <div className="space-y-2">
               <Textarea
@@ -97,10 +114,11 @@ function KeysForm({ prefix, i, onDone }: { prefix: string; i: Integration; onDon
             </div>
           ) : (
             <Input
-              type="password"
+              type={f.secret ? 'password' : f.kind === 'url' ? 'url' : 'text'}
               autoComplete="off"
+              className={f.secret ? undefined : 'font-mono text-xs'}
               value={values[f.name] ?? ''}
-              placeholder={f.set ? 'Saved' : ''}
+              placeholder={f.set && f.secret ? 'Saved' : f.kind === 'url' ? 'https://' : ''}
               onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
             />
           )}
@@ -198,7 +216,7 @@ function IntegrationCard({ prefix, i, canSave }: { prefix: string; i: Integratio
           </a>
         ) : null}
       </div>
-      <Dialog open={editing} onClose={() => setEditing(false)} title={`Connect ${i.title}`} description="Keys are encrypted on the API and never shown again.">
+      <Dialog open={editing} onClose={() => setEditing(false)} title={`Connect ${i.title}`} description="Values are encrypted on the API. Secret keys are never shown again.">
         <KeysForm prefix={prefix} i={i} onDone={() => setEditing(false)} />
       </Dialog>
     </Card>

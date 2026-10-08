@@ -2,7 +2,8 @@
 
 Writers (a scraper, an import script) send a source as chunks, or crawl.py fetches a crawled source.
 A source is replaced whole: when its content hash changes, a new version and its chunks replace the
-old ones. Only organizations listed in KNOWLEDGE_PUBLISHERS may write public sources. search.py
+old ones. Only publishers may write public sources: orgs the superadmin marks as publishers, and
+orgs listed in KNOWLEDGE_PUBLISHERS. search.py
 searches the chunks.
 """
 
@@ -10,13 +11,16 @@ import hashlib
 import math
 import os
 import re
-from typing import Any
+from typing import Any, cast
+
+from sqlalchemy.orm.attributes import flag_modified
 
 from core.errors import ServiceError
 from core.time import iso, utcnow
 from modules.auth import scopes
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import DIMENSIONS, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
+from modules.organizations.models import Organization
 
 scopes.declare("knowledge:read", "Search the organization's knowledge and public sources")
 scopes.declare("knowledge:write", "Write and delete the organization's knowledge sources")
@@ -31,9 +35,49 @@ class KnowledgeError(ServiceError, ValueError):
     pass
 
 
-def can_publish(org_prefix: str) -> bool:
-    publishers = {p.strip() for p in os.environ.get("KNOWLEDGE_PUBLISHERS", "").split(",") if p.strip()}
-    return org_prefix in publishers
+# Org config key for rights only the superadmin sets
+ACCESS_KEY = "access"
+
+
+def env_publishers() -> set[str]:
+    """The org prefixes listed in KNOWLEDGE_PUBLISHERS."""
+    return {p.strip() for p in os.environ.get("KNOWLEDGE_PUBLISHERS", "").split(",") if p.strip()}
+
+
+def can_publish(db, org_prefix: str) -> bool:
+    """Whether the org may write sources that every org can search."""
+    if org_prefix in env_publishers():
+        return True
+    org = db.query(Organization).filter_by(prefix=org_prefix).first()
+    return org is not None and bool(((cast(dict, org.config) or {}).get(ACCESS_KEY) or {}).get("knowledge_publisher"))
+
+
+def publishers(db) -> list[dict]:
+    """Every publisher: org id, prefix and where the right comes from (env or superadmin)."""
+    listed = env_publishers()
+    result = []
+    for org in db.query(Organization).order_by(Organization.id).all():
+        prefix = str(org.prefix)
+        flagged = bool(((cast(dict, org.config) or {}).get(ACCESS_KEY) or {}).get("knowledge_publisher"))
+        if prefix in listed or flagged:
+            result.append({"org_id": org.id, "prefix": prefix, "source": "env" if prefix in listed else "superadmin"})
+    return result
+
+
+def set_publisher(db, org_id: int, on: object) -> list[dict]:
+    """Mark or unmark the org as a publisher. Commits. Returns publishers()."""
+    if not isinstance(on, bool):
+        raise KnowledgeError("publisher must be true or false")
+    org = db.query(Organization).filter_by(id=org_id).first()
+    if org is None:
+        raise KnowledgeError("No such organization", 404)
+    config = dict(cast(dict, org.config) or {})
+    access = {k: v for k, v in (config.get(ACCESS_KEY) or {}).items() if k != "knowledge_publisher"}
+    config[ACCESS_KEY] = access | ({"knowledge_publisher": True} if on else {})
+    org.config = config
+    flag_modified(org, "config")
+    db.commit()
+    return publishers(db)
 
 
 def _vector(value: Any, field: str) -> list[float]:
@@ -149,7 +193,7 @@ def put_source(db, org_id: int, org_prefix: str, key: str, data: dict, embedder:
     public = data.get("public", False)
     if not isinstance(public, bool):
         raise KnowledgeError("public must be true or false")
-    if public and not can_publish(org_prefix):
+    if public and not can_publish(db, org_prefix):
         raise KnowledgeError("This organization may not write public sources", 403)
     rows = _validate_chunks(data.get("chunks"))
     content_hash = data.get("content_hash")

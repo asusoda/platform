@@ -142,12 +142,16 @@ def read_profile(db, who):
 
 @_agent_route("/profile/facts", "agents:write", ["POST"])
 def upsert_facts(db, who):
-    return {"stored": profile.upsert(db, who, json_body().get("facts"), embedder=embedder.configured())}
+    return {
+        "stored": profile.upsert(db, who, json_body().get("facts"), embedder=embedder.for_org(db, who.organization_id))
+    }
 
 
 @_agent_route("/profile/similar", "agents:read", ["GET"])
 def similar_nodes(db, who):
-    nodes = profile.similar(db, who, request.args.get("text"), _int_arg("limit"), embedder.configured())
+    nodes = profile.similar(
+        db, who, request.args.get("text"), _int_arg("limit"), embedder.for_org(db, who.organization_id)
+    )
     return {"nodes": nodes}
 
 
@@ -204,13 +208,13 @@ def _member_info(db, who):
 
 @_agent_route("/turn/context", "agents:read", ["POST"])
 def turn_context(db, who):
-    return turns.context(db, who, _member_info(db, who), json_body(), embedder.configured())
+    return turns.context(db, who, _member_info(db, who), json_body(), embedder.for_org(db, who.organization_id))
 
 
 @_agent_route("/turn/commit", "agents:write", ["POST"])
 def turn_commit(db, who):
     _member_info(db, who)
-    return turns.commit(db, who, json_body(), embedder.configured()), 201
+    return turns.commit(db, who, json_body(), embedder.for_org(db, who.organization_id)), 201
 
 
 # Member self-service: a member sees and deletes what agents keep about them.

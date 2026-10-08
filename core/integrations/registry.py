@@ -1,8 +1,9 @@
 """The outside services an org connects, the keys each one needs, and the modules that use it. No Flask here.
 
 An integration has fields, each one an org secret, so its keys are saved encrypted with core.secrets. Some
-integrations have a default for the whole deployment from .env; the org's own keys replace it. An integration
-with no fields is set only in .env, and the dashboard shows its state. Modules call register() for the
+integrations have a default for the whole deployment from .env; the org's own keys replace it. The org's keys
+replace the deployment default as a whole, never field by field. An integration with no fields is set
+only in .env, and the dashboard shows its state. Modules call register() for the
 services they own and use() for the services they read.
 """
 
@@ -11,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
-from core import secrets
+from core import net, secrets
 from core.errors import ServiceError
 
 
@@ -26,8 +27,12 @@ class Field:
     name: str
     label: str
     hint: str = ""
-    # text: one line; json: a JSON document, such as a Google service account key
+    # text: one line; url: an http(s) URL on a public host; json: a JSON document, such as a Google service account key
     kind: str = "text"
+    # A secret field is never sent back. Other fields, such as a URL, show their saved value.
+    secret: bool = True
+    # The org can leave an optional field empty and still use its own keys
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -72,18 +77,23 @@ def status(db, org_id: int) -> list[dict]:
     saved = {s["name"]: s for s in secrets.list_secrets(db, org_id)}
     result = []
     for i in sorted(INTEGRATIONS.values(), key=lambda x: x.title.lower()):
-        fields = [
-            {
-                "name": f.name,
-                "label": f.label,
-                "hint": f.hint,
-                "kind": f.kind,
-                "set": bool(saved.get(f.name, {}).get("set")),
-                "updated_at": saved.get(f.name, {}).get("updated_at"),
-            }
-            for f in i.fields
-        ]
-        org_set = bool(fields) and all(f["set"] for f in fields)
+        fields = []
+        for f in i.fields:
+            is_set = bool(saved.get(f.name, {}).get("set"))
+            fields.append(
+                {
+                    "name": f.name,
+                    "label": f.label,
+                    "hint": f.hint,
+                    "kind": f.kind,
+                    "secret": f.secret,
+                    "optional": f.optional,
+                    "set": is_set,
+                    "value": secrets.get_secret(db, org_id, f.name) if is_set and not f.secret else None,
+                    "updated_at": saved.get(f.name, {}).get("updated_at"),
+                }
+            )
+        org_set = _org_set(i, {f["name"] for f in fields if f["set"]})
         deployment = bool(i.deployment and i.deployment())
         result.append(
             {
@@ -101,6 +111,20 @@ def status(db, org_id: int) -> list[dict]:
     return result
 
 
+def _org_set(integration: Integration, set_names: set[str]) -> bool:
+    required = {f.name for f in integration.fields if not f.optional}
+    return bool(set_names) and required <= set_names
+
+
+def org_values(db, org_id: int, key: str) -> dict[str, str] | None:
+    """The org's own field values when it set every required field, else None. Optional fields may be missing."""
+    integration = INTEGRATIONS.get(key)
+    if integration is None or not integration.fields:
+        return None
+    found = {f.name: v for f in integration.fields if (v := secrets.get_secret(db, org_id, f.name))}
+    return found if _org_set(integration, set(found)) else None
+
+
 def save(db, org_id: int, key: str, values: object, actor: str | None) -> None:
     """Set or clear the fields of an integration. A null value clears that field; a missing key leaves it."""
     integration = INTEGRATIONS.get(key)
@@ -112,10 +136,22 @@ def save(db, org_id: int, key: str, values: object, actor: str | None) -> None:
     unknown = set(values) - names
     if unknown:
         raise IntegrationError(f"Unknown fields: {', '.join(sorted(unknown))}")
+    changes = cast(dict[str, Any], values)
     kinds = {f.name: f.kind for f in integration.fields}
-    for name, value in cast(dict[str, Any], values).items():
+    for name, value in changes.items():
         if value is not None and kinds[name] == "json" and not _json_object(value):
             raise IntegrationError(f"{name} must be a JSON object")
+        if value is not None and kinds[name] == "url":
+            try:
+                net.check_public(str(value))
+            except ValueError as e:
+                raise IntegrationError(str(e)) from e
+    saved = {s["name"] for s in secrets.list_secrets(db, org_id) if s["set"]} & names
+    after = (saved | {n for n, v in changes.items() if v is not None}) - {n for n, v in changes.items() if v is None}
+    if after and not _org_set(integration, after):
+        missing = [f.label for f in integration.fields if not f.optional and f.name not in after]
+        raise IntegrationError(f"Also set: {', '.join(missing)}")
+    for name, value in changes.items():
         if value is None:
             secrets.delete_secret(db, org_id, name)
         else:
