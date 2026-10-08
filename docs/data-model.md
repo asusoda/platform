@@ -26,10 +26,10 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 | leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |
 | accounts | `account_grants`, `account_logins` |
 | agents | `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions` |
-| knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks` |
+| knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload) |
 | compute | `compute_pods`, `compute_keys`, `compute_sessions` |
 | runpod | `runpod_apps`, `runpod_deployments` |
-| alerts | `alert_feeds`, `alert_posts` |
+| alerts | `alert_feeds`, `alert_posts`, `alert_runs` (one row for each feed run) |
 | jobs | `procrastinate_*` (Postgres only, from the Procrastinate SQL, not from models) |
 
 `audit_log` has one row for each successful POST, PUT, PATCH or DELETE under `/api`, and one row for each job run. It keeps the route, org, caller, status and path. It never keeps request bodies or file contents. The `audit.prune` job removes rows older than `AUDIT_RETENTION_DAYS` (default 365).

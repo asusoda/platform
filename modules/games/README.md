@@ -19,3 +19,8 @@ Runs Jeopardy games in an org's Discord server. Officers upload games, select th
 - Jobs: none.
 - Tools: none.
 - Tables: `jeopardy_game`, `active_game`. One game runs at a time for the deployment, in the first server of the bot.
+
+## Known gaps
+
+- The game logic is in `api.py` and `cog.py`, not in `service.py`. The routes need the bot in the API process, so the AIS deployment turns them off with `DISABLED_ROUTES`.
+- Game state is in memory and is for the whole deployment, not for one org.
