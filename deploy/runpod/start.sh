@@ -42,6 +42,8 @@ python3 -m pip install -q uv
 uv sync --frozen --no-dev
 (cd web && corepack enable && pnpm install --frozen-lockfile && REACT_APP_API_URL="$API_URL" pnpm run build)
 uv run alembic upgrade head
+# Logs the Discord app of BOT_TOKEN and any setting that is missing. A failure does not stop the start.
+uv run flask --app main config check || true
 
 # First boot: create the org named by ORG_PREFIX, ORG_NAME and ORG_GUILD_ID if it does not exist yet
 if [ -n "${ORG_PREFIX:-}" ] && [ -n "${ORG_GUILD_ID:-}" ]; then

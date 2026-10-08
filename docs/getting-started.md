@@ -39,7 +39,7 @@ To run the API with no container, run `uv run alembic upgrade head`, then `uv ru
 | Variable | Use |
 | --- | --- |
 | `BOT_TOKEN` | The Discord bot token. The API also uses it to read servers, roles and members. If it is not set, sign-in returns 503 |
-| `CLIENT_ID`, `CLIENT_SECRET` | The Discord OAuth app for officer sign-in |
+| `CLIENT_ID`, `CLIENT_SECRET` | The Discord OAuth app for officer sign-in. It must be the app of `BOT_TOKEN` |
 | `REDIRECT_URI` | `<API URL>/api/auth/callback`. It must be a redirect of the Discord app |
 | `CLIENT_URL` | The web app URL. Sign-in sends the browser back to it |
 | `SYS_ADMIN` | The Discord user id of the superadmin |
@@ -47,6 +47,14 @@ To run the API with no container, run `uv run alembic upgrade head`, then `uv ru
 | `SECRETS_KEY` | A Fernet key that encrypts org secrets. If it is not set, orgs cannot save secrets |
 | `DATABASE_URL` | Default `sqlite:///./data/user.db`. Use `postgresql://...` for Postgres |
 | `ACCESS_ENFORCE` | `false` logs refused requests and lets them through. `true` refuses them. See [Authentication](./authentication.md) |
+
+### Discord apps
+
+Platform uses one Discord app: `BOT_TOKEN`, `CLIENT_ID` and `CLIENT_SECRET` all come from it. An agent bot that runs as a RunPod app (see [RunPod apps](./modules/runpod-apps.md)) gets its own token from an org secret, such as `app_<app>_discord_token`, not from these settings.
+
+Platform can share the app of an agent bot. Then set `RUN_BOT=false`, so that only one process connects to Discord with the token.
+
+`flask --app main config check` shows the bot name and app of `BOT_TOKEN`. It fails if `CLIENT_ID` is from a different app. `deploy/runpod/start.sh` runs it at each start, so the pod log shows the app.
 
 ## Commands
 
