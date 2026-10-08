@@ -214,3 +214,13 @@ export function MenuItem({
 export function MenuSeparator() {
   return <div role="separator" className="my-1 h-px bg-line" />;
 }
+
+export type ComputeSettings = { pod_image: string | null; deployment_pod_image: string };
+
+export function useComputeSettings(prefix: string) {
+  return useQuery({
+    queryKey: ['compute', prefix, 'settings'],
+    queryFn: () => api<{ settings: ComputeSettings }>(`${computePath(prefix)}/settings`).then((body) => body.settings),
+    enabled: Boolean(prefix),
+  });
+}

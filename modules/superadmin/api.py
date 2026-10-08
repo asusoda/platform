@@ -4,6 +4,7 @@ from core.db import db_connect
 from core.log import get_logger
 from modules.auth.access import discord_directory
 from modules.auth.decorators import superadmin_required
+from modules.auth.routes import respond
 from modules.auth.tokens import token_manager
 from modules.organizations.models import Organization
 
@@ -218,5 +219,32 @@ def get_audit():
             before_id=request.args.get("before_id", type=int),
         )
         return jsonify({"entries": entries})
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/publishers", methods=["GET"])
+@superadmin_required
+def get_publishers():
+    """Orgs that may write knowledge every org can search, and where the right comes from."""
+    from modules.knowledge import service as knowledge
+
+    db = next(db_connect.get_db())
+    try:
+        return respond(db, lambda db: {"publishers": knowledge.publishers(db)})
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/publishers/<int:org_id>", methods=["PUT"])
+@superadmin_required
+def put_publisher(org_id):
+    """Mark or unmark an org as a knowledge publisher. Body: {"publisher": true}."""
+    from modules.knowledge import service as knowledge
+
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        return respond(db, lambda db: {"publishers": knowledge.set_publisher(db, org_id, data.get("publisher"))})
     finally:
         db.close()

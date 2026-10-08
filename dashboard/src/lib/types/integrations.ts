@@ -1,10 +1,14 @@
-// One key of an integration. Values are never sent back; set says whether the org saved one.
+// One key of an integration. A secret value is never sent back; set says whether the org saved one.
+// value is the saved value of a field that is not secret, such as a URL.
 export type IntegrationField = {
   name: string;
   label: string;
   hint: string;
-  kind: 'text' | 'json';
+  kind: 'text' | 'url' | 'json';
+  secret: boolean;
+  optional: boolean;
   set: boolean;
+  value: string | null;
   updated_at: string | null;
 };
 

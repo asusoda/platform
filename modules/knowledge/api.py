@@ -30,7 +30,7 @@ def get_source(db, org, key):
 
 @_route("/sources/<path:key>", "knowledge:write", ["PUT"])
 def put_source(db, org, key):
-    result = service.put_source(db, int(org.id), str(org.prefix), key, json_body(), embedder.configured())
+    result = service.put_source(db, int(org.id), str(org.prefix), key, json_body(), embedder.for_org(db, int(org.id)))
     return result, 200 if result["changed"] is False else 201
 
 
@@ -52,7 +52,7 @@ def search(db, org):
         window=data.get("window"),
         embedding=data.get("embedding"),
         embedding_model=data.get("embedding_model"),
-        embedder=embedder.configured(),
+        embedder=embedder.for_org(db, int(org.id)),
     )
 
 

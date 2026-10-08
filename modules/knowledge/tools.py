@@ -27,5 +27,11 @@ def knowledge_search(
     db, org, caller, query: str, category: str | None = None, top_k: int | None = None, window: int | None = None
 ):
     return search.search(
-        db, int(org.id), query, category=category, top_k=top_k, window=window, embedder=embedder.configured()
+        db,
+        int(org.id),
+        query,
+        category=category,
+        top_k=top_k,
+        window=window,
+        embedder=embedder.for_org(db, int(org.id)),
     )

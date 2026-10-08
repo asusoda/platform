@@ -1,4 +1,4 @@
-import { CalendarClock, Cpu, KeyRound, Plus } from 'lucide-react';
+import { CalendarClock, Cpu, KeyRound, Plus, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -26,6 +26,7 @@ import { FilesDialog } from './files';
 import { NewPodDialog } from './new-pod';
 import { AccessDialog, type PodDialog, PodsTable, TerminateDialog } from './pods';
 import { SessionsDialog } from './sessions';
+import { ComputeSettingsDialog } from './settings';
 import { costLabel, isMissingKey, usePods } from './shared';
 
 function MissingKey({ prefix }: { prefix: string }) {
@@ -107,6 +108,7 @@ export function ComputePage() {
   const { prefix } = useCurrentOrg();
   const pods = usePods(prefix);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [dialog, setDialog] = useState<PodDialog | null>(null);
   const overview = useOverview(prefix);
   const missingKey = isMissingKey(pods.error);
@@ -124,9 +126,14 @@ export function ComputePage() {
         title="Compute"
         description="GPU and CPU pods on the org's RunPod account. Members connect with the compute CLI."
         action={
-          <Button variant="primary" onClick={() => setCreating(true)} disabled={missingKey}>
-            <Plus className="size-4" /> New pod
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setEditing(true)} aria-label="Compute settings">
+              <Settings2 className="size-4" /> <span className="hidden sm:inline">Settings</span>
+            </Button>
+            <Button variant="primary" onClick={() => setCreating(true)} disabled={missingKey}>
+              <Plus className="size-4" /> New pod
+            </Button>
+          </div>
         }
       />
       {missingKey ? null : (
@@ -172,6 +179,7 @@ export function ComputePage() {
       </div>
 
       {creating ? <NewPodDialog prefix={prefix} onClose={() => setCreating(false)} /> : null}
+      {editing ? <ComputeSettingsDialog prefix={prefix} onClose={() => setEditing(false)} /> : null}
       {current?.kind === 'access' ? <AccessDialog key={current.pod.id} prefix={prefix} pod={current.pod} onClose={close} /> : null}
       {current?.kind === 'terminate' ? <TerminateDialog prefix={prefix} pod={current.pod} onClose={close} /> : null}
       {current?.kind === 'sessions' ? <SessionsDialog prefix={prefix} pod={current.pod} onClose={close} /> : null}

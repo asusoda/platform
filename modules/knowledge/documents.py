@@ -112,7 +112,7 @@ def upload(
             "folder must be 1 to 41 lower case letters, digits, _ or - and start with a letter or digit"
         )
     public = data.get("public") is True
-    if public and not can_publish(org_prefix):
+    if public and not can_publish(db, org_prefix):
         raise KnowledgeError("This organization may not write public sources", 403)
 
     results = []

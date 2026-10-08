@@ -2,13 +2,15 @@
 
 Officers create, share, start, stop and terminate pods. Members list the
 running pods shared with them and get a short-lived certificate for their own SSH key. The org's
-RunPod key is the org secret runpod_api_key, shared with the runpod apps module.
+RunPod key is the org secret runpod_api_key, shared with the runpod apps module. The default pod
+image is an org setting; without one, COMPUTE_POD_IMAGE in .env gives it.
 """
 
 import secrets as random
 from typing import Any, cast
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.attributes import flag_modified
 
 from core import secrets
 from core.errors import ServiceError
@@ -16,6 +18,7 @@ from core.integrations import registry, runpod
 from core.log import get_logger
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
+from modules.organizations.models import Organization
 
 registry.use("runpod", "compute")
 
@@ -30,6 +33,7 @@ DEFAULT_CPU_FLAVOR = "cpu3c"
 ACTIONS = ("start", "stop", "restart", "terminate")
 CLOUD_TYPES = ("COMMUNITY", "SECURE")
 MAX_ALLOWED_USERS = 500
+CONFIG_KEY = "compute"
 
 
 class ComputeError(ServiceError):
@@ -185,6 +189,44 @@ def pod_request(data: dict, backend_public: str, ca_public: str, image: str) -> 
         body["gpuTypeIds"] = [settings["gpu_type_id"]]
         body["gpuCount"] = 1
     return body, settings
+
+
+def _org(db, org_id: int) -> Organization:
+    org = db.query(Organization).filter_by(id=org_id).first()
+    if org is None:
+        raise ComputeError("No such organization", 404)
+    return org
+
+
+def compute_settings(db, org_id: int, deployment_image: str) -> dict:
+    """The org's default pod image, or None, and the deployment default it falls back to."""
+    saved = (cast(dict, _org(db, org_id).config) or {}).get(CONFIG_KEY) or {}
+    return {"pod_image": saved.get("pod_image"), "deployment_pod_image": deployment_image}
+
+
+def pod_image(db, org_id: int, deployment_image: str) -> str:
+    """The image a new pod gets when the request names none."""
+    return compute_settings(db, org_id, deployment_image)["pod_image"] or deployment_image
+
+
+def update_compute_settings(db, org_id: int, data: object, deployment_image: str) -> dict:
+    """Set the org's default pod image. null or an empty string goes back to the deployment default. Commits."""
+    if not isinstance(data, dict) or set(data) - {"pod_image"}:
+        raise ComputeError("Send an object with pod_image")
+    value = cast(dict, data).get("pod_image")
+    if value is not None and not isinstance(value, str):
+        raise ComputeError("pod_image must be a string")
+    value = (value or "").strip()
+    if len(value) > 200 or any(c.isspace() for c in value):
+        raise ComputeError("pod_image must be an image name of at most 200 characters, with no spaces")
+    org = _org(db, org_id)
+    config = dict(cast(dict, org.config) or {})
+    current = {k: v for k, v in (config.get(CONFIG_KEY) or {}).items() if k != "pod_image"}
+    config[CONFIG_KEY] = current | ({"pod_image": value} if value else {})
+    org.config = config
+    flag_modified(org, "config")
+    db.commit()
+    return compute_settings(db, org_id, deployment_image)
 
 
 def create_pod(
