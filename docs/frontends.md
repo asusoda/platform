@@ -1,6 +1,6 @@
 # Frontends
 
-Platform has two officer frontends. `dashboard/` is the officer dashboard: one page for each org that shows what runs and what failed. `web/` is the older web app with the points, store, calendar, compute and Jeopardy pages, and the member store.
+Platform has two officer frontends. `dashboard/` is the officer dashboard: officers see and control what each org runs. `web/` is the older web app with the points, store, calendar, compute and Jeopardy pages, and the member store.
 
 ## Officer dashboard
 
@@ -9,14 +9,16 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: one p
 | Page | Shows |
 | --- | --- |
 | Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
-| Compute | Pods and their sessions |
+| Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete |
-| Apps | RunPod app deploys and their health |
+| Apps | RunPod apps: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
+| Knowledge | Knowledge sources: add, edit, pause and run crawls, delete sources, and test a search |
 | Agents | Conversation, memory and member counts. It shows no conversation text |
 | CI | The latest GitHub Actions runs for the repos the org lists |
 | Tokens | Machine tokens: create and revoke |
 | Activity | The org's audit log, with pages |
-| Settings | Branding, module switches and org secrets |
+| Settings | General, branding, module switches, calendar, LeetCode and org secrets |
+| Superadmin | Orgs, officer roles, Discord servers without an org, and the audit log of all orgs. Only the superadmin sees it |
 
 The dashboard uses these officer routes in `modules/dashboard/`:
 
@@ -26,8 +28,14 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `GET /api/dashboard/<org>/ci` | The latest runs for each listed repo, kept in a cache for 120 seconds |
 | `PUT /api/dashboard/<org>/ci/repos` | Sets the repo list: `{"repos": ["owner/name"]}`, 20 or fewer |
 | `GET`, `PUT /api/dashboard/<org>/branding` | Gets or sets `logo_url` (https) and `accent_color` (`#RRGGBB`). An empty string or null removes a value |
+| `/api/dashboard/<org>/apps/...` | List, register, delete, deploy and roll back apps, and read the pod. The same operations as `/api/apps` in [runpod-apps](modules/runpod-apps.md), for officers |
+| `/api/dashboard/<org>/knowledge/...` | List and delete sources, add and run crawls, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
+
+The other pages use the routes of their modules: `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
 
 For private repos, save a read-only GitHub token with Actions read access as the org secret `github_token`.
+
+The Settings page has these sections: General (description, points per message, points cooldown), Branding, Modules, Calendar and LeetCode (shown only when the module is on), and Secrets. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
 
 Each org sets its logo and accent color on the Settings page. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 

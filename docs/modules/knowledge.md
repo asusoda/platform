@@ -7,6 +7,7 @@ Sources of text that agents search, such as web pages, handbooks and FAQs. A cli
 - Writers and searchers use a machine token with `knowledge:write`, `knowledge:read` or both. The org is the org of the token.
 - Search covers the caller's org and the public sources. A public source shows in the results of every org. Thus only the orgs in `KNOWLEDGE_PUBLISHERS` (org prefixes, comma-separated) can write one.
 - List, read and delete cover only the caller's org.
+- Officers manage crawls and test search on the Knowledge page of the dashboard, with no token.
 
 ## Routes
 

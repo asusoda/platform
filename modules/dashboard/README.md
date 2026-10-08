@@ -1,6 +1,6 @@
 # dashboard
 
-Read-only routes for the officer dashboard in `dashboard/`: one overview of all that the org runs, the org's branding, and the latest GitHub Actions runs for the repos the org lists.
+Routes for the officer dashboard in `dashboard/`: one overview of all that the org runs, the org's branding, the latest GitHub Actions runs for the repos the org lists, and officer control of apps and knowledge sources.
 
 ## Files
 
@@ -8,11 +8,11 @@ Read-only routes for the officer dashboard in `dashboard/`: one overview of all 
 | --- | --- |
 | `service.py` | The overview: problems, module switches, activity, job runs and a section for each module |
 | `ci.py` | The org's repo list and its GitHub Actions runs, in a cache for 120 seconds |
-| `api.py` | Officer routes for the overview, branding, CI runs and the repo list |
+| `api.py` | Officer routes for the overview, branding, CI runs and the repo list; officer routes that call the `runpod` and `knowledge` services |
 
 ## Surface
 
-- Routes: `/api/dashboard/<org>/overview`, `/ci`, `/ci/repos` and `/branding`. Officers of the org only.
+- Routes: `/api/dashboard/<org>/overview`, `/ci`, `/ci/repos`, `/branding`, `/apps/...` and `/knowledge/...`. Officers of the org only. The apps and knowledge routes are the same operations as the machine routes in those modules, without a token scope.
 - Jobs: none.
 - Tools: none.
 - Tables: none. The repo list is `dashboard.repos` and the branding is `branding` in the org config. The optional org secret `github_token` reads private repos.
