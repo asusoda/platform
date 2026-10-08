@@ -90,7 +90,7 @@ All core functionality is organized in `/modules/`, one folder per feature. A mo
 
 Blueprints, jobs and tools are registered in `modules/registry.py`. `docs/writing-a-module.md` lists every place a new module is registered.
 
-Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
+Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
@@ -117,6 +117,7 @@ Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, gam
 ### Frontend Integration  
 - React app in `/web/` directory with separate package.json
 - Built files served from `/web/build/` 
+- Officer dashboard in `/dashboard/` (Vite, React, Tailwind), see `docs/dashboard.md`
 - CORS configured for local development and production domains
 - API communication via axios with organization headers
 

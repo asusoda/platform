@@ -8,6 +8,7 @@ and where a new one is registered.
 | --- | --- | --- |
 | [accounts](accounts/README.md) | Canvas, Google and Outlook sign-in for a member, bound to their Discord account | |
 | [alerts](alerts/README.md) | Job and hackathon listings posted to Discord webhooks | `alerts` |
+| [dashboard](dashboard/README.md) | Overview and CI runs for the officer dashboard | |
 | [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | |
 | [asu](asu/README.md) | Example campus source: public ASU pages and live queries, indexed into knowledge | |
 | [auth](auth/README.md) | Discord login, JWTs, access checks, machine tokens and scopes | |
