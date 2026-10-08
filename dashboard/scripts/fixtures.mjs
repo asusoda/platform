@@ -12,7 +12,7 @@ const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
   { name: 'storefront', description: 'Merch store paid with points', enabled: false },
   { name: 'calendar', description: 'Notion to Google Calendar sync and the public events feed', enabled: true },
-  { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: false },
+  { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: true },
   { name: 'compute', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
   { name: 'alerts', description: 'Job and hackathon listings posted to Discord webhooks', enabled: true },
 ];
@@ -423,8 +423,86 @@ export function fixtures(now = Date.now()) {
     updated_by: setOffset === null ? null : '1290000000000000101',
   });
 
+  const detail = (org, rest = {}) => ({
+    description: null,
+    is_active: true,
+    config: {},
+    created_at: at(-200 * DAY),
+    updated_at: at(-3 * DAY),
+    officer_role_id: null,
+    points_per_message: 1,
+    points_cooldown: 60,
+    google_calendar_id: null,
+    notion_database_id: null,
+    calendar_sync_enabled: false,
+    last_sync_at: null,
+    ...org,
+    ...rest,
+  });
+
+  const orgDetail = detail(ORG, {
+    description: 'Builds rovers, drones and competition robots. Weekly build nights and workshops.',
+    officer_role_id: '1290000000000000201',
+    points_per_message: 2,
+    points_cooldown: 120,
+    google_calendar_id: 'robotics-events@group.calendar.google.com',
+    notion_database_id: '9f3c2a1b7d5e4c8a9b0e1f2a3b4c5d6e',
+    last_sync_at: at(-2 * HOUR),
+  });
+
+  const otherOrgs = [
+    detail(
+      { id: 2, name: 'Data Science Club', prefix: 'datasci', guild_id: '1290000000000000300', icon_url: null },
+      { officer_role_id: '1290000000000000301' },
+    ),
+    detail({ id: 3, name: 'Game Dev Guild', prefix: 'gamedev', guild_id: '1290000000000000400', icon_url: null }),
+    detail(
+      { id: 4, name: 'Chess Society', prefix: 'chess', guild_id: '1290000000000000500', icon_url: null },
+      { is_active: false, officer_role_id: '1290000000000000501' },
+    ),
+  ];
+
+  const role = (id, name, position) => ({ id, name, color: 0, position, permissions: '0' });
+
+  const crossAudit = [
+    audit(402, -5 * MINUTE, 'PUT /api/superadmin/update_officer_role/<int:org_id>', { org: null }),
+    audit(401, -25 * MINUTE, 'PUT /api/organizations/<int:org_id>/settings', { org: 'datasci' }),
+    ...activity.slice(0, 3),
+    audit(204, -4 * HOUR, 'POST /api/points/<prefix>/import', { org: 'gamedev', status: 201 }),
+    ...jobs.slice(0, 2),
+  ].sort((a, b) => b.created_at.localeCompare(a.created_at));
+
   return {
     '/api/organizations/': [ORG],
+    [`/api/organizations/${ORG.id}`]: orgDetail,
+    [`/api/organizations/${ORG.id}/calendar`]: {
+      notion_database_id: orgDetail.notion_database_id,
+      google_calendar_id: orgDetail.google_calendar_id,
+      calendar_sync_enabled: false,
+      last_sync_at: orgDetail.last_sync_at,
+    },
+    [`/api/organizations/${ORG.id}/leetcode`]: {
+      settings: { channel_id: '1290000000000000777', role_ping: '1290000000000000778', daily_time: '09:00' },
+      enabled: true,
+    },
+    '/api/superadmin/check': { is_superadmin: true },
+    '/api/superadmin/dashboard': {
+      available_guilds: [
+        { id: '1290000000000000600', name: 'Hackathon Team', icon: { url: null } },
+        { id: '1290000000000000700', name: 'Photography Club', icon: { url: null } },
+      ],
+      existing_orgs: [orgDetail, ...otherOrgs],
+      officer_orgs: [orgDetail],
+    },
+    [`/api/superadmin/guild_roles/${ORG.guild_id}`]: {
+      roles: [
+        role('1290000000000000200', 'Admin', 5),
+        role('1290000000000000201', 'Officer', 4),
+        role('1290000000000000202', 'Project lead', 3),
+        role('1290000000000000203', 'Member', 1),
+      ],
+    },
+    '/api/superadmin/audit': { entries: crossAudit },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
