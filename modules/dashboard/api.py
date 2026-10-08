@@ -9,8 +9,10 @@ from typing import cast
 
 from flask import Blueprint, request
 
+from core import secrets
 from core.http import audit_hook
 from core.http.responses import json_body
+from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
 from modules.knowledge import crawl, documents, embedder, packs, runs, settings
@@ -26,6 +28,7 @@ _route = partial(officer_route, dashboard_blueprint)
 
 # Searches are reads sent as POST
 audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/knowledge/search")
+audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/integrations/<string:key>/test")
 
 
 def _org_id(org) -> int:
@@ -55,6 +58,25 @@ def resolve_notifications(db, org):
 @_route("/notifications/reopen", ["POST"])
 def reopen_notifications(db, org):
     return notices.reopen(db, org, json_body().get("ids"))
+
+
+@_route("/integrations", ["GET"])
+def list_integrations(db, org):
+    return {"integrations": integrations.status(db, _org_id(org)), "secrets_key": secrets.configured()}
+
+
+@_route("/integrations/<string:key>", ["PUT"])
+def save_integration(db, org, key):
+    integrations.save(db, _org_id(org), key, json_body().get("fields"), _actor())
+    return list_integrations(db, org)
+
+
+@_route("/integrations/<string:key>/test", ["POST"])
+def test_integration(db, org, key):
+    try:
+        return {"ok": True, "message": integrations.test(db, _org_id(org), key)}
+    except integrations.IntegrationError as e:
+        return {"ok": False, "message": e.message}
 
 
 @_route("/branding", ["GET"])

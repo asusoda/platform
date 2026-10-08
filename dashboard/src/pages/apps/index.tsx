@@ -1,3 +1,4 @@
+import { IntegrationHint } from '../../components/integration-hint';
 import { useQuery } from '@tanstack/react-query';
 import { Boxes, Plus } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -42,6 +43,7 @@ export function AppsPage() {
         description="The org's bots, agents, sites and services. Register a manifest, then deploy image tags here or from CI."
         action={register}
       />
+      <IntegrationHint keys={['runpod']} />
       {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
       {list.error ? (
         <div className="mb-4">
@@ -76,7 +78,7 @@ export function AppsPage() {
         open={registering}
         onClose={() => setRegistering(false)}
         title="Register app"
-        description="Deploys use the org secret runpod_api_key. Set it and any app_ secrets in Settings first."
+        description="Deploys use the RunPod account on Integrations. Set any app_ secrets in Settings first."
         wide
       >
         <RegisterApp

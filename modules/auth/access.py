@@ -18,8 +18,11 @@ from core.config import config
 from core.db import db_connect
 from core.http.request_log import bearer_token
 from core.integrations.discord import DiscordUnavailable
+from core.integrations.registry import use
 from core.log import get_logger
 from modules.auth.tokens import token_manager
+
+use("discord", "auth")
 
 logger = get_logger("access")
 

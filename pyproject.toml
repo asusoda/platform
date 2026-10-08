@@ -158,6 +158,7 @@ source_modules = [
     "modules.calendar.clients",
     "modules.calendar.dates",
     "modules.calendar.errors",
+    "modules.calendar.integrations",
     "modules.calendar.events",
     "modules.calendar.sync",
     "modules.calendar.tracing",

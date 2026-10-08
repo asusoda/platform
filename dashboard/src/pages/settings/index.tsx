@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { Card, CardHeader, cx, ErrorNote, PageHeader, PageSkeleton, quietLink, Row, SkeletonRows, Switch } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import { useCurrentOrg } from '../../lib/org';
-import { useBranding, useModules, useOrganization } from '../../lib/queries';
+import { useBranding, useIntegrations, useModules, useOrganization } from '../../lib/queries';
 import type { ModuleState, Organization, SecretState } from '../../lib/types';
 import { BrandingForm } from './branding';
 import { GeneralForm } from './general';
@@ -151,21 +151,39 @@ function ModulesSection({ org, prefix, modules }: { org: Organization; prefix: s
   );
 }
 
-function SecretsSection({ orgId }: { orgId: number }) {
+function SecretsSection({ orgId, prefix }: { orgId: number; prefix: string }) {
+  const integrations = useIntegrations(prefix);
+  const owned = new Set((integrations.data?.integrations ?? []).flatMap((i) => i.fields.map((f) => f.name)));
   const secrets = useQuery({
     queryKey: ['secrets', orgId],
     queryFn: () => api<{ configured: boolean; secrets: SecretState[] }>(`/api/organizations/${orgId}/secrets`),
   });
   return (
     <Card>
-      <CardHeader title="Secrets" hint="Encrypted with the server's SECRETS_KEY. Values are never shown." />
+      <CardHeader
+        title="Secrets"
+        hint={
+          <>
+            Webhook URLs and app values, encrypted with the server's SECRETS_KEY. Values are never shown. Keys for Notion, Google,
+            GitHub and RunPod are on{' '}
+            <Link to={`/${prefix}/integrations`} className="underline underline-offset-2 hover:text-fg">
+              Integrations
+            </Link>
+            .
+          </>
+        }
+      />
       {secrets.data && !secrets.data.configured ? (
         <div className="p-4">
           <ErrorNote error="SECRETS_KEY is not set on the server, so secrets cannot be saved." />
         </div>
       ) : null}
       <Pending error={secrets.error} loading={secrets.isLoading} />
-      {secrets.data?.secrets.map((s) => <SecretRow key={s.name} orgId={orgId} secret={s} />)}
+      {secrets.data?.secrets
+        .filter((s) => !owned.has(s.name))
+        .map((s) => (
+          <SecretRow key={s.name} orgId={orgId} secret={s} />
+        ))}
     </Card>
   );
 }
@@ -192,7 +210,7 @@ export function SettingsPage() {
     { id: 'general', label: 'General', body: <GeneralSection org={org} /> },
     { id: 'branding', label: 'Branding', body: <BrandingSection org={org} prefix={prefix} /> },
     { id: 'modules', label: 'Modules', body: <ModulesSection org={org} prefix={prefix} modules={modules} /> },
-    { id: 'secrets', label: 'Secrets', body: <SecretsSection orgId={org.id} /> },
+    { id: 'secrets', label: 'Secrets', body: <SecretsSection orgId={org.id} prefix={prefix} /> },
   ];
   return (
     <>

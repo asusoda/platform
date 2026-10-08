@@ -4,12 +4,15 @@ DiscordDirectory reads guilds, roles and members, cached for a short time. send_
 add_reaction post to channels.
 """
 
+import os
 import threading
 import time
 from urllib.parse import quote
 
 import requests
+from sqlalchemy import text
 
+from core.integrations.registry import Integration, IntegrationError, register
 from core.log import get_logger
 
 logger = get_logger("discord_directory")
@@ -155,3 +158,35 @@ def send_message(token: str | None, channel_id: int | str, payload: dict) -> dic
 
 def add_reaction(token: str | None, channel_id: int | str, message_id: int | str, emoji: str) -> None:
     _call("PUT", f"/channels/{int(channel_id)}/messages/{int(message_id)}/reactions/{quote(emoji)}/@me", token)
+
+
+def _guild_id(db, org_id: int) -> str | None:
+    row = db.execute(text("SELECT guild_id FROM organizations WHERE id = :id"), {"id": org_id}).first()
+    return str(row[0]) if row else None
+
+
+def _test(db, org_id: int) -> str:
+    directory = DiscordDirectory(os.environ.get("BOT_TOKEN"))
+    try:
+        bot = directory.identity().get("bot_name") or "The bot"
+        guild_id = _guild_id(db, org_id)
+        guild = directory.get_guild(guild_id) if guild_id else None
+    except DiscordUnavailable as e:
+        raise IntegrationError(f"Discord refused the bot token or could not be reached: {e}") from e
+    if not guild:
+        raise IntegrationError(
+            f"{bot} is not in this org's Discord server. Invite it with the bot and applications.commands scopes"
+        )
+    return f"Connected as {bot}, in {guild.get('name', 'the server')}."
+
+
+register(
+    Integration(
+        key="discord",
+        title="Discord",
+        description="The bot and officer sign-in. One Discord app serves every org; the deployment sets it in .env.",
+        docs="modules/discord-bot",
+        deployment=lambda: bool(os.environ.get("BOT_TOKEN")),
+        test=_test,
+    )
+)

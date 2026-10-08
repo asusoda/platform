@@ -1,3 +1,4 @@
+import { IntegrationHint } from '../components/integration-hint';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, CalendarPlus, Info, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
@@ -223,6 +224,7 @@ export function CalendarPage() {
           </Button>
         }
       />
+      <IntegrationHint keys={['notion', 'google']} />
       {sync.error ? (
         <div className="mb-4">
           <ErrorNote error={sync.error} />

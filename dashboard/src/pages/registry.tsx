@@ -11,6 +11,7 @@ import {
   Database,
   KeyRound,
   LayoutDashboard,
+  Plug,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -24,6 +25,7 @@ import { AlertsPage } from './alerts';
 import { AppsPage } from './apps';
 import { CalendarPage } from './calendar';
 import { ComputePage } from './compute';
+import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
 import { LeetCodePage } from './leetcode';
 import { NotificationsPage } from './notifications';
@@ -76,6 +78,7 @@ export const PAGES: PageEntry[] = [
   { path: 'apps', label: 'Apps', icon: Boxes, section: 'infrastructure', page: AppsPage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
+  { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },
 ];

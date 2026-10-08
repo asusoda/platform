@@ -118,6 +118,9 @@
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
+/api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
+/api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
+/api/dashboard/<string:org_prefix>/integrations/<string:key>/test OPTIONS,POST dashboard.test_integration
 /api/dashboard/<string:org_prefix>/knowledge/crawls/<path:key> OPTIONS,PUT dashboard.schedule_crawl
 /api/dashboard/<string:org_prefix>/knowledge/crawls/<path:key>/run OPTIONS,POST dashboard.run_crawl
 /api/dashboard/<string:org_prefix>/knowledge/documents OPTIONS,POST dashboard.upload_documents

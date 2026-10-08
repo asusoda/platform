@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api, send } from './api';
-import type { Branding, CiRepo, ModuleState, NotificationList, OrganizationDetail, Overview } from './types';
+import type { Branding, CiRepo, IntegrationList, ModuleState, NotificationList, OrganizationDetail, Overview } from './types';
 
 export function useOverview(prefix: string) {
   return useQuery({
@@ -87,5 +87,14 @@ export function useNotificationChange(prefix: string) {
       client.setQueryData(['notifications', prefix], list);
       client.invalidateQueries({ queryKey: ['overview', prefix] });
     },
+  });
+}
+
+export function useIntegrations(prefix: string) {
+  return useQuery({
+    queryKey: ['integrations', prefix],
+    queryFn: () => api<IntegrationList>(`/api/dashboard/${prefix}/integrations`),
+    enabled: Boolean(prefix),
+    staleTime: 60_000,
   });
 }

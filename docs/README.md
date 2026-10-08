@@ -10,6 +10,7 @@ Platform is shared infrastructure for student orgs. One deployment serves many o
 | [Architecture](./architecture.md) | Learn the processes, the module pattern, jobs, tools and the MCP server |
 | [Data model](./data-model.md) | Find a table and the module that owns it, and write a migration |
 | [Authentication](./authentication.md) | Learn the sign-in types, tokens, decorators and access checks |
+| [Integrations](./integrations.md) | Connect Notion, Google, GitHub, RunPod; add an integration |
 | [API contract](./api-contract.md) | Change a route that a live client uses |
 | [Writing a module](./writing-a-module.md) | Add a module and register it |
 | [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes, run Hermes |

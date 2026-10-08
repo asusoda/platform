@@ -37,3 +37,6 @@ export function joinNames(names: string[]): string {
 // The label of the marks. The short form leaves out the school.
 export const builtByLabel = (orgs: BuiltBy[] = BUILT_BY, short = false) =>
   `Built by ${joinNames(orgs.map((o) => o.short))}${short ? '' : ' at ASU'}`;
+
+// A page of the docs, such as modules/calendar.
+export const docsPage = (path: string) => (SITE_URL ? `${SITE_URL}/docs/${path}` : `${REPO_URL}/blob/main/docs/${path}.md`);
