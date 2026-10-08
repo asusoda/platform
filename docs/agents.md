@@ -32,6 +32,7 @@ All under `/api/agents/members/<discord_id>`.
 | `GET /profile` | read | Nodes and relations |
 | `POST /profile/facts` | write | `facts: [{subject: {kind, label}, relation, object: {kind, label}, confidence}]`. Existing rows keep the higher confidence |
 | `GET /profile/matching?subject=&relation=` | read | Relations from a subject, case-insensitive |
+| `GET /profile/similar?text=&limit=` | read | Nodes nearest to the text by embedding, with `distance`. 503 without `EMBEDDINGS_URL` |
 | `DELETE /profile/relations` | write | Body `subject`, `relation`, `object` |
 | `DELETE /profile/nodes?label=` | write | Delete nodes with that label and their edges |
 | `DELETE /data` | write | Forget the member: profile graph and memories |
@@ -46,7 +47,7 @@ configured or not reachable.
 
 | Method and path | Scope | Does |
 |---|---|---|
-| `POST /context` | read | Body `conversation_id`, `visibility`, optional `message_limit` (50), `memory_kinds`, `memory_limit` (20), `profile_limit` (100); 0 leaves a part out. Returns `member` (display name, role ids, officer, from Discord), `conversation` (`owned`), `messages`, `memories`, `profile` |
+| `POST /context` | read | Body `conversation_id`, `visibility`, optional `message_limit` (50), `memory_kinds`, `memory_limit` (20), `profile_limit` (100), `profile_query`; 0 leaves a part out. With `profile_query` and an embedder, `profile.similar` holds the nearest nodes. Returns `member` (display name, role ids, officer, from Discord), `conversation` (`owned`), `messages`, `memories`, `profile` |
 | `POST /commit` | write | Body `conversation_id`, `channel_id`, `visibility`, and any of `messages`, `summary` (`content`, `covers`), `memories`, `facts`, `pending` (`token`, `action`, `payload_hash`, `ttl_seconds`), each shaped as in the routes above. One transaction: when any part is invalid nothing is written. 201 with `seqs`, `summary_seq`, `memory_ids`, `facts`, `pending` |
 
 The per-part routes above stay for agents that write as they go.
@@ -61,7 +62,8 @@ The per-part routes above stay for agents that write as they go.
 
 ## Not here yet
 
-- Profile nodes match by exact kind and label. Sparky also merges near-duplicate labels by embedding;
-  that waits for the knowledge module (pgvector).
+- Profile nodes match by exact kind and label, as in Sparky. With `EMBEDDINGS_URL` set, each node
+  also gets a vector of "kind: label" (the knowledge module's embedder, pgvector on Postgres) so
+  recall can start from what the member just said. Nodes are not merged by similarity.
 - The member routes need a Discord session with `discord_id`; the web app's member login does not
   set it yet.

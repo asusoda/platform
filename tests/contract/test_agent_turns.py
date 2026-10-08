@@ -87,7 +87,7 @@ def test_summary_and_limits(client, agent, member):
         f"{member}/turn/context", json=_turn(cid, memory_limit=0, profile_limit=0), headers=agent
     ).get_json()
     assert [m["role"] for m in context["messages"]] == ["summary", "user"]
-    assert context["memories"] == [] and context["profile"] == {"nodes": [], "relations": []}
+    assert context["memories"] == [] and context["profile"] == {"nodes": [], "relations": [], "similar": []}
 
 
 def test_a_bad_part_writes_nothing(client, agent, member):
@@ -138,3 +138,77 @@ def test_scopes(client, member):
     body = _turn(cid, messages=[{"role": "user", "content": "a"}])
     assert client.post(f"{member}/turn/commit", json=body, headers=reader).status_code == 403
     assert client.post(f"{member}/turn/context", json=_turn(cid), headers=reader).status_code == 200
+
+
+class WordEmbedder:
+    """One dimension per word, so texts that share words are near each other."""
+
+    model = "words"
+    query_prefix = ""
+
+    def __init__(self):
+        self.calls = 0
+
+    def _vector(self, text):
+        import zlib
+
+        vector = [0.0] * 1024
+        for word in text.lower().replace(":", " ").split():
+            vector[zlib.crc32(word.encode()) % 1024] += 1.0
+        return vector
+
+    def embed(self, texts):
+        self.calls += 1
+        return [self._vector(t) for t in texts]
+
+    def embed_query(self, text):
+        return self._vector(text)
+
+
+def _fact(kind, label, relation="takes"):
+    return {
+        "subject": {"kind": "person", "label": "me"},
+        "relation": relation,
+        "object": {"kind": kind, "label": label},
+        "confidence": 0.9,
+    }
+
+
+def test_profile_nodes_are_embedded_and_searchable(client, agent, member, monkeypatch):
+    from modules.knowledge import embedder as embedder_module
+
+    fake = WordEmbedder()
+    monkeypatch.setattr(embedder_module, "configured", lambda: fake)
+    facts = [_fact("course", "CSE 310 data structures"), _fact("club", "Robotics club", "joined")]
+    assert client.post(f"{member}/profile/facts", json={"facts": facts}, headers=agent).get_json()["stored"] == 2
+    client.post(f"{member}/profile/facts", json={"facts": facts[:1]}, headers=agent)
+    assert fake.calls == 1  # nodes that already have a vector from this model are not embedded again
+
+    found = client.get(f"{member}/profile/similar?text=data structures homework&limit=2", headers=agent).get_json()
+    assert found["nodes"][0]["label"] == "CSE 310 data structures"
+    assert found["nodes"][0]["distance"] < found["nodes"][1]["distance"]
+
+    cid = str(uuid.uuid4())
+    context = client.post(
+        f"{member}/turn/context", json=_turn(cid, profile_query="robotics meeting"), headers=agent
+    ).get_json()
+    assert context["profile"]["similar"][0]["label"] == "Robotics club"
+
+
+def test_similar_needs_an_embedder_and_facts_survive_a_failed_one(client, agent, member, monkeypatch):
+    from modules.knowledge import embedder as embedder_module
+    from modules.knowledge.embedder import EmbeddingError
+
+    monkeypatch.setattr(embedder_module, "configured", lambda: None)
+    assert client.get(f"{member}/profile/similar?text=x", headers=agent).status_code == 503
+
+    class Broken(WordEmbedder):
+        def embed(self, texts):
+            raise EmbeddingError("down")
+
+    monkeypatch.setattr(embedder_module, "configured", lambda: Broken())
+    stored = client.post(f"{member}/profile/facts", json={"facts": [_fact("course", "MAT 343")]}, headers=agent)
+    assert stored.status_code == 200
+    labels = [n["label"] for n in client.get(f"{member}/profile", headers=agent).get_json()["nodes"]]
+    assert "MAT 343" in labels
+    assert client.get(f"{member}/profile/similar?text=MAT 343", headers=agent).get_json()["nodes"] == []

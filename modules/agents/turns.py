@@ -12,6 +12,7 @@ from typing import Any
 from core.discord_directory import DiscordUnavailable
 from modules.agents import service
 from modules.agents.service import AgentError, Owner
+from modules.knowledge.embedder import Embedder
 
 MAX_ITEMS = 100
 
@@ -44,11 +45,12 @@ def _int(value: object, name: str, default: int) -> int:
     return min(value, service.MAX_LIMIT)
 
 
-def context(db, who: Owner, member_info: dict, data: dict) -> dict:
+def context(db, who: Owner, member_info: dict, data: dict, embedder: Embedder | None = None) -> dict:
     """Everything an agent needs before it calls its model, in one read.
 
     data: conversation_id, visibility, and optional message_limit, memory_kinds, memory_limit,
-    profile_limit. A limit of 0 leaves that part out.
+    profile_limit, and profile_query (text whose nearest profile nodes come back as
+    profile.similar when an embedder is configured). A limit of 0 leaves that part out.
     """
     conversation_id = data.get("conversation_id")
     visibility = data.get("visibility")
@@ -59,6 +61,10 @@ def context(db, who: Owner, member_info: dict, data: dict) -> dict:
     profile_limit = _int(data.get("profile_limit"), "profile_limit", 100)
 
     owned = service.owns(db, who, conversation_id, visibility)
+    profile_query = data.get("profile_query")
+    similar = []
+    if profile_query is not None and embedder is not None and profile_limit:
+        similar = service.similar(db, who, profile_query, min(profile_limit, 20), embedder)
     return {
         "member": member_info,
         "conversation": {"id": conversation_id, "owned": owned},
@@ -67,6 +73,7 @@ def context(db, who: Owner, member_info: dict, data: dict) -> dict:
         "profile": {
             "nodes": service.profile_nodes(db, who, profile_limit) if profile_limit else [],
             "relations": service.relations(db, who, profile_limit) if profile_limit else [],
+            "similar": similar,
         },
     }
 
@@ -80,7 +87,7 @@ def _list(data: dict, name: str) -> list:
     return value
 
 
-def commit(db, who: Owner, data: dict) -> dict:
+def commit(db, who: Owner, data: dict, embedder: Embedder | None = None) -> dict:
     """Write one turn in one transaction: conversation, messages, summary, memories, facts, pending actions.
 
     Nothing is written when any part is invalid. Commits.
@@ -112,7 +119,7 @@ def commit(db, who: Owner, data: dict) -> dict:
             given = {k: m[k] for k in optional if k in m}
             row = service.remember(db, who, kind=m.get("kind"), content=m.get("content"), commit=False, **given)
             saved.append(row["id"])
-        fact_count = service.upsert(db, who, facts, commit=False) if facts else 0
+        fact_count = service.upsert(db, who, facts, commit=False, embedder=embedder) if facts else 0
         for p in pending:
             if not isinstance(p, dict):
                 raise AgentError("each pending action must be an object")

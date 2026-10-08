@@ -9,6 +9,7 @@ from flask import Blueprint, g, jsonify, request
 
 from core import audit_http
 from modules.auth.decoraters import machine_scope_required, member_required
+from modules.knowledge import embedder
 from modules.organizations.models import Organization
 from shared import db_connect
 
@@ -162,7 +163,13 @@ def read_profile(db, who):
 
 @_agent_route("/profile/facts", "agents:write", ["POST"])
 def upsert_facts(db, who):
-    return {"stored": service.upsert(db, who, _body().get("facts"))}
+    return {"stored": service.upsert(db, who, _body().get("facts"), embedder=embedder.configured())}
+
+
+@_agent_route("/profile/similar", "agents:read", ["GET"])
+def similar_nodes(db, who):
+    nodes = service.similar(db, who, request.args.get("text"), _int_arg("limit"), embedder.configured())
+    return {"nodes": nodes}
 
 
 @_agent_route("/profile/matching", "agents:read", ["GET"])
@@ -218,13 +225,13 @@ def _member_info(db, who):
 
 @_agent_route("/turn/context", "agents:read", ["POST"])
 def turn_context(db, who):
-    return turns.context(db, who, _member_info(db, who), _body())
+    return turns.context(db, who, _member_info(db, who), _body(), embedder.configured())
 
 
 @_agent_route("/turn/commit", "agents:write", ["POST"])
 def turn_commit(db, who):
     _member_info(db, who)
-    return turns.commit(db, who, _body()), 201
+    return turns.commit(db, who, _body(), embedder.configured()), 201
 
 
 # Member self-service: a member sees and deletes what agents keep about them.
