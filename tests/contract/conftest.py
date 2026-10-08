@@ -84,10 +84,10 @@ def _seed(db_connect):
             username="alice",
             email=MEMBER_EMAIL,
             name="Alice",
-            asu_id="1200000001",
+            student_id="1200000001",
             uuid=str(uuid.UUID(int=1)),
         )
-        bob = User(username="bob", email="bob@asu.edu", name="Bob", asu_id="1200000002", uuid=str(uuid.UUID(int=2)))
+        bob = User(username="bob", email="bob@asu.edu", name="Bob", student_id="1200000002", uuid=str(uuid.UUID(int=2)))
         db.add_all([alice, bob])
         db.flush()
 

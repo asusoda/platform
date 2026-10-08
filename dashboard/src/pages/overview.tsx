@@ -1,7 +1,20 @@
-import { AlertTriangle, Bot, Coins, Cpu, GitBranch, Users } from 'lucide-react';
+import { AlertTriangle, BellRing, Boxes, Bot, CalendarClock, Coins, Cpu, GitBranch, Users } from 'lucide-react';
 import { Link } from 'react-router';
 import { ActivityList } from '../components/activity-list';
-import { Badge, Card, CardHeader, Dot, Empty, ErrorNote, Loading, PageHeader, Row, Stat } from '../components/ui';
+import {
+  Badge,
+  Card,
+  CardHeader,
+  Dot,
+  EmptyState,
+  ErrorNote,
+  Mono,
+  PageHeader,
+  PageSkeleton,
+  quietLink,
+  Row,
+  Stat,
+} from '../components/ui';
 import { compact, deployTone, runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import { useCi, useOverview } from '../lib/queries';
@@ -10,10 +23,11 @@ export function OverviewPage() {
   const { prefix } = useCurrentOrg();
   const { data, isLoading, error } = useOverview(prefix);
   const ci = useCi(prefix);
-  if (isLoading) return <Loading />;
+  if (isLoading) return <PageSkeleton stats />;
   if (error || !data) return <ErrorNote error={error ?? 'No data'} />;
   const s = data.sections;
   const runs = (ci.data?.repos ?? []).flatMap((r) => r.runs.slice(0, 1).map((run) => ({ repo: r.repo, ...run })));
+  const enabled = data.modules.filter((m) => m.enabled).length;
 
   return (
     <>
@@ -23,13 +37,19 @@ export function OverviewPage() {
       />
 
       {data.problems.length ? (
-        <Card className="mb-6 border-bad/40">
-          <CardHeader title={<span className="flex items-center gap-2 text-bad"><AlertTriangle className="size-4" /> Needs attention</span>} />
+        <Card className="mb-6 border-bad/30">
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2 text-bad">
+                <AlertTriangle className="size-4" /> Needs attention
+              </span>
+            }
+          />
           {data.problems.map((p) => (
-            <Row key={`${p.module}-${p.subject}`}>
+            <Row key={`${p.module}-${p.subject}`} className="flex-wrap sm:flex-nowrap">
               <Badge tone="bad">{p.module}</Badge>
-              <span className="font-mono text-xs">{p.subject}</span>
-              <span className="min-w-0 flex-1 truncate text-sm text-muted">{p.message}</span>
+              <Mono className="text-fg">{p.subject}</Mono>
+              <span className="min-w-0 flex-1 basis-full truncate text-sm text-muted sm:basis-auto">{p.message}</span>
             </Row>
           ))}
         </Card>
@@ -61,16 +81,25 @@ export function OverviewPage() {
         <Card className="lg:col-span-2">
           <CardHeader
             title="Modules"
-            hint="Optional modules for this organization"
-            action={<Link to="settings" className="text-xs text-muted hover:text-fg">Change</Link>}
+            hint={`${enabled} of ${data.modules.length} on for this organization`}
+            action={
+              <Link to="settings" className={quietLink}>
+                Change
+              </Link>
+            }
           />
           <div className="grid gap-px bg-line sm:grid-cols-2">
             {data.modules.map((m) => (
               <div key={m.name} className="flex items-start gap-3 bg-panel px-4 py-3">
-                <span className="mt-1.5"><Dot tone={m.enabled ? 'ok' : 'muted'} /></span>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{m.name}</div>
-                  <div className="text-xs text-muted">{m.description}</div>
+                <span className="mt-1.5">
+                  <Dot tone={m.enabled ? 'ok' : 'muted'} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={m.enabled ? 'text-sm font-medium' : 'text-sm font-medium text-muted'}>{m.name}</span>
+                    <span className="text-xs text-muted">{m.enabled ? 'On' : 'Off'}</span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted">{m.description}</div>
                 </div>
               </div>
             ))}
@@ -78,74 +107,124 @@ export function OverviewPage() {
         </Card>
 
         <Card>
-          <CardHeader title="CI" action={<Link to="ci" className="text-xs text-muted hover:text-fg">All runs</Link>} />
+          <CardHeader
+            title="CI"
+            hint="Latest run per repository"
+            action={
+              <Link to="ci" className={quietLink}>
+                All runs
+              </Link>
+            }
+          />
           {runs.length ? (
             runs.map((run) => (
-              <a key={run.repo} href={run.url ?? undefined} target="_blank" rel="noreferrer" className="block hover:bg-panel-2">
+              <a
+                key={run.repo}
+                href={run.url ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="block transition-colors hover:bg-panel-2/50"
+              >
                 <Row>
                   <Dot tone={runTone(run.status, run.conclusion)} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm">{run.repo}</div>
-                    <div className="truncate text-xs text-muted">{run.workflow} · {run.branch}</div>
+                    <div className="truncate text-xs text-muted">
+                      {run.workflow} · {run.branch}
+                    </div>
                   </div>
-                  <span className="text-xs text-muted">{timeAgo(run.started_at)}</span>
+                  <span className="shrink-0 text-xs text-muted tabular-nums">{timeAgo(run.started_at)}</span>
                 </Row>
               </a>
             ))
           ) : (
-            <Empty>
-              <GitBranch className="mx-auto mb-2 size-5" />
-              Add repositories in <Link to="ci" className="underline">CI runs</Link>.
-            </Empty>
+            <EmptyState icon={GitBranch}>
+              Add repositories in{' '}
+              <Link to="ci" className="text-fg underline underline-offset-2">
+                CI runs
+              </Link>
+              .
+            </EmptyState>
           )}
         </Card>
 
         <Card>
-          <CardHeader title="Apps" hint="Deploys on RunPod" action={<Link to="apps" className="text-xs text-muted hover:text-fg">Details</Link>} />
+          <CardHeader
+            title="Apps"
+            hint="Deploys on RunPod"
+            action={
+              <Link to="apps" className={quietLink}>
+                Details
+              </Link>
+            }
+          />
           {s.apps.apps.length ? (
             s.apps.apps.map((app) => (
               <Row key={app.name}>
                 <Dot tone={deployTone(app.status)} />
                 <span className="flex-1 truncate text-sm">{app.name}</span>
-                <span className="font-mono text-xs text-muted">{app.tag ?? 'not deployed'}</span>
+                <Mono>{app.tag ?? 'not deployed'}</Mono>
               </Row>
             ))
           ) : (
-            <Empty>No apps registered.</Empty>
+            <EmptyState icon={Boxes}>No apps registered.</EmptyState>
           )}
         </Card>
 
         <Card>
-          <CardHeader title="Alert feeds" action={<Link to="alerts" className="text-xs text-muted hover:text-fg">Manage</Link>} />
+          <CardHeader
+            title="Alert feeds"
+            hint="Posts in the last 7 days"
+            action={
+              <Link to="alerts" className={quietLink}>
+                Manage
+              </Link>
+            }
+          />
           {s.alerts.feeds.length ? (
             s.alerts.feeds.map((f) => (
               <Row key={f.key}>
                 <Dot tone={!f.enabled ? 'muted' : f.last_error ? 'bad' : 'ok'} />
                 <span className="flex-1 truncate text-sm">{f.key}</span>
-                <span className="text-xs text-muted">{f.posted_7_days} this week</span>
+                <span className="text-xs text-muted tabular-nums">{f.posted_7_days} this week</span>
               </Row>
             ))
           ) : (
-            <Empty>No alert feeds.</Empty>
+            <EmptyState icon={BellRing}>No alert feeds.</EmptyState>
           )}
         </Card>
 
         <Card>
-          <CardHeader title="Upcoming sessions" action={<Link to="compute" className="text-xs text-muted hover:text-fg">Compute</Link>} />
+          <CardHeader
+            title="Upcoming sessions"
+            hint="Pods start before each session"
+            action={
+              <Link to="compute" className={quietLink}>
+                Compute
+              </Link>
+            }
+          />
           {s.compute.sessions.length ? (
             s.compute.sessions.slice(0, 5).map((session) => (
               <Row key={`${session.pod_id}-${session.start_at}`}>
                 <span className="flex-1 truncate text-sm">{session.title ?? session.pod_id}</span>
-                <span className="text-xs text-muted">{timeAgo(session.start_at)}</span>
+                <span className="text-xs text-muted tabular-nums">{timeAgo(session.start_at)}</span>
               </Row>
             ))
           ) : (
-            <Empty>No sessions scheduled.</Empty>
+            <EmptyState icon={CalendarClock}>No sessions scheduled.</EmptyState>
           )}
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader title="Recent changes" action={<Link to="activity" className="text-xs text-muted hover:text-fg">Audit log</Link>} />
+          <CardHeader
+            title="Recent changes"
+            action={
+              <Link to="activity" className={quietLink}>
+                Audit log
+              </Link>
+            }
+          />
           <ActivityList entries={data.activity.slice(0, 8)} empty="No changes recorded yet." />
         </Card>
 
@@ -155,9 +234,9 @@ export function OverviewPage() {
         </Card>
       </div>
 
-      <p className="mt-8 text-xs text-muted">
-        Store: {s.storefront.products} products, {s.storefront.pending_orders} pending orders. Knowledge: {s.knowledge.sources} sources.
-        Tokens: {s.tokens.tokens.length} app and agent, {s.tokens.cli_tokens} CLI.
+      <p className="mt-8 border-t border-line pt-4 text-xs text-muted">
+        Store: {s.storefront.products} products, {s.storefront.pending_orders} pending orders. Knowledge:{' '}
+        {s.knowledge.sources} sources. Tokens: {s.tokens.tokens.length} app and agent, {s.tokens.cli_tokens} CLI.
       </p>
     </>
   );

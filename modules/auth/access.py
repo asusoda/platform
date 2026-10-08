@@ -194,7 +194,7 @@ def any_officer_denial() -> tuple[str, int] | None:
 
 
 def member_details_allowed(org) -> bool:
-    """Whether the caller may see members' emails and ASU IDs: officers of org and the superadmin.
+    """Whether the caller may see members' emails and student IDs: officers of org and the superadmin.
 
     Anyone else is logged as member_details_hidden, and the details are left out only when enforcing.
     """

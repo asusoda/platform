@@ -49,7 +49,12 @@ def overview(db, org: Organization) -> dict:
     }
     entries = audit.list_entries(db, org=cast(str, org.prefix), limit=200)
     return {
-        "organization": {"id": org_id, "name": org.name, "prefix": org.prefix},
+        "organization": {
+            "id": org_id,
+            "name": org.name,
+            "prefix": org.prefix,
+            "branding": organizations.branding(org),
+        },
         "modules": [
             {"name": name, "description": text, "enabled": organizations.module_enabled(org, name)}
             for name, text in organizations.OPTIONAL_MODULES.items()

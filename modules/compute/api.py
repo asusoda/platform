@@ -52,7 +52,7 @@ def _officer_route(rule: str, methods: list[str]):
 def _member_route(rule: str, methods: list[str]):
     """A member route under /<org_prefix>/me. The view gets (db, org, discord_id, **path args).
 
-    Members come with a Discord login session or with a godfather CLI token (Bearer plat_...).
+    Members come with a Discord login session or with a compute CLI token (Bearer plat_...).
     """
 
     def decorator(view):
@@ -84,7 +84,7 @@ def _member_route(rule: str, methods: list[str]):
                     return jsonify({"error": "Organization not found"}), 404
                 discord_id = cli_login.member_for(db, _org_id(org), header[7:].strip())
                 if discord_id is None:
-                    return jsonify({"error": "The CLI token is invalid or expired. Run godfather auth again."}), 401
+                    return jsonify({"error": f"The CLI token is invalid or expired. {_sign_in_again()}"}), 401
                 membership = _is_member(org, discord_id)
                 if membership is None:
                     return jsonify({"error": "Discord is not available; try again shortly"}), 503
@@ -124,7 +124,7 @@ def list_pods(db, org):
 
 @_officer_route("/pods", ["POST"])
 def create_pod(db, org):
-    return {"pod": service.create_pod(db, _org_id(org), _body(), _caller())}, 201
+    return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), config.COMPUTE_POD_IMAGE)}, 201
 
 
 @_officer_route("/pods/<string:pod_id>", ["GET"])
@@ -268,13 +268,17 @@ def delete_session(db, org, pod_id, session_id):
     return {"deleted": session_id}
 
 
-# Godfather CLI sign-in: Discord login in the browser, then a page with a token to paste.
+# Compute CLI sign-in: Discord login in the browser, then a page with a token to paste.
+
+
+def _sign_in_again() -> str:
+    return f"Run {config.COMPUTE_CLI_NAME} auth again."
 
 
 def _page(message: str, token: str | None = None, status: int = 200):
     block = (
-        "<p>Copy this token and paste it into <code>godfather auth</code>. It is shown once and works for "
-        f"{cli_login.EXPIRES_DAYS} days.</p>"
+        f"<p>Copy this token, run {html.escape(config.COMPUTE_CLI_NAME)} auth and paste it when asked. "
+        f"It is shown once and works for {cli_login.EXPIRES_DAYS} days.</p>"
         '<pre style="padding: 1rem; background: #eee; white-space: pre-wrap; word-break: break-all">'
         f"{html.escape(token)}</pre>"
         if token
@@ -282,7 +286,7 @@ def _page(message: str, token: str | None = None, status: int = 200):
     )
     body = (
         '<!doctype html><html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Godfather CLI</title></head>'
+        '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Compute CLI sign-in</title></head>'
         '<body style="font-family: system-ui, sans-serif; max-width: 36rem; margin: 4rem auto; padding: 0 1rem; '
         f'line-height: 1.5"><p>{html.escape(message)}</p>{block}</body></html>'
     )
@@ -306,13 +310,13 @@ def cli_sign_in(org_prefix):
 def cli_callback():
     started = session.pop("compute_cli_login", None) or {}
     if not started.get("state") or started["state"] != request.args.get("state") or not request.args.get("code"):
-        return _page("This sign-in was not started here, or was cancelled. Run godfather auth again.", status=400)
+        return _page(f"This sign-in was not started here, or was cancelled. {_sign_in_again()}", status=400)
     try:
         discord_id = providers.discord_user_id(
             config.CLIENT_ID, config.CLIENT_SECRET, request.args["code"], _callback_url()
         )
     except providers.ProviderError:
-        return _page("Discord sign-in failed. Run godfather auth again.", status=502)
+        return _page(f"Discord sign-in failed. {_sign_in_again()}", status=502)
     db = db_connect.SessionLocal()
     try:
         org = db.query(Organization).filter_by(prefix=started.get("org_prefix"), is_active=True).first()

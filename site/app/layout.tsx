@@ -8,11 +8,11 @@ const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
   title: {
-    default: 'Platform: infrastructure for student organizations',
+    default: 'Platform: the backend your student org rebuilds every year',
     template: '%s | Platform',
   },
   description:
-    'One open-source deployment for club operations, compute and agent backends. Every organization is a Discord server and turns on only the modules it uses.',
+    'Member lists, points, a Discord bot and calendar sync in one open-source deployment. Each student organization turns on the modules it needs.',
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {

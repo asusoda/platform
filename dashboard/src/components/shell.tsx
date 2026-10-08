@@ -10,13 +10,20 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Monitor,
+  Moon,
   Settings,
+  Sun,
   X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { tokens } from '../lib/auth';
+import { useAccentColor } from '../lib/branding';
 import { useCurrentOrg, useOrganizations } from '../lib/org';
+import { useBranding } from '../lib/queries';
+import { type Theme, useTheme } from '../lib/theme';
+import { OrgMark } from './org-mark';
 import { cx } from './ui';
 
 const NAV = [
@@ -31,27 +38,26 @@ const NAV = [
   { to: 'settings', label: 'Settings', icon: Settings },
 ];
 
-function Logo() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
-      <rect x="3" y="4" width="18" height="4" rx="2" className="fill-fg" />
-      <rect x="3" y="10" width="18" height="4" rx="2" className="fill-muted" />
-      <rect x="3" y="16" width="18" height="4" rx="2" className="fill-line" />
-    </svg>
-  );
-}
+const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
+  { value: 'system', label: 'System theme', icon: Monitor },
+  { value: 'light', label: 'Light theme', icon: Sun },
+  { value: 'dark', label: 'Dark theme', icon: Moon },
+];
 
 function OrgSwitcher() {
   const { org, prefix } = useCurrentOrg();
   const { data } = useOrganizations();
+  const branding = useBranding(prefix);
   const navigate = useNavigate();
+  const name = org?.name ?? prefix;
   return (
-    <label className="relative flex h-10 items-center gap-2 rounded-lg border border-line bg-panel-2 px-3 text-sm">
-      <span className="flex size-5 items-center justify-center rounded bg-fg text-[10px] font-semibold text-bg uppercase">
-        {(org?.name ?? prefix).slice(0, 1)}
+    <label className="relative flex items-center gap-2.5 rounded-lg border border-line bg-panel p-2 text-sm shadow-xs transition-colors hover:bg-panel-2 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
+      <OrgMark name={name} logoUrl={branding.data?.logo_url} className="size-8" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{name}</span>
+        <span className="block truncate font-mono text-xs text-muted">{prefix}</span>
       </span>
-      <span className="min-w-0 flex-1 truncate">{org?.name ?? prefix}</span>
-      <ChevronsUpDown className="size-4 text-muted" />
+      <ChevronsUpDown className="size-4 shrink-0 text-muted" />
       <select
         aria-label="Organization"
         className="absolute inset-0 cursor-pointer opacity-0"
@@ -68,17 +74,38 @@ function OrgSwitcher() {
   );
 }
 
+function ThemeSwitch() {
+  const [theme, setTheme] = useTheme();
+  return (
+    <div role="radiogroup" aria-label="Theme" className="flex items-center gap-0.5 rounded-full border border-line p-0.5">
+      {THEMES.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={theme === value}
+          aria-label={label}
+          title={label}
+          onClick={() => setTheme(value)}
+          className={cx(
+            'flex size-6 cursor-pointer items-center justify-center rounded-full transition-colors',
+            theme === value ? 'bg-panel-2 text-fg' : 'text-muted hover:text-fg',
+          )}
+        >
+          <Icon className="size-3.5" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const { prefix } = useCurrentOrg();
   const navigate = useNavigate();
   return (
-    <div className="flex h-full flex-col gap-4 p-3">
-      <div className="flex items-center gap-2 px-2 pt-1 font-semibold">
-        <Logo />
-        Platform
-      </div>
+    <div className="flex h-full flex-col gap-5 p-3">
       <OrgSwitcher />
-      <nav className="flex flex-col gap-0.5">
+      <nav aria-label="Pages" className="flex flex-col gap-0.5">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={label}
@@ -87,8 +114,8 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               cx(
-                'flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-sm transition',
-                isActive ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:bg-panel-2 hover:text-fg',
+                'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
+                isActive ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:bg-panel-2/60 hover:text-fg',
               )
             }
           >
@@ -97,47 +124,65 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
           </NavLink>
         ))}
       </nav>
-      <button
-        className="mt-auto flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted hover:bg-panel-2 hover:text-fg"
-        onClick={() => {
-          tokens.clear();
-          navigate('/login');
-        }}
-      >
-        <LogOut className="size-4" />
-        Sign out
-      </button>
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
+        <button
+          className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"
+          onClick={() => {
+            tokens.clear();
+            navigate('/login');
+          }}
+        >
+          <LogOut className="size-4" />
+          Sign out
+        </button>
+        <ThemeSwitch />
+      </div>
     </div>
   );
 }
 
 export function Shell() {
   const [open, setOpen] = useState(false);
+  const { org, prefix } = useCurrentOrg();
+  const branding = useBranding(prefix);
+  useAccentColor(branding.data?.accent_color);
+  const name = org?.name ?? prefix;
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[240px_1fr]">
-      <aside className="sticky top-0 hidden h-screen border-r border-line bg-panel md:block">
+    <div className="min-h-screen md:grid md:grid-cols-[248px_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-screen border-r border-line md:block">
         <Nav />
       </aside>
-      <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-line bg-panel/90 px-4 backdrop-blur md:hidden">
-        <button aria-label="Open menu" onClick={() => setOpen(true)}>
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-bg/80 px-4 backdrop-blur md:hidden">
+        <button
+          aria-label="Open menu"
+          className="-ml-1.5 flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-panel-2"
+          onClick={() => setOpen(true)}
+        >
           <Menu className="size-5" />
         </button>
-        <span className="flex items-center gap-2 font-semibold">
-          <Logo /> Platform
+        <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+          <OrgMark name={name} logoUrl={branding.data?.logo_url} />
+          <span className="truncate">{name}</span>
         </span>
       </header>
       {open ? (
         <div className="fixed inset-0 z-30 md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 border-r border-line bg-panel">
-            <button aria-label="Close menu" className="absolute top-3 right-3" onClick={() => setOpen(false)}>
-              <X className="size-5" />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r border-line bg-bg shadow-xl">
+            <button
+              aria-label="Close menu"
+              className="absolute top-3.5 right-3 flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-panel-2"
+              onClick={() => setOpen(false)}
+            >
+              <X className="size-4" />
             </button>
-            <Nav onNavigate={() => setOpen(false)} />
+            <div className="h-full pt-12">
+              <Nav onNavigate={() => setOpen(false)} />
+            </div>
           </aside>
         </div>
       ) : null}
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
+      <main className="mx-auto w-full max-w-6xl min-w-0 px-4 py-8 sm:px-6 md:py-10 lg:px-10">
         <Outlet />
       </main>
     </div>

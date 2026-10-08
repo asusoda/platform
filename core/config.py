@@ -83,6 +83,10 @@ class Config:
             # Access checks (modules/auth/access.py): false logs refusals, true enforces them
             self.ACCESS_ENFORCE = os.environ.get("ACCESS_ENFORCE", "false").lower() == "true"
 
+            # Compute (modules/compute): the CLI name members see in messages, and the default pod image
+            self.COMPUTE_CLI_NAME = os.environ.get("COMPUTE_CLI_NAME", "the compute CLI")
+            self.COMPUTE_POD_IMAGE = os.environ.get("COMPUTE_POD_IMAGE", "theaisocietyasu/godfather-base:latest")
+
             # LeetCode Daily Bot
             self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")
             self.LEETCODE_ROLE_PING = os.environ.get("LEETCODE_ROLE_PING")

@@ -1,59 +1,84 @@
 @import 'tailwindcss';
 
+/* Colors match the neutral theme of site/ (fumadocs-ui neutral). */
+
 @theme {
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, monospace;
   --color-bg: var(--bg);
   --color-panel: var(--panel);
   --color-panel-2: var(--panel-2);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
+  --color-ring: var(--ring);
   --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  --color-info: var(--info);
 }
 
 :root {
-  --bg: #fafafa;
-  --panel: #ffffff;
-  --panel-2: #f4f4f5;
-  --line: #e4e4e7;
-  --fg: #09090b;
-  --muted: #71717a;
-  --accent: #4f46e5;
-  --ok: #16a34a;
-  --warn: #d97706;
-  --bad: #dc2626;
+  color-scheme: light;
+  --bg: hsl(0, 0%, 96%);
+  --panel: hsl(0, 0%, 98.5%);
+  --panel-2: hsl(0, 0%, 93.1%);
+  --line: hsla(0, 0%, 80%, 50%);
+  --line-strong: hsla(0, 0%, 70%, 60%);
+  --fg: hsl(0, 0%, 3.9%);
+  --muted: hsl(0, 0%, 42%);
+  --ring: hsl(0, 0%, 63.9%);
+  --accent: hsl(0, 0%, 9%);
+  --accent-fg: hsl(0, 0%, 98%);
+  --ok: oklch(52.7% 0.154 150.069);
+  --warn: oklch(55.5% 0.163 48.998);
+  --bad: oklch(57.7% 0.245 27.325);
+  --info: oklch(54.6% 0.245 262.881);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #09090b;
-    --panel: #111113;
-    --panel-2: #18181b;
-    --line: #27272a;
-    --fg: #fafafa;
-    --muted: #a1a1aa;
-    --accent: #818cf8;
-    --ok: #4ade80;
-    --warn: #fbbf24;
-    --bad: #f87171;
+    color-scheme: dark;
+    --bg: hsl(0, 0%, 7.04%);
+    --panel: hsl(0, 0%, 9.8%);
+    --panel-2: hsl(0, 0%, 12.9%);
+    --line: hsla(0, 0%, 40%, 20%);
+    --line-strong: hsla(0, 0%, 50%, 30%);
+    --fg: hsl(0, 0%, 92%);
+    --muted: hsl(0, 0%, 63%);
+    --ring: hsl(0, 0%, 54.9%);
+    --accent: hsl(0, 0%, 98%);
+    --accent-fg: hsl(0, 0%, 9%);
+    --ok: oklch(72.3% 0.219 149.579);
+    --warn: oklch(76.9% 0.188 70.08);
+    --bad: oklch(63.7% 0.237 25.331);
+    --info: oklch(62.3% 0.214 259.815);
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #09090b;
-  --panel: #111113;
-  --panel-2: #18181b;
-  --line: #27272a;
-  --fg: #fafafa;
-  --muted: #a1a1aa;
-  --accent: #818cf8;
-  --ok: #4ade80;
-  --warn: #fbbf24;
-  --bad: #f87171;
+  color-scheme: dark;
+  --bg: hsl(0, 0%, 7.04%);
+  --panel: hsl(0, 0%, 9.8%);
+  --panel-2: hsl(0, 0%, 12.9%);
+  --line: hsla(0, 0%, 40%, 20%);
+  --line-strong: hsla(0, 0%, 50%, 30%);
+  --fg: hsl(0, 0%, 92%);
+  --muted: hsl(0, 0%, 63%);
+  --ring: hsl(0, 0%, 54.9%);
+  --accent: hsl(0, 0%, 98%);
+  --accent-fg: hsl(0, 0%, 9%);
+  --ok: oklch(72.3% 0.219 149.579);
+  --warn: oklch(76.9% 0.188 70.08);
+  --bad: oklch(63.7% 0.237 25.331);
+  --info: oklch(62.3% 0.214 259.815);
+}
+
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -61,4 +86,10 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

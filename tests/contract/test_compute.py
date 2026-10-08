@@ -489,3 +489,23 @@ def test_cli_sign_in_is_refused_when_it_should_be(app, runpod, monkeypatch):
 
     monkeypatch.delenv("ACCOUNTS_BASE_URL")
     assert app.test_client().get("/api/compute/soda/cli/login").status_code == 503
+
+
+def test_cli_messages_and_pod_image_come_from_config(app, client, officer_headers, runpod, monkeypatch):
+    from shared import config
+
+    expired = client.get("/api/compute/soda/me/pods", headers={"Authorization": "Bearer plat_nope"})
+    assert expired.get_json()["error"] == "The CLI token is invalid or expired. Run the compute CLI auth again."
+    stray = app.test_client().get("/api/compute/cli/callback?state=forged&code=abc")
+    assert "Run the compute CLI auth again." in stray.get_data(as_text=True)
+
+    monkeypatch.setattr(config, "COMPUTE_CLI_NAME", "godfather")
+    monkeypatch.setattr(config, "COMPUTE_POD_IMAGE", "example/pod:1")
+    expired = client.get("/api/compute/soda/me/pods", headers={"Authorization": "Bearer plat_nope"})
+    assert expired.get_json()["error"] == "The CLI token is invalid or expired. Run godfather auth again."
+    page, token = _cli_sign_in(app.test_client(), monkeypatch)
+    assert token and "run godfather auth and paste it" in page.get_data(as_text=True)
+
+    assert _create(client, officer_headers).status_code == 201
+    assert runpod.calls[0][1]["imageName"] == "example/pod:1"
+    assert set(runpod.calls[0][1]["env"]) >= {"GODFATHER_SSH_PUBLIC_KEY", "GODFATHER_SETUP"}

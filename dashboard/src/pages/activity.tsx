@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ActivityList } from '../components/activity-list';
-import { Button, Card, ErrorNote, Loading, PageHeader } from '../components/ui';
+import { Button, Card, ErrorNote, PageHeader, SkeletonRows } from '../components/ui';
 import { api } from '../lib/api';
 import { useCurrentOrg } from '../lib/org';
 import type { AuditEntry } from '../lib/types';
@@ -23,16 +23,16 @@ export function ActivityPage() {
   return (
     <>
       <PageHeader title="Activity" description="Every change an officer, token or job made in this organization." />
-      {log.error ? <ErrorNote error={log.error} /> : null}
-      {log.isLoading ? (
-        <Loading />
-      ) : (
-        <Card>
-          <ActivityList entries={entries} empty="Nothing recorded yet." />
-        </Card>
-      )}
+      {log.error ? (
+        <div className="mb-4">
+          <ErrorNote error={log.error} />
+        </div>
+      ) : null}
+      <Card>
+        {log.isLoading || !org ? <SkeletonRows rows={8} /> : <ActivityList entries={entries} empty="Nothing recorded yet." />}
+      </Card>
       {log.hasNextPage ? (
-        <div className="mt-4 flex justify-center">
+        <div className="mt-6 flex justify-center">
           <Button onClick={() => log.fetchNextPage()} disabled={log.isFetchingNextPage}>
             Load more
           </Button>

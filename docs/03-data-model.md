@@ -87,20 +87,22 @@ One row per human, **global across all organizations**.
 |--------|-------|
 | `id` | Integer PK |
 | `discord_id` | unique, **nullable** — a member can exist without ever linking Discord |
-| `username`, `email`, `asu_id`, `uuid` | all unique, all nullable |
-| `name`, `academic_standing`, `major` | profile fields |
+| `username`, `email`, `student_id`, `uuid` | all unique, all nullable. `student_id` is the school's student number (was `asu_id`) |
+| `name`, `class_standing`, `major` | profile fields. `class_standing` was `academic_standing` |
 | `created_at` | |
 
 Relationships: `points`, `orders`, `memberships`.
 
-Because `email`, `username`, `asu_id` and `discord_id` are each independently unique and nullable,
+Because `email`, `username`, `student_id` and `discord_id` are each independently unique and nullable,
 lookups throughout the codebase try several of them in sequence (email → uuid → username, or
 discord_id → email). This is the single most common source of "user not found" bugs.
 
 ### `user_organization_memberships` — `UserOrganizationMembership`
 
 The join table. `user_id` + `organization_id`, plus `joined_at` and `is_active`, with a unique
-constraint `unique_user_org`. A user must have an **active** membership row before they can be
+constraint `unique_user_org`. `profile_fields` (JSON object, JSONB on Postgres, default `{}`) holds
+the fields an organization defines for its members, such as major or shirt size; each org sees only
+its own. A user must have an **active** membership row before they can be
 awarded points or check out in that org's store.
 
 ### `points` — `Points`

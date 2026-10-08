@@ -1,7 +1,7 @@
 # Compute pods (compute module)
 
-GPU and CPU pods on an org's own RunPod account that members SSH into with the `godfather` CLI
-(`pip install godfather-cli`).
+GPU and CPU pods on an org's own RunPod account that members SSH into with a compute CLI. The
+reference CLI is `godfather` (`pip install godfather-cli`).
 Officers create pods and choose who may use them. Members get a certificate for their own SSH key
 that works on one pod for twelve hours.
 
@@ -10,6 +10,11 @@ that works on one pod for twelve hours.
 1. Store the org's RunPod key as the org secret `runpod_api_key` (the same key the runpod apps
    module uses). `SECRETS_KEY` must be set on the server.
 2. Leave the `compute` module on for the org (it is on unless turned off).
+3. Optionally set, in the server's `.env`:
+   - `COMPUTE_CLI_NAME`: the CLI name in sign-in pages and errors ("Run <name> auth again").
+     Defaults to `the compute CLI`. AIS sets `COMPUTE_CLI_NAME=godfather`.
+   - `COMPUTE_POD_IMAGE`: the image a pod uses when the create body names none. Defaults to
+     `theaisocietyasu/godfather-base:latest`, the reference image for the pod contract below.
 
 The first pod creates two ed25519 key pairs for the org, stored in `compute_keys` with the private
 halves encrypted by `SECRETS_KEY`:
@@ -17,9 +22,11 @@ halves encrypted by `SECRETS_KEY`:
 - `backend`: its public key goes into root's authorized_keys on every pod.
 - `user_ca`: pods trust it through TrustedUserCAKeys; it signs member and officer certificates.
 
-Pods use the `theaisocietyasu/godfather-base` image by default. That image reads
+Pods use `COMPUTE_POD_IMAGE` by default. The pod contract: the image reads
 `GODFATHER_SSH_PUBLIC_KEY`, `GODFATHER_SSH_CA_PUBLIC_KEY` and `GODFATHER_SETUP` from its env, so
-those names are reserved. A different image must do the same setup to accept certificates.
+those names are reserved; it accepts certificates with principal `gf-<pod_id>`; and it provides
+`/usr/local/bin/godfather-login`. These names are fixed whatever `COMPUTE_CLI_NAME` is. A different
+image must do the same setup to accept certificates.
 
 ## Officer routes
 
@@ -54,7 +61,7 @@ Create body, every field optional:
 
 ## Member routes
 
-Discord login session and membership of the org's server, like other member routes. The godfather
+Discord login session and membership of the org's server, like other member routes. The compute
 CLI sends `Authorization: Bearer plat_...` instead (see CLI sign-in below); membership is checked on
 every request the same way.
 
@@ -70,9 +77,9 @@ hours from now. Every connect is in the audit log.
 
 ## CLI sign-in
 
-The godfather CLI gets its credential from a browser sign-in:
+The compute CLI gets its credential from a browser sign-in:
 
-1. `godfather auth` opens `GET /api/compute/<org>/cli/login`, which sends the member to Discord.
+1. `<cli> auth` (`godfather auth` for the reference CLI) opens `GET /api/compute/<org>/cli/login`, which sends the member to Discord.
 2. Discord returns to `GET /api/compute/cli/callback`. If the member is in the org's server and
    compute is on, the page shows a token once.
 3. The member pastes it into the CLI, which sends it as a bearer token on the member routes.
@@ -126,6 +133,6 @@ Pod host keys are not checked, since RunPod publishes none.
 
 ## Not ported yet
 
-- A member page for connecting. Members use the godfather CLI or the routes above.
+- A member page for connecting. Members use the compute CLI or the routes above.
 - The RunPod request and response field names follow RunPod's REST API and are checked against a
   fake in the tests, not against RunPod itself. Check them with a real key before the cutover.
