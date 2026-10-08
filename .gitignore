@@ -235,3 +235,4 @@ data
 # docs site
 !site/lib/
 !site/package-lock.json
+!dashboard/package-lock.json
