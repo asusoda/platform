@@ -7,7 +7,8 @@ from core.audit import _session, logger, record
 from core.request_log import _credential, _org
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-# Writes that are too frequent or carry nothing worth keeping; tool calls audit themselves
+# Writes that are too frequent or carry nothing worth keeping; tool calls audit themselves.
+# Modules add their own per-request writes here.
 SKIPPED_ROUTES = {"/api/auth/refresh", "/api/tools/<string:name>"}
 # Reads that change state
 AUDITED_READS = {"/api/auth/appToken"}

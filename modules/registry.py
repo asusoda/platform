@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 from flask import Blueprint, Flask, jsonify, request
 
+from modules.agents.api import agents_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.games.api import game_blueprint
@@ -43,11 +44,12 @@ MOUNTS = [
     Mount(superadmin_blueprint, "/api/superadmin"),
     Mount(storefront_blueprint, "/api/storefront", module="storefront"),
     Mount(tools_blueprint, "/api/tools"),
+    Mount(agents_blueprint, "/api/agents"),
 ]
 
 
 # Modules with background jobs. Importing a jobs.py registers its jobs with core.jobs.
-JOB_MODULES = ["core.audit", "modules.auth.jobs", "modules.points.jobs", "modules.calendar.jobs"]
+JOB_MODULES = ["core.audit", "modules.auth.jobs", "modules.points.jobs", "modules.calendar.jobs", "modules.agents.jobs"]
 
 
 # Modules with MCP tools. Importing a tools.py registers its tools with core.tools.

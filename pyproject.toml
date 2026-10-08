@@ -131,6 +131,7 @@ ignore_imports = [
 name = "service modules do not import Flask"
 type = "forbidden"
 source_modules = [
+    "modules.agents.service",
     "modules.auth.machine_tokens",
     "modules.calendar.service",
     "modules.leetcode.service",
