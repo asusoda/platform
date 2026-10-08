@@ -82,6 +82,11 @@ def _ensure_sqlite_parent_dir_exists() -> None:
         os.makedirs(db_dir, exist_ok=True)
 
 
+def include_object(obj, name, type_, reflected, compare_to):
+    """Procrastinate's tables come from its own schema SQL, not from our models."""
+    return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate_"))
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -101,6 +106,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -127,6 +133,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

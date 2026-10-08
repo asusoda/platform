@@ -20,14 +20,28 @@ sys.path.insert(0, str(REPO_ROOT))
 os.chdir(TEST_HOME)
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{TEST_HOME / 'data' / 'user.db'}"
 os.environ.setdefault("IS_PROD", "false")
+os.environ.setdefault("JOBS_BACKEND", "inline")
 
 
 def create_schema():
     """Create every table on a fresh test database. Production uses Alembic migrations instead."""
+    from importlib import import_module
+
     from sqlalchemy import text
 
     from core.base import Base
     from shared import db_connect
+
+    # The same model modules alembic/env.py loads, so every table is in Base.metadata
+    for model_module in (
+        "modules.auth.models",
+        "modules.bot.models",
+        "modules.calendar.models",
+        "modules.organizations.models",
+        "modules.points.models",
+        "modules.storefront.models",
+    ):
+        import_module(model_module)
 
     if db_connect.engine.dialect.name == "postgresql":
         with db_connect.engine.begin() as conn:

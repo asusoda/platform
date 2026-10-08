@@ -94,7 +94,7 @@ All keyed by **numeric org id**, not prefix.
 | GET | `/<org_prefix>/getUserPoints?discord_id=…` | JWT | One user's point history |
 | GET | `/<org_prefix>/getUserTotalPoints?discord_id=…` | JWT | `{user_id, discord_id, username, organization_id, total_points}` |
 | DELETE | `/<org_prefix>/delete_points` | JWT | Delete all point rows for a named event |
-| POST | `/<org_prefix>/uploadEventCSV` | JWT | Multipart CSV upload. Returns immediately; processing happens on a background thread. Results and errors go to the log only. |
+| POST | `/<org_prefix>/uploadEventCSV` | JWT | Multipart CSV upload. Returns 202; the `points.import_event_csv` job does the work. Results and errors go to the log only. |
 
 ---
 

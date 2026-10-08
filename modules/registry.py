@@ -4,6 +4,7 @@ To add a module: give it an api.py with a blueprint, add it here, and if orgs sh
 able to turn it off, add its name to OPTIONAL_MODULES in modules/organizations/service.py.
 """
 
+import importlib
 from dataclasses import dataclass, field
 
 from flask import Blueprint, Flask, jsonify, request
@@ -41,6 +42,15 @@ MOUNTS = [
     Mount(superadmin_blueprint, "/api/superadmin"),
     Mount(storefront_blueprint, "/api/storefront", module="storefront"),
 ]
+
+
+# Modules with background jobs. Importing a jobs.py registers its jobs with core.jobs.
+JOB_MODULES = ["modules.auth.jobs", "modules.points.jobs", "modules.calendar.jobs"]
+
+
+def load_jobs() -> None:
+    for name in JOB_MODULES:
+        importlib.import_module(name)
 
 
 def _gate(mount: Mount):

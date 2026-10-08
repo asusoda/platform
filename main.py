@@ -8,10 +8,11 @@ from datetime import UTC, datetime
 import discord
 from flask import jsonify  # Import current_app
 
+from core import jobs
 from core.discord_directory import DiscordDirectory
 from core.request_log import register_request_logging
 from modules.calendar import service as calendar_service
-from modules.registry import register_modules
+from modules.registry import load_jobs, register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Session cookies are signed with this key. A known default would let anyone forge a session,
@@ -75,6 +76,11 @@ register_request_logging(app, tokenManager)
 
 # Register Blueprints
 register_modules(app)
+
+# Background jobs. On Postgres the worker process (worker_main.py) runs them; on SQLite
+# periodic jobs run from a thread here, as the token cleanup always has.
+load_jobs()
+jobs.start_inline_scheduler()
 # Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 

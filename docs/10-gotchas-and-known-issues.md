@@ -17,7 +17,7 @@ refactors. Where they conflict with the code, the code wins.
 |-------|---------|
 | "Active modules: auth, bot, calendar, **merch**, organizations, …" | There is no `modules/merch`. It is `modules/storefront`. |
 | "**Two** separate bot instances (summarizer and auth)" | One bot. There is no summarizer bot anywhere in the tree. |
-| "Calendar Sync Service … runs every 120 minutes" | **No such scheduler exists.** Grep for `Thread(`, `time.sleep`, `tasks.loop`: the only background workers are the hourly refresh-token cleanup (`shared.py:98`), the LeetCode daily/verify loops, and the CSV thread. Calendar sync only happens when someone POSTs `/api/calendar/<org>/sync` or `/api/calendar/sync-all`. |
+| "Calendar Sync Service … runs every 120 minutes" | **No such scheduler exists.** Grep for `Thread(`, `time.sleep`, `tasks.loop`: background work is the jobs in `core/jobs.py` and the LeetCode daily/verify loops. Calendar sync runs on a schedule only if `CALENDAR_SYNC_CRON` is set. |
 | `modules/README.md` lists endpoints like `/auth/login`, `/points/award`, models like `PointBalance`, `PointRule` | Those paths and models do not exist. Real paths are `/api/auth/login`, `/api/points/<org>/assign_points`; the only points model is `Points`. |
 | `modules/storefront/README.md` schema | Missing `organization_id`, `category`, and `message` columns that the models actually have. |
 
@@ -259,9 +259,8 @@ claim.
 
 ### D15. CSV upload is fire-and-forget
 
-`modules/points/api.py:928` spawns a bare `threading.Thread`. No progress, no result reporting, no
-persistence — errors reach the log only, and the work dies if the process restarts. Fine for a
-few hundred rows.
+The upload defers the `points.import_event_csv` job. No progress or result reporting; errors
+reach the log only. On SQLite the job runs in a thread and dies if the process restarts.
 
 ### D16. `/api/calendar/<org>/events` hits Notion on every request
 

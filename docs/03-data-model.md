@@ -141,7 +141,7 @@ created but the live sync path does not depend on it.
 
 `token` (a SHA-256 **hash** of the actual refresh token, not the token itself), `username`,
 `discord_id`, `expires_at`, `created_at`. Persisted so refresh tokens survive an API restart. The
-hourly cleanup thread deletes expired rows.
+hourly `auth.cleanup_tokens` job deletes expired rows.
 
 ### `sessions` — `modules/auth/models.py:Session`
 

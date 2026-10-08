@@ -1,6 +1,5 @@
 # ben was here
 import csv
-import threading
 import time
 import uuid
 from io import StringIO
@@ -9,6 +8,7 @@ from flask import Blueprint, jsonify, request, session
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.exc import IntegrityError
 
+from core import jobs
 from core.logging_config import logger
 from modules.auth.access import awarded_by, decide
 from modules.auth.decoraters import auth_required
@@ -948,11 +948,14 @@ def upload_event_csv(org_prefix):
     # Read the file content
     file_content = file.stream.read().decode("utf-8")
 
-    # Start a new thread to process the CSV in the background
-    background_thread = threading.Thread(
-        target=process_csv_in_background, args=(file_content, event_name, event_points, org_prefix)
+    # Processed by the job worker (or a thread, on SQLite)
+    jobs.defer(
+        "points.import_event_csv",
+        file_content=file_content,
+        event_name=event_name,
+        event_points=event_points,
+        org_prefix=org_prefix,
     )
-    background_thread.start()
 
     # Return an immediate response while the CSV is being processed
     return jsonify({"message": "File is being processed in the background."}), 202

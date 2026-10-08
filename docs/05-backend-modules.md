@@ -72,7 +72,7 @@ The largest module (~1300 lines). Two halves: shared helper functions, then rout
 | `get_or_create_user(discord_id, org_id, username)` | Wrapper for Discord-originated users. |
 | `link_or_create_user(org_id, user_data, discord_id)` | Wrapper for member-store logins. |
 | `get_or_create_user_from_clerk(db, org_id, clerk_user, email)` | Wrapper for Clerk users. Derives a name from Clerk's first/last name, falling back to the email local part. Also called from the storefront checkout. |
-| `process_csv_in_background(...)` | Parses an uploaded attendance CSV and awards points row by row, in a background thread. |
+| `process_csv_in_background(...)` | Parses an uploaded attendance CSV and awards points row by row. Run by the `points.import_event_csv` job. |
 
 ### Routes
 
@@ -88,10 +88,10 @@ Officer (`@auth_required`): user CRUD, `add_points`, `assign_points` (aliased as
 
 ### CSV upload
 
-`POST /<org_prefix>/uploadEventCSV` reads the file **into memory**, then spawns a plain
-`threading.Thread` to process it and returns 202-style immediately. Consequences: no progress
-reporting, no result reporting, errors only reach the log, and the work dies if the process
-restarts mid-run. Fine for a few hundred rows; do not feed it a huge file.
+`POST /<org_prefix>/uploadEventCSV` reads the file **into memory**, defers the
+`points.import_event_csv` job with the file contents, and returns 202. On Postgres the worker runs
+it and a restart does not lose it; on SQLite it runs in a thread and dies with the process. Either
+way there is no progress or result reporting and errors only reach the log.
 
 ---
 
@@ -210,10 +210,10 @@ org.last_sync_at = now
 
 ### Sync is manual
 
-**There is no background scheduler for calendar sync.** Older documentation claims it runs every
-120 minutes; no such thread exists in the code. Sync happens only when something calls
-`POST /api/calendar/<org_prefix>/sync` or `POST /api/calendar/sync-all`. If you want it periodic,
-you need an external cron hitting those endpoints, or a new thread.
+**Calendar sync is not scheduled by default.** Sync happens when something calls
+`POST /api/calendar/<org_prefix>/sync` or `POST /api/calendar/sync-all`. To make it periodic, set
+`CALENDAR_SYNC_CRON` (for example `0 */2 * * *`) and the `calendar.sync_all` job runs on that
+schedule.
 
 ---
 

@@ -45,7 +45,6 @@ main.py imported
     │   └─ creates ./data/, creates all tables                      │  no app factory.
     ├─ builds `tokenManager` (loads or generates RSA keypair)       │
     ├─ Base.metadata.create_all()                                   │
-    ├─ starts a daemon thread: refresh-token cleanup, every 1 hour  │
     ├─ builds the Notion client                                     │
     └─ builds a BotFork instance (see gotcha: this one is unused)   ┘
 
@@ -69,8 +68,31 @@ main.py `initialize_app()` (only when run as __main__)
 |--------|-----------|--------------|
 | Main | `main.py:initialize_app` | The Flask dev server (`app.run`), handling HTTP |
 | `AuthBotThread` (daemon) | `main.py:114` | Owns its own asyncio loop, runs the Discord bot |
-| cleanup thread (daemon) | `shared.py:98` | Every 3600s, deletes expired rows from `refresh_tokens` |
+| `job-scheduler` (daemon, SQLite only) | `core/jobs.py:start_inline_scheduler`, called from `main.py` | Runs periodic jobs, e.g. hourly refresh-token cleanup. On Postgres the worker process runs them instead. |
 | py-cord task loops | inside `AuthBotThread` | `post_daily` (every 24h at a fixed time) and `verify_loop` (every 10 min while a daily challenge is live) |
+
+### Background jobs
+
+Modules declare jobs in a `jobs.py` with `@job(name, cron=..., retry=...)` from `core/jobs.py`,
+list that file in `JOB_MODULES` in `modules/registry.py`, and start one with
+`jobs.defer(name, **kwargs)`.
+
+| Job | Schedule | What it does |
+|-----|----------|--------------|
+| `auth.cleanup_tokens` | hourly | Deletes expired refresh tokens |
+| `points.import_event_csv` | on CSV upload | Awards event points from an attendance CSV |
+| `calendar.sync_all` | `CALENDAR_SYNC_CRON`, unset by default | Notion to Google sync for every enabled org |
+
+How they run depends on the database:
+
+- **Postgres:** Procrastinate. `defer` inserts a row in `procrastinate_jobs`; the `worker` compose
+  service (`worker_main.py`, postgres profile) runs it, retries failures, and schedules periodic
+  jobs. Job history is the `procrastinate_jobs` table. The schema comes from the Alembic migration
+  `e4b8c1f0a7d3`; upgrading procrastinate needs a migration that applies its SQL migrations.
+- **SQLite:** no queue. `defer` runs the job in a thread of the calling process and periodic jobs
+  run from a thread in the API, which is what the platform did before. `worker_main.py` exits.
+
+`JOBS_BACKEND=inline|procrastinate` overrides the choice; the tests use `inline`.
 
 Because the bot lives in a separate thread with its own event loop, Flask request handlers cannot
 `await` bot calls. Instead they call **synchronous** helper methods on the bot object

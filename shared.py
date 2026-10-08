@@ -1,7 +1,5 @@
 import asyncio
 import os
-import threading
-import time
 
 import discord
 import sentry_sdk
@@ -65,31 +63,6 @@ db_connect = DBConnect(os.environ.get("DATABASE_URL", "sqlite:///./data/user.db"
 
 # Initialize TokenManager
 tokenManager = TokenManager()
-
-
-# Periodic cleanup of expired refresh tokens
-def cleanup_expired_tokens():
-    """Clean up expired refresh tokens periodically"""
-    try:
-        tokenManager.cleanup_expired_refresh_tokens()
-        logger.info("Cleaned up expired refresh tokens")
-    except Exception as e:
-        logger.error(f"Error cleaning up expired tokens: {e}")
-
-
-# Schedule cleanup every hour
-
-
-def run_cleanup_scheduler():
-    """Run the cleanup scheduler in a separate thread"""
-    while True:
-        cleanup_expired_tokens()
-        time.sleep(3600)
-
-
-# Start cleanup scheduler in background thread
-cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
-cleanup_thread.start()
 
 
 def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:

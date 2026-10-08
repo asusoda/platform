@@ -94,10 +94,10 @@ Active modules: auth, bot, calendar, organizations, points, public, storefront, 
 - Bot runs in separate asyncio event loop in daemon thread
 - Bot token managed via environment variable (`BOT_TOKEN`)
 
-#### Background Services
-- **Calendar Sync Service**: Syncs Notion data to Google Calendar (runs every 120 minutes)
-- **Token Cleanup**: Automatic cleanup of expired refresh tokens (runs hourly)
-- **Multi-org Calendar Service**: Handles calendar operations across organizations
+#### Background Jobs
+- Declared per module in `jobs.py` with `@job` from `core/jobs.py`, listed in `modules/registry.py`
+- Postgres: Procrastinate queue, run by `worker_main.py`. SQLite: run in threads of the API process
+- Hourly refresh-token cleanup, CSV point imports, calendar sync when `CALENDAR_SYNC_CRON` is set
 
 ### Configuration Management
 - Environment variables via `.env` file (not tracked in git)
