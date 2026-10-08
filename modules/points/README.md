@@ -7,8 +7,8 @@ Tracks an organization's members and the points they earn. Officers add members,
 | File | Holds |
 | --- | --- |
 | `api.py` | Member and points routes, CSV upload, leaderboard, member login and profile; also the user helpers (`get_or_create_user`, `link_or_create_user`, `get_or_create_user_from_clerk`) that users and storefront import |
-| `service.py` | The leaderboard query; declares the `points:read` scope |
-| `models.py` | Users, org memberships, point entries |
+| `service.py` | The leaderboard query; the member field helpers that map the deprecated `asu_id` and `academic_standing` keys to `student_id` and `class_standing` and merge per-org `profile_fields`; declares the `points:read` scope |
+| `models.py` | Users, org memberships (with the org's `profile_fields`), point entries |
 | `tools.py` | The `points.leaderboard` tool |
 | `jobs.py` | The CSV import job |
 

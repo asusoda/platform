@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from modules.auth.decoraters import auth_required, error_handler
 from modules.points.models import Points, User
+from modules.points.service import member_fields, member_input, merge_profile_fields
 from shared import db_connect
 
 logger = logging.getLogger(__name__)
@@ -96,8 +97,7 @@ def view_user_in_org(org_prefix):
             "username": user.username,
             "email": user.email,
             "uuid": user.uuid,
-            "asu_id": user.asu_id,
-            "academic_standing": user.academic_standing,
+            **member_fields(user, membership),
             "major": user.major,
             "discord_linked": bool(user.discord_id),
             "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -126,8 +126,9 @@ def view_user_in_org(org_prefix):
 def create_user_in_org(org_prefix):
     user_email = request.args.get("email")
     user_name = request.args.get("name")
-    user_asu_id = request.args.get("asu_id")
-    user_academic_standing = request.args.get("academic_standing")
+    args = member_input(request.args.to_dict())
+    student_id = args.get("student_id")
+    class_standing = args.get("class_standing")
 
     if not user_email or not user_name:
         return jsonify({"error": "Email and name are required"}), 400
@@ -170,8 +171,8 @@ def create_user_in_org(org_prefix):
             email=user_email,
             name=user_name,
             username=None,  # Can be set later
-            asu_id=user_asu_id if user_asu_id and user_asu_id != "N/A" else None,
-            academic_standing=user_academic_standing or "N/A",
+            student_id=student_id if student_id and student_id != "N/A" else None,
+            class_standing=class_standing or "N/A",
             major="N/A",
             uuid=str(uuid.uuid4()),
         )
@@ -256,15 +257,14 @@ def user_in_org(org_prefix):
                 "name": user.name,
                 "email": user.email,
                 "uuid": user.uuid,
-                "asu_id": user.asu_id,
-                "academic_standing": user.academic_standing,
+                **member_fields(user, membership),
                 "major": user.major,
             }
             return jsonify(user_data), 200
 
         # Handle POST request - update user info or create a new user if not found
         elif request.method == "POST":
-            data = request.json
+            data = member_input(request.json or {})
 
             if user:
                 # Check if user is a member of this organization
@@ -280,12 +280,17 @@ def user_in_org(org_prefix):
                 # Update user fields only if they are provided
                 if "name" in data:
                     user.name = data["name"]
-                if "asu_id" in data:
-                    user.asu_id = data["asu_id"]
-                if "academic_standing" in data:
-                    user.academic_standing = data["academic_standing"]
+                if "student_id" in data:
+                    user.student_id = data["student_id"]
+                if "class_standing" in data:
+                    user.class_standing = data["class_standing"]
                 if "major" in data:
                     user.major = data["major"]
+                if "profile_fields" in data:
+                    error = merge_profile_fields(membership, data["profile_fields"])
+                    if error:
+                        db.rollback()
+                        return jsonify({"error": error}), 400
 
                 db.commit()
                 return jsonify({"message": "User information updated successfully."}), 200
@@ -298,8 +303,10 @@ def user_in_org(org_prefix):
                     name=data.get("name"),
                     email=user_email,
                     username=None,  # Can be set later
-                    asu_id=data.get("asu_id") if data.get("asu_id") and data.get("asu_id") != "N/A" else None,
-                    academic_standing=data.get("academic_standing", "N/A"),
+                    student_id=data.get("student_id")
+                    if data.get("student_id") and data.get("student_id") != "N/A"
+                    else None,
+                    class_standing=data.get("class_standing", "N/A"),
                     major=data.get("major", "N/A"),
                     uuid=str(uuid.uuid4()),
                 )
@@ -338,6 +345,11 @@ def user_in_org(org_prefix):
 
                 # Add membership to organization
                 membership = UserOrganizationMembership(user_id=new_user.id, organization_id=organization.id)
+                if "profile_fields" in data:
+                    error = merge_profile_fields(membership, data["profile_fields"])
+                    if error:
+                        db.rollback()
+                        return jsonify({"error": error}), 400
                 db.add(membership)
                 db.commit()
 
@@ -406,8 +418,7 @@ def get_organization_users(org_prefix):
                         "name": user.name,
                         "username": user.username,
                         "email": user.email,
-                        "asu_id": user.asu_id,
-                        "academic_standing": user.academic_standing,
+                        **member_fields(user, membership),
                         "major": user.major,
                         "discord_linked": bool(user.discord_id),
                         "points": user_points,
@@ -503,8 +514,7 @@ def get_user_in_organization(org_prefix, user_identifier):
                     "name": user.name,
                     "username": user.username,
                     "email": user.email,
-                    "asu_id": user.asu_id,
-                    "academic_standing": user.academic_standing,
+                    **member_fields(user, membership),
                     "major": user.major,
                     "discord_linked": bool(user.discord_id),
                     "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -550,13 +560,16 @@ def add_user_to_organization(org_prefix):
             return jsonify({"error": "Either name or username is required"}), 400
 
         # Use the link_or_create_user function from points API
+        fields = member_input(data)
+        student_id = fields.get("student_id")
         user_data = {
-            "username": data.get("username"),
-            "email": data.get("email"),
-            "name": data.get("name"),
-            "asu_id": data.get("asu_id") if data.get("asu_id") and data.get("asu_id") != "N/A" else None,
-            "academic_standing": data.get("academic_standing", "N/A"),
-            "major": data.get("major", "N/A"),
+            "username": fields.get("username"),
+            "email": fields.get("email"),
+            "name": fields.get("name"),
+            "student_id": student_id if student_id and student_id != "N/A" else None,
+            "class_standing": fields.get("class_standing", "N/A"),
+            "major": fields.get("major", "N/A"),
+            "profile_fields": fields.get("profile_fields"),
         }
 
         user = link_or_create_user(organization.id, user_data, data.get("discord_id"))

@@ -89,12 +89,12 @@ All keyed by **numeric org id**, not prefix.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/` | — | `{message: "Points"}` liveness stub |
-| POST | `/<org_prefix>/member_login` | — | Body: `{name, username, email, asu_id, academic_standing, major}`. Links or creates a user, stores `member_user_id`/`member_org_id` in the session. |
+| POST | `/<org_prefix>/member_login` | — | Body: `{name, username, email, student_id, class_standing, major}` (or the deprecated `asu_id`, `academic_standing`; see [api-contract.md](api-contract.md#member-fields)). Links or creates a user, stores `member_user_id`/`member_org_id` in the session. |
 | GET | `/<org_prefix>/member_profile` | SESSION | Profile + memberships + points for the session's member |
 | GET | `/<org_prefix>/leaderboard` | — | Public points leaderboard for the org |
 | POST | `/<org_prefix>/users` | JWT | Create or link a user into the org |
 | GET | `/<org_prefix>/users` | JWT | All users in the org, with point totals |
-| PUT/PATCH | `/<org_prefix>/users/<user_identifier>` | JWT | Update user fields (unique fields validated) |
+| PUT/PATCH | `/<org_prefix>/users/<user_identifier>` | JWT | Update user fields (unique fields validated). `profile_fields` merges into the org's fields for that member; a null value removes a key. |
 | GET | `/<org_prefix>/users/<user_identifier>/points` | JWT | That user's point history |
 | POST | `/<org_prefix>/add_points` | JWT | Award points |
 | POST | `/<org_prefix>/assign_points` | JWT | Award points. Body: `{user_identifier, points, event, awarded_by_officer}`. `user_identifier` is matched against email → uuid → username. Requires an active membership. |
