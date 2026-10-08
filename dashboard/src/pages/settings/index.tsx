@@ -1,18 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
-import { Badge, Card, CardHeader, cx, ErrorNote, PageHeader, PageSkeleton, Row, SkeletonRows, Switch } from '../../components/ui';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { Card, CardHeader, cx, ErrorNote, PageHeader, PageSkeleton, quietLink, Row, SkeletonRows, Switch } from '../../components/ui';
 import { api, send } from '../../lib/api';
-import { timeAgo } from '../../lib/format';
 import { useCurrentOrg } from '../../lib/org';
 import { useBranding, useModules, useOrganization } from '../../lib/queries';
-import type { CalendarSettings, LeetCodeSettings, ModuleState, Organization, SecretState } from '../../lib/types';
+import type { ModuleState, Organization, SecretState } from '../../lib/types';
 import { BrandingForm } from './branding';
-import { CalendarForm } from './calendar';
 import { GeneralForm } from './general';
-import { LeetCodeForm } from './leetcode';
 import { SecretRow } from './secrets';
 
 type Section = { id: string; label: string };
+
+// The dashboard page of each optional module.
+const MODULE_PAGES: Record<string, string> = {
+  points: 'points',
+  storefront: 'store',
+  calendar: 'calendar',
+  leetcode: 'leetcode',
+  compute: 'compute',
+  alerts: 'alerts',
+};
+
+// Sections that moved to their own pages, for links made before the move.
+const MOVED: Record<string, string> = { '#calendar': 'calendar', '#leetcode': 'leetcode' };
 
 // The id of the section nearest the top of the viewport.
 function useActiveSection(ids: string[]): string | undefined {
@@ -104,7 +115,7 @@ function BrandingSection({ org, prefix }: { org: Organization; prefix: string })
   );
 }
 
-function ModulesSection({ org, modules }: { org: Organization; modules: ReturnType<typeof useModules> }) {
+function ModulesSection({ org, prefix, modules }: { org: Organization; prefix: string; modules: ReturnType<typeof useModules> }) {
   const client = useQueryClient();
   const toggle = useMutation({
     mutationFn: (m: ModuleState) => send(`/api/organizations/${org.id}/modules`, 'PUT', { modules: { [m.name]: !m.enabled } }),
@@ -115,7 +126,7 @@ function ModulesSection({ org, modules }: { org: Organization; modules: ReturnTy
   });
   return (
     <Card>
-      <CardHeader title="Modules" hint="A module that is off returns 404 for this organization." />
+      <CardHeader title="Modules" hint="A module that is off returns 404 for this organization, and its page leaves the sidebar." />
       <Pending error={modules.error} loading={modules.isLoading} />
       {modules.data?.modules.map((m) => (
         <Row key={m.name}>
@@ -123,6 +134,11 @@ function ModulesSection({ org, modules }: { org: Organization; modules: ReturnTy
             <div className="text-sm font-medium">{m.name}</div>
             <div className="mt-0.5 text-xs text-muted">{m.description}</div>
           </div>
+          {m.enabled && MODULE_PAGES[m.name] ? (
+            <Link to={`/${prefix}/${MODULE_PAGES[m.name]}`} className={quietLink}>
+              Open
+            </Link>
+          ) : null}
           <Switch checked={m.enabled} onChange={() => toggle.mutate(m)} disabled={toggle.isPending} label={m.name} />
         </Row>
       ))}
@@ -131,45 +147,6 @@ function ModulesSection({ org, modules }: { org: Organization; modules: ReturnTy
           <ErrorNote error={toggle.error} />
         </div>
       ) : null}
-    </Card>
-  );
-}
-
-function CalendarSection({ orgId }: { orgId: number }) {
-  const calendar = useQuery({
-    queryKey: ['calendar-settings', orgId],
-    queryFn: () => api<CalendarSettings>(`/api/organizations/${orgId}/calendar`),
-  });
-  const last = calendar.data?.last_sync_at;
-  return (
-    <Card>
-      <CardHeader
-        title="Calendar"
-        hint="Where events come from in Notion and which Google calendar they go to."
-        action={calendar.data ? <Badge tone={last ? 'ok' : 'muted'}>{last ? `Synced ${timeAgo(last)}` : 'Never synced'}</Badge> : null}
-      />
-      {calendar.data ? (
-        <CalendarForm key={orgId} orgId={orgId} saved={calendar.data} />
-      ) : (
-        <Pending error={calendar.error} loading={calendar.isLoading} />
-      )}
-    </Card>
-  );
-}
-
-function LeetCodeSection({ orgId }: { orgId: number }) {
-  const leetcode = useQuery({
-    queryKey: ['leetcode-settings', orgId],
-    queryFn: () => api<{ settings: LeetCodeSettings; enabled: boolean }>(`/api/organizations/${orgId}/leetcode`),
-  });
-  return (
-    <Card>
-      <CardHeader title="LeetCode" hint="The daily problem post in the organization's Discord server." />
-      {leetcode.data ? (
-        <LeetCodeForm key={orgId} orgId={orgId} saved={leetcode.data.settings} />
-      ) : (
-        <Pending error={leetcode.error} loading={leetcode.isLoading} />
-      )}
     </Card>
   );
 }
@@ -193,17 +170,28 @@ function SecretsSection({ orgId }: { orgId: number }) {
   );
 }
 
+// Scrolls to the section in the URL hash once the page shows, or opens the page a section moved to.
+function useHashSection(prefix: string, ready: boolean) {
+  const { hash } = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (MOVED[hash]) {
+      navigate(`/${prefix}/${MOVED[hash]}`, { replace: true });
+      return;
+    }
+    if (ready && hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [hash, prefix, ready, navigate]);
+}
+
 export function SettingsPage() {
   const { org, prefix } = useCurrentOrg();
   const modules = useModules(org?.id);
+  useHashSection(prefix, Boolean(org));
   if (!org) return <PageSkeleton />;
-  const on = (name: string) => Boolean(modules.data?.modules.find((m) => m.name === name)?.enabled);
   const sections: (Section & { body: ReactNode })[] = [
     { id: 'general', label: 'General', body: <GeneralSection org={org} /> },
     { id: 'branding', label: 'Branding', body: <BrandingSection org={org} prefix={prefix} /> },
-    { id: 'modules', label: 'Modules', body: <ModulesSection org={org} modules={modules} /> },
-    ...(on('calendar') ? [{ id: 'calendar', label: 'Calendar', body: <CalendarSection orgId={org.id} /> }] : []),
-    ...(on('leetcode') ? [{ id: 'leetcode', label: 'LeetCode', body: <LeetCodeSection orgId={org.id} /> }] : []),
+    { id: 'modules', label: 'Modules', body: <ModulesSection org={org} prefix={prefix} modules={modules} /> },
     { id: 'secrets', label: 'Secrets', body: <SecretsSection orgId={org.id} /> },
   ];
   return (

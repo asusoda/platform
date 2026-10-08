@@ -83,7 +83,7 @@ export function OverviewPage() {
             title="Modules"
             hint={`${enabled} of ${data.modules.length} on for this organization`}
             action={
-              <Link to="settings" className={quietLink}>
+              <Link to="settings#modules" className={quietLink}>
                 Change
               </Link>
             }

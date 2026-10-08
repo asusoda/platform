@@ -33,7 +33,7 @@ function MissingKey({ prefix }: { prefix: string }) {
       icon={KeyRound}
       title="Add the organization's RunPod API key"
       action={
-        <Link to={`/${prefix}/settings`} className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg shadow-xs hover:opacity-85">
+        <Link to={`/${prefix}/settings#secrets`} className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg shadow-xs hover:opacity-85">
           Open settings
         </Link>
       }
