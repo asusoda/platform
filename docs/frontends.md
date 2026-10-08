@@ -6,9 +6,15 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 
 `dashboard/` is a Vite and React app with Tailwind and TanStack Query. It calls the API and has no server code.
 
+The sidebar puts the pages in sections: Members (Points, Store), Automations (Alerts, Calendar, LeetCode), Knowledge and agents, and Infrastructure (Compute, Apps, Tokens). The page of an optional module shows only when the module is on for the org. A section with no pages has no header. If you open the page of a module that is off, the page links to Settings, Modules.
+
 | Page | Shows |
 | --- | --- |
 | Overview | Problems, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
+| Points | Members ranked by points, with the entries of each member. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV. Events grouped by name, with delete for all entries of an event |
+| Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: change the status, add a message to the member, delete |
+| Calendar | The Notion database and Google calendar settings, sync on or off, sync now, create the Google calendar, and the upcoming events |
+| LeetCode | The daily post settings (channel, role to ping, time) and the slash commands members use |
 | Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete, and the history of each feed: its last 50 runs with counts and errors, and its last 50 items |
 | Apps | The org's bots, agents, sites and services, grouped by kind, with the host of each: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
@@ -16,7 +22,7 @@ Platform has two officer frontends. `dashboard/` is the officer dashboard: offic
 | Agents | Conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
 | Activity | Three tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists |
-| Settings | General, branding, module switches, calendar, LeetCode and org secrets |
+| Settings | General, branding, module switches and org secrets |
 | Superadmin | Orgs, officer roles, Discord servers without an org, and the audit log of all orgs. Only the superadmin sees it |
 
 The dashboard uses these officer routes in `modules/dashboard/`:
@@ -30,11 +36,11 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `/api/dashboard/<org>/apps/...` | List, register, delete, deploy and roll back apps, and read the pod. The same operations as `/api/apps` in [runpod-apps](modules/runpod-apps.md), for officers |
 | `/api/dashboard/<org>/knowledge/...` | List and delete sources, upload documents, add and run crawls, read and set the search settings, start a reindex, read the run log, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
 
-The other pages use the routes of their modules: `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
+The other pages use the routes of their modules: `/api/points`, `/api/storefront`, `/api/calendar`, `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
 
 For private repos, save a read-only GitHub token with Actions read access as the org secret `github_token`.
 
-The Settings page has these sections: General (description, points per message, points cooldown), Branding, Modules, Calendar and LeetCode (shown only when the module is on), and Secrets. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
+The Settings page has these sections: General (description, points per message, points cooldown), Branding, Modules and Secrets. The calendar and LeetCode settings are on the Calendar and LeetCode pages. The old links `settings#calendar` and `settings#leetcode` open those pages. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
 
 Each org sets its logo, accent color and website on the Settings page. The sidebar links to the website. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 

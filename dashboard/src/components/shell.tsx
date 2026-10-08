@@ -1,12 +1,15 @@
 import {
   Activity,
-  Globe,
   BellRing,
   Bot,
   Boxes,
+  CalendarDays,
   ChevronsUpDown,
+  CodeXml,
+  Coins,
   Cpu,
   Database,
+  Globe,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -15,6 +18,7 @@ import {
   Moon,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   Sun,
   X,
 } from 'lucide-react';
@@ -23,21 +27,53 @@ import { NavLink, Outlet, useNavigate } from 'react-router';
 import { tokens } from '../lib/auth';
 import { useAccentColor } from '../lib/branding';
 import { useCurrentOrg, useOrganizations } from '../lib/org';
-import { useBranding, useSuperadmin } from '../lib/queries';
+import { useBranding, useModules, useSuperadmin } from '../lib/queries';
 import { type Theme, useTheme } from '../lib/theme';
 import { OrgMark } from './org-mark';
 import { cx } from './ui';
 
-const NAV = [
-  { to: '', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: 'compute', label: 'Compute', icon: Cpu },
-  { to: 'apps', label: 'Apps', icon: Boxes },
-  { to: 'knowledge', label: 'Knowledge', icon: Database },
-  { to: 'alerts', label: 'Alerts', icon: BellRing },
-  { to: 'agents', label: 'Agents', icon: Bot },
-  { to: 'tokens', label: 'Tokens', icon: KeyRound },
-  { to: 'activity', label: 'Activity', icon: Activity },
-  { to: 'settings', label: 'Settings', icon: Settings },
+type NavItem = { to: string; label: string; icon: typeof Sun; end?: boolean; module?: string; superadmin?: boolean };
+
+// The sidebar sections. An item with a module shows only when that module is on.
+const NAV: { title?: string; items: NavItem[] }[] = [
+  { items: [{ to: '', label: 'Overview', icon: LayoutDashboard, end: true }] },
+  {
+    title: 'Members',
+    items: [
+      { to: 'points', label: 'Points', icon: Coins, module: 'points' },
+      { to: 'store', label: 'Store', icon: ShoppingBag, module: 'storefront' },
+    ],
+  },
+  {
+    title: 'Automations',
+    items: [
+      { to: 'alerts', label: 'Alerts', icon: BellRing, module: 'alerts' },
+      { to: 'calendar', label: 'Calendar', icon: CalendarDays, module: 'calendar' },
+      { to: 'leetcode', label: 'LeetCode', icon: CodeXml, module: 'leetcode' },
+    ],
+  },
+  {
+    title: 'Knowledge and agents',
+    items: [
+      { to: 'knowledge', label: 'Knowledge', icon: Database },
+      { to: 'agents', label: 'Agents', icon: Bot },
+    ],
+  },
+  {
+    title: 'Infrastructure',
+    items: [
+      { to: 'compute', label: 'Compute', icon: Cpu, module: 'compute' },
+      { to: 'apps', label: 'Apps', icon: Boxes },
+      { to: 'tokens', label: 'Tokens', icon: KeyRound },
+    ],
+  },
+  {
+    items: [
+      { to: 'activity', label: 'Activity', icon: Activity },
+      { to: 'settings', label: 'Settings', icon: Settings },
+      { to: 'admin', label: 'Superadmin', icon: ShieldCheck, superadmin: true },
+    ],
+  },
 ];
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
@@ -102,45 +138,58 @@ function ThemeSwitch() {
 }
 
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
-  const { prefix } = useCurrentOrg();
+  const { org, prefix } = useCurrentOrg();
   const navigate = useNavigate();
   const { data: superadmin } = useSuperadmin();
+  const modules = useModules(org?.id).data?.modules;
   const website = useBranding(prefix).data?.website_url;
-  const items = superadmin ? [...NAV, { to: 'admin', label: 'Superadmin', icon: ShieldCheck, end: false }] : NAV;
+  // A module is hidden only when the API says it is off.
+  const shown = (item: NavItem) =>
+    (!item.superadmin || superadmin) && !(item.module && modules?.some((m) => m.name === item.module && !m.enabled));
+  const sections = NAV.map((s) => ({ ...s, items: s.items.filter(shown) })).filter((s) => s.items.length);
   return (
-    <div className="flex h-full flex-col gap-5 p-3">
+    <div className="flex h-full flex-col gap-4 p-3">
       <OrgSwitcher />
-      <nav aria-label="Pages" className="flex flex-col gap-0.5">
-        {items.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={label}
-            to={`/${prefix}${to ? `/${to}` : ''}`}
-            end={end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cx(
-                'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
-                isActive ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:bg-panel-2/60 hover:text-fg',
-              )
-            }
+      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
+        <nav aria-label="Pages" className="flex flex-col gap-3">
+          {sections.map((section, i) => (
+            <div key={section.title ?? i} className="flex flex-col gap-0.5">
+              {section.title ? (
+                <h2 className="px-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted/80 uppercase">{section.title}</h2>
+              ) : null}
+              {section.items.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={label}
+                  to={`/${prefix}${to ? `/${to}` : ''}`}
+                  end={end}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    cx(
+                      'flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
+                      isActive ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:bg-panel-2/60 hover:text-fg',
+                    )
+                  }
+                >
+                  <Icon className="size-4" />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
+        {website ? (
+          <a
+            href={website}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-8 min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"
           >
-            <Icon className="size-4" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-      {website ? (
-        <a
-          href={website}
-          target="_blank"
-          rel="noreferrer"
-          className="flex h-8 min-w-0 items-center gap-2.5 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"
-        >
-          <Globe className="size-4 shrink-0" />
-          <span className="truncate">{new URL(website).host}</span>
-        </a>
-      ) : null}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
+            <Globe className="size-4 shrink-0" />
+            <span className="truncate">{new URL(website).host}</span>
+          </a>
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
         <button
           className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"
           onClick={() => {

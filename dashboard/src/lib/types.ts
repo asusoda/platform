@@ -334,3 +334,75 @@ export type PodFile = {
   modified: number;
   permissions: string;
 };
+
+// A member of the org with their total, from GET /api/points/<org>/users.
+export type PointsMember = {
+  id: number;
+  uuid: string;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+  major: string | null;
+  discord_linked: boolean;
+  points: number;
+  joined_at: string | null;
+  created_at: string | null;
+};
+
+// One point entry. Negative points pay for a store order.
+export type PointEntry = {
+  id: number;
+  points: number;
+  event: string | null;
+  awarded_by_officer: string | null;
+  timestamp: string | null;
+  last_updated: string | null;
+  user_id: number;
+  organization_id: number;
+};
+
+export type PointsHistory = {
+  user: { id: number; name: string | null; email: string | null; username: string | null };
+  total_points: number;
+  points_history: Omit<PointEntry, 'user_id' | 'organization_id'>[];
+};
+
+export type Product = {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  stock: number;
+  image_url: string | null;
+  category: string | null;
+  organization_id: number;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type OrderItem = { id: number; product_id: number; quantity: number; price_at_time: number };
+
+export type Order = {
+  id: number;
+  user_id: number;
+  total_amount: number;
+  status: string;
+  message: string | null;
+  created_at: string;
+  updated_at: string | null;
+  organization_id: number;
+  user_name: string;
+  user_email: string | null;
+  items: OrderItem[];
+};
+
+// An event of the org's Notion calendar. Only id, title and start are always present.
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end?: string;
+  location?: string;
+  description?: string;
+  gcal_id?: string;
+};

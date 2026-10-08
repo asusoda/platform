@@ -8,12 +8,16 @@ import { AgentsPage } from './pages/agents';
 import { AlertsPage } from './pages/alerts';
 import { AppsPage } from './pages/apps';
 import { AuthCallbackPage } from './pages/auth-callback';
+import { CalendarPage } from './pages/calendar';
 import { ComputePage } from './pages/compute';
 import { KnowledgePage } from './pages/knowledge';
+import { LeetCodePage } from './pages/leetcode';
 import { LoginPage } from './pages/login';
 import { OrganizationsPage } from './pages/orgs';
 import { OverviewPage } from './pages/overview';
+import { PointsPage } from './pages/points';
 import { SettingsPage } from './pages/settings';
+import { StorePage } from './pages/store';
 import { TokensPage } from './pages/tokens';
 
 function SignedIn({ children }: { children: ReactNode }) {
@@ -28,6 +32,10 @@ export function App() {
       <Route path="/" element={<SignedIn><OrganizationsPage /></SignedIn>} />
       <Route path="/:org" element={<SignedIn><Shell /></SignedIn>}>
         <Route index element={<OverviewPage />} />
+        <Route path="points" element={<PointsPage />} />
+        <Route path="store" element={<StorePage />} />
+        <Route path="calendar" element={<CalendarPage />} />
+        <Route path="leetcode" element={<LeetCodePage />} />
         <Route path="compute" element={<ComputePage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="apps" element={<AppsPage />} />

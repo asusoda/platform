@@ -10,7 +10,7 @@ export const BRANDING = { logo_url: null, accent_color: '#2563eb', website_url: 
 
 const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
-  { name: 'storefront', description: 'Merch store paid with points', enabled: false },
+  { name: 'storefront', description: 'Merch store paid with points', enabled: true },
   { name: 'calendar', description: 'Notion to Google Calendar sync and the public events feed', enabled: true },
   { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: true },
   { name: 'compute', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
@@ -581,6 +581,141 @@ export function fixtures(now = Date.now()) {
     ...jobs.slice(0, 2),
   ].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
+  // Points: members with totals, and the entries the totals come from.
+  const people = [
+    ['Ada Park', 'ada.park@example.edu', true],
+    ['Bruno Silva', 'bruno.silva@example.edu', true],
+    ['Chen Wei', 'chen.wei@example.edu', true],
+    ['Dana Ortiz', 'dana.ortiz@example.edu', false],
+    ['Eli Novak', 'eli.novak@example.edu', true],
+    ['Farah Haddad', 'farah.haddad@example.edu', true],
+    ['Gus Moreno', 'gus.moreno@example.edu', false],
+    ['Hana Sato', 'hana.sato@example.edu', true],
+  ];
+  const awards = [
+    ['Build night', 10, -2 * DAY, [0, 1, 2, 4, 5, 7]],
+    ['Robot demo day', 25, -9 * DAY, [0, 2, 3, 5]],
+    ['Intro to ROS workshop', 15, -16 * DAY, [0, 1, 4, 6, 7]],
+    ['Soldering workshop', 10, -23 * DAY, [1, 2, 3]],
+    ['Regional competition', 50, -40 * DAY, [0, 2, 5]],
+  ];
+  const pointEntries = [];
+  for (const [event, points, offset, who] of awards) {
+    for (const i of who) {
+      pointEntries.push({
+        id: pointEntries.length + 1,
+        points,
+        event,
+        awarded_by_officer: event === 'Robot demo day' ? 'CSV Upload' : 'officer',
+        timestamp: at(offset + i * MINUTE),
+        last_updated: at(offset + i * MINUTE),
+        user_id: 100 + i,
+        organization_id: ORG.id,
+      });
+    }
+  }
+  pointEntries.push({
+    id: pointEntries.length + 1,
+    points: -40,
+    event: 'Storefront Purchase - Order #41',
+    awarded_by_officer: 'System',
+    timestamp: at(-5 * DAY),
+    last_updated: at(-5 * DAY),
+    user_id: 100,
+    organization_id: ORG.id,
+  });
+  const members = people.map(([name, email, linked], i) => ({
+    id: 100 + i,
+    uuid: `5b1f0c2e-0000-4000-8000-00000000010${i}`,
+    name,
+    username: email.split('@')[0],
+    email,
+    major: null,
+    discord_linked: linked,
+    points: pointEntries.filter((e) => e.user_id === 100 + i).reduce((n, e) => n + e.points, 0),
+    joined_at: at(-(60 + i * 7) * DAY),
+    created_at: at(-(60 + i * 7) * DAY),
+  }));
+  const pointsHistory = Object.fromEntries(
+    members.map((m) => [
+      `/api/points/${ORG.prefix}/users/${encodeURIComponent(m.email)}/points`,
+      {
+        user: { id: m.id, name: m.name, email: m.email, username: m.username },
+        organization: { name: ORG.name, prefix: ORG.prefix },
+        total_points: m.points,
+        points_history: pointEntries
+          .filter((e) => e.user_id === m.id)
+          .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+          .map(({ id, points, event, awarded_by_officer, timestamp, last_updated }) => ({
+            id,
+            points,
+            event,
+            awarded_by_officer,
+            timestamp,
+            last_updated,
+          })),
+      },
+    ]),
+  );
+
+  // Store: products and the orders members placed.
+  const product = (id, name, category, price, stock, updated) => ({
+    id,
+    name,
+    description: null,
+    price,
+    stock,
+    image_url: null,
+    category,
+    organization_id: ORG.id,
+    created_at: at(-90 * DAY),
+    updated_at: at(updated),
+  });
+  const products = [
+    product(1, 'Club hoodie', 'Apparel', 250, 14, -3 * DAY),
+    product(2, 'Rover sticker pack', 'Stickers', 20, 120, -12 * DAY),
+    product(3, 'Arduino starter kit', 'Hardware', 180, 0, -1 * DAY),
+    product(4, 'Competition T-shirt', 'Apparel', 120, 32, -20 * DAY),
+    product(5, 'Servo motor', 'Hardware', 40, 25, -6 * DAY),
+  ];
+  const order = (id, who, status, offset, items, message = null) => ({
+    id,
+    user_id: 100 + who,
+    total_amount: items.reduce((n, [pid, qty]) => n + products[pid - 1].price * qty, 0),
+    status,
+    message,
+    created_at: at(offset),
+    updated_at: at(offset + HOUR),
+    organization_id: ORG.id,
+    user_name: people[who][0],
+    user_email: people[who][1],
+    items: items.map(([pid, qty], i) => ({
+      id: id * 10 + i,
+      product_id: pid,
+      quantity: qty,
+      price_at_time: products[pid - 1].price,
+    })),
+  });
+  const orders = [
+    order(44, 2, 'pending', -3 * HOUR, [
+      [1, 1],
+      [2, 2],
+    ]),
+    order(43, 5, 'processing', -1 * DAY, [[5, 2]], 'Pick up at the Thursday build night.'),
+    order(42, 7, 'pending', -2 * DAY, [[4, 1]]),
+    order(41, 0, 'delivered', -5 * DAY, [[2, 2]], 'Picked up.'),
+    order(40, 1, 'cancelled', -11 * DAY, [[3, 1]]),
+  ];
+
+  // Calendar: upcoming events from the Notion database. An event with only a date lasts all day.
+  const calendarEvents = [
+    { id: 'n-1', title: 'Build night', start: at(2 * DAY), end: at(2 * DAY + 3 * HOUR), location: 'Engineering Center, room 210' },
+    { id: 'n-2', title: 'Intro to CAD workshop', start: at(5 * DAY), end: at(5 * DAY + 2 * HOUR), location: 'Library makerspace' },
+    { id: 'n-3', title: 'General meeting', start: at(8 * DAY), end: at(8 * DAY + HOUR), location: 'Student union, ballroom B' },
+    { id: 'n-4', title: 'Rover field test', start: at(12 * DAY).slice(0, 10) },
+    { id: 'n-5', title: 'Build night', start: at(9 * DAY), end: at(9 * DAY + 3 * HOUR), location: 'Engineering Center, room 210' },
+  ];
+
   return {
     '/api/organizations/': [ORG],
     [`/api/organizations/${ORG.id}`]: orgDetail,
@@ -648,6 +783,23 @@ export function fixtures(now = Date.now()) {
     ),
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files`]: { path: '/workspace', files: podFiles },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files/read`]: { path: '/workspace/README.md', content: readme },
+
+    [`/api/points/${ORG.prefix}/users`]: {
+      organization: { name: ORG.name, prefix: ORG.prefix, description: orgDetail.description },
+      total_users: members.length,
+      users: members,
+    },
+    [`/api/points/${ORG.prefix}/get_points`]: pointEntries,
+    ...pointsHistory,
+    [`/api/storefront/${ORG.prefix}/products`]: products,
+    [`/api/storefront/${ORG.prefix}/orders`]: orders,
+    [`/api/calendar/${ORG.prefix}/events`]: {
+      status: 'success',
+      organization_id: ORG.id,
+      organization_name: ORG.name,
+      events: calendarEvents,
+      total_events: calendarEvents.length,
+    },
 
     [`/api/organizations/${ORG.id}/secrets`]: {
       configured: true,
