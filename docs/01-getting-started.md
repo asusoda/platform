@@ -67,6 +67,9 @@ All of these live in `.env` at the repo root. `core/config.py` reads them into a
 | `TIMEZONE` | Defaults to `America/Phoenix`. Drives the LeetCode daily schedule and new Google Calendars. |
 | `FLASK_SECRET_KEY` | Flask session signing key. **Defaults to `dev-secret-key`** — must be set to a real secret in production. |
 | `IS_PROD` | `true` disables the Flask debugger and reloader. Set to `true` in production. |
+| `SECRETS_KEY` | Fernet key that encrypts per-org secrets (`org_secrets`). Unset = orgs cannot save secrets and the instance-wide `NOTION_API_KEY` is used. Rotate with `new,old`. |
+| `CALENDAR_SYNC_CRON` | Cron schedule for `calendar.sync_all`. Unset = no scheduled sync. |
+| `AUDIT_RETENTION_DAYS` | How long `audit_log` rows are kept. Default 365. |
 
 ### Present in config but unused or legacy
 

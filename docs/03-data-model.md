@@ -174,6 +174,13 @@ member email, or job name), `status`, `details` (request path, or job result and
 Request bodies and file contents are never stored. `/api/auth/refresh` is skipped. The daily
 `audit.prune` job deletes rows older than `AUDIT_RETENTION_DAYS` (default 365).
 
+### `org_secrets` — `core/secrets.py:OrgSecret`
+
+Per-org integration tokens, one row per org and secret name, encrypted with Fernet using
+`SECRETS_KEY`. Modules declare the names they read with `secrets.declare()`; today that is
+`notion_api_key`, which calendar uses instead of the instance-wide `NOTION_API_KEY` when an org has
+saved one. The API lists which secrets are set but never returns a value.
+
 ## Migrations (Alembic)
 
 Migrations live in `alembic/versions/`. Current chain:

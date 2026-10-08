@@ -57,6 +57,9 @@ All keyed by **numeric org id**, not prefix.
 | GET | `/<int:org_id>/modules` | JWT | Optional modules and whether each is on for this org |
 | PUT | `/<int:org_id>/modules` | JWT | Turn modules on or off: `{"modules": {"storefront": false}}` |
 | GET | `/<int:org_id>/audit` | JWT | This org's audit log, newest first. `?limit=100&before_id=<id>` |
+| GET | `/<int:org_id>/secrets` | JWT | Declared secrets and whether each is set. Never returns values. |
+| PUT | `/<int:org_id>/secrets/<name>` | JWT | Save a secret: `{"value": "..."}`. 400 if the name is unknown or `SECRETS_KEY` is unset. |
+| DELETE | `/<int:org_id>/secrets/<name>` | JWT | Remove a secret |
 | GET | `/<int:org_id>/calendar` | JWT | Read calendar settings (`google_calendar_id`, `notion_database_id`, `calendar_sync_enabled`, `last_sync_at`) |
 | PUT | `/<int:org_id>/calendar` | JWT | Update those settings |
 | GET | `/<int:org_id>/roles` | JWT | Discord roles in the org's guild (via the bot) |

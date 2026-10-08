@@ -286,3 +286,60 @@ def get_organization_audit(org_id):
         return jsonify({"entries": entries})
     finally:
         db.close()
+
+
+def _active_org(db, org_id):
+    return db.query(Organization).filter_by(id=org_id, is_active=True).first()
+
+
+@organizations_blueprint.route("/<int:org_id>/secrets", methods=["GET"])
+@auth_required
+def list_organization_secrets(org_id):
+    """Which secrets this org has saved. Values are never returned."""
+    from core import secrets
+
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        return jsonify({"configured": secrets.configured(), "secrets": secrets.list_secrets(db, org_id)})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/secrets/<string:name>", methods=["PUT"])
+@auth_required
+def set_organization_secret(org_id, name):
+    """Save a secret. Body: {"value": "..."}."""
+    from core import secrets
+    from modules.auth.access import current_principal
+
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        principal = current_principal()
+        try:
+            secrets.set_secret(db, org_id, name, data.get("value"), principal.discord_id if principal else None)
+        except secrets.SecretsError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"name": name, "set": True})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/secrets/<string:name>", methods=["DELETE"])
+@auth_required
+def delete_organization_secret(org_id, name):
+    from core import secrets
+
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        if not secrets.delete_secret(db, org_id, name):
+            return jsonify({"error": "Secret not set"}), 404
+        return jsonify({"name": name, "set": False})
+    finally:
+        db.close()

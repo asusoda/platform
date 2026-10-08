@@ -5,6 +5,8 @@ from typing import Any, cast
 from cachetools import TTLCache, cached, keys
 from sentry_sdk import start_transaction
 
+from core import secrets
+
 # Import organization models
 from modules.organizations.models import Organization
 
@@ -15,6 +17,8 @@ from shared import config, db_connect, logger
 from .clients import GoogleCalendarClient, NotionCalendarClient
 from .models import CalendarEventDTO
 from .utils import operation_span
+
+secrets.declare("notion_api_key", "Notion integration token for this org's events database")
 
 # Create a global cache for the frontend events with a 5-minute TTL
 _FRONTEND_CACHE = TTLCache(maxsize=100, ttl=300)  # Increased maxsize for multiple orgs
@@ -28,6 +32,11 @@ class MultiOrgCalendarService:
         self.gcal_client = GoogleCalendarClient(self.logger)
         self.notion_client = NotionCalendarClient(self.logger)
         self.db_connect = db_connect
+
+    def notion_for(self, db, org) -> NotionCalendarClient:
+        """The org's own Notion integration if it has saved a token, else the instance-wide one."""
+        token = secrets.get_secret(db, org.id, "notion_api_key")
+        return NotionCalendarClient(self.logger, token=token) if token else self.notion_client
 
     def ensure_organization_calendar(
         self, organization_id: int, organization_name: str, parent_transaction=None
@@ -117,7 +126,7 @@ class MultiOrgCalendarService:
                     org.google_calendar_id = calendar_id
 
                 # Fetch events from Notion
-                notion_events = self.notion_client.fetch_events(org.notion_database_id, transaction)
+                notion_events = self.notion_for(db, org).fetch_events(org.notion_database_id, transaction)
                 if notion_events is None:
                     return {"status": "error", "message": "Failed to fetch events from Notion"}
 
@@ -318,7 +327,7 @@ class MultiOrgCalendarService:
                     }
 
                 # Fetch events from Notion
-                notion_events = self.notion_client.fetch_events(org.notion_database_id, transaction)
+                notion_events = self.notion_for(db, org).fetch_events(org.notion_database_id, transaction)
                 if notion_events is None:
                     return {"status": "error", "message": "Failed to fetch events from Notion"}
 
