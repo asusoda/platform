@@ -53,7 +53,9 @@ All keyed by **numeric org id**, not prefix.
 | GET | `/<int:org_id>` | JWT | One organization |
 | GET | `/<int:org_id>/stats` | JWT | Aggregate counts for the dashboard |
 | GET | `/<int:org_id>/activity` | JWT | Recent activity feed |
-| PUT | `/<int:org_id>/settings` | JWT | Update the `config` JSON |
+| PUT | `/<int:org_id>/settings` | JWT | Update the `config` JSON (module switches are kept unless the body sets `modules`) |
+| GET | `/<int:org_id>/modules` | JWT | Optional modules and whether each is on for this org |
+| PUT | `/<int:org_id>/modules` | JWT | Turn modules on or off: `{"modules": {"storefront": false}}` |
 | GET | `/<int:org_id>/calendar` | JWT | Read calendar settings (`google_calendar_id`, `notion_database_id`, `calendar_sync_enabled`, `last_sync_at`) |
 | PUT | `/<int:org_id>/calendar` | JWT | Update those settings |
 | GET | `/<int:org_id>/roles` | JWT | Discord roles in the org's guild (via the bot) |

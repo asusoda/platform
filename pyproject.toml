@@ -126,5 +126,5 @@ ignore_imports = [
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
 type = "forbidden"
-source_modules = ["modules.calendar.service"]
+source_modules = ["modules.calendar.service", "modules.organizations.service"]
 forbidden_modules = ["flask"]

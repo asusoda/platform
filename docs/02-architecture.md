@@ -149,7 +149,7 @@ functions. `calendar/service.py` is the first one done: `find_organization`, `li
 `make ci` runs `lint-imports` (import-linter) to enforce both rules. Add a module's `service` to the
 "service modules do not import Flask" contract in `pyproject.toml` when it gets one.
 
-Blueprints are registered in `main.py` with these prefixes:
+Blueprints are mounted by `modules/registry.py` (`MOUNTS`), which `main.py` calls, with these prefixes:
 
 | Blueprint | URL prefix |
 |-----------|-----------|
@@ -162,6 +162,11 @@ Blueprints are registered in `main.py` with these prefixes:
 | `organizations_blueprint` | `/api/organizations` |
 | `superadmin_blueprint` | `/api/superadmin` |
 | `storefront_blueprint` | `/api/storefront` |
+
+Points, storefront and calendar are optional: an officer can turn them off for their org, and then
+that org's routes in the module return 404 (the public leaderboard follows the points switch).
+Switches live in `Organization.config["modules"]`; a missing entry means on, so existing orgs are
+unchanged. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`.
 
 Plus `GET /health`, defined directly in `main.py`, which returns the git commit hash and process
 start time — that is how you confirm which build is live.

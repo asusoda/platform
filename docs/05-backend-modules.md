@@ -51,6 +51,9 @@ resolved from SoDA's own Discord server** regardless of which org the user belon
 - **`api.py`** — read/update endpoints for an org, its stats, its recent activity, its settings, its
   calendar config, and its Discord roles. All `@auth_required`, all keyed by numeric `org_id`
   (unlike most of the codebase, which uses `org_prefix`).
+- **`service.py`** — Flask-free: `OPTIONAL_MODULES`, `module_enabled(org, name)`,
+  `module_states(org)`, `set_modules(db, org, changes)`. Module switches are stored in
+  `Organization.config["modules"]`; anything not listed is on.
 
 `GET /api/organizations/` is what the frontend uses to build the org switcher.
 

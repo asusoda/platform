@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from modules.auth.access import visible_org_filter
 from modules.auth.decoraters import auth_required
+from modules.organizations import service
 from modules.organizations.models import Organization
 from shared import db_connect
 
@@ -119,7 +120,11 @@ def update_organization_settings(org_id):
 
         # Update organization settings
         if "config" in data:
+            # Module switches are changed through /modules; keep them when the rest of config is replaced
+            modules = (org.config or {}).get("modules")
             org.config = data["config"]
+            if modules is not None and isinstance(org.config, dict) and "modules" not in org.config:
+                org.config = {**org.config, "modules": modules}
         if "prefix" in data:
             new_prefix = data["prefix"].strip()
 
@@ -226,3 +231,36 @@ def get_organization_roles(org_id):
     except Exception:
         logging.exception("Error while fetching organization roles for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500
+
+
+@organizations_blueprint.route("/<int:org_id>/modules", methods=["GET"])
+@auth_required
+def get_organization_modules(org_id):
+    """Which optional modules are on for this organization."""
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        return jsonify({"modules": service.module_states(org)})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/modules", methods=["PUT"])
+@auth_required
+def update_organization_modules(org_id):
+    """Turn optional modules on or off. Body: {"modules": {"storefront": false}}."""
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        try:
+            states = service.set_modules(db, org, data.get("modules"))
+        except service.ModuleError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"modules": states})
+    finally:
+        db.close()

@@ -10,16 +10,8 @@ from flask import jsonify  # Import current_app
 
 from core.discord_directory import DiscordDirectory
 from core.request_log import register_request_logging
-from modules.auth.api import auth_blueprint
-from modules.bot.api import game_blueprint
 from modules.calendar import service as calendar_service
-from modules.calendar.api import calendar_blueprint
-from modules.organizations.api import organizations_blueprint
-from modules.points.api import points_blueprint
-from modules.public.api import public_blueprint
-from modules.storefront.api import storefront_blueprint
-from modules.superadmin.api import superadmin_blueprint
-from modules.users.api import users_blueprint
+from modules.registry import register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Session cookies are signed with this key. A known default would let anyone forge a session,
@@ -82,15 +74,7 @@ def health():
 register_request_logging(app, tokenManager)
 
 # Register Blueprints
-app.register_blueprint(public_blueprint, url_prefix="/api/public")
-app.register_blueprint(points_blueprint, url_prefix="/api/points")
-app.register_blueprint(users_blueprint, url_prefix="/api/users")
-app.register_blueprint(auth_blueprint, url_prefix="/api/auth")
-app.register_blueprint(calendar_blueprint, url_prefix="/api/calendar")
-app.register_blueprint(game_blueprint, url_prefix="/api/bot")
-app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
-app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
-app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
+register_modules(app)
 # Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 
