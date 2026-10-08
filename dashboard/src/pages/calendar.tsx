@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, CalendarPlus, Info, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { ModuleGate } from '../components/module-gate';
 import {
   Badge,
   Button,
@@ -13,6 +12,7 @@ import {
   Field,
   FormActions,
   Input,
+  OkNote,
   PageHeader,
   SkeletonRows,
   Switch,
@@ -212,7 +212,7 @@ export function CalendarPage() {
   });
   const configured = Boolean(settings.data?.notion_database_id);
   return (
-    <ModuleGate module="calendar" title="Calendar">
+    <>
       <PageHeader
         title="Calendar"
         description="Events from the org's Notion database, copied to a Google calendar and shown on the public events feed."
@@ -228,9 +228,7 @@ export function CalendarPage() {
           <ErrorNote error={sync.error} />
         </div>
       ) : sync.data ? (
-        <p role="status" className="mb-4 rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">
-          {sync.data.message ?? 'Sync done.'}
-        </p>
+        <OkNote className="mb-4">{sync.data.message ?? 'Sync done.'}</OkNote>
       ) : null}
       <div className="space-y-6">
         {settings.data && org ? (
@@ -244,6 +242,6 @@ export function CalendarPage() {
         )}
         {settings.data ? <Events prefix={prefix} database={settings.data.notion_database_id} /> : null}
       </div>
-    </ModuleGate>
+    </>
   );
 }

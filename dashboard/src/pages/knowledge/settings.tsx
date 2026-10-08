@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, Field, FormActions, Input, Select, SkeletonRows, Spinner } from '../components/ui';
-import { api, send } from '../lib/api';
-import type { KnowledgeMode, KnowledgeSettings, KnowledgeTuning } from '../lib/types';
+import { Badge, Button, CheckOption, Field, FormActions, Input, Select, SkeletonRows, Spinner } from '../../components/ui';
+import { api, send } from '../../lib/api';
+import type { KnowledgeMode, KnowledgeSettings, KnowledgeTuning } from '../../lib/types';
 
 // Limits from modules/knowledge/settings.py.
 const LIMITS: Record<Exclude<keyof KnowledgeTuning, 'mode'>, [number, number]> = {
@@ -116,13 +116,9 @@ function SettingsDraft({
           A new passage size applies the next time a source is indexed. Upload a document again to split it again.
         </p>
         {chunking ? (
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line p-3 text-sm">
-            <input type="checkbox" className="mt-0.5 size-4 accent-current" checked={reindex} onChange={(e) => setReindex(e.target.checked)} />
-            <span>
-              <span className="block font-medium">Crawl every crawled source again now</span>
-              <span className="mt-0.5 block text-xs text-muted">Pages are fetched one host at a time; a big pack takes a while.</span>
-            </span>
-          </label>
+          <CheckOption checked={reindex} onChange={setReindex} title="Crawl every crawled source again now">
+            Pages are fetched one host at a time; a big pack takes a while.
+          </CheckOption>
         ) : null}
       </section>
 

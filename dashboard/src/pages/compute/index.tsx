@@ -12,6 +12,7 @@ import {
   PageHeader,
   SkeletonRows,
   Stat,
+  StatGrid,
   Table,
   Td,
   Th,
@@ -130,12 +131,12 @@ export function ComputePage() {
         }
       />
       {missingKey ? null : (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatGrid className="mb-6">
           <Stat label="Pods" value={pods.data ? list.length : '-'} />
           <Stat label="Running" value={pods.data ? running.length : '-'} sub={pods.data ? `${list.length - running.length} stopped` : undefined} />
           <Stat label="Spend while running" value={pods.data ? (costLabel(spend) ?? '-') : '-'} sub="Running pods only" />
           <Stat label="Upcoming sessions" value={upcoming ?? '-'} />
-        </div>
+        </StatGrid>
       )}
       <div className="grid gap-6">
         <Card>

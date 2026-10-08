@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import { type ComponentProps, type ComponentType, type ReactNode, useEffect, useRef } from 'react';
 import type { Tone } from '../lib/format';
 
@@ -73,6 +73,11 @@ export function Stat({ label, value, sub, icon }: { label: string; value: ReactN
       {sub ? <div className="mt-1 truncate text-xs text-muted">{sub}</div> : null}
     </Card>
   );
+}
+
+// A row of Stat cards: two columns, four on a wide screen.
+export function StatGrid({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx('grid grid-cols-2 gap-3 lg:grid-cols-4', className)}>{children}</div>;
 }
 
 // Tables
@@ -227,6 +232,62 @@ export function Switch({
   );
 }
 
+// An icon button that deletes after the officer confirms the question.
+export function DeleteButton({
+  label,
+  question,
+  onDelete,
+  title = 'Delete',
+  disabled,
+  className,
+}: {
+  label: string;
+  question: string;
+  onDelete: () => void;
+  title?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      title={title}
+      aria-label={label}
+      className={cx('hover:text-bad', className)}
+      disabled={disabled}
+      onClick={() => {
+        if (confirm(question)) onDelete();
+      }}
+    >
+      <Trash2 className="size-4" />
+    </Button>
+  );
+}
+
+// A checkbox in a bordered box, with a title and a line of description.
+export function CheckOption({
+  checked,
+  onChange,
+  title,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line p-3 text-sm transition-colors hover:bg-panel-2/50 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
+      <input type="checkbox" className="mt-0.5 size-4 accent-current" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="min-w-0">
+        <span className="block font-medium">{title}</span>
+        <span className="mt-0.5 block text-xs text-muted">{children}</span>
+      </span>
+    </label>
+  );
+}
+
 // States
 
 export function EmptyState({
@@ -281,14 +342,14 @@ export function PageSkeleton({ stats = false }: { stats?: boolean }) {
         <Skeleton className="h-4 w-80 max-w-full" />
       </div>
       {stats ? (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatGrid className="mb-6">
           {[0, 1, 2, 3].map((i) => (
             <Card key={i} className="space-y-3 p-4">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-7 w-14" />
             </Card>
           ))}
-        </div>
+        </StatGrid>
       ) : null}
       <Card>
         <SkeletonRows rows={5} />
@@ -306,6 +367,27 @@ export function ErrorNote({ error }: { error: unknown }) {
   return (
     <div role="alert" className="rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
       {message}
+    </div>
+  );
+}
+
+// A message that an action worked.
+export function OkNote({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <p role="status" className={cx('rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok', className)}>
+      {children}
+    </p>
+  );
+}
+
+// A status message the officer can close, shown above the page content.
+export function Notice({ children, onDismiss }: { children: ReactNode; onDismiss: () => void }) {
+  return (
+    <div role="status" className="mb-4 flex items-start gap-3 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm">
+      <div className="min-w-0 flex-1 text-pretty">{children}</div>
+      <button type="button" aria-label="Dismiss" className="text-muted hover:text-fg" onClick={onDismiss}>
+        <X className="size-4" />
+      </button>
     </div>
   );
 }

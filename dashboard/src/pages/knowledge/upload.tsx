@@ -1,13 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
 import { FileUp, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { Badge, Button, cx, Dot, Field, FormActions, Input, Mono, Spinner } from '../components/ui';
-import { api } from '../lib/api';
-import { bytes } from '../lib/format';
-import type { UploadResult } from '../lib/types';
+import { Badge, Button, CheckOption, cx, Dot, Field, FormActions, Input, Mono, Spinner } from '../../components/ui';
+import { api } from '../../lib/api';
+import { bytes } from '../../lib/format';
+import type { UploadResult } from '../../lib/types';
 
 // Limits from modules/knowledge/documents.py.
-export const UPLOAD_TYPES = ['.txt', '.md', '.markdown', '.csv', '.html', '.htm', '.pdf', '.docx'];
+const UPLOAD_TYPES = ['.txt', '.md', '.markdown', '.csv', '.html', '.htm', '.pdf', '.docx'];
 const MAX_FILES = 20;
 const MAX_FILE_BYTES = 10_000_000;
 const MAX_TOTAL_BYTES = 25_000_000;
@@ -194,13 +194,9 @@ export function UploadForm({
         ))}
       </datalist>
       {canPublish ? (
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line p-3 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-current" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
-          <span>
-            <span className="block font-medium">Public</span>
-            <span className="mt-0.5 block text-xs text-muted">Every organization's agents can search these documents.</span>
-          </span>
-        </label>
+        <CheckOption checked={publish} onChange={setPublish} title="Public">
+          Every organization's agents can search these documents.
+        </CheckOption>
       ) : null}
       <FormActions error={problem ?? upload.error}>
         <Button variant="primary" disabled={!ready}>

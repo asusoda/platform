@@ -14,6 +14,7 @@ import {
   quietLink,
   Row,
   Stat,
+  StatGrid,
 } from '../components/ui';
 import { compact, deployTone, runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
@@ -55,7 +56,7 @@ export function OverviewPage() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatGrid>
         <Stat label="Members" value={compact(s.members.total)} icon={<Users className="size-4" />} />
         <Stat
           label="Points"
@@ -75,7 +76,7 @@ export function OverviewPage() {
           sub={`${s.agents.members_7_days} members this week`}
           icon={<Bot className="size-4" />}
         />
-      </div>
+      </StatGrid>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
