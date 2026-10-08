@@ -138,6 +138,15 @@ const { goToDashboard, goToUsers, goToLeaderboard, navigateToOrg, getOrgPath } =
 
 `getOrgPath("users")` returns `/{currentOrg.prefix}/users`, or the bare path if no org is selected.
 
+## Switched-off modules
+
+`hooks/useOrgModules.js` reads `GET /api/organizations/<id>/modules` for the current org.
+`HomePage` and `OrganizationNavbar` hide points, storefront, calendar and compute entries that the org has
+turned off. Until the answer arrives, or if the request fails, everything shows. Typing the URL
+of a hidden page still opens it; its API calls return 404.
+
+Run the web unit tests with `npx react-scripts test --watchAll=false src/hooks src/utils`.
+
 ## Component map
 
 | Area | Files |
@@ -147,6 +156,7 @@ const { goToDashboard, goToUsers, goToLeaderboard, navigateToOrg, getOrgPath } =
 | Storefront | `editProductModal`, `UploadFileCard`, `ui/file-upload.jsx`, `constants/productCategories.js` |
 | Jeopardy | `GameBoard`, `GameCard`, `GameTable` (empty file), `QuestionPanel`, `RevealQuestion`, `AwardPanel`, `SetupButton` |
 | Points | `points/api.js` |
+| Compute | `pages/ComputePage.js`, `pages/PodFilesPage.js`, `PodSessions.js`, `utils/podPaths.js` (see docs/compute.md) |
 | UI primitives | `ui/InlineEdit`, `ui/Orb.jsx`, `ui/StarBorder.jsx`, `ui/ThemedLoading.jsx`, `ui/navbar-menu.jsx`, `ui/OrganizationCard.js`, `ToggleSwitch` |
 | Robustness | `ErrorBoundary`, `utils/errorSuppression.js`, `utils/resizeObserverFix.js` |
 
@@ -164,7 +174,7 @@ Jeopardy under `/api/bot/*`; these call something else entirely:
 | `pages/ActiveGame.js` | `/games/active` | `/api/bot/getactivegame` |
 | `pages/GamePanel.js` | `/games/list` | `/api/bot/getavailablegames` |
 | `pages/Jeopardy.js` | `/jeopardy/games` | `/api/bot/getavailablegames` |
-| `pages/BotControlPanel.js` | `/bot/status` | *(commented out in `modules/bot/api.py`)* |
+| `pages/BotControlPanel.js` | `/bot/status` | *(commented out in `modules/games/api.py`)* |
 | `components/AwardPanel.js` | `/api/awardpoints` | `/api/bot/awardpoints` |
 | `components/SetupButton.js` | `/api/createchannels`, `/api/startactivegame` | `/api/bot/startactivegame` (no `createchannels` route) |
 | `components/GameBoard.js` | `/api/getgamequestions` | *(no such route)* |

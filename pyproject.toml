@@ -10,7 +10,6 @@ dependencies = [
     "asgiref==3.11.1",
     "async-timeout==5.0.1",
     "attrs==25.4.0",
-    "bidict==0.23.1",
     "blinker==1.9.0",
     "cachetools==7.0.0",
     "certifi==2026.1.4",
@@ -20,13 +19,10 @@ dependencies = [
     "dnspython==2.8.0",
     "flask==3.1.2",
     "flask-cors==6.0.2",
-    "flask-discord==0.1.69",
-    "flask-socketio==5.6.0",
-    "flask-sqlalchemy==3.1.1",
     "frozenlist==1.8.0",
     "greenlet==3.3.1",
     "h11==0.16.0",
-    "idna==3.11",
+    "idna>=3.11",
     "importlib-metadata==8.7.1",
     "itsdangerous==2.2.0",
     "jinja2==3.1.6",
@@ -36,27 +32,18 @@ dependencies = [
     "oauthlib==3.3.1",
     "py-cord>=2.6.1",
     "pyjwt>=2.9.0",
-    "pymongo==4.16.0",
     "psycopg2-binary>=2.9.10",
-    "python-engineio==4.13.0",
-    "python-socketio==5.16.0",
     "requests==2.32.5",
     "requests-oauthlib==2.0.0",
-    "simple-websocket==1.1.0",
     "sqlalchemy==2.0.46",
     "typing-extensions>=4.13.1",
     "urllib3==2.6.3",
     "werkzeug==3.1.5",
-    "wsproto==1.3.2",
     "yarl>=1.18.3",
     "zipp==3.23.0",
     "python-dotenv>=1.1.0",
     "google-auth>=2.38.0",
     "google-api-python-client>=2.166.0",
-    "selenium>=4.31.0",
-    "gspread>=6.2.0",
-    "oauth2client>=4.1.3",
-    "webdriver-manager==4.0.2",
     "cryptography>=44.0.2",
     "gunicorn==25.0.1",
     "notion-client>=2.3.0",
@@ -65,18 +52,19 @@ dependencies = [
     "sentry-sdk[flask]>=2.35.0",
     "pytz>=2025.2",
     "python-dateutil>=2.9.0.post0",
-    "google-genai>=1.14.0",
-    "dateparser>=1.2.1",
-    "google-generativeai>=0.8.5",
     "tzdata>=2025.2",
-    "timefhuman>=0.0.5",
     "colorlog>=6.9.0",
-    "tenacity>=9.1.2",
-    "pycord>=0.1.1",
-    "anthropic>=0.64.0",
-    "openai>=1.102.0",
     "clerk-backend-api>=4.2.0",
     "alembic>=1.18.4",
+    "procrastinate==3.9.0",
+    "croniter>=6.0",
+    "mcp==2.2.0",
+    "jsonschema>=4.20",
+    "beautifulsoup4>=4.13",
+    "lxml>=5.3",
+    "defusedxml>=0.7.1",
+    "pyyaml>=6.0.3",
+    "paramiko>=3.4",
 ]
 
 [tool.pytest.ini_options]
@@ -99,6 +87,7 @@ dev = [
     "ty>=0.0.14",
     "bandit>=1.7.0",
     "pre-commit>=4.0.0",
+    "import-linter>=2.15",
 ]
 
 [tool.ruff]
@@ -125,3 +114,49 @@ indent-style = "space"
 
 [tool.bandit]
 exclude_dirs = ["tests", "web", "node_modules", ".venv"]
+
+# Module boundaries, checked in CI by `lint-imports` (docs/roadmap.md, "Codebase layout").
+[tool.importlinter]
+root_packages = ["core", "modules"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "core imports no module"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["modules"]
+# Existing exceptions, to be moved into core or behind a service function:
+ignore_imports = [
+    "core.db -> modules.storefront.models",
+    "core.TokenManager -> modules.auth.models",
+    "core.discord_directory -> modules.organizations.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "service modules do not import Flask"
+type = "forbidden"
+source_modules = [
+    "modules.accounts.providers",
+    "modules.accounts.service",
+    "modules.agents.service",
+    "modules.agents.turns",
+    "modules.asu.service",
+    "modules.auth.machine_tokens",
+    "modules.calendar.service",
+    "modules.compute.files",
+    "modules.compute.schedule",
+    "modules.compute.service",
+    "modules.compute.ssh",
+    "modules.knowledge.crawl",
+    "modules.knowledge.embedder",
+    "modules.knowledge.extract",
+    "modules.knowledge.fetch",
+    "modules.knowledge.service",
+    "modules.leetcode.daily",
+    "modules.leetcode.service",
+    "modules.mcp.runtime",
+    "modules.organizations.service",
+    "modules.points.service",
+    "modules.runpod.service",
+]
+forbidden_modules = ["flask"]

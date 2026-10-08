@@ -3,12 +3,18 @@ from datetime import UTC, datetime
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 
-from modules.auth.decoraters import auth_required, dual_auth_required, error_handler, member_required
+from modules.auth.access import decide
+from modules.auth.decoraters import (
+    auth_required,
+    dual_auth_required,
+    error_handler,
+    member_required,
+    org_officer_required,
+)
 from modules.storefront.models import Order, OrderItem, Product
-from modules.utils.db import DBConnect
+from shared import db_connect
 
 storefront_blueprint = Blueprint("storefront", __name__)
-db_connect = DBConnect()
 
 
 # Helper function to get organization by prefix
@@ -22,6 +28,21 @@ def get_organization_by_prefix(db, org_prefix):
 
 
 # Helper function to normalize category values
+def price_mismatch(org_prefix, total_amount, priced) -> bool:
+    """Compare the prices a client sent with the catalog. True if the order must be refused.
+
+    priced holds (product, quantity, client unit price). A mismatch is logged as
+    checkout_price_mismatch, and refused only when ACCESS_ENFORCE is true.
+    """
+    catalog_total = sum(float(product.price) * quantity for product, quantity, _ in priced)
+    mismatched = abs(catalog_total - float(total_amount)) > 0.005 or any(
+        abs(float(product.price) - client_price) > 0.005 for product, _, client_price in priced
+    )
+    if not mismatched:
+        return False
+    return decide("checkout_price_mismatch", org=org_prefix)
+
+
 def normalize_category(value):
     """Normalize category value: strip whitespace and convert empty string to None"""
     if isinstance(value, str):
@@ -224,6 +245,7 @@ def delete_product(org_prefix, product_id):
 # ORDER ENDPOINTS
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
 @dual_auth_required
+@org_officer_required
 @error_handler
 def get_orders(org_prefix):
     """Get all orders for an organization"""
@@ -363,9 +385,12 @@ def create_order(org_prefix):
 
         # Prepare order items and validate stock
         order_items = []
+        priced = []
         for item in data["items"]:
             if not all(k in item for k in ["product_id", "quantity", "price"]):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
+            if int(item["quantity"]) < 1:
+                return jsonify({"error": "Quantity must be at least 1"}), 400
 
             product = db_connect.get_storefront_product(db, int(item["product_id"]), org.id)
             if not product:
@@ -375,6 +400,7 @@ def create_order(org_prefix):
 
             # Update stock
             product.stock -= int(item["quantity"])
+            priced.append((product, int(item["quantity"]), float(item["price"])))
 
             order_items.append(
                 OrderItem(
@@ -385,6 +411,9 @@ def create_order(org_prefix):
             )
 
         # Create order
+        if price_mismatch(org_prefix, total_amount, priced):
+            return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
+
         new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)
 
@@ -680,6 +709,8 @@ def create_member_order(org_prefix, **kwargs):
     for item in data["items"]:
         if not all(k in item for k in ["product_id", "quantity", "price"]):
             return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
+        if int(item["quantity"]) < 1:
+            return jsonify({"error": "Quantity must be at least 1"}), 400
         order_items.append(
             OrderItem(
                 product_id=int(item["product_id"]), quantity=int(item["quantity"]), price_at_time=float(item["price"])
@@ -689,6 +720,7 @@ def create_member_order(org_prefix, **kwargs):
     db = next(db_connect.get_db())
     try:
         # Validate that all products exist and have sufficient stock
+        priced = []
         for item in order_items:
             product = db_connect.get_storefront_product(db, item.product_id, organization.id)
             if not product:
@@ -698,6 +730,10 @@ def create_member_order(org_prefix, **kwargs):
 
             # Update stock
             product.stock -= item.quantity
+            priced.append((product, item.quantity, item.price_at_time))
+
+        if price_mismatch(org_prefix, new_order.total_amount, priced):
+            return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
 
         created_order = db_connect.create_storefront_order(db, new_order, order_items, organization.id)
         return jsonify(
@@ -1015,9 +1051,12 @@ def clerk_checkout(org_prefix):
             return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {total_amount}"}), 400
 
         order_items = []
+        priced = []
         for item in data["items"]:
             if not all(k in item for k in ["product_id", "quantity", "price"]):
                 return jsonify({"error": "Each item must have product_id, quantity, and price"}), 400
+            if int(item["quantity"]) < 1:
+                return jsonify({"error": "Quantity must be at least 1"}), 400
 
             product = db_connect.get_storefront_product(db, int(item["product_id"]), org.id)
             if not product:
@@ -1026,6 +1065,7 @@ def clerk_checkout(org_prefix):
                 return jsonify({"error": f"Insufficient stock for product {product.name}"}), 400
 
             product.stock -= int(item["quantity"])
+            priced.append((product, int(item["quantity"]), float(item["price"])))
 
             order_items.append(
                 OrderItem(
@@ -1034,6 +1074,9 @@ def clerk_checkout(org_prefix):
                     price_at_time=float(item["price"]),
                 )
             )
+
+        if price_mismatch(org_prefix, total_amount, priced):
+            return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
 
         new_order = Order(user_id=user.id, total_amount=total_amount, status="completed")
         created_order = db_connect.create_storefront_order(db, new_order, order_items, org.id)

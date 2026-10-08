@@ -39,6 +39,7 @@ For requests authenticated via the `Authorization: Bearer <access_token>` header
 | POST | `/logout` | — | Body `{refresh_token}` (optional). Revokes, blacklists the header token, clears the Flask session. |
 | GET | `/name` | JWT | `{name}` — the display name stored in the token |
 | GET | `/appToken?appname=<name>` | JWT | Issues a long-lived app token for a named integration |
+| GET | `/machine/whoami` | machine token | The token's org, name, kind and scopes |
 | GET | `/success` | — | A static confirmation string |
 
 ---
@@ -53,7 +54,16 @@ All keyed by **numeric org id**, not prefix.
 | GET | `/<int:org_id>` | JWT | One organization |
 | GET | `/<int:org_id>/stats` | JWT | Aggregate counts for the dashboard |
 | GET | `/<int:org_id>/activity` | JWT | Recent activity feed |
-| PUT | `/<int:org_id>/settings` | JWT | Update the `config` JSON |
+| PUT | `/<int:org_id>/settings` | JWT | Update the `config` JSON (module switches are kept unless the body sets `modules`) |
+| GET | `/<int:org_id>/modules` | JWT | Optional modules and whether each is on for this org |
+| PUT | `/<int:org_id>/modules` | JWT | Turn modules on or off: `{"modules": {"storefront": false}}` |
+| GET | `/<int:org_id>/audit` | JWT | This org's audit log, newest first. `?limit=100&before_id=<id>` |
+| GET | `/<int:org_id>/tokens` | JWT | Active machine tokens (never their values) and the declared scopes |
+| POST | `/<int:org_id>/tokens` | JWT | Issue a machine token: `{"name", "kind", "scopes", "expires_days"?}`. Returns the value once. |
+| DELETE | `/<int:org_id>/tokens/<int:token_id>` | JWT | Revoke a machine token |
+| GET | `/<int:org_id>/secrets` | JWT | Declared secrets and whether each is set. Never returns values. |
+| PUT | `/<int:org_id>/secrets/<name>` | JWT | Save a secret: `{"value": "..."}`. 400 if the name is unknown or `SECRETS_KEY` is unset. |
+| DELETE | `/<int:org_id>/secrets/<name>` | JWT | Remove a secret |
 | GET | `/<int:org_id>/calendar` | JWT | Read calendar settings (`google_calendar_id`, `notion_database_id`, `calendar_sync_enabled`, `last_sync_at`) |
 | PUT | `/<int:org_id>/calendar` | JWT | Update those settings |
 | GET | `/<int:org_id>/roles` | JWT | Discord roles in the org's guild (via the bot) |
@@ -70,6 +80,7 @@ All keyed by **numeric org id**, not prefix.
 | PUT | `/update_officer_role/<int:org_id>` | SUPER | Set `officer_role_id` |
 | POST | `/add_org/<guild_id>` | SUPER | Register a guild as an organization |
 | DELETE | `/remove_org/<int:org_id>` | SUPER | Hard-delete an organization. **No cascade — see Gotchas.** |
+| GET | `/audit` | SUPER | Audit log across orgs, newest first. `?org=<prefix>&limit=100&before_id=<id>` |
 
 ---
 
@@ -92,7 +103,7 @@ All keyed by **numeric org id**, not prefix.
 | GET | `/<org_prefix>/getUserPoints?discord_id=…` | JWT | One user's point history |
 | GET | `/<org_prefix>/getUserTotalPoints?discord_id=…` | JWT | `{user_id, discord_id, username, organization_id, total_points}` |
 | DELETE | `/<org_prefix>/delete_points` | JWT | Delete all point rows for a named event |
-| POST | `/<org_prefix>/uploadEventCSV` | JWT | Multipart CSV upload. Returns immediately; processing happens on a background thread. Results and errors go to the log only. |
+| POST | `/<org_prefix>/uploadEventCSV` | JWT | Multipart CSV upload. Returns 202; the `points.import_event_csv` job does the work. Results and errors go to the log only. |
 
 ---
 
@@ -176,7 +187,7 @@ polls this endpoint will hammer the Notion API.
 
 ---
 
-## `/api/bot` — `modules/bot/api.py` (Jeopardy control)
+## `/api/bot` — `modules/games/api.py` (Jeopardy control)
 
 > **No endpoint in this blueprint has an auth decorator.** Anyone who can reach the API can start,
 > stop, upload, and score games. Treat this as a known security gap, listed in
@@ -234,3 +245,12 @@ Allowed headers: `Content-Type, Authorization, X-Organization-ID, X-Organization
 Note the dev web container serves on **port 5000**, which is *not* in the allowlist. Browser calls
 from `http://localhost:5000` to the API will be blocked by CORS. If you are running the web app
 locally against the local API, add your origin to this list.
+
+## `/api/tools` — `modules/mcp/api.py`
+
+Machine tokens only. See [Tools and the MCP server](./tools-and-mcp.md).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/tools` | machine token | Tools this token may call, with their input schemas |
+| POST | `/api/tools/<name>` | machine token | Call a tool; the body is its arguments. Returns `{"result": ...}` |

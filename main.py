@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
 from datetime import UTC, datetime
@@ -7,25 +8,28 @@ from datetime import UTC, datetime
 import discord
 from flask import jsonify  # Import current_app
 
-from modules.auth.api import auth_blueprint
-from modules.bot.api import game_blueprint
-from modules.calendar.api import calendar_blueprint
-from modules.calendar.service import MultiOrgCalendarService
-from modules.organizations.api import organizations_blueprint
-from modules.points.api import points_blueprint
-from modules.public.api import public_blueprint
-from modules.storefront.api import storefront_blueprint
-from modules.superadmin.api import superadmin_blueprint
-from modules.users.api import users_blueprint
-from modules.utils.request_log import register_request_logging
+from core import jobs
+from core.audit_http import register_audit
+from core.discord_directory import DiscordDirectory
+from core.request_log import register_request_logging
+from modules.calendar import service as calendar_service
+from modules.cli import register_cli
+from modules.registry import load_jobs, load_tools, register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
 
-# Set a secret key for session management
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
+# Session cookies are signed with this key. A known default would let anyone forge a session,
+# so without FLASK_SECRET_KEY or SECRET_KEY a random key is used and sessions end on restart.
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    logger.warning("FLASK_SECRET_KEY is not set; using a random session key until restart")
+    app.secret_key = secrets.token_hex(32)
+
+# Officer, member and guild lookups go to Discord's REST API, so the API does not need the bot
+app.discord_directory = DiscordDirectory(config.BOT_TOKEN)
 
 # Initialize multi-organization calendar service
-multi_org_calendar_service = MultiOrgCalendarService(logger)
-app.multi_org_calendar_service = multi_org_calendar_service
+# Kept on the app for code that still reads it; the same instance calendar.service uses
+app.multi_org_calendar_service = calendar_service.get_service()
 
 
 def get_git_commit_hash():
@@ -72,16 +76,20 @@ def health():
 # Log one structured line per API request
 register_request_logging(app, tokenManager)
 
+# Record every successful API write in the audit_log table
+register_audit(app, tokenManager)
+
 # Register Blueprints
-app.register_blueprint(public_blueprint, url_prefix="/api/public")
-app.register_blueprint(points_blueprint, url_prefix="/api/points")
-app.register_blueprint(users_blueprint, url_prefix="/api/users")
-app.register_blueprint(auth_blueprint, url_prefix="/api/auth")
-app.register_blueprint(calendar_blueprint, url_prefix="/api/calendar")
-app.register_blueprint(game_blueprint, url_prefix="/api/bot")
-app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
-app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
-app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
+register_modules(app)
+load_tools()
+
+# Background jobs. On Postgres the worker process (worker_main.py) runs them; on SQLite
+# periodic jobs run from a thread here, as the token cleanup always has.
+load_jobs()
+jobs.start_inline_scheduler()
+
+# `flask --app main org|jobs|config ...`
+register_cli(app)
 # Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 
@@ -123,7 +131,11 @@ def initialize_app():
     # (server) process. Starting the bot in both logs the same token in twice, so every scheduled
     # post -- the daily LeetCode question in particular -- goes out twice. Only the child, marked
     # by WERKZEUG_RUN_MAIN, owns the bot.
-    if not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    # In production the bot runs as its own process (bot_main.py) and RUN_BOT_IN_API is false.
+    run_bot = os.environ.get("RUN_BOT_IN_API", "true").lower() == "true"
+    if not run_bot:
+        logger.info("RUN_BOT_IN_API is false; the bot runs in its own process")
+    elif not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
         auth_thread.daemon = True
         auth_thread.start()

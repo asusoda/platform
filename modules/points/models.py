@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from modules.utils.base import Base
+from core.base import Base
 
 
 # Updated User model to support multiple organizations

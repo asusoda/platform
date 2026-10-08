@@ -5,6 +5,7 @@ import types
 from importlib import import_module
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import make_url
 
@@ -35,22 +36,31 @@ if "shared" not in sys.modules:
 
 # Import the declarative Base and all model modules so that
 # Base.metadata is fully populated for autogenerate support.
-from modules.utils.base import Base  # noqa: E402
+from core.base import Base  # noqa: E402
 
 for model_module in (
+    "core.audit",
+    "core.secrets",
+    "modules.accounts.models",
+    "modules.agents.models",
     "modules.auth.models",
-    "modules.bot.models",
+    "modules.games.models",
+    "modules.knowledge.models",
+    "modules.leetcode.models",
     "modules.calendar.models",
+    "modules.compute.models",
     "modules.organizations.models",
     "modules.points.models",
+    "modules.runpod.models",
     "modules.storefront.models",
 ):
     import_module(model_module)
 
 target_metadata = Base.metadata
 
-# Allow overriding the database URL via the DATABASE_URL environment variable.
-# Falls back to the value in alembic.ini (sqlalchemy.url).
+# Allow overriding the database URL via the DATABASE_URL environment variable, read from .env
+# as the app does. Falls back to the value in alembic.ini (sqlalchemy.url).
+load_dotenv()
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
@@ -80,6 +90,21 @@ def _ensure_sqlite_parent_dir_exists() -> None:
         os.makedirs(db_dir, exist_ok=True)
 
 
+# Postgres-only indexes created in migrations with raw SQL (pgvector HNSW, full-text GIN).
+UNMODELED_INDEXES = {
+    "ix_knowledge_chunks_embedding_hnsw",
+    "ix_knowledge_chunks_content_fts",
+    "ix_agent_profile_nodes_embedding_hnsw",
+}
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    """Procrastinate's tables come from its own schema SQL, not from our models."""
+    if type_ == "index" and reflected and compare_to is None and name in UNMODELED_INDEXES:
+        return False
+    return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate_"))
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -99,6 +124,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -125,6 +151,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

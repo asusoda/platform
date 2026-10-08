@@ -17,7 +17,7 @@ refactors. Where they conflict with the code, the code wins.
 |-------|---------|
 | "Active modules: auth, bot, calendar, **merch**, organizations, …" | There is no `modules/merch`. It is `modules/storefront`. |
 | "**Two** separate bot instances (summarizer and auth)" | One bot. There is no summarizer bot anywhere in the tree. |
-| "Calendar Sync Service … runs every 120 minutes" | **No such scheduler exists.** Grep for `Thread(`, `time.sleep`, `tasks.loop`: the only background workers are the hourly refresh-token cleanup (`shared.py:98`), the LeetCode daily/verify loops, and the CSV thread. Calendar sync only happens when someone POSTs `/api/calendar/<org>/sync` or `/api/calendar/sync-all`. |
+| "Calendar Sync Service … runs every 120 minutes" | **No such scheduler exists.** Grep for `Thread(`, `time.sleep`, `tasks.loop`: background work is the jobs in `core/jobs.py` and the LeetCode daily/verify loops. Calendar sync runs on a schedule only if `CALENDAR_SYNC_CRON` is set. |
 | `modules/README.md` lists endpoints like `/auth/login`, `/points/award`, models like `PointBalance`, `PointRule` | Those paths and models do not exist. Real paths are `/api/auth/login`, `/api/points/<org>/assign_points`; the only points model is `Points`. |
 | `modules/storefront/README.md` schema | Missing `organization_id`, `category`, and `message` columns that the models actually have. |
 
@@ -58,7 +58,7 @@ The backend serves Jeopardy under `/api/bot/*`. These call something else:
 | `web/src/pages/ActiveGame.js` | `/games/active` | `/api/bot/getactivegame` |
 | `web/src/pages/GamePanel.js` | `/games/list` | `/api/bot/getavailablegames` |
 | `web/src/pages/Jeopardy.js` | `/jeopardy/games` | `/api/bot/getavailablegames` |
-| `web/src/pages/BotControlPanel.js` | `/bot/status` | route is commented out in `modules/bot/api.py:30` |
+| `web/src/pages/BotControlPanel.js` | `/bot/status` | route is commented out in `modules/games/api.py:30` |
 | `web/src/components/AwardPanel.js:25` | `/api/awardpoints` | `/api/bot/awardpoints` |
 | `web/src/components/SetupButton.js:17,28` | `/api/createchannels`, `/api/startactivegame` | `/api/bot/startactivegame`; no `createchannels` route exists |
 | `web/src/components/GameBoard.js:11` | `/api/getgamequestions` | no such route |
@@ -102,31 +102,29 @@ pattern.
 
 ## C. Security-relevant
 
-### C1. `/api/bot/*` is entirely unauthenticated
+### C1. `/api/bot/*` needs an officer
 
-Every route in `modules/bot/api.py` — ~16 endpoints including `startactivegame`, `endactivegame`,
-`uploadgame`, `awardpoints`, `cleanactivegame` — has **no auth decorator at all**. Anyone who can
-reach the API can create Discord channels and roles in the guild, start and end games, and award
-points. Since the API is publicly reachable at `api.thesoda.io`, this is exposed.
+Every route in `modules/games/api.py` (start and end games, upload games, award points) had no auth.
+A `before_request` hook now requires an officer of any org, as does `/api/calendar/debug/organizations`.
+In report mode the call goes through and logs `reason=no_platform_credential` or `reason=not_officer`.
 
-### C2. Tokens travel in the URL query string
+### C2. Login tokens no longer travel in the URL
 
-`modules/auth/api.py:94` redirects to
-`{CLIENT_URL}/auth/?access_token=…&refresh_token=…`. Access and refresh tokens end up in browser
-history, in the `Referer` header of any subsequent request, and in every proxy and CDN access log
-on the path. A POST body or a `HttpOnly` cookie would avoid this.
+`/api/auth/callback` redirects with a one-time code that the web app trades at
+`POST /api/auth/exchange`. The OAuth `state` parameter is checked. See
+[Authentication](./04-authentication.md).
 
-### C3. `FLASK_SECRET_KEY` defaults to `"dev-secret-key"`
+### C3. Session key
 
-`main.py:23`. Sessions are signed with it. If it is not set in production, anyone can forge a
-session cookie.
+`main.py` signs sessions with `FLASK_SECRET_KEY`, else `SECRET_KEY`, else a random key per start.
+It used to default to `"dev-secret-key"`.
 
-### C4. The token blacklist is in-memory and per-process
+### C4. Token revocations are in the database
 
-`TokenManager.blacklist` is a plain `set()` (`modules/utils/TokenManager.py:22`). `delete_token()`
-adds to it. It is wiped on every restart, so "revoked" access tokens become valid again after a
-deploy — until they expire naturally (30 min). Refresh-token revocation *is* persistent (DB-backed),
-so the practical blast radius is one access-token lifetime.
+`TokenManager.delete_token()` writes a `revoked_tokens` row (a hash of the token and its expiry), so
+a revoked access token stays revoked across restarts and for every process. App tokens get a `jti`
+and an `app_tokens` row; officers list theirs with `GET /api/auth/appTokens` and revoke one with
+`DELETE /api/auth/appTokens/<id>`. The hourly cleanup drops revocations of tokens that have expired.
 
 ### C5. `DELETE /api/superadmin/remove_org/<id>` has no cascade
 
@@ -142,6 +140,9 @@ no confirmation step and no soft-delete (`is_active=False`) alternative wired up
 inserts the negative row and commits. Nothing locks the user's rows between the read and the write.
 Two concurrent checkouts can both pass the balance check and overdraw the account. SQLite's
 single-writer model makes this hard to hit but does not prevent it.
+
+Prices and totals also came from the client. `price_mismatch()` now compares them with the catalog
+(`reason=checkout_price_mismatch`, 409 when enforcing), and quantities below 1 are refused.
 
 ### C7. `@error_handler` leaks exception text
 
@@ -181,20 +182,14 @@ game state. Any move to gunicorn has to solve that first.
 ### D3. `IS_PROD` vs `PROD` — two different variables
 
 - `main.py:121` reads `os.environ["IS_PROD"]` to decide debug/reloader.
-- `modules/utils/config.py:29` reads `PROD` into `config.PROD`, which nothing uses.
+- `core/config.py:29` reads `PROD` into `config.PROD`, which nothing uses.
 
 `.env.template` and `docker-compose.yml` set `IS_PROD`. `PROD` is dead.
 
-### D4. `SYS_ADMIN` vs `ADMIN_USER_ID` — crossed wires
+### D4. `SYS_ADMIN` names the superadmin
 
-```python
-self.SYS_ADMIN            = os.environ.get("ADMIN_USER_ID")   # config.py:74
-self.SUPERADMIN_USER_ID   = os.environ.get("SYS_ADMIN")       # config.py:80
-```
-
-The attribute named `SYS_ADMIN` reads the env var `ADMIN_USER_ID`, and the attribute used for
-superadmin checks reads the env var `SYS_ADMIN`. **Set `SYS_ADMIN` in `.env`.** `config.SYS_ADMIN`
-is unused.
+`config.SUPERADMIN_USER_ID` reads the env var `SYS_ADMIN`. **Set `SYS_ADMIN` in `.env`.** The unused
+`config.SYS_ADMIN` attribute (which read `ADMIN_USER_ID`) was removed.
 
 ### D5. Database URL config is fiction
 
@@ -205,7 +200,7 @@ and `pymongo` are installed dependencies with no corresponding code. Setting `DB
 ### D6. `create_all` runs three times, and coexists awkwardly with Alembic
 
 `DBConnect.__init__` calls `check_and_create_tables()`, which calls `create_all` — and then, after a
-stray docstring at `modules/utils/db.py:48`, contains a second block of **unreachable-in-effect**
+stray docstring at `core/db.py:48`, contains a second block of **unreachable-in-effect**
 logic that calls `create_all` again. `shared.py:74` calls it a third time.
 
 The real consequence: a brand-new database gets its schema from the models, not from migrations, and
@@ -264,9 +259,8 @@ claim.
 
 ### D15. CSV upload is fire-and-forget
 
-`modules/points/api.py:928` spawns a bare `threading.Thread`. No progress, no result reporting, no
-persistence — errors reach the log only, and the work dies if the process restarts. Fine for a
-few hundred rows.
+The upload defers the `points.import_event_csv` job. No progress or result reporting; errors
+reach the log only. On SQLite the job runs in a thread and dies if the process restarts.
 
 ### D16. `/api/calendar/<org>/events` hits Notion on every request
 
@@ -297,20 +291,20 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 
 | Item | Where |
 |------|-------|
-| `bot` singleton | `shared.py:153` |
 | `Session` model, `sessions` table | `modules/auth/models.py:9` |
 | `Officer` model, `OrganizationConfig` model | `modules/organizations/models.py` — superseded by live Discord checks and the `config` JSON column |
 | `CalendarEventLink` table | created, but the sync path uses Google extendedProperties instead |
 | `modules/users/user_reader.py` | Google Sheets importer; needs a `token.json` produced by a `generate_token.py` that is not in the repo |
 | `Organization.points_per_message`, `points_cooldown` | no code reads them |
-| `/botstatus`, `/startbot`, `/stopbot` | commented out, `modules/bot/api.py:27-49` |
+| `/botstatus`, `/startbot`, `/stopbot` | commented out, `modules/games/api.py:27-49` |
 | `web/src/components/GameTable.js` | zero-byte file |
 | Commented-out `BotFork.setup_game` | `bot.py:261+` |
-| Dependencies with no usage | `gunicorn`, `psycopg2-binary`, `pymongo`, `flask-socketio`, `python-socketio`, `flask-discord`, `selenium`, `webdriver-manager`, `gspread`, `oauth2client`, `anthropic`, `openai`, `google-genai`, `google-generativeai`, `dateparser`, `timefhuman` |
-| Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD`, `SYS_ADMIN` (the attribute) |
+| Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD` |
 
-That dependency list is worth a cleanup pass on its own — it inflates image size and the
-vulnerability surface that Dependabot reports against.
+The unused dependencies (`pymongo`, `selenium`, `webdriver-manager`, `gspread`, `oauth2client`,
+`anthropic`, `openai`, `google-genai`, `google-generativeai`, `flask-discord`, `flask-socketio` and
+its socket.io packages, `flask-sqlalchemy`, `dateparser`, `timefhuman`, `tenacity`, and the unrelated
+`pycord` package) were removed. `gunicorn` and `psycopg2-binary` are now used.
 
 ---
 

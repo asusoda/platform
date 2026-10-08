@@ -11,6 +11,8 @@ import AddPoints from "./pages/AddPoints";
 import OrganizationSelector from "./pages/OrganizationSelector";
 import SuperAdmin from "./pages/SuperAdmin";
 import Calendar from "./pages/Calendar";
+import ComputePage from "./pages/ComputePage";
+import PodFilesPage from "./pages/PodFilesPage";
 
 import React from "react";
 import { Route, Routes, BrowserRouter, Navigate } from "react-router-dom";
@@ -147,6 +149,22 @@ function App() {
             element={
               <PrivateRoute>
                 <ActiveGame />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/:orgPrefix/compute"
+            element={
+              <PrivateRoute>
+                <ComputePage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/:orgPrefix/compute/:podId/files"
+            element={
+              <PrivateRoute>
+                <PodFilesPage />
               </PrivateRoute>
             }
           />

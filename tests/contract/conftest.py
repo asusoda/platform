@@ -1,5 +1,6 @@
 """Fixtures for the API contract tests: the Flask app, seeded data, and stand-ins for Discord, Clerk and Notion."""
 
+import copy
 import uuid
 
 import pytest
@@ -23,7 +24,7 @@ NOTION_PAGE = {
 
 
 class FakeBot:
-    """Stands in for the Discord bot: every caller is a member and an officer."""
+    """Stands in for the Discord directory: every caller is a member and an officer."""
 
     def is_ready(self):
         return True
@@ -40,8 +41,22 @@ class FakeBot:
     def check_role(self, guild_id, role_id, user_id):
         return True
 
+    def list_guilds(self):
+        return [{"id": "1001", "name": "SoDA", "icon_url": None}, {"id": "1003", "name": "New Club", "icon_url": None}]
+
+    def get_guild(self, guild_id):
+        return next((g for g in self.list_guilds() if g["id"] == str(guild_id)), None)
+
     def get_guild_roles(self, guild_id):
-        return [{"id": "2001", "name": "Officer"}]
+        return [
+            {"id": "2001", "name": "Officer", "color": "#000000", "position": 1, "permissions": 0, "managed": False}
+        ]
+
+    def get_display_name(self, guild_id, user_id):
+        return "officer"
+
+    def get_member(self, guild_id, user_id):
+        return {"user": {"id": str(user_id), "username": "officer"}, "nick": None, "roles": ["2001"]}
 
 
 def _seed(db_connect):
@@ -102,9 +117,12 @@ def _seed(db_connect):
 def app():
     import main
     from shared import db_connect
+    from tests.conftest import create_schema
 
+    create_schema()
     _seed(db_connect)
     setattr(main.app, "auth_bot", FakeBot())  # noqa: B010
+    setattr(main.app, "discord_directory", FakeBot())  # noqa: B010
     main.app.config["TESTING"] = True
     return main.app
 
@@ -112,7 +130,7 @@ def app():
 @pytest.fixture(autouse=True)
 def stubs(app, monkeypatch):
     """Replace Clerk and Notion with local stand-ins so no test reaches the network."""
-    import modules.utils.clerk_auth as clerk_auth
+    import core.clerk_auth as clerk_auth
 
     monkeypatch.setattr(clerk_auth, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
     monkeypatch.setattr(app.multi_org_calendar_service.notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
@@ -143,3 +161,21 @@ def officer_headers(app):
 @pytest.fixture
 def clerk_headers():
     return {"Authorization": "Bearer clerk-session-token"}
+
+
+@pytest.fixture
+def restore_soda_config(app):
+    """Put SoDA's config JSON back after a test that changes it (the contract snapshots read it)."""
+    from modules.organizations.models import Organization
+    from shared import db_connect
+
+    db = db_connect.SessionLocal()
+    original = copy.deepcopy(db.query(Organization).filter_by(prefix="soda").one().config)
+    db.close()
+    yield
+    db = db_connect.SessionLocal()
+    try:
+        db.query(Organization).filter_by(prefix="soda").one().config = original
+        db.commit()
+    finally:
+        db.close()

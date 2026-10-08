@@ -1,7 +1,5 @@
 import asyncio
 import os
-import threading
-import time
 
 import discord
 import sentry_sdk
@@ -10,13 +8,13 @@ from flask_cors import CORS
 from notion_client import Client
 from sentry_sdk.integrations.flask import FlaskIntegration
 
+from core.config import Config
+from core.db import DBConnect
+from core.logging_config import logger
+from core.TokenManager import TokenManager
+
 # Import custom BotFork class
 from modules.bot.discord_modules.bot import BotFork
-from modules.utils.base import Base
-from modules.utils.config import Config
-from modules.utils.db import DBConnect
-from modules.utils.logging_config import logger
-from modules.utils.TokenManager import TokenManager
 
 # Initialize Flask app
 app = Flask(
@@ -35,6 +33,8 @@ CORS(
                 "http://127.0.0.1:5173",
                 "https://thesoda.io",
                 "https://admin.thesoda.io",
+                # Extra origins for other deployments, comma-separated
+                *[o.strip() for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()],
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Organization-ID", "X-Organization-Prefix"],
@@ -67,38 +67,6 @@ db_connect = DBConnect(os.environ.get("DATABASE_URL", "sqlite:///./data/user.db"
 tokenManager = TokenManager()
 
 
-# Import models so their tables are registered with Base.metadata before create_all
-import modules.auth.models  # noqa: F401, E402
-
-# Ensure all tables are created after all models are imported
-Base.metadata.create_all(bind=db_connect.engine)
-
-
-# Periodic cleanup of expired refresh tokens
-def cleanup_expired_tokens():
-    """Clean up expired refresh tokens periodically"""
-    try:
-        tokenManager.cleanup_expired_refresh_tokens()
-        logger.info("Cleaned up expired refresh tokens")
-    except Exception as e:
-        logger.error(f"Error cleaning up expired tokens: {e}")
-
-
-# Schedule cleanup every hour
-
-
-def run_cleanup_scheduler():
-    """Run the cleanup scheduler in a separate thread"""
-    while True:
-        cleanup_expired_tokens()
-        time.sleep(3600)
-
-
-# Start cleanup scheduler in background thread
-cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
-cleanup_thread.start()
-
-
 def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
     """Create and configure the auth bot (BotFork) instance with a specific event loop."""
     logger.info("Creating auth bot instance (BotFork)...")
@@ -108,38 +76,14 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
 
     auth_bot_instance = BotFork(intents=intents, loop=loop)
     try:
-        from modules.bot.discord_modules.cogs.GameCog import GameCog
         from modules.bot.discord_modules.cogs.HelperCog import HelperCog
-        from modules.bot.discord_modules.cogs.LeetCodeCog import LeetCodeCog
+        from modules.games.cog import GameCog
+        from modules.leetcode.cog import LeetCodeCog
 
         auth_bot_instance.add_cog(HelperCog(auth_bot_instance))
         auth_bot_instance.add_cog(GameCog(auth_bot_instance))
 
-        lc_channel_id: int | None = None
-        lc_role_ping: int | None = None
-        if config.LEETCODE_CHANNEL_ID:
-            try:
-                lc_channel_id = int(config.LEETCODE_CHANNEL_ID)
-            except ValueError:
-                logger.warning(
-                    f"Invalid LEETCODE_CHANNEL_ID '{config.LEETCODE_CHANNEL_ID}', daily task will be skipped"
-                )
-        if config.LEETCODE_ROLE_PING:
-            try:
-                lc_role_ping = int(config.LEETCODE_ROLE_PING)
-            except ValueError:
-                logger.warning(f"Invalid LEETCODE_ROLE_PING '{config.LEETCODE_ROLE_PING}', role ping will be skipped")
-
-        auth_bot_instance.add_cog(
-            LeetCodeCog(
-                bot=auth_bot_instance,
-                db_connect=db_connect,
-                channel_id=lc_channel_id,
-                role_ping=lc_role_ping,
-                daily_time=config.LEETCODE_DAILY_TIME,
-                timezone=config.TIMEZONE,
-            )
-        )
+        auth_bot_instance.add_cog(LeetCodeCog(bot=auth_bot_instance, db_connect=db_connect))
         logger.info("Auth bot cogs (HelperCog, GameCog, LeetCodeCog) registered with BotFork instance.")
     except Exception as e:
         logger.error(f"Error registering auth bot cogs: {e}", exc_info=True)
@@ -148,6 +92,3 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
 
 # Initialize Notion client
 notion = Client(auth=config.NOTION_API_KEY)
-
-# Initialize bot instance
-bot = create_auth_bot(asyncio.get_event_loop())

@@ -25,9 +25,11 @@ class GoogleCalendarClient:
 
     SCOPES = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/calendar.events"]
 
-    def __init__(self, logger_instance=None):
+    def __init__(self, logger_instance=None, service_account_info: dict | None = None):
         self.logger = logger_instance or logger  # Use shared logger by default
         self._service: Resource | None = None  # Type hint for service
+        # An org's own service account; None means the instance-wide GOOGLE_SERVICE_ACCOUNT.
+        self.service_account_info = service_account_info
         self.error_handler = APIErrorHandler(self.logger, "GoogleCalendarClient")
 
     def get_service(self, parent_transaction=None) -> Resource | None:  # Accept parent transaction
@@ -47,12 +49,17 @@ class GoogleCalendarClient:
         ) as transaction:  # Use operation_span
             self.error_handler.transaction = transaction  # Pass transaction to handler
             try:
+                info = config.GOOGLE_SERVICE_ACCOUNT if self.service_account_info is None else self.service_account_info
                 set_context(
                     "google_api",
-                    {"scopes": self.SCOPES, "service_account_provided": bool(config.GOOGLE_SERVICE_ACCOUNT)},
+                    {
+                        "scopes": self.SCOPES,
+                        "service_account_provided": bool(info),
+                        "org_service_account": self.service_account_info is not None,
+                    },
                 )
 
-                if not config.GOOGLE_SERVICE_ACCOUNT:
+                if not info:
                     self.logger.error("Google Service Account configuration is missing.")
                     raise ValueError("Google Service Account configuration is missing.")
 
@@ -60,7 +67,7 @@ class GoogleCalendarClient:
                     transaction, op="auth", description="create_credentials", logger=self.logger
                 ) as span:
                     credentials = service_account.Credentials.from_service_account_info(
-                        config.GOOGLE_SERVICE_ACCOUNT,  # Assuming this is the parsed dict
+                        info,
                         scopes=self.SCOPES,
                     )
                     span.set_data("credentials_created", bool(credentials))
@@ -464,9 +471,10 @@ class GoogleCalendarClient:
 class NotionCalendarClient:
     """Client for Notion calendar-related operations."""
 
-    def __init__(self, logger_instance=None):
+    def __init__(self, logger_instance=None, token: str | None = None):
         self.logger = logger_instance or logger  # Use shared logger by default
-        self.notion: NotionClient = notion_shared_client  # Use shared Notion client instance
+        # An org's own integration token if given, else the shared instance-wide client
+        self.notion: NotionClient = NotionClient(auth=token) if token else notion_shared_client
         self.error_handler = APIErrorHandler(self.logger, "NotionCalendarClient")
 
     def fetch_events(self, database_id: str, parent_transaction=None) -> list[dict] | None:  # Accept parent transaction

@@ -32,7 +32,7 @@ Calls `config.apiUrl` with the platform JWT from login, or the session cookie.
 
 | Area | Endpoints |
 |---|---|
-| Auth | GET /api/auth/name, GET /api/auth/validToken, POST /api/auth/refresh, POST /api/auth/logout |
+| Auth | GET /api/auth/login, GET /api/auth/callback (redirects to /auth/?code=…), POST /api/auth/exchange, GET and DELETE /api/auth/appTokens (new, no client yet), GET /api/auth/name, GET /api/auth/validToken, POST /api/auth/refresh, POST /api/auth/logout |
 | Organizations | GET /api/organizations/, PUT /api/organizations/{id}/settings, GET and PUT /api/organizations/{id}/calendar |
 | Points | GET and POST /api/points/{org}/users, PUT /api/points/{org}/users/{user}, GET /api/points/{org}/users/{user}/points, POST /api/points/{org}/assign_points, DELETE /api/points/{org}/delete_points, POST /api/points/{org}/uploadEventCSV, POST /api/points/{org}/member_login, GET /api/points/{org}/member_profile |
 | Public | GET /api/public/{org}/leaderboard |
@@ -56,7 +56,7 @@ Every /api request logs one line: method, route, status, org, credential kind (`
 
 These are recorded here, not fixed in phase 0.
 
-- `GET /api/public/{org}/leaderboard` returns every member's email and ASU ID with no authentication (contract case public-leaderboard). Phase 1 should remove those fields or require an officer.
+- `GET /api/public/{org}/leaderboard` and `GET /api/public/{org}/users` returned every member's email and ASU ID with no authentication (contract case public-leaderboard). Phase 1 leaves those fields out for anyone but the org's officers once `ACCESS_ENFORCE=true`.
 - The website's member store call (`GET .../members/store` with a Clerk token) gets 401 today, because `member_required` only accepts a Discord login session (contract case member-store-clerk). Either the website page is unused or it is broken in production.
 - `web/` calls routes that do not exist on the server, so those screens fail: `/api/getgamequestions`, `/api/startactivegame`, `/api/createchannels`, `/api/awardpoints` (the server has these under `/api/bot/`), `/games/*`, `/jeopardy/*`, `/bot/*`, `/points/leaderboard`, `/add-points`, `/remove-points`, `/auth/name`, `/auth/requestToken`. Files: components/GameBoard.js, SetupButton.js, AwardPanel.js, RequestManager.js, points/api.js, pages/GamePanel.js, ActiveGame.js, BotControlPanel.js, Jeopardy.js.
-- App tokens carry no type claim, so they pass as officer access tokens (the request log labels them `app`). Fixed in phase 1.
+- App tokens carried no type claim, so they passed as officer access tokens. Phase 1 types them and scopes them to the issuing officer (docs/04-authentication.md, "Access checks").

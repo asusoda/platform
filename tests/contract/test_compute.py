@@ -1,0 +1,427 @@
+"""Pods on an org's RunPod account: officers manage them, members connect with short-lived certificates."""
+
+import pytest
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.serialization import load_ssh_public_identity
+
+from tests.contract.conftest import MEMBER_DISCORD_ID
+
+
+class FakeRunPod:
+    def __init__(self):
+        self.pods: dict[str, dict] = {}
+        self.calls: list[tuple] = []
+
+    def create_pod(self, body):
+        pod_id = f"pod{len(self.pods) + 1}"
+        self.calls.append(("create", body))
+        self.pods[pod_id] = {
+            "id": pod_id,
+            "desiredStatus": "RUNNING",
+            "publicIp": "203.0.113.5",
+            "portMappings": {"22": 40022},
+        }
+        return self.pods[pod_id]
+
+    def get_pod(self, pod_id):
+        return self.pods.get(pod_id)
+
+    def start_pod(self, pod_id):
+        self.calls.append(("start", pod_id))
+        self.pods[pod_id]["desiredStatus"] = "RUNNING"
+
+    def stop_pod(self, pod_id):
+        self.calls.append(("stop", pod_id))
+        self.pods[pod_id]["desiredStatus"] = "EXITED"
+
+    def delete_pod(self, pod_id):
+        self.calls.append(("delete", pod_id))
+        self.pods.pop(pod_id)
+
+
+@pytest.fixture
+def runpod(app, monkeypatch):
+    from modules.compute import service
+    from modules.compute.models import ComputeKey, ComputePod, ComputeSession
+    from shared import db_connect
+
+    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
+    fake = FakeRunPod()
+    monkeypatch.setattr(service, "_client", lambda db, org_id: fake)
+    yield fake
+    db = db_connect.SessionLocal()
+    db.query(ComputeSession).delete()
+    db.query(ComputePod).delete()
+    db.query(ComputeKey).delete()
+    db.commit()
+    db.close()
+
+
+def _user_key():
+    from modules.compute import ssh
+
+    return ssh.generate_keypair("alice@laptop")[0]
+
+
+def _create(client, headers, **body):
+    return client.post("/api/compute/soda/pods", json={"name": "workshop", **body}, headers=headers)
+
+
+def test_officer_creates_and_lists_a_pod(client, officer_headers, runpod):
+    response = _create(client, officer_headers, gpu_type_id="NVIDIA A40", env={"HF_HOME": "/workspace/hf"})
+    assert response.status_code == 201
+    assert response.get_json()["pod"]["status"] == "RUNNING"
+    _, body = runpod.calls[0]
+    assert body["computeType"] == "GPU" and body["gpuTypeIds"] == ["NVIDIA A40"]
+    assert body["imageName"] == "theaisocietyasu/godfather-base:latest" and body["ports"] == ["22/tcp"]
+    assert body["env"]["HF_HOME"] == "/workspace/hf"
+    assert body["env"]["GODFATHER_SSH_CA_PUBLIC_KEY"].startswith("ssh-ed25519 ")
+    assert "PRIVATE" not in str(body)
+
+    pods = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"]
+    assert [(p["id"], p["name"], p["status"]) for p in pods] == [("pod1", "workshop", "RUNNING")]
+
+
+def test_cpu_pods_and_bad_requests(client, officer_headers, runpod):
+    assert _create(client, officer_headers, use_cpu_only=True).status_code == 201
+    _, body = runpod.calls[0]
+    assert body["computeType"] == "CPU" and body["cpuFlavorIds"] == ["cpu3c"] and "gpuTypeIds" not in body
+    for bad in (
+        {"env": {"GODFATHER_SETUP": "false"}},
+        {"volume_in_gb": -1},
+        {"cloud_type": "MOON"},
+        {"allowed_users": ["not-an-id"]},
+    ):
+        assert _create(client, officer_headers, **bad).status_code == 400
+
+
+def test_member_sees_and_connects_to_shared_running_pods(client, member_client, officer_headers, runpod, monkeypatch):
+    from modules.compute import api
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    _create(client, officer_headers)
+    assert member_client.get("/api/compute/soda/me/pods").get_json() == {"pods": []}
+    key = _user_key()
+    denied = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": key})
+    assert denied.status_code == 403
+
+    shared = client.put(
+        "/api/compute/soda/pods/pod1", json={"allowed_users": [MEMBER_DISCORD_ID]}, headers=officer_headers
+    )
+    assert shared.get_json()["pod"]["allowed_users"] == [MEMBER_DISCORD_ID]
+    assert [p["id"] for p in member_client.get("/api/compute/soda/me/pods").get_json()["pods"]] == ["pod1"]
+
+    info = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": key}).get_json()["ssh_info"]
+    assert (info["host"], info["port"], info["username"], info["is_admin"]) == ("203.0.113.5", 40022, "root", False)
+    cert = load_ssh_public_identity(info["certificate"].encode())
+    assert cert.valid_principals == [b"gf-pod1"]
+    assert cert.critical_options[b"force-command"].startswith(b"/usr/local/bin/godfather-login ")
+    assert member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": "nope"}).status_code == 400
+
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "stop"}, headers=officer_headers)
+    assert member_client.get("/api/compute/soda/me/pods").get_json() == {"pods": []}
+    stopped = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": key})
+    assert stopped.status_code == 409
+
+
+def test_officers_get_root_certificates(client, member_client, officer_headers, runpod):
+    _create(client, officer_headers)
+    info = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()}).get_json()
+    cert = load_ssh_public_identity(info["ssh_info"]["certificate"].encode())
+    assert info["ssh_info"]["is_admin"] is True and cert.critical_options == {}
+
+
+def test_actions_and_terminate(client, officer_headers, runpod):
+    _create(client, officer_headers)
+    for action in ("stop", "start", "restart"):
+        assert (
+            client.post(
+                "/api/compute/soda/pods/pod1/action", json={"action": action}, headers=officer_headers
+            ).status_code
+            == 200
+        )
+    assert runpod.calls[1:] == [("stop", "pod1"), ("start", "pod1"), ("stop", "pod1"), ("start", "pod1")]
+    assert (
+        client.post(
+            "/api/compute/soda/pods/pod1/action", json={"action": "explode"}, headers=officer_headers
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/api/compute/soda/pods/pod1/action", json={"action": "terminate"}, headers=officer_headers
+        ).status_code
+        == 200
+    )
+    assert client.get("/api/compute/soda/pods", headers=officer_headers).get_json() == {"pods": []}
+    assert client.get("/api/compute/soda/pods/pod1", headers=officer_headers).status_code == 404
+
+
+def test_keys_are_stored_encrypted_and_reused(client, officer_headers, runpod):
+    from modules.compute.models import ComputeKey
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    _create(client, officer_headers, name="second")
+    first_ca = runpod.calls[0][1]["env"]["GODFATHER_SSH_CA_PUBLIC_KEY"]
+    assert runpod.calls[1][1]["env"]["GODFATHER_SSH_CA_PUBLIC_KEY"] == first_ca
+    db = db_connect.SessionLocal()
+    rows = db.query(ComputeKey).all()
+    db.close()
+    assert sorted(r.kind for r in rows) == ["backend", "user_ca"]
+    assert all("PRIVATE KEY" not in r.private_key for r in rows)
+
+
+def test_without_a_runpod_key_the_org_is_told(client, officer_headers, app, monkeypatch):
+    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
+    response = _create(client, officer_headers)
+    assert response.status_code == 400 and "runpod_api_key" in response.get_json()["error"]
+
+
+def test_turning_compute_off_hides_the_routes(client, officer_headers, runpod, restore_soda_config):
+    orgs = client.get("/api/organizations/", headers=officer_headers).get_json()
+    soda_id = next(o["id"] for o in orgs if o["prefix"] == "soda")
+    client.put(f"/api/organizations/{soda_id}/modules", json={"modules": {"compute": False}}, headers=officer_headers)
+    assert client.get("/api/compute/soda/pods", headers=officer_headers).status_code == 404
+
+
+class FakeSFTP:
+    """An in-memory filesystem with the paramiko SFTPClient calls PodFiles uses."""
+
+    def __init__(self):
+        self.files: dict[str, bytes] = {"/workspace/train.py": b"print('hi')\n"}
+        self.dirs: set[str] = {"/", "/workspace", "/workspace/data"}
+
+    def _attr(self, name, path):
+        import stat
+        from types import SimpleNamespace
+
+        is_dir = path in self.dirs
+        mode = (stat.S_IFDIR | 0o755) if is_dir else (stat.S_IFREG | 0o644)
+        size = 0 if is_dir else len(self.files[path])
+        return SimpleNamespace(filename=name, st_mode=mode, st_size=size, st_mtime=1)
+
+    def listdir_attr(self, path):
+        if path not in self.dirs:
+            raise FileNotFoundError(path)
+        prefix = path.rstrip("/") + "/"
+        names = {p[len(prefix) :] for p in [*self.files, *self.dirs] if p.startswith(prefix) and p != path}
+        return [self._attr(n, prefix + n) for n in sorted(names) if "/" not in n]
+
+    def stat(self, path):
+        if path not in self.files and path not in self.dirs:
+            raise FileNotFoundError(path)
+        return self._attr(path.rsplit("/", 1)[-1], path)
+
+    def open(self, path, mode):
+        import io
+
+        sftp = self
+        if mode == "r":
+            if path not in self.files:
+                raise FileNotFoundError(path)
+            return io.BytesIO(self.files[path])
+
+        class Writer(io.BytesIO):
+            def __exit__(self, *exc):
+                sftp.files[path] = self.getvalue()
+                return super().__exit__(*exc)
+
+        return Writer()
+
+    def getfo(self, path, buffer):
+        buffer.write(self.files[path])
+
+    def putfo(self, stream, path):
+        self.files[path] = stream.read()
+
+    def mkdir(self, path):
+        if path in self.dirs:
+            raise OSError("exists")
+        self.dirs.add(path)
+
+    def rename(self, old, new):
+        self.files[new] = self.files.pop(old)
+
+    def close(self):
+        pass
+
+
+class FakeSSH:
+    def __init__(self):
+        self.commands: list[str] = []
+
+    def exec_command(self, command, timeout=None):
+        from types import SimpleNamespace
+
+        self.commands.append(command)
+        stdout = SimpleNamespace(channel=SimpleNamespace(recv_exit_status=lambda: 0))
+        return None, stdout, None
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def pod_fs(runpod, monkeypatch):
+    from modules.compute import files
+
+    sftp, ssh = FakeSFTP(), FakeSSH()
+    opened: list[tuple] = []
+
+    def fake_open(host, port, private_key):
+        opened.append((host, port, private_key.startswith("-----BEGIN OPENSSH PRIVATE KEY-----")))
+        return files.PodFiles(ssh, sftp)
+
+    monkeypatch.setattr(files.PodFiles, "open", staticmethod(fake_open))
+    yield sftp, ssh, opened
+
+
+def test_officers_manage_files_on_a_running_pod(client, officer_headers, pod_fs):
+    import io
+
+    sftp, ssh, opened = pod_fs
+    _create(client, officer_headers)
+    base = "/api/compute/soda/pods/pod1/files"
+
+    listing = client.get(base, headers=officer_headers).get_json()
+    assert listing["path"] == "/workspace"
+    assert [(f["name"], f["type"]) for f in listing["files"]] == [("data", "directory"), ("train.py", "file")]
+    assert opened[0] == ("203.0.113.5", 40022, True)
+
+    read = client.post(f"{base}/read", json={"path": "/workspace/../workspace/train.py"}, headers=officer_headers)
+    assert read.get_json() == {"path": "/workspace/train.py", "content": "print('hi')\n"}
+    client.post(f"{base}/write", json={"path": "/workspace/train.py", "content": "x = 1\n"}, headers=officer_headers)
+    assert sftp.files["/workspace/train.py"] == b"x = 1\n"
+
+    download = client.post(f"{base}/download", json={"path": "/workspace/train.py"}, headers=officer_headers)
+    assert download.status_code == 200 and download.data == b"x = 1\n"
+    assert "train.py" in download.headers["Content-Disposition"]
+
+    uploaded = client.post(
+        f"{base}/upload",
+        data={"path": "/workspace/data", "file": (io.BytesIO(b"a,b\n"), "rows.csv")},
+        headers=officer_headers,
+        content_type="multipart/form-data",
+    )
+    assert uploaded.get_json() == {"path": "/workspace/data/rows.csv"}
+    assert sftp.files["/workspace/data/rows.csv"] == b"a,b\n"
+
+    assert client.post(f"{base}/mkdir", json={"path": "/workspace/out"}, headers=officer_headers).status_code == 200
+    renamed = client.post(
+        f"{base}/rename",
+        json={"old_path": "/workspace/train.py", "new_path": "/workspace/main.py"},
+        headers=officer_headers,
+    )
+    assert renamed.status_code == 200 and "/workspace/main.py" in sftp.files
+    deleted = client.post(f"{base}/delete", json={"path": "/workspace/it's here"}, headers=officer_headers)
+    assert deleted.status_code == 200 and ssh.commands == ["rm -rf -- '/workspace/it'\"'\"'s here'"]
+
+
+def test_file_requests_are_checked(client, member_client, officer_headers, pod_fs, runpod):
+    _create(client, officer_headers)
+    base = "/api/compute/soda/pods/pod1/files"
+    assert client.post(f"{base}/read", json={"path": "relative.txt"}, headers=officer_headers).status_code == 400
+    assert client.post(f"{base}/read", json={"path": "/missing"}, headers=officer_headers).status_code == 404
+    for path in ("/", "/workspace/", "/root/../root"):
+        assert client.post(f"{base}/delete", json={"path": path}, headers=officer_headers).status_code == 400
+    assert client.post(f"{base}/upload", data={}, headers=officer_headers).status_code == 400
+    assert client.get("/api/compute/soda/pods/nope/files", headers=officer_headers).status_code == 404
+    assert member_client.get(f"{base}").status_code in (401, 403)
+
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "stop"}, headers=officer_headers)
+    assert client.get(base, headers=officer_headers).status_code == 409
+
+
+def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
+    import datetime
+
+    from modules.compute import schedule
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    runpod.pods["pod1"]["desiredStatus"] = "EXITED"
+    base = "/api/compute/soda/pods/pod1/sessions"
+    utc = datetime.datetime(2099, 10, 9, 0, 0)
+
+    def at(minutes):
+        return utc + datetime.timedelta(minutes=minutes)
+
+    created = client.post(
+        base,
+        json={"title": "Intro to CUDA", "start_at": "2099-10-08T17:00:00-07:00", "stop_at": "2099-10-09T02:00:00Z"},
+        headers=officer_headers,
+    )
+    assert created.status_code == 201
+    assert created.get_json()["session"]["start_at"] == "2099-10-09T00:00:00+00:00"
+    client.post(
+        base, json={"start_at": "2099-10-09T01:30:00Z", "stop_at": "2099-10-09T03:00:00Z"}, headers=officer_headers
+    )
+    assert len(client.get(base, headers=officer_headers).get_json()["sessions"]) == 2
+
+    db = db_connect.SessionLocal()
+    run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id: runpod)  # noqa: E731
+    assert run(-30) == {"started": [], "stopped": [], "failed": []}
+    assert run(-5)["started"] == ["pod1"]
+    assert runpod.pods["pod1"]["desiredStatus"] == "RUNNING"
+    assert run(60) == {"started": [], "stopped": [], "failed": []}
+    # The first session ends while the second still runs
+    assert run(125) == {"started": [], "stopped": [], "failed": []}
+    assert run(185)["stopped"] == ["pod1"]
+    assert runpod.pods["pod1"]["desiredStatus"] == "EXITED"
+    assert run(200) == {"started": [], "stopped": [], "failed": []}
+    db.close()
+
+
+def test_a_running_pod_is_stopped_after_its_session_and_others_are_left_alone(client, officer_headers, runpod):
+    import datetime
+
+    from modules.compute import schedule
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    _create(client, officer_headers, name="no sessions")
+    body = {"start_at": "2099-10-09T00:00:00Z", "stop_at": "2099-10-09T01:00:00Z"}
+    client.post("/api/compute/soda/pods/pod1/sessions", json=body, headers=officer_headers)
+    db = db_connect.SessionLocal()
+    now = datetime.datetime(2099, 10, 9, 0, 0)
+    run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id: runpod)  # noqa: E731
+    assert run(now)["started"] == []
+    assert run(now + datetime.timedelta(hours=2))["stopped"] == ["pod1"]
+    assert runpod.pods["pod2"]["desiredStatus"] == "RUNNING"
+    db.close()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        None,
+        {"start_at": "2099-10-09T00:00:00Z"},
+        {"start_at": "2099-10-09T00:00:00", "stop_at": "2099-10-09T01:00:00"},
+        {"start_at": "2099-10-09T02:00:00Z", "stop_at": "2099-10-09T01:00:00Z"},
+        {"start_at": "2099-10-09T00:00:00Z", "stop_at": "2099-10-10T01:00:00Z"},
+        {"start_at": "2020-01-01T00:00:00Z", "stop_at": "2020-01-01T01:00:00Z"},
+        {"start_at": "tomorrow", "stop_at": "later"},
+    ],
+)
+def test_bad_sessions_are_refused(client, officer_headers, runpod, body):
+    _create(client, officer_headers)
+    assert client.post("/api/compute/soda/pods/pod1/sessions", json=body, headers=officer_headers).status_code == 400
+
+
+def test_deleting_and_terminating_clear_sessions(client, officer_headers, runpod):
+    from modules.compute.models import ComputeSession
+    from shared import db_connect
+
+    _create(client, officer_headers)
+    base = "/api/compute/soda/pods/pod1/sessions"
+    body = {"start_at": "2099-01-01T00:00:00Z", "stop_at": "2099-01-01T01:00:00Z"}
+    first = client.post(base, json=body, headers=officer_headers).get_json()["session"]["id"]
+    client.post(base, json=body, headers=officer_headers)
+    assert client.delete(f"{base}/{first}", headers=officer_headers).status_code == 200
+    assert client.delete(f"{base}/{first}", headers=officer_headers).status_code == 404
+    assert len(client.get(base, headers=officer_headers).get_json()["sessions"]) == 1
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "terminate"}, headers=officer_headers)
+    db = db_connect.SessionLocal()
+    assert db.query(ComputeSession).count() == 0
+    db.close()

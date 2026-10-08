@@ -1,14 +1,15 @@
 # modules/calendar/api.py
-from flask import Blueprint, current_app, jsonify  # Add current_app
+"""HTTP routes for the calendar. The logic is in service.py; these only translate to and from HTTP."""
+
+from flask import Blueprint, jsonify
 from sentry_sdk import set_tag, start_transaction
 
+from modules.auth.access import any_officer_denial
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization
+from shared import db_connect, logger
 
-# Assuming shared resources are correctly set up
-from shared import db_connect, logger  # Remove calendar_service import
-
-# Import the new service and error handler
+from . import service
 from .errors import APIErrorHandler
 
 # Initialize the service and a top-level error handler for routes
@@ -21,6 +22,9 @@ calendar_blueprint = Blueprint("calendar", __name__)
 @calendar_blueprint.route("/debug/organizations", methods=["GET"])
 def debug_organizations():
     """Debug endpoint to list all organizations."""
+    denial = any_officer_denial()
+    if denial:
+        return jsonify({"message": denial[0]}), denial[1]
     try:
         with next(db_connect.get_db()) as session:
             orgs = session.query(Organization).filter(Organization.is_active).all()
@@ -46,32 +50,12 @@ def get_organization_events(org_prefix):
 
     try:
         with next(db_connect.get_db()) as session:
-            # Get organization by prefix
-            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
-
-            if not org:
-                # Check if organization exists but is inactive
-                inactive_org = session.query(Organization).filter(Organization.prefix == org_prefix).first()
-
-                if inactive_org:
-                    logger.warning(f"Organization with prefix '{org_prefix}' exists but is inactive")
-                    return jsonify(
-                        {"status": "error", "message": f"Organization '{org_prefix}' exists but is inactive"}
-                    ), 403
-                else:
-                    logger.warning(f"Organization with prefix '{org_prefix}' not found")
-                    return jsonify({"status": "error", "message": f"Organization '{org_prefix}' not found"}), 404
-
-            # Check if organization has calendar configuration
-            if not org.notion_database_id:
-                return jsonify(
-                    {"status": "error", "message": f"Organization '{org_prefix}' has no Notion database configured"}
-                ), 400
-
-            # Get events using multi-org service
-            events_result = current_app.multi_org_calendar_service.get_organization_events_for_frontend(  # type: ignore[attr-defined]
-                org.id, transaction
-            )
+            try:
+                org = service.find_organization(session, org_prefix)
+                events_result = service.list_events(session, org, transaction)
+            except service.CalendarError as e:
+                logger.warning(e.message)
+                return jsonify({"status": "error", "message": e.message}), e.status
 
             if events_result.get("status") == "error":
                 logger.error(f"Failed to get events for org {org_prefix}: {events_result.get('message')}")
@@ -113,8 +97,7 @@ def sync_organization_calendar(org_prefix):
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
 
-            # Sync using multi-org service
-            sync_result = current_app.multi_org_calendar_service.sync_organization_notion_to_google(org.id, transaction)  # type: ignore[attr-defined]
+            sync_result = service.sync_organization(session, org, transaction)
 
             if sync_result.get("status") == "error":
                 logger.error(f"Failed to sync org {org_prefix}: {sync_result.get('message')}")
@@ -156,10 +139,7 @@ def setup_organization_calendar(org_prefix):
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
                 return jsonify({"status": "error", "message": "Organization not found"}), 404
 
-            # Ensure calendar exists
-            calendar_id = current_app.multi_org_calendar_service.ensure_organization_calendar(  # type: ignore[attr-defined]
-                org.id, org.name, transaction
-            )
+            calendar_id = service.setup_calendar(session, org, transaction)
 
             if calendar_id:
                 logger.info(f"Successfully set up calendar {calendar_id} for org {org_prefix}")
@@ -200,7 +180,7 @@ def sync_all_organizations():
 
     try:
         # Sync all organizations using multi-org service
-        sync_result = current_app.multi_org_calendar_service.sync_all_organizations(transaction)  # type: ignore[attr-defined]
+        sync_result = service.sync_all(transaction)
 
         if sync_result.get("status") == "error":
             logger.error(f"Failed to sync all organizations: {sync_result.get('message')}")

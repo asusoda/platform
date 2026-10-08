@@ -1,9 +1,11 @@
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, jsonify, request, session
 
+from core.discord_directory import DiscordUnavailable
+from core.logging_config import get_logger
+from modules.auth.access import discord_directory
 from modules.auth.decoraters import superadmin_required
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
-from modules.utils.logging_config import get_logger
 from shared import config, db_connect, tokenManager
 
 logger = get_logger(__name__)
@@ -73,21 +75,12 @@ def get_dashboard():
     try:
         logger.debug("get_dashboard endpoint called")
 
-        # Get the auth bot from Flask app context
-        logger.debug("Getting auth bot from Flask app context...")
-        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-        if not auth_bot:
-            logger.error("Auth bot not found in Flask app context!")
+        directory = discord_directory()
+        if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
-
-        if not auth_bot.is_ready():  # type: ignore[attr-defined]
-            logger.warning("Auth bot is not ready!")
-            return jsonify({"error": "Bot not available"}), 503
-
-        logger.debug("Auth bot is ready")
 
         # Get all guilds where the bot is a member
-        guilds = auth_bot.guilds  # type: ignore[attr-defined]
+        guilds = directory.list_guilds()
         logger.debug(f"Bot is in {len(guilds)} guilds")
 
         # Get existing organizations from the database
@@ -102,14 +95,8 @@ def get_dashboard():
         # Filter guilds to show only those not already added
         available_guilds = []
         for guild in guilds:
-            if str(guild.id) not in existing_guild_ids:
-                available_guilds.append(
-                    {
-                        "id": str(guild.id),
-                        "name": guild.name,
-                        "icon": {"url": str(guild.icon.url) if guild.icon else None},
-                    }
-                )
+            if guild["id"] not in existing_guild_ids:
+                available_guilds.append({"id": guild["id"], "name": guild["name"], "icon": {"url": guild["icon_url"]}})
 
         logger.debug(f"Found {len(available_guilds)} available guilds")
 
@@ -122,11 +109,10 @@ def get_dashboard():
         if officer_id:
             for org in existing_orgs:
                 try:
-                    guild = auth_bot.get_guild(int(org.guild_id))  # type: ignore[attr-defined]
-                    if guild and guild.get_member(int(officer_id)):
+                    if directory.check_user_membership(officer_id, org.guild_id):
                         officer_orgs.append(org)
                         logger.debug(f"User is officer in organization: {org.name}")
-                except (ValueError, AttributeError) as e:
+                except (ValueError, DiscordUnavailable) as e:
                     logger.debug(f"Error checking organization {org.name}: {e}")
                     # Skip if guild_id is invalid or guild not found
                     continue
@@ -159,18 +145,9 @@ def get_guild_roles(guild_id):
     try:
         logger.debug(f"get_guild_roles endpoint called for guild_id: {guild_id}")
 
-        # Get the auth bot from Flask app context
-        logger.debug("Getting auth bot from Flask app context...")
-        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-        if not auth_bot:
-            logger.error("Auth bot not found in Flask app context!")
+        directory = discord_directory()
+        if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
-
-        if not auth_bot.is_ready():  # type: ignore[attr-defined]
-            logger.warning("Auth bot is not ready!")
-            return jsonify({"error": "Bot not available"}), 503
-
-        logger.debug("Auth bot is ready")
 
         # Convert guild_id to int for comparison
         try:
@@ -182,34 +159,22 @@ def get_guild_roles(guild_id):
 
         # Get the guild
         logger.debug(f"Getting guild with ID: {guild_id_int}")
-        guild = auth_bot.get_guild(guild_id_int)  # type: ignore[attr-defined]
+        guild = directory.get_guild(guild_id_int)
         if not guild:
             logger.error(f"Guild not found for ID: {guild_id_int}")
             return jsonify({"error": "Guild not found"}), 404
 
-        logger.debug(f"Found guild: {guild.name}")
-
-        # Get all roles from the guild
-        logger.debug("Getting roles from guild...")
-        roles = []
-        for role in guild.roles:
-            # Skip @everyone role and bot roles
-            if role.name != "@everyone" and not role.managed:
-                roles.append(
-                    {
-                        "id": str(role.id),
-                        "name": role.name,
-                        "color": str(role.color),
-                        "position": role.position,
-                        "permissions": role.permissions.value,
-                    }
-                )
-                logger.debug(f"Added role: {role.name} (ID: {role.id})")
+        # Skip the @everyone role and roles managed by integrations (bots)
+        roles = [
+            {key: role[key] for key in ("id", "name", "color", "position", "permissions")}
+            for role in directory.get_guild_roles(guild_id_int)
+            if role["name"] != "@everyone" and not role["managed"]
+        ]
 
         # Sort roles by position (highest first)
         roles.sort(key=lambda x: x["position"], reverse=True)
 
-        logger.debug(f"Found {len(roles)} roles for guild {guild.name}")
+        logger.debug(f"Found {len(roles)} roles for guild {guild['name']}")
         return jsonify({"roles": roles})
     except Exception as e:
         logger.error(f"Error in get_guild_roles: {e}")
@@ -237,18 +202,9 @@ def update_officer_role(org_id):
         officer_role_id = data["officer_role_id"]
         logger.debug(f"Officer role ID: {officer_role_id}")
 
-        # Get the auth bot from Flask app context
-        logger.debug("Getting auth bot from Flask app context...")
-        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-        if not auth_bot:
-            logger.error("Auth bot not found in Flask app context!")
+        directory = discord_directory()
+        if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
-
-        if not auth_bot.is_ready():  # type: ignore[attr-defined]
-            logger.warning("Auth bot is not ready!")
-            return jsonify({"error": "Bot not available"}), 503
-
-        logger.debug("Auth bot is ready")
 
         # Get the organization from database
         logger.debug("Getting organization from database...")
@@ -264,22 +220,17 @@ def update_officer_role(org_id):
         # Verify the role exists in the guild
         try:
             logger.debug("Getting guild for verification...")
-            guild = auth_bot.get_guild(int(org.guild_id))  # type: ignore[attr-defined]
+            guild = directory.get_guild(int(org.guild_id))
             if not guild:
                 logger.error(f"Guild not found for ID: {org.guild_id}")
                 return jsonify({"error": "Guild not found"}), 404
 
-            logger.debug(f"Found guild: {guild.name}")
-
             # If officer_role_id is provided, verify it exists
             if officer_role_id:
-                logger.debug("Verifying role exists in guild...")
-                role = guild.get_role(int(officer_role_id))
-                if not role:
+                role_ids = {role["id"] for role in directory.get_guild_roles(int(org.guild_id))}
+                if str(int(officer_role_id)) not in role_ids:
                     logger.error(f"Role not found in guild for ID: {officer_role_id}")
                     return jsonify({"error": "Role not found in guild"}), 404
-
-                logger.debug(f"Found role: {role.name}")
             else:
                 logger.debug("No officer role ID provided (clearing role)")
 
@@ -311,9 +262,8 @@ def update_officer_role(org_id):
 def add_organization(guild_id):
     """Add a new organization to the system"""
     try:
-        # Get the auth bot from Flask app context
-        auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-        if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
+        directory = discord_directory()
+        if directory is None or not directory.is_ready():
             return jsonify({"error": "Bot not available"}), 503
 
         # Convert guild_id to int for comparison with guild.id
@@ -323,21 +273,21 @@ def add_organization(guild_id):
             return jsonify({"error": "Invalid guild ID format"}), 400
 
         # Find the guild
-        guild = next((g for g in auth_bot.guilds if g.id == guild_id_int), None)  # type: ignore[attr-defined]
+        guild = directory.get_guild(guild_id_int)
         if not guild:
             return jsonify({"error": "Guild not found"}), 404
 
         # Create prefix from guild name
-        prefix = guild.name.lower().replace(" ", "_").replace("-", "_")
+        prefix = guild["name"].lower().replace(" ", "_").replace("-", "_")
 
         # Create new organization with default settings
         settings = OrganizationSettings()
         new_org = Organization(
-            name=guild.name,
-            guild_id=str(guild.id),
+            name=guild["name"],
+            guild_id=guild["id"],
             prefix=prefix,
-            description=f"Discord server: {guild.name}",
-            icon_url=str(guild.icon.url) if guild.icon else None,
+            description=f"Discord server: {guild['name']}",
+            icon_url=guild["icon_url"],
             config=settings.to_dict(),
         )
 
@@ -346,7 +296,7 @@ def add_organization(guild_id):
         db.add(new_org)
         db.commit()
 
-        return jsonify({"message": f"Organization {guild.name} added successfully!"})
+        return jsonify({"message": f"Organization {guild['name']} added successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -371,5 +321,24 @@ def remove_organization(org_id):
         return jsonify({"message": f"Organization {org_name} removed successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/audit", methods=["GET"])
+@superadmin_required
+def get_audit():
+    """Audit log across all orgs, newest first. ?org=<prefix>&limit=100&before_id=<id>."""
+    from core import audit
+
+    db = next(db_connect.get_db())
+    try:
+        entries = audit.list_entries(
+            db,
+            org=request.args.get("org"),
+            limit=request.args.get("limit", 100, type=int),
+            before_id=request.args.get("before_id", type=int),
+        )
+        return jsonify({"entries": entries})
     finally:
         db.close()

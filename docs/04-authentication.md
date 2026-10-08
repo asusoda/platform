@@ -7,8 +7,8 @@ running side by side. Read this page before touching anything auth-related.
 
 | System | Who uses it | Credential | Verified by |
 |--------|-------------|-----------|-------------|
-| **Discord OAuth + local JWT** | Officers, in the admin web app | RS256 JWT issued by this API | `modules/utils/TokenManager.py` |
-| **Clerk** | Members, on the public storefront | Clerk session token | `modules/utils/clerk_auth.py` (Clerk SDK) |
+| **Discord OAuth + local JWT** | Officers, in the admin web app | RS256 JWT issued by this API | `core/TokenManager.py` |
+| **Clerk** | Members, on the public storefront | Clerk session token | `core/clerk_auth.py` (Clerk SDK) |
 | **Flask session cookie** | Member store login, legacy paths | Signed cookie | Flask's built-in session |
 
 They overlap. Some endpoints accept exactly one; some accept either; the storefront accepts all
@@ -22,37 +22,43 @@ This is the main admin path. End to end:
 
 ```
 1. Browser        → GET  {API}/api/auth/login
-2. API            → 302 to discord.com/oauth2/authorize?...&scope=identify%20guilds
+2. API            → session["oauth_state"] = random
+                  → 302 to discord.com/oauth2/authorize?...&scope=identify%20guilds&state=…
 3. User approves on Discord
-4. Discord        → 302 to REDIRECT_URI  ({API}/api/auth/callback?code=…)
-5. API /callback  → POST discord.com/api/v10/oauth2/token   (exchange code for access token)
+4. Discord        → 302 to REDIRECT_URI  ({API}/api/auth/callback?code=…&state=…)
+5. API /callback  → state must equal session["oauth_state"] (report mode logs a mismatch,
+                    ACCESS_ENFORCE=true redirects with an error)
+                  → POST discord.com/api/v10/oauth2/token   (exchange code for access token)
                   → GET  discord.com/api/v10/users/@me      (fetch the user's id)
-                  → auth_bot.check_officer(user_id, SUPERADMIN_USER_ID)
-                       ├─ superadmin? return every guild id
+                  → discord_directory.check_officer(user_id, SUPERADMIN_USER_ID)
+                       ├─ superadmin? return every active org's guild id
                        └─ else: for each active org with an officer_role_id,
-                                look up the guild + role + member in the bot's cache,
-                                collect guild ids where the member holds the role
+                                GET /guilds/{guild}/members/{user} over Discord's REST API
+                                (bot token, cached 60 s), collect guild ids where the
+                                member holds the role
 6a. Officer in ≥1 org →
        tokenManager.generate_token_pair(username, discord_id,
                                         access_exp_minutes=30, refresh_exp_days=7)
        session["user"]  = {username, discord_id, role: "officer", officer_guilds: [...]}
        session["token"] / session["refresh_token"]
-       302 → {CLIENT_URL}/auth/?access_token=…&refresh_token=…
+       302 → {CLIENT_URL}/auth/?code=…   (one-time code, valid 60 s)
 6b. Not an officer →
        302 → {CLIENT_URL}/auth/?error=Unauthorized Access
-7. React /auth page (TokenRetrival.js) reads the query params into localStorage
+7. React /auth page (TokenRetrival.js) → POST {API}/api/auth/exchange {code}
+       → {access_token, refresh_token}, stored in localStorage
 ```
 
 Two consequences worth flagging:
 
-- **The bot must be connected and its guild cache warm**, or `/callback` returns
-  `503 Authentication service temporarily unavailable`.
-- **Tokens travel in the URL query string** in step 6a. They land in browser history and in any
-  proxy access log along the way.
+- **Discord lookups use the REST API, not the bot.** `core/discord_directory.py` reads
+  guilds, roles and members with `BOT_TOKEN`, so the API answers while the bot process is down. If
+  `BOT_TOKEN` is unset or Discord is unreachable, `/callback` returns `503`.
+- **Login codes are held in the API process's memory.** This works because `main.py` runs one
+  process. Running several workers would need the codes in a shared store.
 
 ### The tokens themselves
 
-`TokenManager` (`modules/utils/TokenManager.py`):
+`TokenManager` (`core/TokenManager.py`):
 
 - Algorithm **RS256**, with an RSA keypair stored at `./data/jwt_private.pem` /
   `./data/jwt_public.pem`. Generated on first boot, `chmod 600` on the private key, and reloaded on
@@ -80,7 +86,7 @@ Note: when the token comes from the Flask session (`session["token"]`), the curr
 
 ## System 2: Clerk (the member storefront)
 
-`modules/utils/clerk_auth.py`.
+`core/clerk_auth.py`.
 
 `verify_clerk_token(token)`:
 
@@ -110,10 +116,35 @@ Set in two places:
 `@member_required` reads `session["discord_id"]` — which, note, **nothing in the current codebase
 ever writes**. See [Gotchas](./10-gotchas-and-known-issues.md).
 
-Sessions are signed with `app.secret_key`, which comes from `FLASK_SECRET_KEY` and **defaults to
-`"dev-secret-key"`**. Set it in production.
+Sessions are signed with `app.secret_key`, from `FLASK_SECRET_KEY`, else `SECRET_KEY`. With neither
+set, a random key is generated at startup and sessions end on every restart. (It used to default to
+the public string `"dev-secret-key"`, which let anyone forge a session.)
+
+`member_login` requires a Clerk session token whose email matches the email in the body. Without
+one, anyone could log in as any member by typing their email or ASU ID. In report mode the request
+goes through and logs `reason=member_login_unverified`. The web app's MemberLoginPage sends no
+Clerk token, so it has to move to Clerk before `ACCESS_ENFORCE=true`.
 
 ---
+
+## Machine tokens (apps, agents, CLIs)
+
+`modules/auth/machine_tokens.py`. An officer issues one with `POST /api/organizations/<id>/tokens`
+(`name`, `kind` of `app`, `agent` or `cli`, `scopes`, optional `expires_days`). The value,
+`plat_` plus 43 random characters, is returned once. The `machine_tokens` table keeps its SHA-256
+hash, its first characters for display, and `last_used_at`. Revoke with `DELETE .../tokens/<id>`.
+
+- A token belongs to one org. A route that names a different org refuses it (403).
+- A token carries scopes. Modules declare them with `modules.auth.scopes.declare(name, description)`;
+  `GET .../tokens` lists every declared scope.
+- Routes for machines use `@machine_scope_required("<scope>")`, which sets `g.machine_caller`.
+  Officer routes do not accept machine tokens: `plat_` is not a JWT, so `@auth_required` returns 401.
+- `GET /api/auth/machine/whoami` returns a token's org, name, kind and scopes.
+- The request log shows `credential=machine`; the audit log records `actor_kind=machine` and
+  `actor_id=<kind>:<name>#<token id>`.
+
+The older app tokens (`GET /api/auth/appToken`) are JWTs tied to the issuing officer, not to an org,
+and have no scopes. They keep working; new integrations should use machine tokens.
 
 ## The decorators — `modules/auth/decoraters.py`
 
@@ -136,10 +167,9 @@ else Authorization header?
   └─ ok       → proceed
 ```
 
-Note it does **not** check org membership or officer status. It only proves "you hold a valid token
-this API issued". Since tokens are only issued to officers at `/callback`, that is the de-facto
-officer gate — but it is not re-checked per request, so an officer who loses their Discord role
-keeps working access until their 30-minute token expires (and can refresh for up to 7 days).
+After the token checks it runs the org scope check (see "Access checks" below): if the route names an
+org (`org_prefix` or `org_id`), the caller must hold that org's officer role or be the superadmin.
+Routes without an org in the URL (`/api/users/*`, `/api/calendar/sync-all`) only check the token.
 
 ### `@dual_auth_required`
 
@@ -149,6 +179,9 @@ so downstream code has one field to read regardless of which system authenticate
 
 Used by the storefront endpoints that both officers and Clerk members hit: `get_orders`,
 `create_order`, `get_user_orders_clerk`, `get_user_wallet_clerk`, `clerk_checkout`.
+
+`get_orders` lists every order in the org with names and emails, and only the officer app calls it,
+so it also carries `@org_officer_required`, which applies the org scope check after dual auth.
 
 > Careful: in the JWT branch `clerk_user_email` is set to a Discord **username**, not an email. Any
 > handler that treats that value as an email (as `clerk_checkout` does with
@@ -160,20 +193,43 @@ Validates the token, then:
 
 - **Session path**: requires `session["user"]["role"] == "admin"`. But `/callback` sets that role to
   `"officer"` — so this branch never passes. In practice everything goes through the header path.
-- **Header path**: decodes the token, takes `discord_id`, calls `auth_bot.check_officer(discord_id,
-  SUPERADMIN_USER_ID)`, and requires a non-empty result.
+- **Header path**: decodes the token, takes `discord_id`, calls `discord_directory.check_officer(discord_id,
+  SUPERADMIN_USER_ID)`, and requires a non-empty result. Then it runs the superadmin check: the
+  `discord_id` must equal `config.SUPERADMIN_USER_ID` (env `SYS_ADMIN`).
 
-So `@superadmin_required` in effect means "**is an officer in at least one org**", not "is the
-superadmin". The only endpoint that checks true superadmin identity is `GET /api/superadmin/check`,
-which compares `discord_id` against `config.SUPERADMIN_USER_ID` inside the handler body.
+Before the access checks, `@superadmin_required` meant "is an officer in at least one org". With
+`ACCESS_ENFORCE=true` it means the superadmin, matching `GET /api/superadmin/check`, which the web app
+already uses to decide whether to show the superadmin pages.
 
 Returns `503` when the bot is unavailable or not ready.
+
+### Access checks — `modules/auth/access.py`
+
+Shared by the decorators above.
+
+- Org scope: the org named in the URL is looked up; an unknown org is left to the route (usually 404).
+  The caller's officer guilds come from `discord_directory.check_officer` and are cached for 60 seconds per
+  Discord id. The superadmin passes every org.
+- Credentials: access tokens and app tokens carry `discord_id`. App tokens now carry `type: "app"`
+  and the issuing officer's `discord_id`, so they are scoped to that officer's orgs. Older app tokens
+  have no `discord_id` and are refused on org routes.
+- `GET /api/organizations/` lists only the caller's orgs when enforcing.
+- Mode: `ACCESS_ENFORCE=false` (default) lets every request through and logs one line per request
+  that would be refused:
+  `access decision=would_deny reason=not_org_officer route=... org=... credential=... discord_id=...`.
+  Reasons: `not_org_officer`, `not_officer`, `not_superadmin`, `no_discord_id`,
+  `no_platform_credential`, `bot_unavailable`, `oauth_state_mismatch`, `member_login_unverified`,
+  `checkout_price_mismatch` (409 when enforcing), `member_details_hidden` (public member lists drop
+  email and ASU ID instead of refusing). With `ACCESS_ENFORCE=true` the same cases return 403 (503 for
+  `bot_unavailable`) and log `decision=deny`.
+
+Turn enforcement on once the log shows no `would_deny` lines from legitimate use.
 
 ### `@member_required`
 
 For public member-facing storefront routes. Requires `org_prefix` in the URL, reads
 `session["discord_id"]`, loads the org, and calls
-`auth_bot.check_user_membership(discord_id, guild_id)`. On success it injects `user_discord_id` and
+`discord_directory.check_user_membership(discord_id, guild_id)`. On success it injects `user_discord_id` and
 `organization` into the handler's `kwargs` — which is why those handlers are declared with `**kwargs`.
 
 ### `@error_handler`
