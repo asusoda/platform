@@ -7,6 +7,7 @@ and where a new one is registered.
 | Module | What it does | Org switch |
 | --- | --- | --- |
 | [accounts](accounts/README.md) | Canvas, Google and Outlook sign-in for a member, bound to their Discord account | |
+| [alerts](alerts/README.md) | Job and hackathon listings posted to Discord webhooks | `alerts` |
 | [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | |
 | [asu](asu/README.md) | Example campus source: public ASU pages and live queries, indexed into knowledge | |
 | [auth](auth/README.md) | Discord login, JWTs, access checks, machine tokens and scopes | |

@@ -16,6 +16,7 @@ const sections = {
       ['knowledge.md', 'knowledge'],
       ['asu.md', 'asu'],
       ['accounts.md', 'accounts'],
+      ['alerts.md', 'alerts'],
       ['runpod-apps.md', 'runpod-apps'],
       ['tools-and-mcp.md', 'tools-and-mcp'],
     ],

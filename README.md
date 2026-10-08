@@ -25,6 +25,7 @@ Agents and compute:
 | `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
 | `asu` | Example campus source: 226 public ASU pages and 16 live queries (dining, library hours, events), indexed into knowledge |
 | `accounts` | Canvas, Google and Outlook sign-in for a member, bound to their Discord account, so agents can act for them |
+| `alerts` | New job listings and upcoming hackathons posted to Discord webhooks |
 | `runpod` | Deploy an org's apps to RunPod from a manifest in the app's repo, with health checks and rollback |
 | `mcp` | An MCP server and `/api/tools` that expose the modules above to agents through scoped machine tokens |
 

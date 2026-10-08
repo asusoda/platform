@@ -19,6 +19,7 @@ OPTIONAL_MODULES = {
     "calendar": "Notion to Google Calendar sync and the public events feed",
     "leetcode": "Daily LeetCode post in the org's channel, with solve checks",
     "compute": "GPU and CPU pods on the org's RunPod account that members SSH into",
+    "alerts": "Job and hackathon listings posted to Discord webhooks",
 }
 
 

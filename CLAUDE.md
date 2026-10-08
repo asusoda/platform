@@ -80,13 +80,13 @@ make rollback
 All core functionality is organized in `/modules/`, one folder per feature. A module has only the files it needs:
 - `README.md` - what it does, its files, routes, jobs, tools and tables
 - `service.py` - logic; takes a DB session, never imports Flask, raises a `core.errors.ServiceError` subclass
-- `api.py` - Flask blueprint that calls `service.py`; machine-token routes use `machine_route` from `modules/auth/routes.py`
+- `api.py` - Flask blueprint that calls `service.py`; officer and machine-token routes use `officer_route` and `machine_route` from `modules/auth/routes.py`
 - `models.py` - SQLAlchemy models
 - `jobs.py`, `tools.py` - background jobs (`@job`) and agent tools (`@tool`)
 
 Blueprints, jobs and tools are registered in `modules/registry.py`. `docs/writing-a-module.md` lists every place a new module is registered.
 
-Active modules: accounts, agents, asu, auth, bot, calendar, compute, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
+Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
