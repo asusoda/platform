@@ -168,14 +168,17 @@ def add_organization(guild_id):
         new_org = service.new_organization(guild)
 
         db = next(db_connect.get_db())
-        db.add(new_org)
-        db.commit()
+        try:
+            if db.query(Organization).filter_by(prefix=new_org.prefix).first() is not None:
+                return jsonify({"error": f"The prefix {new_org.prefix} is already taken"}), 409
+            db.add(new_org)
+            db.commit()
+        finally:
+            db.close()
 
         return jsonify({"message": f"Organization {guild['name']} added successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        db.close()
 
 
 @superadmin_blueprint.route("/remove_org/<int:org_id>", methods=["DELETE"])

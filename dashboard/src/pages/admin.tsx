@@ -38,8 +38,11 @@ const BOT_DOWN = 'The Discord bot is not available, so servers and roles cannot 
 // The error to show, with the bot message for a 503.
 const explain = (error: unknown) => (isBotDown(error) ? BOT_DOWN : error);
 
-// The prefix the server gives a new organization, from new_organization in modules/superadmin/service.py.
-const prefixFor = (name: string) => name.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+// The prefix the server gives a new organization, from prefix_for in modules/superadmin/service.py.
+function prefixFor(name: string, guildId: string): string {
+  const prefix = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20).replace(/_+$/, '');
+  return prefix.length >= 2 ? prefix : `org_${guildId.slice(-6)}`;
+}
 
 function useRefreshOrgs() {
   const client = useQueryClient();
@@ -175,7 +178,7 @@ function AddDialog({ guild, onClose }: { guild: AvailableGuild; onClose: () => v
         </dd>
         <dt className="text-muted">Prefix</dt>
         <dd>
-          <Code>{prefixFor(guild.name)}</Code>
+          <Code>{prefixFor(guild.name, guild.id)}</Code>
         </dd>
       </dl>
       <p className="text-xs text-pretty text-muted">
