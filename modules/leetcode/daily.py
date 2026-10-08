@@ -1,12 +1,13 @@
 """The LeetCode daily post and its solve checks, run as jobs. No Flask and no gateway bot here.
 
-A leetcode_daily row per local date is claimed before posting, so two workers or a restart never
+A leetcode_daily row per local date and target is claimed before posting, so two workers or a restart never
 post twice. Members still to verify come from the database on every run, not from bot memory.
 """
 
 import asyncio
 import datetime
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -53,11 +54,11 @@ def _config():
     return config
 
 
-def _int(value: str | None, name: str) -> int | None:
-    if not value:
+def _int(value: object, name: str) -> int | None:
+    if value in (None, ""):
         return None
     try:
-        return int(value)
+        return int(str(value))
     except ValueError:
         logger.warning("%s is not a number: %r", name, value)
         return None
@@ -71,13 +72,58 @@ def _zone() -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
-def _post_time() -> datetime.time:
+def _time(value: object, name: str) -> datetime.time:
     try:
-        hour, minute = (int(x) for x in str(_config().LEETCODE_DAILY_TIME).split(":")[:2])
+        hour, minute = (int(x) for x in str(value).split(":")[:2])
         return datetime.time(hour, minute)
     except ValueError:
-        logger.warning("LEETCODE_DAILY_TIME %r is not HH:MM, using 09:00", _config().LEETCODE_DAILY_TIME)
+        logger.warning("%s %r is not HH:MM, using 09:00", name, value)
         return datetime.time(9, 0)
+
+
+@dataclass(frozen=True)
+class Target:
+    """Where one daily post goes."""
+
+    scope: str
+    channel_id: int
+    role_ping: int | None
+    post_time: datetime.time
+    guild_id: str | None = None
+
+
+def targets(db) -> list[Target]:
+    """The instance post from LEETCODE_* settings, then each org that turned leetcode on and set a channel."""
+    from modules.organizations import service as organizations
+    from modules.organizations.models import Organization
+
+    config = _config()
+    found = []
+    channel = _int(config.LEETCODE_CHANNEL_ID, "LEETCODE_CHANNEL_ID")
+    if channel is not None:
+        found.append(
+            Target(
+                "instance",
+                channel,
+                _int(config.LEETCODE_ROLE_PING, "LEETCODE_ROLE_PING"),
+                _time(config.LEETCODE_DAILY_TIME, "LEETCODE_DAILY_TIME"),
+            )
+        )
+    for org in db.query(Organization).filter_by(is_active=True).order_by(Organization.id):
+        settings = (org.config or {}).get("leetcode") or {}
+        channel = _int(settings.get("channel_id"), f"org {org.id} leetcode channel_id")
+        if channel is None or not organizations.module_enabled(org, "leetcode"):
+            continue
+        found.append(
+            Target(
+                f"org:{org.id}",
+                channel,
+                _int(settings.get("role_ping"), f"org {org.id} leetcode role_ping"),
+                _time(settings.get("daily_time") or "09:00", f"org {org.id} leetcode daily_time"),
+                str(org.guild_id),
+            )
+        )
+    return found
 
 
 def post_daily(
@@ -86,57 +132,80 @@ def post_daily(
     fetch: Callable[[], dict] | None = None,
     send: Callable[..., dict] = discord_messages.send_message,
     react: Callable[..., None] = discord_messages.add_reaction,
-) -> dict:
-    """Post today's question once, at or after LEETCODE_DAILY_TIME in TIMEZONE. Commits."""
-    channel_id = _int(_config().LEETCODE_CHANNEL_ID, "LEETCODE_CHANNEL_ID")
-    if channel_id is None:
-        return {"posted": False, "reason": "LEETCODE_CHANNEL_ID is not set"}
+) -> dict[str, dict]:
+    """Post today's question once per target, at or after its time in TIMEZONE. Commits. Returns scope to result."""
     local = (now or datetime.datetime.now(datetime.UTC)).astimezone(_zone())
-    if local.time() < _post_time():
-        return {"posted": False, "reason": "not yet"}
-    today = local.date()
-    if db.get(LeetCodeDaily, today) is not None:
-        return {"posted": False, "reason": "already posted"}
+    results: dict[str, dict] = {}
+    question: dict | None = None
+    for target in targets(db):
+        if local.time() < target.post_time:
+            results[target.scope] = {"posted": False, "reason": "not yet"}
+            continue
+        if db.get(LeetCodeDaily, (local.date(), target.scope)) is not None:
+            results[target.scope] = {"posted": False, "reason": "already posted"}
+            continue
+        if question is None:
+            question = fetch() if fetch else asyncio.run(client.fetch_daily_question())
+        try:
+            results[target.scope] = _post(db, target, local.date(), question, send, react)
+        except DiscordUnavailable:
+            logger.warning("Could not post the daily LeetCode for %s", target.scope, exc_info=True)
+            results[target.scope] = {"posted": False, "reason": "discord unavailable"}
+    return results
 
-    question = fetch() if fetch else asyncio.run(client.fetch_daily_question())
-    db.add(LeetCodeDaily(post_date=today, title_slug=question["titleSlug"], channel_id=str(channel_id)))
+
+def _post(db, target: Target, today: datetime.date, question: dict, send, react) -> dict:
+    db.add(
+        LeetCodeDaily(
+            post_date=today, scope=target.scope, title_slug=question["titleSlug"], channel_id=str(target.channel_id)
+        )
+    )
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         return {"posted": False, "reason": "already posted"}
 
-    role = _int(_config().LEETCODE_ROLE_PING, "LEETCODE_ROLE_PING")
-    payload = {"content": f"<@&{role}>" if role else None, "embeds": [question_embed(question, is_daily=True)]}
+    payload = {
+        "content": f"<@&{target.role_ping}>" if target.role_ping else None,
+        "embeds": [question_embed(question, is_daily=True)],
+    }
     try:
-        message = send(_config().BOT_TOKEN, channel_id, payload)
+        message = send(_config().BOT_TOKEN, target.channel_id, payload)
     except DiscordUnavailable:
         # Give the day back so the next run tries again
-        db.query(LeetCodeDaily).filter_by(post_date=today).delete()
+        db.query(LeetCodeDaily).filter_by(post_date=today, scope=target.scope).delete()
         db.commit()
         raise
-    row = db.get(LeetCodeDaily, today)
+    row = db.get(LeetCodeDaily, (today, target.scope))
     row.message_id = str(message["id"])
     db.commit()
     try:
-        react(_config().BOT_TOKEN, channel_id, message["id"], CHECK_MARK)
+        react(_config().BOT_TOKEN, target.channel_id, message["id"], CHECK_MARK)
     except DiscordUnavailable:
         logger.warning("Could not react to the daily post", exc_info=True)
-    logger.info("Posted daily LeetCode %s", question["titleSlug"])
+    logger.info("Posted daily LeetCode %s for %s", question["titleSlug"], target.scope)
     return {"posted": True, "slug": question["titleSlug"]}
 
 
-def _solved_on(submissions: list[dict], slug: str, day: datetime.date, zone: ZoneInfo) -> bool:
+def _solved_on(submissions: list[dict], slugs: set[str], day: datetime.date, zone: ZoneInfo) -> str | None:
     for sub in submissions:
-        if sub.get("titleSlug") != slug:
+        if sub.get("titleSlug") not in slugs:
             continue
         try:
             ts = int(sub.get("timestamp"))  # type: ignore[arg-type]
         except (TypeError, ValueError):
             continue
         if datetime.datetime.fromtimestamp(ts, tz=zone).date() == day:
-            return True
-    return False
+            return str(sub["titleSlug"])
+    return None
+
+
+def _member_check() -> Callable[[str, str], bool]:
+    from core.discord_directory import DiscordDirectory
+
+    directory = DiscordDirectory(_config().BOT_TOKEN)
+    return lambda guild_id, discord_id: directory.check_user_membership(discord_id, guild_id)
 
 
 def verify(
@@ -144,13 +213,20 @@ def verify(
     now: datetime.datetime | None = None,
     submissions: Callable[[str], list[dict]] | None = None,
     send: Callable[..., dict] = discord_messages.send_message,
+    is_member: Callable[[str, str], bool] | None = None,
 ) -> dict:
-    """Check today's linked members who have not solved yet, record solves, reply under the post. Commits."""
+    """Check today's linked members who have not solved yet, record solves, reply under each post. Commits.
+
+    The instance post announces every solve. An org's post announces solves of members of its server.
+    """
     zone = _zone()
     today = (now or datetime.datetime.now(datetime.UTC)).astimezone(zone).date()
-    post = db.get(LeetCodeDaily, today)
-    if post is None or post.message_id is None:
+    posts = [p for p in db.query(LeetCodeDaily).filter_by(post_date=today) if p.message_id is not None]
+    if not posts:
         return {"checked": 0, "verified": 0}
+    slugs = {str(p.title_slug) for p in posts}
+    if is_member is None and any(str(p.scope).startswith("org:") for p in posts):
+        is_member = _member_check()
     pending = service.unsolved_links(db, today)
     verified = 0
     for discord_id, username in pending.items():
@@ -159,20 +235,41 @@ def verify(
         except RuntimeError:
             logger.warning("Could not read submissions of %s", username, exc_info=True)
             continue
-        if not _solved_on(found, str(post.title_slug), today, zone):
+        slug = _solved_on(found, slugs, today, zone)
+        if slug is None:
             continue
-        service.record_solve(db, discord_id, str(post.title_slug), today)
+        service.record_solve(db, discord_id, slug, today)
         verified += 1
-        try:
-            send(
-                _config().BOT_TOKEN,
-                post.channel_id,
-                {
-                    "content": f"{CHECK_MARK} <@{discord_id}> solved today's challenge as **{username}**!",
-                    "message_reference": {"message_id": post.message_id, "fail_if_not_exists": False},
-                    "allowed_mentions": {"users": [discord_id]},
-                },
-            )
-        except DiscordUnavailable:
-            logger.warning("Could not announce the solve of %s", discord_id, exc_info=True)
+        for post in posts:
+            if not _announces(db, post, discord_id, is_member):
+                continue
+            try:
+                send(
+                    _config().BOT_TOKEN,
+                    post.channel_id,
+                    {
+                        "content": f"{CHECK_MARK} <@{discord_id}> solved today's challenge as **{username}**!",
+                        "message_reference": {"message_id": post.message_id, "fail_if_not_exists": False},
+                        "allowed_mentions": {"users": [discord_id]},
+                    },
+                )
+            except DiscordUnavailable:
+                logger.warning("Could not announce the solve of %s", discord_id, exc_info=True)
     return {"checked": len(pending), "verified": verified}
+
+
+def _announces(db, post: LeetCodeDaily, discord_id: str, is_member: Callable[[str, str], bool] | None) -> bool:
+    """Whether a solve by discord_id is announced under this post."""
+    scope = str(post.scope)
+    if not scope.startswith("org:"):
+        return True
+    from modules.organizations.models import Organization
+
+    org = db.get(Organization, int(scope.removeprefix("org:")))
+    if org is None or is_member is None:
+        return False
+    try:
+        return is_member(str(org.guild_id), discord_id)
+    except DiscordUnavailable:
+        logger.warning("Could not check membership of %s in %s", discord_id, org.guild_id, exc_info=True)
+        return False

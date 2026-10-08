@@ -24,11 +24,15 @@ class LeetCodeSolve(Base):
 
 
 class LeetCodeDaily(Base):
-    """One row per local date: the daily post happens once, whichever process gets there first."""
+    """One row per local date and target: each daily post happens once, whichever process gets there first.
+
+    scope is "instance" for the post configured by LEETCODE_CHANNEL_ID, or "org:<id>" for an org's own post.
+    """
 
     __tablename__ = "leetcode_daily"
 
     post_date = Column(Date, primary_key=True)
+    scope = Column(String, primary_key=True, server_default="instance")
     title_slug = Column(String, nullable=False)
     channel_id = Column(String, nullable=False)
     message_id = Column(String, nullable=True)

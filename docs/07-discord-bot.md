@@ -74,22 +74,33 @@ and in the API process's job thread on SQLite.
 
 ```
 leetcode.post_daily (every 5 minutes)
-  ├─ skip unless LEETCODE_CHANNEL_ID is set and LEETCODE_DAILY_TIME (HH:MM, TIMEZONE) has passed
-  ├─ skip if leetcode_daily already has a row for today's date in TIMEZONE
-  ├─ fetch today's question, insert the row (the date is the primary key, so only one run wins)
-  ├─ send the embed, optionally pinging LEETCODE_ROLE_PING, store the message id, add a ✅ reaction
+  for each target: the instance post (LEETCODE_CHANNEL_ID, LEETCODE_ROLE_PING, LEETCODE_DAILY_TIME),
+  then every org with the leetcode module on and a channel set
+  ├─ skip until the target's daily time (HH:MM in TIMEZONE) has passed
+  ├─ skip if leetcode_daily already has a row for (today, target)
+  ├─ fetch today's question once, insert the row ((post_date, scope) is the primary key, so only one run wins)
+  ├─ send the embed, optionally pinging the role, store the message id, add a ✅ reaction
   └─ if Discord refuses the post, delete the row so the next run tries again
 
 leetcode.verify (every 10 minutes)
   └─ for each linked member with no leetcode_solve row for today:
        fetch their last 20 accepted submissions
-       any submission whose titleSlug == today's slug, dated today in TIMEZONE?
+       any submission of today's question, dated today in TIMEZONE?
          → insert a leetcode_solve row
-         → reply to the daily message: "✅ @user solved today's challenge as **handle**!"
+         → reply under the instance post, and under each org's post whose server the member is in
 ```
 
 Members who `/link` during the day are picked up by the next verify run, and a restart loses
 nothing, because both jobs read their state from the database.
+
+### Per-org posts
+
+An officer sets their org's post with
+`PUT /api/organizations/<org_id>/leetcode {"channel_id": "...", "role_ping": "...", "daily_time": "09:00"}`
+(null clears a value; `GET` returns the settings). The settings live in `Organization.config["leetcode"]`.
+`leetcode` is an optional module, so turning it off for an org stops that org's post. The instance
+post from `LEETCODE_CHANNEL_ID` is separate: to move it to an org, set the org's channel, then unset
+`LEETCODE_CHANNEL_ID`, or the channel gets two posts.
 
 ### Things worth knowing
 
@@ -99,9 +110,10 @@ nothing, because both jobs read their state from the database.
 - Verification polls every 10 minutes, so a solve is acknowledged within ~10 minutes, not instantly.
 - `leetcode_solve` has a unique constraint on `(discord_id, solved_date)`. The leaderboard therefore
   counts **days participated**, not problems solved.
-- LeetCode data is **global**, not org-scoped. One channel, one leaderboard, across all guilds.
-- If `LEETCODE_CHANNEL_ID` is unset, nothing is posted and no verification happens — but the
-  slash commands still work.
+- Links and solves are global: a member has one LeetCode handle, and `/leaderboard` and `/stats`
+  count across every server.
+- With no instance channel and no org channels, nothing is posted and no verification happens, but
+  the slash commands still work.
 
 ---
 

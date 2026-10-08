@@ -20,6 +20,7 @@ def test_modules_are_on_by_default(client, officer_headers, soda_id):
         "points": True,
         "storefront": True,
         "calendar": True,
+        "leetcode": True,
     }
 
 

@@ -81,15 +81,15 @@ def test_daily_post_happens_once_after_the_time(db, daily_env):
     react = lambda *a: reacted.append(a)  # noqa: E731
     fetch = lambda: QUESTION  # noqa: E731
 
-    assert daily.post_daily(db, _at(8, 59), fetch, send, react)["reason"] == "not yet"
-    assert daily.post_daily(db, _at(9, 0), fetch, send, react)["posted"] is True
-    assert daily.post_daily(db, _at(9, 5), fetch, send, react)["reason"] == "already posted"
+    assert daily.post_daily(db, _at(8, 59), fetch, send, react)["instance"]["reason"] == "not yet"
+    assert daily.post_daily(db, _at(9, 0), fetch, send, react)["instance"]["posted"] is True
+    assert daily.post_daily(db, _at(9, 5), fetch, send, react)["instance"]["reason"] == "already posted"
     assert len(sent) == 1 and reacted[0][2] == "1001"
     channel, payload = sent[0]
     assert channel == "555" and payload["content"] == "<@&777>"
     assert payload["embeds"][0]["url"] == "https://leetcode.com/problems/two-sum/"
     assert payload["embeds"][0]["fields"][3]["value"] == "||`Array`||"
-    assert daily.post_daily(db, _at(9, 0, day=9), fetch, send, react)["posted"] is True
+    assert daily.post_daily(db, _at(9, 0, day=9), fetch, send, react)["instance"]["posted"] is True
 
 
 def test_a_failed_post_gives_the_day_back(db, daily_env):
@@ -101,9 +101,9 @@ def test_a_failed_post_gives_the_day_back(db, daily_env):
     def down(*args):
         raise DiscordUnavailable("down")
 
-    with pytest.raises(DiscordUnavailable):
-        daily.post_daily(db, _at(10), lambda: QUESTION, down, lambda *a: None)
-    assert daily.post_daily(db, _at(10, 5), lambda: QUESTION, send, lambda *a: None)["posted"] is True
+    failed = daily.post_daily(db, _at(10), lambda: QUESTION, down, lambda *a: None)
+    assert failed["instance"] == {"posted": False, "reason": "discord unavailable"}
+    assert daily.post_daily(db, _at(10, 5), lambda: QUESTION, send, lambda *a: None)["instance"]["posted"] is True
 
 
 def test_verify_records_and_announces_each_solve_once(db, daily_env):
@@ -133,4 +133,91 @@ def test_no_channel_means_no_post(db, daily_env, monkeypatch):
     from shared import config
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
-    assert daily.post_daily(db, _at(10), lambda: QUESTION)["posted"] is False
+    assert daily.post_daily(db, _at(10), lambda: QUESTION) == {}
+
+
+@pytest.fixture
+def soda(db, client, officer_headers):
+    from modules.organizations.models import Organization
+
+    org = db.query(Organization).filter_by(prefix="soda").one()
+    yield org
+    db.refresh(org)
+    config = dict(org.config or {})
+    config.pop("leetcode", None)
+    config.get("modules", {}).pop("leetcode", None)
+    org.config = config
+    db.commit()
+
+
+def _settings(client, headers, org_id, body):
+    return client.put(f"/api/organizations/{org_id}/leetcode", json=body, headers=headers)
+
+
+def test_officers_set_their_orgs_daily_post(client, officer_headers, soda):
+    assert (
+        _settings(client, officer_headers, soda.id, {"channel_id": "123456", "daily_time": "08:30"}).status_code == 200
+    )
+    got = client.get(f"/api/organizations/{soda.id}/leetcode", headers=officer_headers).get_json()
+    assert got == {"settings": {"channel_id": "123456", "role_ping": None, "daily_time": "08:30"}, "enabled": True}
+    cleared = _settings(client, officer_headers, soda.id, {"daily_time": None}).get_json()
+    assert cleared["settings"] == {"channel_id": "123456", "role_ping": None, "daily_time": None}
+
+    # Replacing the rest of the org config keeps these settings
+    client.put(f"/api/organizations/{soda.id}", json={"config": {"theme": "dark"}}, headers=officer_headers)
+    got = client.get(f"/api/organizations/{soda.id}/leetcode", headers=officer_headers).get_json()
+    assert got["settings"]["channel_id"] == "123456"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        None,
+        {},
+        {"channel": "1"},
+        {"channel_id": "abc"},
+        {"channel_id": 123456},
+        {"daily_time": "9am"},
+        {"daily_time": "24:00"},
+    ],
+)
+def test_bad_leetcode_settings_are_refused(client, officer_headers, soda, body):
+    assert _settings(client, officer_headers, soda.id, body).status_code == 400
+
+
+def test_each_org_gets_its_own_post_and_member_only_announcements(db, daily_env, client, officer_headers, soda):
+    from modules.leetcode import daily, service
+
+    sent, send = daily_env
+    _settings(client, officer_headers, soda.id, {"channel_id": "999999", "role_ping": "888888", "daily_time": "10:00"})
+    scope = f"org:{soda.id}"
+    db.expire_all()
+
+    first = daily.post_daily(db, _at(9), lambda: QUESTION, send, lambda *a: None)
+    assert first["instance"]["posted"] is True and first[scope]["reason"] == "not yet"
+    second = daily.post_daily(db, _at(10), lambda: QUESTION, send, lambda *a: None)
+    assert second[scope]["posted"] is True and second["instance"]["reason"] == "already posted"
+    assert [channel for channel, _ in sent] == ["555", "999999"]
+    assert sent[1][1]["content"] == "<@&888888>"
+
+    service.link(db, "1", "alice_lc")
+    service.link(db, "2", "bob_lc")
+    solved_at = str(int(_at(11).timestamp()))
+    history = {name: [{"titleSlug": "two-sum", "timestamp": solved_at}] for name in ("alice_lc", "bob_lc")}
+    members = {(str(soda.guild_id), "1")}
+    result = daily.verify(db, _at(12), lambda name: history[name], send, lambda guild, user: (guild, user) in members)
+    assert result == {"checked": 2, "verified": 2}
+    replies = [(channel, payload["content"]) for channel, payload in sent[2:]]
+    assert sorted(c for c, _ in replies) == ["555", "555", "999999"]
+    assert [text for c, text in replies if c == "999999"] == ["✅ <@1> solved today's challenge as **alice_lc**!"]
+
+
+def test_turning_leetcode_off_stops_the_orgs_post(db, daily_env, client, officer_headers, soda, monkeypatch):
+    from modules.leetcode import daily
+    from shared import config
+
+    monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
+    _settings(client, officer_headers, soda.id, {"channel_id": "999999"})
+    client.put(f"/api/organizations/{soda.id}/modules", json={"modules": {"leetcode": False}}, headers=officer_headers)
+    db.expire_all()
+    assert daily.post_daily(db, _at(10), lambda: QUESTION) == {}
