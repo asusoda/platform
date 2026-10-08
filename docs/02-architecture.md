@@ -224,7 +224,7 @@ It also means if the bot is offline, nobody can prove they are an officer.
 |---------|----------|-------|
 | Discord (gateway + REST) | Login, role/membership checks, the bot itself | `modules/bot/`, `modules/games/`, `modules/leetcode/`, `modules/auth/api.py` |
 | Clerk | Auth for the public-facing member storefront | `core/clerk_auth.py` |
-| Notion | Source of truth for club events | `modules/calendar/clients.py:NotionCalendarClient` |
-| Google Calendar | Destination for synced events | `modules/calendar/clients.py:GoogleCalendarClient` |
+| Notion | Source of truth for club events | `modules/calendar/clients/notion.py:NotionCalendarClient` |
+| Google Calendar | Destination for synced events | `modules/calendar/clients/google.py:GoogleCalendarClient` |
 | LeetCode GraphQL | Daily/random problems, verifying solves | `modules/leetcode/client.py` |
-| Sentry | Errors, logs, and calendar-sync performance traces | `shared.py`, `modules/calendar/utils.py` |
+| Sentry | Errors, logs, and calendar-sync performance traces | `core/log.py`, `modules/calendar/tracing.py` |

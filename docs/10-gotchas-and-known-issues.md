@@ -245,7 +245,7 @@ claim.
 
 ### D14. Notion property names are hardcoded
 
-`CalendarEventDTO.from_notion` (`modules/calendar/models.py:45`) expects exactly `Name`, `Date`,
+`CalendarEventDTO.from_notion` (`modules/calendar/events.py`) expects exactly `Name`, `Date`,
 `Location`, `Description`, `gcal_id`. Rename a Notion column and events stop syncing silently —
 `from_notion` returns `None` and logs a warning, and the event is simply skipped.
 

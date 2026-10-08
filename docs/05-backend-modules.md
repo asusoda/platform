@@ -168,14 +168,16 @@ the public-facing website consumes.
 
 ## `modules/calendar` — Notion → Google Calendar
 
-Four files plus models:
-
 | File | Role |
 |------|------|
-| `clients.py` | `GoogleCalendarClient` (create/update/get/batch-delete events; create/get/list/delete calendars) and `NotionCalendarClient` (query a database, write a gcal id back to a page). |
-| `service.py` | `MultiOrgCalendarService`, the orchestration, plus Flask-free functions the routes call (`find_organization`, `list_events`, `sync_organization`, `setup_calendar`, `sync_all`). Also a thin legacy `CalendarService`. |
-| `models.py` | `CalendarEventDTO` (a dataclass, `from_notion()` → `to_gcal_format()` / `to_frontend_format()`) and the `CalendarEventLink` table. |
-| `utils.py` | `DateParser` (parse Notion dates, `ensure_end_date` defaults to +1 hour or a 1-day all-day span), `extract_property` (pull a typed value out of Notion's property JSON), `operation_span` (Sentry tracing), `batch_operation` (Google batch API helper). |
+| `clients/google.py` | `GoogleCalendarClient` (create/update/get/batch-delete events; create/get/list/delete calendars) and `batch_operation` (Google batch API helper). |
+| `clients/notion.py` | `NotionCalendarClient` (query a database, write a gcal id back to a page). |
+| `service.py` | `MultiOrgCalendarService`, the orchestration, plus Flask-free functions the routes call (`find_organization`, `list_events`, `sync_organization`, `setup_calendar`, `sync_all`). |
+| `sync.py` | `update_google_calendar`: create or update Google events from the Notion events, then delete duplicates and orphans. |
+| `events.py` | `CalendarEventDTO` (a dataclass, `from_notion()` → `to_gcal_format()` / `to_frontend_format()`) and `extract_property` (pull a typed value out of Notion's property JSON). |
+| `dates.py` | `DateParser` (parse Notion dates, `ensure_end_date` defaults to +1 hour or a 1-day all-day span). |
+| `tracing.py` | `operation_span` (Sentry tracing). |
+| `models.py` | The `CalendarEventLink` table. |
 | `errors.py` | `APIErrorHandler` — normalises Google `HttpError`, Notion `APIResponseError`, and generic exceptions into Sentry-tagged logs. |
 
 ### Notion property names are hardcoded

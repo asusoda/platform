@@ -8,9 +8,12 @@ Syncs an organization's Notion events database to its Google Calendar and serves
 | --- | --- |
 | `api.py` | Public events, officer sync and setup, sync of every org, and legacy endpoints that answer with errors |
 | `service.py` | `MultiOrgCalendarService` and `list_events`, `sync_organization`, `setup_calendar`, `sync_all`; declares the `calendar:read` scope and the `notion_api_key` and `google_service_account` secrets |
-| `clients.py` | `GoogleCalendarClient` and `NotionCalendarClient` |
-| `models.py` | `CalendarEventDTO` and the table linking Notion pages to Google events |
-| `utils.py` | `DateParser`, Notion property extraction, Sentry spans, batch helper |
+| `clients/` | `GoogleCalendarClient` (`google.py`) and `NotionCalendarClient` (`notion.py`) |
+| `sync.py` | Makes a Google Calendar match the Notion events: create, update, delete duplicates and orphans |
+| `events.py` | `CalendarEventDTO` and Notion property extraction |
+| `dates.py` | `DateParser`: Notion dates in Google Calendar format |
+| `tracing.py` | `operation_span`: Sentry spans |
+| `models.py` | The table linking Notion pages to Google events |
 | `errors.py` | `APIErrorHandler`: logs Google and Notion API errors and reports them to Sentry |
 | `tools.py` | The `events.list` tool |
 | `jobs.py` | The sync job |

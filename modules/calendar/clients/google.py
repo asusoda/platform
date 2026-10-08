@@ -1,18 +1,82 @@
+"""Google Calendar API client. An org can bring its own service account."""
+
+from typing import Any
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
-from notion_client import APIResponseError
-from notion_client import Client as NotionClient
-from notion_client.helpers import collect_paginated_api
 from sentry_sdk import capture_exception, set_context, start_transaction
 
 from core.config import config
 from core.log import get_logger
 
-from .errors import APIErrorHandler
-from .utils import batch_operation, operation_span
+from ..errors import APIErrorHandler
+from ..tracing import operation_span
 
 logger = get_logger(__name__)
+
+
+def batch_operation(
+    service: Any,
+    operation_fn: Any,
+    items: list[Any],
+    calendar_id: str,
+    batch_size: int = 900,
+    description: str = "batch_operation",
+    parent_transaction=None,
+) -> tuple[int, int]:
+    """Run operation_fn(service)(calendarId=calendar_id, eventId=item) for each item in Google batch requests.
+
+    Sends at most batch_size requests in each batch. A batch that fails counts all its items as failed.
+    Returns (successful, failed).
+    """
+    if not items:
+        logger.info(f"No items to process in batch {description}.")
+        return 0, 0
+
+    successful = 0
+    failed = 0
+
+    def callback(request_id, response, exception):
+        nonlocal successful, failed
+        if exception:
+            failed += 1
+            capture_exception(exception)
+            logger.error(f"Batch request {request_id} ({description}) failed: {exception}")
+            set_context(f"batch_{description}_error", {"request_id": request_id, "error": str(exception)})
+        else:
+            successful += 1
+            logger.debug(f"Batch request {request_id} ({description}) successful.")
+
+    api_method = operation_fn(service)
+
+    for i in range(0, len(items), batch_size):
+        chunk = items[i : i + batch_size]
+        if not chunk:
+            continue
+
+        batch = service.new_batch_http_request(callback=callback)
+        logger.info(f"Preparing batch {description} for {len(chunk)} items (chunk {i // batch_size + 1})...")
+
+        for item_id in chunk:
+            request = api_method(calendarId=calendar_id, eventId=item_id)
+            batch.add(request)
+
+        try:
+            logger.info(f"Executing batch {description} for chunk {i // batch_size + 1} ({len(chunk)} items).")
+            batch.execute()
+            logger.info(f"Batch chunk {i // batch_size + 1} executed for {description}.")
+        except Exception as e:
+            capture_exception(e)
+            logger.error(f"Error executing batch {description} chunk {i // batch_size + 1}: {str(e)}")
+            failed += len(chunk)
+            set_context(
+                f"batch_{description}_execution_error",
+                {"chunk_index": i // batch_size + 1, "chunk_size": len(chunk), "error": str(e)},
+            )
+
+    logger.info(f"Batch {description} complete: {successful} successful, {failed} failed")
+    return successful, failed
 
 
 class GoogleCalendarClient:
@@ -22,12 +86,12 @@ class GoogleCalendarClient:
 
     def __init__(self, logger_instance=None, service_account_info: dict | None = None):
         self.logger = logger_instance or logger
-        self._service: Resource | None = None  # Type hint for service
+        self._service: Resource | None = None
         # An org's own service account; None means the instance-wide GOOGLE_SERVICE_ACCOUNT.
         self.service_account_info = service_account_info
         self.error_handler = APIErrorHandler(self.logger, "GoogleCalendarClient")
 
-    def get_service(self, parent_transaction=None) -> Resource | None:  # Accept parent transaction
+    def get_service(self, parent_transaction=None) -> Resource | None:
         """Get authenticated Google Calendar service with error handling."""
         if self._service:
             return self._service
@@ -35,14 +99,12 @@ class GoogleCalendarClient:
         op_name = "get_calendar_service"
         self.error_handler.operation_name = op_name
 
-        # Use parent transaction if available, otherwise start a new one (though ideally it's always passed)
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
 
-        # Use operation_span within the current transaction
         with operation_span(
             current_transaction, op="google_auth", description=op_name, logger=self.logger
-        ) as transaction:  # Use operation_span
-            self.error_handler.transaction = transaction  # Pass transaction to handler
+        ) as transaction:
+            self.error_handler.transaction = transaction
             try:
                 info = config.GOOGLE_SERVICE_ACCOUNT if self.service_account_info is None else self.service_account_info
                 set_context(
@@ -68,27 +130,23 @@ class GoogleCalendarClient:
                     span.set_data("credentials_created", bool(credentials))
 
                 with operation_span(transaction, op="build", description="build_service", logger=self.logger) as span:
-                    self._service = build(
-                        "calendar", "v3", credentials=credentials, cache_discovery=False
-                    )  # Added cache_discovery=False
+                    self._service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
                     span.set_data("service_created", bool(self._service))
                     self.logger.info("Google Calendar service initialized successfully.")
                     return self._service
 
-            except ValueError as ve:  # Catch specific config errors
+            except ValueError as ve:
                 self.logger.error(f"Configuration error during {op_name}: {ve}")
-                # No need to call error_handler here as it's a config issue, not API error
-                capture_exception(ve)  # Still capture for visibility
+                capture_exception(ve)
                 return None
             except Exception as e:
-                # Use the error handler for generic errors during initialization
                 return self.error_handler.handle_generic_error(e)
             finally:
-                self.error_handler.transaction = None  # Clear transaction from handler if it was set
+                self.error_handler.transaction = None
 
     def create_event(
         self, calendar_id: str, event_data: dict, notion_page_id: str, parent_transaction=None
-    ) -> tuple[str, str] | None:  # Accept parent transaction
+    ) -> tuple[str, str] | None:
         """Create calendar event with error handling. Returns (jump_url, gcal_event_id) or None."""
         op_name = "create_event"
         self.error_handler.operation_name = op_name
@@ -97,14 +155,13 @@ class GoogleCalendarClient:
 
         with operation_span(
             current_transaction, op="google_api", description=op_name, logger=self.logger
-        ) as transaction:  # Use operation_span
+        ) as transaction:
             self.error_handler.transaction = transaction
-            service = self.get_service(parent_transaction=transaction)  # Pass transaction down
+            service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
-                return None  # Service initialization failed
+                return None
 
-            # Add extended properties to store Notion ID
             event_data["extendedProperties"] = {"private": {"notionPageId": notion_page_id}}
 
             context_data = {
@@ -137,18 +194,18 @@ class GoogleCalendarClient:
                     self.logger.info(
                         f"Created Google Calendar event: {gcal_event_id} for Notion page: {notion_page_id}"
                     )
-                    return jump_url, gcal_event_id  # Return both URL and ID
+                    return jump_url, gcal_event_id
 
             except HttpError as e:
                 return self.error_handler.handle_http_error(e, context_data)
             except Exception as e:
                 return self.error_handler.handle_generic_error(e, context_data)
             finally:
-                self.error_handler.transaction = None  # Clear transaction from handler if it was set
+                self.error_handler.transaction = None
 
     def update_event(
         self, calendar_id: str, event_id: str, event_data: dict, notion_page_id: str, parent_transaction=None
-    ) -> str | None:  # Accept parent transaction
+    ) -> str | None:
         """Update calendar event with error handling. Returns jump_url or None."""
         op_name = "update_event"
         self.error_handler.operation_name = op_name
@@ -157,14 +214,13 @@ class GoogleCalendarClient:
 
         with operation_span(
             current_transaction, op="google_api", description=op_name, logger=self.logger
-        ) as transaction:  # Use operation_span
+        ) as transaction:
             self.error_handler.transaction = transaction
-            service = self.get_service(parent_transaction=transaction)  # Pass transaction down
+            service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
                 return None
 
-            # Ensure extended properties structure exists and set Notion ID
             if "extendedProperties" not in event_data:
                 event_data["extendedProperties"] = {}
             if "private" not in event_data["extendedProperties"]:
@@ -210,11 +266,11 @@ class GoogleCalendarClient:
             except Exception as e:
                 return self.error_handler.handle_generic_error(e, context_data)
             finally:
-                self.error_handler.transaction = None  # Clear transaction from handler if it was set
+                self.error_handler.transaction = None
 
     def get_all_events(
         self, calendar_id: str, time_min: str | None = None, parent_transaction=None
-    ) -> list[dict] | None:  # Accept parent transaction
+    ) -> list[dict] | None:
         """Get all events with pagination handling. Returns list of events or None on error."""
         op_name = "get_all_events"
         self.error_handler.operation_name = op_name
@@ -223,9 +279,9 @@ class GoogleCalendarClient:
 
         with operation_span(
             current_transaction, op="google_api", description=op_name, logger=self.logger
-        ) as transaction:  # Use operation_span
+        ) as transaction:
             self.error_handler.transaction = transaction
-            service = self.get_service(parent_transaction=transaction)  # Pass transaction down
+            service = self.get_service(parent_transaction=transaction)
             if not service:
                 self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
                 return None
@@ -249,11 +305,11 @@ class GoogleCalendarClient:
                             service.events()  # type: ignore[attr-defined]
                             .list(
                                 calendarId=calendar_id,
-                                singleEvents=True,  # Expand recurring events
-                                showDeleted=False,  # Don't include deleted events
+                                singleEvents=True,
+                                showDeleted=False,
                                 pageToken=page_token,
                                 timeMin=time_min,
-                                maxResults=250,  # Fetch in batches
+                                maxResults=250,
                             )
                             .execute()
                         )
@@ -266,7 +322,7 @@ class GoogleCalendarClient:
                         span.set_data("has_next_page", bool(page_token))
 
                         if not page_token:
-                            break  # Exit loop if no more pages
+                            break
 
                 self.logger.info(f"Fetched a total of {len(all_events)} events from Google Calendar {calendar_id}.")
                 transaction.set_data("total_fetched_events", len(all_events))
@@ -277,44 +333,39 @@ class GoogleCalendarClient:
             except Exception as e:
                 return self.error_handler.handle_generic_error(e, context_data)
             finally:
-                self.error_handler.transaction = None  # Clear transaction from handler if it was set
+                self.error_handler.transaction = None
 
     def batch_delete_events(
         self, calendar_id: str, event_ids: list[str], description: str = "batch_delete", parent_transaction=None
-    ) -> tuple[int, int]:  # Accept parent transaction
+    ) -> tuple[int, int]:
         """Delete events in batches using the utility function."""
         op_name = f"batch_delete_{description}"
-        self.error_handler.operation_name = op_name  # Set context for potential errors within batch_operation
+        self.error_handler.operation_name = op_name
 
         current_transaction = parent_transaction or start_transaction(op="google", name=f"{op_name}_independent")
 
-        service = self.get_service(parent_transaction=current_transaction)  # Pass transaction down
+        service = self.get_service(parent_transaction=current_transaction)
         if not service:
             self.logger.error(f"{op_name}: Failed to get Google Calendar service.")
-            # If service fails, all deletions fail
             return 0, len(event_ids) if event_ids else 0
 
         if not event_ids:
             self.logger.info(f"{op_name}: No event IDs provided for deletion.")
             return 0, 0
 
-        # Define the operation function for the utility
-        # It takes the service and returns the method to call (service.events().delete)
         def delete_operation_fn(s):
             return s.events().delete
 
-        # Use operation_span for the batch operation within the current transaction
         with operation_span(
             current_transaction, op="google_batch", description=op_name, logger=self.logger
         ) as transaction:
-            # Pass the transaction down to batch_operation so it can create sub-spans if needed
             successful, failed = batch_operation(
                 service=service,
                 operation_fn=delete_operation_fn,
                 items=event_ids,
                 calendar_id=calendar_id,
                 description=description,
-                parent_transaction=transaction,  # Pass transaction to batch_operation
+                parent_transaction=transaction,
             )
             transaction.set_data("successful_deletions", successful)
             transaction.set_data("failed_deletions", failed)
@@ -461,123 +512,3 @@ class GoogleCalendarClient:
                 return self.error_handler.handle_generic_error(e)
             finally:
                 self.error_handler.transaction = None
-
-
-class NotionCalendarClient:
-    """Client for Notion calendar-related operations."""
-
-    def __init__(self, logger_instance=None, token: str | None = None):
-        self.logger = logger_instance or logger
-        # An org's own integration token if given, else the instance-wide NOTION_API_KEY
-        self.notion: NotionClient = NotionClient(auth=token or config.NOTION_API_KEY)
-        self.error_handler = APIErrorHandler(self.logger, "NotionCalendarClient")
-
-    def fetch_events(self, database_id: str, parent_transaction=None) -> list[dict] | None:  # Accept parent transaction
-        """Fetch published events from Notion with pagination and error handling."""
-        op_name = "fetch_notion_events"
-        self.error_handler.operation_name = op_name
-
-        current_transaction = parent_transaction or start_transaction(op="notion", name=f"{op_name}_independent")
-
-        with operation_span(
-            current_transaction, op="notion_api", description=op_name, logger=self.logger
-        ) as transaction:  # Use operation_span
-            self.error_handler.transaction = transaction
-            context_data = {"database_id": database_id}
-            set_context("notion_query", context_data)
-            self.logger.info(f"Fetching all published Notion events from database {database_id} using pagination.")
-
-            try:
-                # Define the filter - Fetch ALL published events
-                query_filter = {
-                    "property": "Published",  # Make sure this property name is correct
-                    "checkbox": {"equals": True},
-                }
-
-                # Use collect_paginated_api to handle pagination automatically
-                with operation_span(
-                    transaction, op="api_call", description="notion.data_sources.query", logger=self.logger
-                ) as span:
-                    all_events = collect_paginated_api(
-                        self.notion.data_sources.query,
-                        data_source_id=database_id,
-                        filter=query_filter,
-                    )
-                    span.set_data("event_count", len(all_events))
-
-                self.logger.info(
-                    f"Fetched a total of {len(all_events)} Notion events via pagination from {database_id}."
-                )
-                return all_events
-
-            except APIResponseError as error:
-                # Use the error handler for Notion API errors
-                return self.error_handler.handle_notion_error(error, context_data)
-            except Exception as e:
-                # Use the error handler for generic errors
-                return self.error_handler.handle_generic_error(e, context_data)
-            finally:
-                self.error_handler.transaction = None  # Clear transaction from handler if it was set
-
-    def update_page_with_gcal_id(
-        self, page_id: str, gcal_id: str, gcal_link: str | None = None, parent_transaction=None
-    ) -> bool:  # Accept parent transaction
-        """Update Notion page with Google Calendar ID and optionally the HTML link."""
-        op_name = "update_notion_page_gcal_id"
-        self.error_handler.operation_name = op_name
-
-        current_transaction = parent_transaction or start_transaction(op="notion", name=f"{op_name}_independent")
-
-        # Use operation_span for this operation
-        with operation_span(
-            current_transaction, op="notion_api", description=op_name, logger=self.logger
-        ) as transaction:  # Use operation_span
-            context_data = {"notion_page_id": page_id, "gcal_id": gcal_id, "gcal_link": gcal_link}
-            set_context("notion_update", context_data)
-            # No need to set self.error_handler.transaction as it's not used within this method's error handling
-
-            properties_to_update = {
-                "gcal_id": {  # Ensure this property name matches your Notion setup
-                    "rich_text": [{"type": "text", "text": {"content": gcal_id}}]
-                }
-            }
-            # Optionally add the Google Calendar link if provided
-            if gcal_link:
-                # Check if config has NOTION_GCAL_LINK_PROPERTY, otherwise skip adding the link
-                gcal_link_property = getattr(config, "NOTION_GCAL_LINK_PROPERTY", None)
-                if gcal_link_property:
-                    properties_to_update[gcal_link_property] = {"url": gcal_link}
-                else:
-                    self.logger.info(
-                        f"Skipping adding Google Calendar link to Notion page {page_id}: NOTION_GCAL_LINK_PROPERTY not configured"
-                    )
-
-            try:
-                with operation_span(
-                    transaction, op="api_call", description="notion.pages.update", logger=self.logger
-                ) as span:
-                    self.notion.pages.update(page_id=page_id, properties=properties_to_update)
-                    span.set_data("update_success", True)
-                    self.logger.info(
-                        f"Successfully updated Notion page {page_id} with GCAL ID {gcal_id}"
-                        + (f" and link {gcal_link}" if gcal_link else "")
-                    )
-                    return True
-
-            except APIResponseError as e:
-                # Log and capture directly as per strategy example (could also use handler)
-                capture_exception(e)
-                self.logger.error(
-                    f"Notion API error updating page {page_id} with GCAL ID {gcal_id}: {e.code} - {str(e)}"
-                )
-                set_context("notion_error", {"code": e.code, "message": str(e), **context_data})
-                transaction.set_status("internal_error")
-                return False
-            except Exception as e:
-                # Log and capture directly as per strategy example (could also use handler)
-                capture_exception(e)
-                self.logger.error(f"Unexpected error updating Notion page {page_id} with GCAL ID {gcal_id}: {str(e)}")
-                set_context("unexpected_error", {"error": str(e), **context_data})
-                transaction.set_status("internal_error")
-                return False
-            # No finally block needed here as we didn't assign transaction to handler in this method's scope

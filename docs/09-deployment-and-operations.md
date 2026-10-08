@@ -259,4 +259,4 @@ transaction is traced and log records ship to Sentry. That is expensive at volum
 bill becomes a problem, those sample rates are the first dial to turn.
 
 The calendar module adds its own Sentry spans through `operation_span` in
-`modules/calendar/utils.py` and tags errors through `APIErrorHandler` in `modules/calendar/errors.py`.
+`modules/calendar/tracing.py` and tags errors through `APIErrorHandler` in `modules/calendar/errors.py`.

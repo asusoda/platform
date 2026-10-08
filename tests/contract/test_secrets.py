@@ -142,7 +142,7 @@ def test_a_broken_org_google_key_fails_instead_of_using_the_instance_account(
 def test_calendar_update_writes_through_the_given_client(client):
     from modules.calendar import service
     from modules.calendar.clients import GoogleCalendarClient
-    from modules.calendar.models import CalendarEventDTO
+    from modules.calendar.events import CalendarEventDTO
 
     class FakeGcal:
         def __init__(self):

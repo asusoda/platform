@@ -178,7 +178,6 @@ def sync_all_organizations():
     set_tag("request_type", "POST")
 
     try:
-        # Sync all organizations using multi-org service
         sync_result = service.sync_all(transaction)
 
         if sync_result.get("status") == "error":
