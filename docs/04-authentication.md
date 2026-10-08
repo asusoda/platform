@@ -127,6 +127,25 @@ Clerk token, so it has to move to Clerk before `ACCESS_ENFORCE=true`.
 
 ---
 
+## Machine tokens (apps, agents, CLIs)
+
+`modules/auth/machine_tokens.py`. An officer issues one with `POST /api/organizations/<id>/tokens`
+(`name`, `kind` of `app`, `agent` or `cli`, `scopes`, optional `expires_days`). The value,
+`plat_` plus 43 random characters, is returned once. The `machine_tokens` table keeps its SHA-256
+hash, its first characters for display, and `last_used_at`. Revoke with `DELETE .../tokens/<id>`.
+
+- A token belongs to one org. A route that names a different org refuses it (403).
+- A token carries scopes. Modules declare them with `modules.auth.scopes.declare(name, description)`;
+  `GET .../tokens` lists every declared scope.
+- Routes for machines use `@machine_scope_required("<scope>")`, which sets `g.machine_caller`.
+  Officer routes do not accept machine tokens: `plat_` is not a JWT, so `@auth_required` returns 401.
+- `GET /api/auth/machine/whoami` returns a token's org, name, kind and scopes.
+- The request log shows `credential=machine`; the audit log records `actor_kind=machine` and
+  `actor_id=<kind>:<name>#<token id>`.
+
+The older app tokens (`GET /api/auth/appToken`) are JWTs tied to the issuing officer, not to an org,
+and have no scopes. They keep working; new integrations should use machine tokens.
+
 ## The decorators — `modules/auth/decoraters.py`
 
 (The filename is misspelled. It is spelled that way everywhere; do not "fix" it casually, it is

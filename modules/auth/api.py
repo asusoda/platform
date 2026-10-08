@@ -355,3 +355,30 @@ def _caller_discord_id():
         header = request.headers.get("Authorization", "")
         token = header[7:].strip() if header.startswith("Bearer ") else None
     return tokenManager.retrieve_discord_id(token) if token else None
+
+
+@auth_blueprint.route("/machine/whoami", methods=["GET"])
+def machine_whoami():
+    """What a machine token is: its org, name, kind and scopes. 401 for anything else."""
+    from modules.auth import machine_tokens
+    from modules.organizations.models import Organization
+    from shared import db_connect
+
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else None
+    db = db_connect.SessionLocal()
+    try:
+        caller = machine_tokens.verify(db, token)
+        if caller is None:
+            return jsonify({"error": "A valid machine token is required"}), 401
+        org = db.query(Organization).filter_by(id=caller.organization_id).first()
+        return jsonify(
+            {
+                "org": org.prefix if org else None,
+                "name": caller.name,
+                "kind": caller.kind,
+                "scopes": sorted(caller.scopes),
+            }
+        )
+    finally:
+        db.close()

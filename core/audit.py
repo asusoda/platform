@@ -8,7 +8,7 @@ than AUDIT_RETENTION_DAYS (default 365) are deleted daily by the audit.prune job
 import os
 from datetime import UTC, datetime, timedelta
 
-from flask import Flask, request
+from flask import Flask, g, request
 from sqlalchemy import JSON, Column, DateTime, Integer, String, text
 
 from core.base import Base
@@ -113,6 +113,9 @@ def _org_prefix(db) -> str | None:
 
 
 def _actor(token_manager) -> tuple[str | None, str | None]:
+    machine = g.get("machine_caller")
+    if machine is not None:
+        return "machine", f"{machine.kind}:{machine.name}#{machine.token_id}"
     kind, discord_id = _credential(token_manager)
     if discord_id:
         return kind, str(discord_id)

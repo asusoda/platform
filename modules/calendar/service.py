@@ -6,6 +6,7 @@ from cachetools import TTLCache, cached, keys
 from sentry_sdk import start_transaction
 
 from core import secrets
+from modules.auth import scopes
 
 # Import organization models
 from modules.organizations.models import Organization
@@ -18,6 +19,7 @@ from .clients import GoogleCalendarClient, NotionCalendarClient
 from .models import CalendarEventDTO
 from .utils import operation_span
 
+scopes.declare("calendar:read", "Read the org's upcoming events")
 secrets.declare("notion_api_key", "Notion integration token for this org's events database")
 
 # Create a global cache for the frontend events with a 5-minute TTL

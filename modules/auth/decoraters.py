@@ -376,3 +376,43 @@ def error_handler(f):
             return jsonify({"error": str(e)}), 500
 
     return wrapper
+
+
+def machine_scope_required(scope: str):
+    """For routes called by apps and agents with a machine token (Bearer plat_...).
+
+    The token must hold `scope`, and when the route names an org it must be the token's org.
+    The caller is available as flask.g.machine_caller.
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            from flask import g
+
+            from modules.auth import machine_tokens
+            from modules.organizations.models import Organization
+            from shared import db_connect
+
+            header = request.headers.get("Authorization", "")
+            token = header[7:].strip() if header.startswith("Bearer ") else None
+            db = db_connect.SessionLocal()
+            try:
+                caller = machine_tokens.verify(db, token)
+                if caller is None:
+                    return jsonify({"error": "A valid machine token is required"}), 401
+                if not caller.allows(scope):
+                    return jsonify({"error": f"Token lacks scope {scope}"}), 403
+                org_prefix = (request.view_args or {}).get("org_prefix")
+                if org_prefix is not None:
+                    org = db.query(Organization).filter_by(prefix=org_prefix).first()
+                    if org is None or org.id != caller.organization_id:
+                        return jsonify({"error": "Token belongs to a different organization"}), 403
+            finally:
+                db.close()
+            g.machine_caller = caller
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

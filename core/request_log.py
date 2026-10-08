@@ -31,6 +31,8 @@ def _credential(token_manager) -> tuple[str, str | None]:
         if session.get("token") or session.get("discord_id"):
             return "session", session.get("discord_id")
         return "none", None
+    if token.startswith("plat_"):
+        return "machine", None
     try:
         claims = jwt.decode(
             token,

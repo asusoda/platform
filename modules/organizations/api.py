@@ -343,3 +343,64 @@ def delete_organization_secret(org_id, name):
         return jsonify({"name": name, "set": False})
     finally:
         db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/tokens", methods=["GET"])
+@auth_required
+def list_machine_tokens(org_id):
+    """Active machine tokens for this org, and the scopes a token can hold."""
+    from modules.auth import machine_tokens
+    from modules.auth.scopes import SCOPES
+
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        return jsonify({"tokens": machine_tokens.list_active(db, org_id), "scopes": SCOPES})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/tokens", methods=["POST"])
+@auth_required
+def create_machine_token(org_id):
+    """Issue a token. Body: {"name", "kind": app|agent|cli, "scopes": [...], "expires_days"?}.
+    The token value is in this response only."""
+    from modules.auth import machine_tokens
+    from modules.auth.access import current_principal
+
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        principal = current_principal()
+        try:
+            value, row = machine_tokens.issue(
+                db,
+                organization_id=org_id,
+                name=data.get("name"),
+                kind=data.get("kind"),
+                scopes=data.get("scopes"),
+                created_by=principal.discord_id if principal else None,
+                expires_days=data.get("expires_days"),
+            )
+        except machine_tokens.TokenError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"token": value, **machine_tokens.to_dict(row)}), 201
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/tokens/<int:token_id>", methods=["DELETE"])
+@auth_required
+def revoke_machine_token(org_id, token_id):
+    from modules.auth import machine_tokens
+
+    db = next(db_connect.get_db())
+    try:
+        if not machine_tokens.revoke(db, org_id, token_id):
+            return jsonify({"error": "Token not found"}), 404
+        return jsonify({"message": "Token revoked"})
+    finally:
+        db.close()
