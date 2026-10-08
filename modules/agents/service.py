@@ -53,6 +53,14 @@ class Owner:
     token_id: int | None = None
 
 
+def _save(db, commit: bool) -> None:
+    """Commit, or flush when the caller commits several writes as one transaction."""
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+
+
 def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
@@ -110,7 +118,9 @@ def _owned(db, who: Owner, conversation_id: str) -> AgentConversation | None:
     )
 
 
-def ensure(db, who: Owner, conversation_id: object, channel_id: object, visibility: object) -> str:
+def ensure(
+    db, who: Owner, conversation_id: object, channel_id: object, visibility: object, *, commit: bool = True
+) -> str:
     """Create the conversation, or confirm the caller already owns it with this channel and visibility.
 
     An id held by another member, channel or visibility raises AgentError 409. Commits.
@@ -131,7 +141,7 @@ def ensure(db, who: Owner, conversation_id: object, channel_id: object, visibili
                 agent_token_id=who.token_id,
             )
         )
-        db.commit()
+        _save(db, commit)
         return cid
     same = (
         row.organization_id == who.organization_id
@@ -182,7 +192,9 @@ def load(db, who: Owner, conversation_id: object, limit: object = None) -> list[
     return out
 
 
-def _write(db, who: Owner, conversation_id: object, rows: list[tuple[str, object, int | None]]) -> list[int]:
+def _write(
+    db, who: Owner, conversation_id: object, rows: list[tuple[str, object, int | None]], commit: bool = True
+) -> list[int]:
     cid = _conversation_id(conversation_id)
     conversation = _owned(db, who, cid)
     if conversation is None:
@@ -193,11 +205,11 @@ def _write(db, who: Owner, conversation_id: object, rows: list[tuple[str, object
         for role, content, covers in rows
     ]
     db.add_all(messages)
-    db.commit()
+    _save(db, commit)
     return [cast(int, m.seq) for m in messages]
 
 
-def append(db, who: Owner, conversation_id: object, messages: Any) -> list[int]:
+def append(db, who: Owner, conversation_id: object, messages: Any, *, commit: bool = True) -> list[int]:
     """Append messages in one transaction. Each is {"role", "content"}; content is any JSON. Returns their seqs."""
     if not isinstance(messages, list) or not messages:
         raise AgentError("messages must be a non-empty list")
@@ -206,16 +218,18 @@ def append(db, who: Owner, conversation_id: object, messages: Any) -> list[int]:
         if not isinstance(m, dict) or m.get("role") not in ROLES or "content" not in m:
             raise AgentError(f"each message needs a role ({', '.join(ROLES)}) and content")
         rows.append((m["role"], m["content"], None))
-    return _write(db, who, conversation_id, rows)
+    return _write(db, who, conversation_id, rows, commit)
 
 
-def append_summary(db, who: Owner, conversation_id: object, content: object, covers: object) -> int:
+def append_summary(
+    db, who: Owner, conversation_id: object, content: object, covers: object, *, commit: bool = True
+) -> int:
     """Store a summary that stands in for every message up to seq covers."""
     if not isinstance(covers, int) or isinstance(covers, bool) or covers < 1:
         raise AgentError("covers must be a message seq")
     if content is None:
         raise AgentError("content is required")
-    return _write(db, who, conversation_id, [("summary", content, covers)])[0]
+    return _write(db, who, conversation_id, [("summary", content, covers)], commit)[0]
 
 
 def latest(db, who: Owner, channel_id: object, visibility: object) -> str | None:
@@ -319,8 +333,9 @@ def remember(
     confidence: object = None,
     source_seq: object = None,
     expires_in_days: object = None,
+    commit: bool = True,
 ) -> dict:
-    """Store one memory. Commits."""
+    """Store one memory. Commits unless commit is false."""
     if kind not in MEMORY_KINDS:
         raise AgentError(f"kind must be one of {', '.join(MEMORY_KINDS)}")
     if sensitivity not in SENSITIVITIES:
@@ -342,7 +357,7 @@ def remember(
         expires_at=_now() + datetime.timedelta(days=expires_in_days) if expires_in_days else None,
     )
     db.add(row)
-    db.commit()
+    _save(db, commit)
     return memory_dict(row, text)
 
 
@@ -408,7 +423,7 @@ def _node(db, who: Owner, kind: str, label: str, confidence: float) -> AgentProf
     return node
 
 
-def upsert(db, who: Owner, facts: Any) -> int:
+def upsert(db, who: Owner, facts: Any, *, commit: bool = True) -> int:
     """Store facts, each {"subject": {kind, label}, "relation", "object": {kind, label}, "confidence"}.
 
     Existing nodes and edges keep the higher confidence. One transaction. Returns how many facts.
@@ -444,7 +459,7 @@ def upsert(db, who: Owner, facts: Any) -> int:
             db.flush()
         else:
             edge.confidence = max(float(edge.confidence), confidence)
-    db.commit()
+    _save(db, commit)
     return len(parsed)
 
 
@@ -586,8 +601,17 @@ def forget_everything(db, who: Owner) -> int:
 # Pending actions (confirmations for consequential tool calls)
 
 
-def hold(db, who: Owner, token: object, action: object, payload_hash: object, ttl_seconds: object = 600) -> None:
-    """Hold an action until the member confirms or denies it. token is a UUID the agent chose. Commits."""
+def hold(
+    db,
+    who: Owner,
+    token: object,
+    action: object,
+    payload_hash: object,
+    ttl_seconds: object = 600,
+    *,
+    commit: bool = True,
+) -> None:
+    """Hold an action until the member confirms or denies it. token is a UUID the agent chose. Commits unless commit is false."""
     tid = _conversation_id(token)
     if not isinstance(action, dict):
         raise AgentError("action must be an object")
@@ -607,7 +631,7 @@ def hold(db, who: Owner, token: object, action: object, payload_hash: object, tt
             expires_at=_now() + datetime.timedelta(seconds=ttl_seconds),
         )
     )
-    db.commit()
+    _save(db, commit)
 
 
 def claim(db, who: Owner, token: object, approved: object) -> dict | None:

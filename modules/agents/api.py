@@ -12,7 +12,7 @@ from modules.auth.decoraters import machine_scope_required, member_required
 from modules.organizations.models import Organization
 from shared import db_connect
 
-from . import service
+from . import service, turns
 
 agents_blueprint = Blueprint("agents", __name__)
 
@@ -28,6 +28,8 @@ audit_http.SKIPPED_ROUTES.update(
         f"/api/agents{M}/memories",
         f"/api/agents{M}/profile/facts",
         f"/api/agents{M}/pending/<string:token>",
+        f"/api/agents{M}/turn/context",
+        f"/api/agents{M}/turn/commit",
     }
 )
 
@@ -201,6 +203,28 @@ def claim_action(db, who, token):
     if claimed is None:
         return jsonify({"error": "No pending action for this token"}), 404
     return claimed
+
+
+# Turns: one read before the model call, one write after the answer
+
+
+def _member_info(db, who):
+    """The member as Discord sees them in the token's org. Raises AgentError when they are not in it."""
+    from modules.auth.access import discord_directory
+
+    org = db.query(Organization).filter_by(id=who.organization_id).one()
+    return turns.member(discord_directory(), org.guild_id, org.officer_role_id, who.discord_id)
+
+
+@_agent_route("/turn/context", "agents:read", ["POST"])
+def turn_context(db, who):
+    return turns.context(db, who, _member_info(db, who), _body())
+
+
+@_agent_route("/turn/commit", "agents:write", ["POST"])
+def turn_commit(db, who):
+    _member_info(db, who)
+    return turns.commit(db, who, _body()), 201
 
 
 # Member self-service: a member sees and deletes what agents keep about them.

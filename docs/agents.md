@@ -38,6 +38,19 @@ All under `/api/agents/members/<discord_id>`.
 | `PUT /pending/<uuid>` | write | Hold an action: `action`, `payload_hash`, `ttl_seconds` (default 600) |
 | `POST /pending/<uuid>/claim` | write | `approved: bool`. Returns the action once; 404 if unknown, expired, answered or another member's |
 
+## Turns
+
+An agent makes two calls per turn, both under `/api/agents/members/<discord_id>/turn`. Both check
+with Discord that the member is in the org's server: 403 when not, 503 when Discord is not
+configured or not reachable.
+
+| Method and path | Scope | Does |
+|---|---|---|
+| `POST /context` | read | Body `conversation_id`, `visibility`, optional `message_limit` (50), `memory_kinds`, `memory_limit` (20), `profile_limit` (100); 0 leaves a part out. Returns `member` (display name, role ids, officer, from Discord), `conversation` (`owned`), `messages`, `memories`, `profile` |
+| `POST /commit` | write | Body `conversation_id`, `channel_id`, `visibility`, and any of `messages`, `summary` (`content`, `covers`), `memories`, `facts`, `pending` (`token`, `action`, `payload_hash`, `ttl_seconds`), each shaped as in the routes above. One transaction: when any part is invalid nothing is written. 201 with `seqs`, `summary_seq`, `memory_ids`, `facts`, `pending` |
+
+The per-part routes above stay for agents that write as they go.
+
 ## Privacy defaults
 
 - Sensitive memories are encrypted with `SECRETS_KEY` (the same keys as org secrets). Without it they

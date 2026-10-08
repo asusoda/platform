@@ -55,6 +55,9 @@ class FakeBot:
     def get_display_name(self, guild_id, user_id):
         return "officer"
 
+    def get_member(self, guild_id, user_id):
+        return {"user": {"id": str(user_id), "username": "officer"}, "nick": None, "roles": ["2001"]}
+
 
 def _seed(db_connect):
     from modules.organizations.models import Organization
