@@ -33,8 +33,8 @@ A module that grows past one concern splits `service.py` into more Flask-free fi
 ## Routes
 
 Routes for people use the decorators in `modules/auth/decoraters.py` (`member_required`,
-`org_officer_required`, `superadmin_required` and others). Routes for apps and agents use `machine_route` from
-`modules/auth/routes.py`:
+`org_officer_required`, `superadmin_required` and others). Officer routes under an org prefix can use `officer_route`, and routes for apps and agents use
+`machine_route`, both from `modules/auth/routes.py`:
 
 ```python
 from functools import partial

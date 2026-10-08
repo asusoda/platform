@@ -11,7 +11,7 @@ Signs officers and members in with Discord and decides who may call what: platfo
 | `access.py` | The caller behind a credential, officer and superadmin checks; refusals are logged only until `ACCESS_ENFORCE=true` |
 | `machine_tokens.py` | Issue, verify, revoke and list machine tokens; only a hash is stored |
 | `scopes.py` | The registry of scopes that modules declare |
-| `routes.py` | `machine_route`, `json_body` and `token_org` for modules that serve machine tokens |
+| `routes.py` | `officer_route` and `machine_route` route helpers, `json_body` and `token_org` |
 | `models.py` | Sessions, refresh tokens, revoked tokens, app tokens, machine tokens |
 | `jobs.py` | The refresh token cleanup job |
 

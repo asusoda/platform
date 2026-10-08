@@ -176,7 +176,7 @@ module](./writing-a-module.md) lists every place a new module is registered.
 Blueprints are mounted by `modules/registry.py` (`MOUNTS`), which `main.py` calls. `MOUNTS` is the
 list of every URL prefix and the org switch that gates it.
 
-Points, storefront, calendar, leetcode and compute are optional: an officer can turn them off for their org, and then
+Points, storefront, calendar, leetcode, compute and alerts are optional: an officer can turn them off for their org, and then
 that org's routes in the module return 404 (the public leaderboard follows the points switch).
 Switches live in `Organization.config["modules"]`; a missing entry means on, so existing orgs are
 unchanged. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`.

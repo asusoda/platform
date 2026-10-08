@@ -25,7 +25,9 @@ Agents and compute:
 | `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
 | `asu` | Example campus source: 226 public ASU pages and 16 live queries (dining, library hours, events), indexed into knowledge |
 | `accounts` | Canvas, Google and Outlook sign-in for a member, bound to their Discord account, so agents can act for them |
+| `alerts` | New job listings and upcoming hackathons posted to Discord webhooks |
 | `runpod` | Deploy an org's apps to RunPod from a manifest in the app's repo, with health checks and rollback |
+| `dashboard` | One page per org with problems, activity, jobs, CI runs and every module's state |
 | `mcp` | An MCP server and `/api/tools` that expose the modules above to agents through scoped machine tokens |
 
 Every org route checks access, every change an officer or token makes is in the audit log, and org secrets are encrypted at rest. Background work runs as jobs on Procrastinate (Postgres) or in threads (SQLite).
@@ -36,6 +38,7 @@ Every org route checks access, every change an officer or token makes is in the 
 | --- | --- | --- |
 | API | `main.py` (gunicorn) | 8000 |
 | Web app (React) | `web/` | 5000 |
+| Dashboard (Vite) | `dashboard/` | 5173 in dev |
 | Discord bot | `bot_main.py` | |
 | Job worker | `worker_main.py` | |
 | MCP server | `mcp_main.py` | 8001 |

@@ -43,6 +43,8 @@ tokens. It runs as an API, a web app, a bot process, a job worker and an MCP ser
 | [Knowledge](./knowledge.md) | Sources, crawls, hybrid search |
 | [ASU](./asu.md) | Example campus source: ASU pages and live queries |
 | [Accounts](./accounts.md) | Canvas, Google and Outlook sign-in for members |
+| [Alerts](./alerts.md) | Job and hackathon listings posted to Discord webhooks |
+| [Dashboard](./dashboard.md) | Officer dashboard: what is running, what failed, CI runs |
 | [RunPod apps](./runpod-apps.md) | App manifests, deploys, health checks, rollback |
 | [Tools and MCP](./tools-and-mcp.md) | Machine tokens, scopes, /api/tools, the MCP server |
 | [RunPod deploy](./runpod-deploy.md) | Running the whole platform on one RunPod pod |
@@ -66,6 +68,7 @@ platform/
 │   ├── agents/, knowledge/, asu/, accounts/, runpod/, mcp/
 │   └── bot/                Discord bot cogs
 ├── web/                    React admin app
+├── dashboard/              Officer dashboard (Vite + React)
 ├── alembic/                Database migrations
 ├── deploy/runpod/          Start script for a single RunPod pod
 ├── tests/                  Pytest suite, including contract tests for every route clients call

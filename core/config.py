@@ -20,6 +20,8 @@ class Config:
             self.CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "test-client-secret")
             self.REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/callback")
             self.CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:3000")
+            # Officer dashboard (dashboard/). Login sends officers back here when they start from it
+            self.DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "").rstrip("/")
             self.TNAY_API_URL = os.environ.get("TNAY_API_URL", "")
             self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ.get("OPEN_ROUTER_CLAUDE_API_KEY", "")
             self.DISCORD_OFFICER_WEBHOOK_URL = os.environ.get("DISCORD_OFFICER_WEBHOOK_URL", "")

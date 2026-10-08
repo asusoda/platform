@@ -11,10 +11,12 @@ from flask import Blueprint, Flask, jsonify, request
 
 from modules.accounts.api import accounts_blueprint
 from modules.agents.api import agents_blueprint
+from modules.alerts.api import alerts_blueprint
 from modules.asu.api import asu_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.compute.api import compute_blueprint
+from modules.dashboard.api import dashboard_blueprint
 from modules.games.api import game_blueprint
 from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint
@@ -55,6 +57,8 @@ MOUNTS = [
     Mount(apps_blueprint, "/api/apps"),
     Mount(asu_blueprint, "/api/asu"),
     Mount(compute_blueprint, "/api/compute", module="compute"),
+    Mount(alerts_blueprint, "/api/alerts", module="alerts"),
+    Mount(dashboard_blueprint, "/api/dashboard"),
 ]
 
 
@@ -71,6 +75,7 @@ JOB_MODULES = [
     "modules.asu.jobs",
     "modules.leetcode.jobs",
     "modules.compute.jobs",
+    "modules.alerts.jobs",
 ]
 
 
