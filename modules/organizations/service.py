@@ -1,5 +1,6 @@
 """Organization logic shared by the REST API, the bot and jobs. No Flask here."""
 
+import re
 from typing import cast
 
 from sqlalchemy.orm.attributes import flag_modified
@@ -18,6 +19,13 @@ OPTIONAL_MODULES = {
 
 class ModuleError(ValueError):
     pass
+
+
+class OrganizationError(ValueError):
+    pass
+
+
+PREFIX_PATTERN = re.compile(r"^[a-z0-9_-]{2,20}$")
 
 
 def find_by_prefix(db, org_prefix: str) -> Organization | None:
@@ -53,3 +61,44 @@ def set_modules(db, org: Organization, changes: object) -> list[dict]:
     flag_modified(org, "config")
     db.commit()
     return module_states(org)
+
+
+def create_organization(
+    db,
+    *,
+    name: str,
+    prefix: str,
+    guild_id: str,
+    officer_role_id: str | None = None,
+    description: str | None = None,
+    modules_off: tuple[str, ...] = (),
+) -> Organization:
+    """Create an org with default settings and the given optional modules turned off. Commits."""
+    from modules.organizations.config import OrganizationSettings
+
+    if not PREFIX_PATTERN.match(prefix):
+        raise OrganizationError("Prefix must be 2-20 characters of lowercase letters, numbers, - and _")
+    if not str(guild_id).isdigit():
+        raise OrganizationError("Guild id must be a Discord id (digits only)")
+    if db.query(Organization).filter_by(prefix=prefix).first():
+        raise OrganizationError(f"Prefix {prefix} is taken")
+    if db.query(Organization).filter_by(guild_id=str(guild_id)).first():
+        raise OrganizationError(f"Guild {guild_id} already has an organization")
+    unknown = [m for m in modules_off if m not in OPTIONAL_MODULES]
+    if unknown:
+        raise OrganizationError(f"Unknown or required module: {', '.join(unknown)}")
+    config = OrganizationSettings().to_dict()
+    if modules_off:
+        config["modules"] = dict.fromkeys(modules_off, False)
+    org = Organization(
+        name=name,
+        prefix=prefix,
+        guild_id=str(guild_id),
+        officer_role_id=officer_role_id,
+        description=description,
+        is_active=True,
+        config=config,
+    )
+    db.add(org)
+    db.commit()
+    return org

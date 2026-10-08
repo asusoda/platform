@@ -13,6 +13,7 @@ from core.audit import register_audit
 from core.discord_directory import DiscordDirectory
 from core.request_log import register_request_logging
 from modules.calendar import service as calendar_service
+from modules.cli import register_cli
 from modules.registry import load_jobs, register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
 
@@ -85,6 +86,9 @@ register_modules(app)
 # periodic jobs run from a thread here, as the token cleanup always has.
 load_jobs()
 jobs.start_inline_scheduler()
+
+# `flask --app main org|jobs|config ...`
+register_cli(app)
 # Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 

@@ -184,6 +184,24 @@ once login codes move to the database (they are in memory today).
 
 ## Operational recipes
 
+### Command-line tools
+
+Run inside the API container (`make shell`) or locally with the same `.env`:
+
+```bash
+flask --app main config check     # required settings, database, migrations; non-zero exit on failure
+flask --app main org list
+flask --app main org create --name "AI Society" --prefix ais --guild-id <discord server id> \
+    --officer-role-id <role id> --off points,storefront,calendar
+flask --app main org modules ais --on calendar
+flask --app main jobs list
+flask --app main jobs run calendar.sync_all
+flask --app main jobs run points.import_event_csv -a org_prefix=soda -a event_name=X -a event_points=5 -a file_content=...
+```
+
+`jobs run` runs the job in the shell's process, not through the queue, and records it in the audit
+log like any other run.
+
 ### Which build is live?
 
 ```bash
