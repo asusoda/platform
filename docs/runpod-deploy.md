@@ -3,7 +3,7 @@
 `deploy/runpod/start.sh` runs the whole platform on one CPU pod. RunPod pods run one image and no
 docker, so the script installs and starts everything in the pod itself:
 
-- API (gunicorn) on port 8000, web app on port 5000, Discord bot when `BOT_TOKEN` is set.
+- API (gunicorn) on port 8000, web app on port 5000, MCP server on port 8001, Discord bot when `BOT_TOKEN` is set.
 - Jobs run in threads of the API (SQLite).
 - On each start it fetches `PLATFORM_BRANCH`, so a pod restart deploys the branch head.
 - State is in `/workspace/data` on a network volume: the SQLite database and `keys.env`, which
@@ -12,7 +12,7 @@ docker, so the script installs and starts everything in the pod itself:
 
 ## Pod settings
 
-Image `nikolaik/python-nodejs:python3.12-nodejs20`, ports `8000/http` and `5000/http`, a network
+Image `nikolaik/python-nodejs:python3.12-nodejs20`, ports `8000/http`, `5000/http` and `8001/http`, a network
 volume at `/workspace`, and this start command:
 
 ```
@@ -33,3 +33,5 @@ Environment:
 Add `<API_URL>/api/auth/callback` as a redirect in the Discord app. With the proxy URLs that is
 `https://<pod id>-8000.proxy.runpod.net/api/auth/callback`. For compute CLI sign-in also add
 `<API_URL>/api/compute/cli/callback`.
+
+Agents reach the MCP server at `https://<pod id>-8001.proxy.runpod.net/mcp` with a machine token.

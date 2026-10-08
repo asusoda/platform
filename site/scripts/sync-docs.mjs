@@ -19,6 +19,7 @@ const sections = {
       ['alerts.md', 'alerts'],
       ['dashboard.md', 'dashboard'],
       ['runpod-apps.md', 'runpod-apps'],
+      ['hermes.md', 'hermes'],
       ['tools-and-mcp.md', 'tools-and-mcp'],
     ],
   },

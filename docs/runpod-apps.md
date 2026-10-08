@@ -4,6 +4,8 @@ Deploys an org's own apps (a Discord bot, an agent, a model server) to RunPod po
 that, the app's CI deploys each new image tag with a token that can do nothing else. Each org
 deploys with its own RunPod API key, so each org pays for its own pods.
 
+[Hermes Agent](./hermes.md) is a worked example.
+
 ## Setup
 
 1. Store the org's RunPod key as the org secret `runpod_api_key`
