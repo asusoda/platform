@@ -16,14 +16,17 @@ from core import secrets
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import utcnow
+from modules.auth import scopes
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
 from . import hackathons, jobs_table
-from .models import AlertFeed, AlertPost
+from .models import AlertFeed, AlertPost, AlertRun
 from .types import Item, SourceError
 
 logger = get_logger("alerts")
+
+scopes.declare("alerts:manage", "List, create, change, run and delete alert feeds")
 
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 WEBHOOK_PATTERN = re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$")
@@ -31,6 +34,8 @@ SECRET_PREFIX = "alert_webhook_"  # nosec B105 - a secret name prefix, not a val
 KINDS = {"github_jobs": jobs_table, "hackathons": hackathons}
 MAX_POSTS_PER_RUN = 25
 POST_GAP_SECONDS = 0.5
+RUNS_KEPT = 50  # runs kept per feed; older ones are deleted
+HISTORY_ITEMS = 50
 COLORS = {"github_jobs": 0x3447EB, "hackathons": 0x9B59B6}
 USER_AGENT = "PlatformAlerts/1.0"
 
@@ -116,6 +121,29 @@ def list_feeds(db, org_id: int) -> list[dict]:
     return [describe(db, f) for f in feeds]
 
 
+def presets(db, org_id: int) -> list[dict]:
+    """The feeds that packs offer, with the kind and config to create each, and whether the org has the key."""
+    from modules.packs import catalog
+
+    have = {key for (key,) in db.query(AlertFeed.key).filter_by(organization_id=org_id)}
+    return [
+        {
+            "pack": pack.name,
+            "pack_title": pack.title,
+            "key": feed.key,
+            "title": feed.title,
+            "description": feed.description,
+            "kind": feed.kind,
+            "config": KINDS[feed.kind].validate(dict(feed.config)),
+            "every_hours": feed.every_hours,
+            "added": feed.key in have,
+        }
+        for pack in catalog.PACKS.values()
+        for feed in pack.feeds
+        if feed.kind in KINDS
+    ]
+
+
 def get_feed(db, org_id: int, key: str) -> dict:
     return describe(db, _find(db, org_id, key))
 
@@ -165,6 +193,7 @@ def delete_feed(db, org_id: int, key: str) -> None:
     """Delete a feed, its posted items and its webhook secret. Commits."""
     feed = _find(db, org_id, key)
     db.query(AlertPost).filter_by(feed_id=feed.id).delete()
+    db.query(AlertRun).filter_by(feed_id=feed.id).delete()
     db.delete(feed)
     db.commit()
     secrets.delete_secret(db, org_id, _secret_name(key))
@@ -175,14 +204,15 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
 
     On the first run, items are recorded without posting unless post_existing is true.
     """
+    started = time.monotonic()
     feed.last_run_at = utcnow()
     webhook = _webhook(db, feed)
     if webhook is None:
-        return _fail(db, feed, "The webhook URL is not set, or SECRETS_KEY is missing")
+        return _fail(db, feed, "The webhook URL is not set, or SECRETS_KEY is missing", started)
     try:
         items = _read(feed)
     except SourceError as e:
-        return _fail(db, feed, str(e))
+        return _fail(db, feed, str(e), started)
     seen = {
         k
         for (k,) in db.query(AlertPost.item_key).filter(
@@ -210,6 +240,7 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
     if feed.seeded_at is None:
         feed.seeded_at = utcnow()
     feed.last_error = error
+    _record(db, feed, started, found=len(items), new=len(new), posted=posted, recorded=seeding, error=error)
     db.commit()
     result = {"key": feed.key, "found": len(items), "new": len(new), "posted": posted, "recorded": seeding}
     if error:
@@ -227,11 +258,69 @@ def _read(feed: AlertFeed) -> list[Item]:
     raise SourceError(f"Unknown feed kind {feed.kind}")
 
 
-def _fail(db, feed: AlertFeed, message: str) -> dict:
+def _fail(db, feed: AlertFeed, message: str, started: float) -> dict:
     feed.last_error = message[:1000]
+    _record(db, feed, started, error=message)
     db.commit()
     logger.warning("alert feed failed org=%s key=%s: %s", feed.organization_id, feed.key, message)
     return {"key": feed.key, "error": message}
+
+
+def _record(db, feed: AlertFeed, started: float, error: str | None = None, **counts) -> None:
+    """Add a run row for the feed and delete its runs beyond RUNS_KEPT. The caller commits."""
+    db.add(
+        AlertRun(
+            feed_id=feed.id,
+            started_at=feed.last_run_at,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            error=error[:1000] if error else None,
+            **counts,
+        )
+    )
+    db.flush()
+    old = (
+        db.query(AlertRun.id)
+        .filter(AlertRun.feed_id == feed.id)
+        .order_by(AlertRun.started_at.desc(), AlertRun.id.desc())
+        .offset(RUNS_KEPT)
+        .all()
+    )
+    if old:
+        db.query(AlertRun).filter(AlertRun.id.in_([i for (i,) in old])).delete(synchronize_session=False)
+
+
+def history(db, org_id: int, key: str) -> dict:
+    """The feed's recent runs and the items it posted or recorded, newest first."""
+    feed = _find(db, org_id, key)
+    runs = (
+        db.query(AlertRun)
+        .filter_by(feed_id=feed.id)
+        .order_by(AlertRun.started_at.desc(), AlertRun.id.desc())
+        .limit(RUNS_KEPT)
+        .all()
+    )
+    items = (
+        db.query(AlertPost)
+        .filter_by(feed_id=feed.id)
+        .order_by(AlertPost.created_at.desc(), AlertPost.id.desc())
+        .limit(HISTORY_ITEMS)
+        .all()
+    )
+    return {
+        "runs": [
+            {
+                "started_at": r.started_at.isoformat(),
+                "duration_ms": r.duration_ms,
+                "found": r.found,
+                "new": r.new,
+                "posted": r.posted,
+                "recorded": r.recorded,
+                "error": r.error,
+            }
+            for r in runs
+        ],
+        "items": [{"title": i.title, "posted": i.posted, "created_at": i.created_at.isoformat()} for i in items],
+    }
 
 
 def run_now(db, org_id: int, key: str, post_existing: bool = False) -> dict:

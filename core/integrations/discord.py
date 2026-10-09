@@ -4,12 +4,15 @@ DiscordDirectory reads guilds, roles and members, cached for a short time. send_
 add_reaction post to channels.
 """
 
+import os
 import threading
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
+from sqlalchemy import text
 
+from core.integrations.registry import Integration, IntegrationError, register
 from core.log import get_logger
 
 logger = get_logger("discord_directory")
@@ -17,8 +20,26 @@ logger = get_logger("discord_directory")
 API = "https://discord.com/api/v10"
 
 
+MAX_LISTED_MEMBERS = 10_000
+
+
 class DiscordUnavailable(Exception):
     """Discord could not be reached or refused the bot token."""
+
+
+def _member_summary(member: dict) -> dict:
+    """The id, display name, username, avatar URL and role ids of a guild member object."""
+    user = member.get("user") or {}
+    user_id = str(user.get("id", ""))
+    avatar = user.get("avatar")
+    return {
+        "id": user_id,
+        "name": member.get("nick") or user.get("global_name") or user.get("username") or user_id,
+        "username": user.get("username"),
+        "avatar": f"https://cdn.discordapp.com/avatars/{user_id}/{avatar}.png?size=64" if avatar else None,
+        "roles": [str(role) for role in member.get("roles") or []],
+        "bot": bool(user.get("bot")),
+    }
 
 
 class DiscordDirectory:
@@ -67,6 +88,12 @@ class DiscordDirectory:
         with self._lock:
             self._cache.clear()
 
+    def identity(self) -> dict:
+        """The Discord app that owns the token: {app_id, app_name, bot_name}."""
+        app = self._get("/oauth2/applications/@me", ttl=3600) or {}
+        bot = app.get("bot") or {}
+        return {"app_id": str(app.get("id", "")), "app_name": app.get("name"), "bot_name": bot.get("username")}
+
     # Guilds and roles
 
     def list_guilds(self) -> list[dict]:
@@ -112,6 +139,24 @@ class DiscordDirectory:
         user = member.get("user", {})
         return member.get("nick") or user.get("global_name") or user.get("username")
 
+    def search_members(self, guild_id, query: str, limit: int = 10) -> list[dict]:
+        """Members whose username or server nickname starts with query, as id, name, username and avatar."""
+        path = f"/guilds/{int(guild_id)}/members/search?{urlencode({'query': query, 'limit': int(limit)})}"
+        return [_member_summary(member) for member in self._get(path, ttl=30) or []]
+
+    def list_members(self, guild_id, max_members: int = MAX_LISTED_MEMBERS) -> list[dict]:
+        """Every guild member, up to max_members, in the search_members shape. Needs the Server Members intent."""
+        members: list[dict] = []
+        after = "0"
+        while len(members) < max_members:
+            path = f"/guilds/{int(guild_id)}/members?{urlencode({'limit': 1000, 'after': after})}"
+            page = self._get(path, ttl=120) or []
+            members += [_member_summary(member) for member in page]
+            if len(page) < 1000:
+                break
+            after = members[-1]["id"]
+        return members[:max_members]
+
     def check_user_membership(self, user_id, guild_id) -> bool:
         return self.get_member(guild_id, user_id) is not None
 
@@ -149,3 +194,35 @@ def send_message(token: str | None, channel_id: int | str, payload: dict) -> dic
 
 def add_reaction(token: str | None, channel_id: int | str, message_id: int | str, emoji: str) -> None:
     _call("PUT", f"/channels/{int(channel_id)}/messages/{int(message_id)}/reactions/{quote(emoji)}/@me", token)
+
+
+def _guild_id(db, org_id: int) -> str | None:
+    row = db.execute(text("SELECT guild_id FROM organizations WHERE id = :id"), {"id": org_id}).first()
+    return str(row[0]) if row else None
+
+
+def _test(db, org_id: int) -> str:
+    directory = DiscordDirectory(os.environ.get("BOT_TOKEN"))
+    try:
+        bot = directory.identity().get("bot_name") or "The bot"
+        guild_id = _guild_id(db, org_id)
+        guild = directory.get_guild(guild_id) if guild_id else None
+    except DiscordUnavailable as e:
+        raise IntegrationError(f"Discord refused the bot token or could not be reached: {e}") from e
+    if not guild:
+        raise IntegrationError(
+            f"{bot} is not in this org's Discord server. Invite it with the bot and applications.commands scopes"
+        )
+    return f"Connected as {bot}, in {guild.get('name', 'the server')}."
+
+
+register(
+    Integration(
+        key="discord",
+        title="Discord",
+        description="Connect the org's Discord server. One Discord app serves every org; the deployment sets it in .env.",
+        docs="modules/discord-bot",
+        deployment=lambda: bool(os.environ.get("BOT_TOKEN")),
+        test=_test,
+    )
+)

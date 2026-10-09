@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify, redirect, request, send_file, session
 from core import audit
 from core.config import config
 from core.db import db_connect
+from core.integrations.discord import DiscordUnavailable
+from core.log import get_logger
 from modules.accounts import providers
 from modules.auth import access
 from modules.auth.routes import member_view, officer_route, respond
@@ -19,6 +21,7 @@ from modules.organizations import service as organizations
 from . import cli_login, files, schedule, service
 
 compute_blueprint = Blueprint("compute", __name__)
+logger = get_logger(__name__)
 
 
 def _body():
@@ -88,7 +91,18 @@ def list_pods(db, org):
 
 @_officer_route("/pods", ["POST"])
 def create_pod(db, org):
-    return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), config.COMPUTE_POD_IMAGE)}, 201
+    image = service.pod_image(db, _org_id(org), config.COMPUTE_POD_IMAGE)
+    return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), image)}, 201
+
+
+@_officer_route("/settings", ["GET"])
+def get_settings(db, org):
+    return {"settings": service.compute_settings(db, _org_id(org), config.COMPUTE_POD_IMAGE)}
+
+
+@_officer_route("/settings", ["PUT"])
+def put_settings(db, org):
+    return {"settings": service.update_compute_settings(db, _org_id(org), _body(), config.COMPUTE_POD_IMAGE)}
 
 
 @_officer_route("/pods/<string:pod_id>", ["GET"])
@@ -105,6 +119,69 @@ def update_pod(db, org, pod_id):
 def pod_action(db, org, pod_id):
     data = _body()
     return service.act(db, _org_id(org), pod_id, data.get("action") if isinstance(data, dict) else None)
+
+
+def _name_lookup(org):
+    """A function from a Discord id to the member's display name in the org's server, or None."""
+    directory = access.discord_directory()
+    if directory is None or not directory.is_ready():
+        return None
+
+    failed: list[bool] = []
+
+    def name_of(discord_id: str) -> str | None:
+        if failed:
+            return None
+        try:
+            return directory.get_display_name(org.guild_id, discord_id)
+        except DiscordUnavailable:
+            # Stop after the first failure so one request does not wait on Discord many times
+            failed.append(True)
+            return None
+
+    return name_of
+
+
+@_officer_route("/pods/<string:pod_id>/members", ["GET"])
+def pod_members(db, org, pod_id):
+    return service.pod_members(db, _org_id(org), pod_id, _name_lookup(org))
+
+
+@_officer_route("/pods/<string:pod_id>/members/connected", ["GET"])
+def pod_connected(db, org, pod_id):
+    return service.connected_now(db, _org_id(org), pod_id, _name_lookup(org))
+
+
+@_officer_route("/members", ["GET"])
+def find_members(db, org):
+    """Server members for the allowed members field.
+
+    ?ids= names the given ids. Otherwise ?q= searches names, ?role= keeps the holders of one role, and
+    ?limit= (1 to 500, default 50) caps the list. Without q the whole member list is read.
+    """
+    directory = access.discord_directory()
+    if directory is None or not directory.is_ready():
+        return {"error": "Discord is not set up, so members cannot be looked up. Enter Discord ids."}, 503
+    query = (request.args.get("q") or "").strip()[:100]
+    role = (request.args.get("role") or "").strip()
+    ids = [i for i in (request.args.get("ids") or "").split(",") if i.isdigit()][:50]
+    limit = max(1, min(request.args.get("limit", type=int) or 50, service.MAX_ALLOWED_USERS))
+    try:
+        if ids:
+            names = {i: directory.get_display_name(org.guild_id, i) for i in ids}
+            return {"members": [{"id": i, "name": name} for i, name in names.items() if name]}
+        return service.member_page(directory, org.guild_id, query, role if role.isdigit() else "", limit)
+    except DiscordUnavailable as e:
+        logger.warning("member lookup failed for org %s: %s", org.id, e)
+        if "403" in str(e) and not query:
+            return {"error": _NO_MEMBERS_INTENT}, 503
+        return {"error": "Discord did not answer the member search. Enter Discord ids."}, 503
+
+
+_NO_MEMBERS_INTENT = (
+    "Discord refused the member list. Turn on Server Members Intent for the bot in the Discord Developer Portal "
+    "(Bot > Privileged Gateway Intents), or search by name."
+)
 
 
 @_member_route("/pods", ["GET"])

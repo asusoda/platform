@@ -141,7 +141,7 @@ def profile_nodes(db, who: Owner, limit: object = None) -> list[dict]:
 def similar(db, who: Owner, query: object, limit: object, embedder: Embedder | None) -> list[dict]:
     """The member's profile nodes nearest to the text, nearest first, each with its cosine distance."""
     if embedder is None:
-        raise AgentError("Similar nodes need an embedding service (EMBEDDINGS_URL)", 503)
+        raise AgentError("Similar nodes need an embeddings service. Set one on the Integrations page", 503)
     query_text = service.text(query, "text", 2000)
     count = service.limit(limit, 10)
     try:

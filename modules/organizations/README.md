@@ -7,16 +7,21 @@ Keeps the org record (Discord server, URL prefix, officer role, config) and the 
 | File | Holds |
 | --- | --- |
 | `api.py` | Officer routes under `/<org_id>` |
-| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`, org secrets and machine tokens; declares `org:read` |
+| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `new_org_switches`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`, org secrets and machine tokens; declares `org:read` |
 | `config.py` | `OrganizationSettings`, the default config of a new org |
 | `models.py` | Orgs, and the unused org config and officer tables |
-| `tools.py` | The `org.info` tool |
+| `tools.py` | The `org.*` tools: org info, branding and module switches |
 
 ## Surface
 
 - Routes: `/api/organizations`. Each route needs an officer of the org in the URL. The list shows only the caller's orgs.
 - Jobs: none.
-- Tools: `org.info` (scope `org:read`).
+- Tools: `org.info`, `org.branding` (scope `org:read`); `org.set_modules` (confirm), `org.set_branding` (scope `settings:write`). Tools marked confirm run only with `confirm=true`.
 - Tables: `organizations`, `organization_configs`, `officers`.
 
-Config keys: `modules` (a module name set to false for each module that is off), `branding` (`logo_url` and `accent_color`), `leetcode`, `dashboard`.
+Config keys: `modules` (a module name set to false for each module that is off; a new org has an entry for each optional module, on only for `NEW_ORG_MODULES` in `modules/manifest.py`; migration `c4d6e8f0a2b4` turns off compute, alerts and uptime for existing orgs that have no data for them), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.
+
+## Known gaps
+
+- Views in `api.py` open their own session and query the org. The settings route checks the prefix in the view, not with `PREFIX_PATTERN` in `service.py`.
+- `/stats`, `/activity` and `/roles` return fixed sample data.

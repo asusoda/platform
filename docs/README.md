@@ -10,10 +10,12 @@ Platform is shared infrastructure for student orgs. One deployment serves many o
 | [Architecture](./architecture.md) | Learn the processes, the module pattern, jobs, tools and the MCP server |
 | [Data model](./data-model.md) | Find a table and the module that owns it, and write a migration |
 | [Authentication](./authentication.md) | Learn the sign-in types, tokens, decorators and access checks |
+| [Integrations](./integrations.md) | Connect Notion, Google, GitHub, RunPod; add an integration |
 | [API contract](./api-contract.md) | Change a route that a live client uses |
 | [Writing a module](./writing-a-module.md) | Add a module and register it |
-| [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes, run Hermes |
-| [Frontends](./frontends.md) | Work on the web app (`web/`) or the officer dashboard (`dashboard/`) |
+| [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes |
+| [Frontends](./frontends.md) | Work on the dashboard and the member store (`dashboard/`) |
+| [Webhooks](./webhooks.md) | Send org events to Discord channels; add an event |
 | [Roadmap](./roadmap.md) | See what is left to build and the known issues |
 
 ## Module pages
@@ -25,11 +27,16 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 | [Accounts](./modules/accounts.md) | Canvas, Google and Outlook sign-in for a member |
 | [Agents](./modules/agents.md) | Conversations, memories, profile graph and turns for agents |
 | [Alerts](./modules/alerts.md) | Job and hackathon listings posted to Discord webhooks |
-| [ASU](./modules/asu.md) | Example campus source: ASU pages and live queries |
+| [Packs](./modules/packs.md) | Campus pages and live queries that an org adds to knowledge, such as the ASU pack |
 | [Calendar](./modules/calendar.md) | Notion events synced to Google Calendar |
 | [Compute](./modules/compute.md) | RunPod pods, SSH certificates, file manager, sessions |
+| [Discord bot](./modules/discord-bot.md) | The bot process, its setup and its commands |
 | [Knowledge](./modules/knowledge.md) | Sources, crawls and hybrid search |
+| [LeetCode](./modules/leetcode.md) | Daily question post, solve checks and slash commands |
+| [Points](./modules/points.md) | Members, points from events and the leaderboard |
 | [RunPod apps](./modules/runpod-apps.md) | App manifests, deploys, health checks and rollback |
+| [Store](./modules/storefront.md) | Merch store paid with points |
+| [Uptime](./modules/uptime.md) | Checks of sites and Hosting apps, with events when one goes down or up |
 
 ## Notes
 

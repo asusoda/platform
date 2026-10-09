@@ -5,12 +5,7 @@ Syncs an org's Notion events database to a Google Calendar, and serves the org's
 ## Setup
 
 1. Set the org's calendar settings: `PUT /api/organizations/<org_id>/calendar` with `notion_database_id`, `calendar_sync_enabled` and, optional, `google_calendar_id`.
-2. Save the org secrets. If an org has no secret, Platform uses the deployment's `NOTION_API_KEY` and `google-secret.json`.
-
-   ```
-   PUT /api/organizations/<org_id>/secrets/notion_api_key           {"value": "<Notion token>"}
-   PUT /api/organizations/<org_id>/secrets/google_service_account   {"value": "<contents of the JSON key file>"}
-   ```
+2. Connect Notion and Google on the dashboard's Integrations page (see [Integrations](../integrations.md)). If an org has no keys, Platform uses the deployment's `NOTION_API_KEY` and `google-secret.json`.
 
 3. Share the Notion database with the Notion integration.
 4. Start a sync: `POST /api/calendar/<org_prefix>/sync`.

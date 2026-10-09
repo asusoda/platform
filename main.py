@@ -12,6 +12,7 @@ from flask_cors import CORS
 from core import jobs
 from core.config import config
 from core.http.audit_hook import register_audit
+from core.http.cached import register_cache_invalidation
 from core.http.request_log import register_request_logging
 from core.integrations.discord import DiscordDirectory
 from core.log import get_logger, init_sentry
@@ -19,12 +20,14 @@ from modules.auth.tokens import token_manager
 from modules.bot.bot import BotFork
 from modules.bot.factory import create_bot
 from modules.cli import register_cli
+from modules.dashboard import errors as error_alerts
 from modules.manifest import load_jobs, load_tools
 from modules.registry import register_modules
 
 logger = get_logger(__name__)
 
-init_sentry(config.SENTRY_DSN)
+init_sentry(config.SENTRY, "api")
+error_alerts.setup("api")
 
 
 class App(Flask):
@@ -35,11 +38,7 @@ class App(Flask):
     auth_bot: BotFork
 
 
-app = App(
-    "SoDA internal API",
-    static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
-    template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "web/build"),
-)
+app = App("SoDA internal API", static_folder=None)
 CORS(
     app,
     resources={
@@ -111,6 +110,8 @@ def health():
 register_request_logging(app, token_manager)
 
 register_audit(app, token_manager)
+
+register_cache_invalidation(app)
 
 
 @app.before_request

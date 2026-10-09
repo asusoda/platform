@@ -6,11 +6,15 @@ export const docsRoute = '/docs';
 export const docsImageRoute = '/og/docs';
 export const docsContentRoute = '/llms.mdx/docs';
 
+/** The repo that holds the docs pages, for the source link of each page. */
 export const gitConfig = {
   user: 'asusoda',
   repo: 'platform',
   branch: 'main',
 };
+
+/** The original repo of Platform, by SoDA. LICENSE clause 4b requires a link to it. */
+export const repoUrl = 'https://github.com/asusoda/platform';
 
 const getContentUrl = createGetUrl(docsContentRoute);
 

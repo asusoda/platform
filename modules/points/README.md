@@ -17,3 +17,9 @@ Keeps the points that an org's members earn. Officers add members, give points b
 - Jobs: `points.import_event_csv`, started by the CSV upload.
 - Tools: `points.leaderboard` (scope `points:read`).
 - Tables: `points`. Members and memberships are in `modules/users`.
+- Cache: `/<org_prefix>/users` and `/<org_prefix>/get_points` are kept for 30 seconds and the leaderboard for 300 seconds, with an ETag (`core/http/cached.py`). A successful write to the API, or the end of a CSV import, drops them. A write from the bot or the MCP server shows after the time runs out.
+
+## Known gaps
+
+- Views in `api.py` open their own session, query and commit. Only the leaderboard is in `service.py`. Move the rest one route at a time, with the contract tests.
+- The camelCase routes (`getUserPoints`, `getUserTotalPoints`) are aliases. See Cleanup in `docs/roadmap.md`.

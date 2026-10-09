@@ -1,9 +1,7 @@
 """Every module's blueprint, where it is mounted, and which optional module gates it.
 
-Model, job and tool modules are listed in modules/manifest.py.
-
-To add a module: give it an api.py with a blueprint, add it here, and if orgs should be
-able to turn it off, add its name to OPTIONAL_MODULES in modules/organizations/service.py.
+Model, job and tool modules are listed in modules/manifest.py. docs/writing-a-module.md lists every
+place to register a new module, and tests/test_module_layout.py checks them.
 """
 
 from dataclasses import dataclass, field
@@ -14,7 +12,6 @@ from core.db import db_connect
 from modules.accounts.api import accounts_blueprint
 from modules.agents.api import agents_blueprint
 from modules.alerts.api import alerts_blueprint
-from modules.asu.api import asu_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.compute.api import compute_blueprint
@@ -24,11 +21,13 @@ from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
+from modules.packs.api import asu_blueprint, packs_blueprint
 from modules.points.api import points_blueprint
 from modules.public.api import public_blueprint
 from modules.runpod.api import apps_blueprint
 from modules.storefront.member_api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
+from modules.uptime.api import uptime_blueprint
 from modules.users.api import users_blueprint
 
 
@@ -57,9 +56,11 @@ MOUNTS = [
     Mount(knowledge_blueprint, "/api/knowledge"),
     Mount(accounts_blueprint, "/api/accounts"),
     Mount(apps_blueprint, "/api/apps"),
+    Mount(packs_blueprint, "/api/packs"),
     Mount(asu_blueprint, "/api/asu"),
     Mount(compute_blueprint, "/api/compute", module="compute"),
     Mount(alerts_blueprint, "/api/alerts", module="alerts"),
+    Mount(uptime_blueprint, "/api/uptime", module="uptime"),
     Mount(dashboard_blueprint, "/api/dashboard"),
 ]
 

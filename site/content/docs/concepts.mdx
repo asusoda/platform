@@ -11,7 +11,7 @@ An organization is one Discord server. Almost every route is under the organizat
 
 Each feature is a module under `modules/`. A module has its routes in `api.py`, its tables in `models.py`, and its logic in a Flask-free `service.py` that the REST API, the MCP server, jobs and the bot all reuse. `modules/registry.py` mounts them.
 
-Optional modules (points, storefront, calendar, LeetCode, compute and alerts) switch on or off per organization. A module that is off returns 404 for that organization, and the web app hides it. The agent, knowledge and account modules are reached through tokens the organization issues, so an organization that issues none never uses them.
+Optional modules (points, storefront, calendar, LeetCode, compute and alerts) switch on or off per organization. A module that is off returns 404 for that organization, and the dashboard hides it. The agent, knowledge and account modules are reached through tokens the organization issues, so an organization that issues none never uses them.
 
 ## Access
 
@@ -32,7 +32,8 @@ Background work is declared with `@job` in each module's `jobs.py`. On Postgres 
 | Process | Entry point | Port |
 | --- | --- | --- |
 | API | `main.py` under gunicorn | 8000 |
-| Web app | `web/` (React) | 5000 |
+| Dashboard | `dashboard/` (Vite, React) | 5001 |
+| Web, the old officer app | `web/` (Create React App) | 5000 |
 | Discord bot | `bot_main.py` | |
 | Job worker | `worker_main.py` | |
 | MCP server | `mcp_main.py` | 8001 |

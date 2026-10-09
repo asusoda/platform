@@ -11,7 +11,7 @@ The procedures are in `.agents/skills/` (linked from `.claude/skills/`) and list
 - `check`: before each commit.
 - `new-module`: to add a module.
 - `migration`: after a model change.
-- `api-contract`: to change a route that thesoda.io or `web/` calls.
+- `api-contract`: to change a route that thesoda.io or `dashboard/` calls.
 - `technical-writing`: for all prose, comments and messages.
 - `pr-ready`: before you open a PR.
 
@@ -35,19 +35,23 @@ flask --app main org|jobs|config ...
 | Path | Holds |
 | --- | --- |
 | `main.py`, `bot_main.py`, `worker_main.py`, `mcp_main.py` | API, Discord bot, job worker (Postgres only), MCP server on port 8001 |
-| `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients |
+| `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, hosting providers (`core/hosting.py`) |
 | `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, only the files it needs |
-| `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; model, job and tool modules |
+| `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; categories, the module catalog, the modules of a new org, and model, job and tool modules |
+| `apps/` | App templates that officers create apps from on the Hosting page. No Platform code |
 | `alembic/` | Migrations. Nothing creates tables at startup |
 | `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
-| `web/`, `dashboard/`, `site/` | Older React web app, officer dashboard (Vite), docs and landing site |
+| `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
+| `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site |
+| `web/` | Old officer app, kept for SoDA at admin.thesoda.io |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
-Modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users.
+Modules: accounts, agents, alerts, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, packs, points, public, runpod, storefront, superadmin, uptime, users.
 
 ## Rules
 
-- `core/` imports nothing from `modules/`. A `service.py` does not import Flask. `make ci` checks both with import-linter.
+- `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
+- A new module is registered in each place that `docs/writing-a-module.md` lists. `tests/test_module_layout.py` checks them.
 - A service takes a database session and plain values and raises a `core.errors.ServiceError` subclass.
 - Use `officer_route`, `machine_route` and `member_view` from `modules/auth/routes.py` for new routes.
 - A model change needs an Alembic migration. `make ci` runs `alembic check`.

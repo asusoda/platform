@@ -4,6 +4,7 @@ from core.db import db_connect
 from core.log import get_logger
 from modules.auth.access import discord_directory
 from modules.auth.decorators import superadmin_required
+from modules.auth.routes import respond
 from modules.auth.tokens import token_manager
 from modules.organizations.models import Organization
 
@@ -168,14 +169,17 @@ def add_organization(guild_id):
         new_org = service.new_organization(guild)
 
         db = next(db_connect.get_db())
-        db.add(new_org)
-        db.commit()
+        try:
+            if db.query(Organization).filter_by(prefix=new_org.prefix).first() is not None:
+                return jsonify({"error": f"The prefix {new_org.prefix} is already taken"}), 409
+            db.add(new_org)
+            db.commit()
+        finally:
+            db.close()
 
         return jsonify({"message": f"Organization {guild['name']} added successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        db.close()
 
 
 @superadmin_blueprint.route("/remove_org/<int:org_id>", methods=["DELETE"])
@@ -215,5 +219,74 @@ def get_audit():
             before_id=request.args.get("before_id", type=int),
         )
         return jsonify({"entries": entries})
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/publishers", methods=["GET"])
+@superadmin_required
+def get_publishers():
+    """Orgs that may write knowledge every org can search, and where the right comes from."""
+    from modules.knowledge import service as knowledge
+
+    db = next(db_connect.get_db())
+    try:
+        return respond(db, lambda db: {"publishers": knowledge.publishers(db)})
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/publishers/<int:org_id>", methods=["PUT"])
+@superadmin_required
+def put_publisher(org_id):
+    """Mark or unmark an org as a knowledge publisher. Body: {"publisher": true}."""
+    from modules.knowledge import service as knowledge
+
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        return respond(db, lambda db: {"publishers": knowledge.set_publisher(db, org_id, data.get("publisher"))})
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/errors", methods=["GET"])
+@superadmin_required
+def get_errors():
+    """Errors of every org and of the whole server, newest first. ?org=<prefix>&status=open|resolved|all."""
+    from core import error_log
+
+    db = next(db_connect.get_db())
+    try:
+        return jsonify(
+            {
+                "errors": error_log.list_groups(
+                    db,
+                    org=request.args.get("org") or None,
+                    everything=True,
+                    status=request.args.get("status", "open"),
+                    limit=request.args.get("limit", 100, type=int),
+                )
+            }
+        )
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/errors/<string:action>", methods=["POST"])
+@superadmin_required
+def change_errors(action):
+    """Resolve or reopen errors of any org. Body: {"ids": [1, 2]}."""
+    from core import error_log
+
+    ids = (request.get_json(silent=True) or {}).get("ids")
+    if action not in ("resolve", "reopen"):
+        return jsonify({"error": "Unknown action"}), 404
+    if not isinstance(ids, list) or not ids or len(ids) > 200 or not all(isinstance(i, int) for i in ids):
+        return jsonify({"error": "ids must be a list of 1 to 200 error ids"}), 400
+    db = next(db_connect.get_db())
+    try:
+        changed = error_log.set_resolved(db, ids, resolved=action == "resolve", actor="superadmin")
+        return jsonify({"changed": changed})
     finally:
         db.close()

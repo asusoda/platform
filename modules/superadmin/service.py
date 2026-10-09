@@ -1,10 +1,12 @@
 """Superadmin logic: guilds without an org, an officer's orgs, guild roles and new orgs. No Flask here."""
 
+import re
 from typing import Any
 
 from core.config import config
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
+from modules.organizations import service as organizations
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
 
@@ -57,13 +59,19 @@ def role_in_guild(directory, guild_id: Any, role_id: Any) -> bool:
     return str(int(role_id)) in role_ids
 
 
+def prefix_for(name: str, guild_id: object) -> str:
+    """A prefix from a guild name: lowercase letters, digits and underscores, 2 to 20 characters."""
+    prefix = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:20].rstrip("_")
+    return prefix if len(prefix) >= 2 else f"org_{str(guild_id)[-6:]}"
+
+
 def new_organization(guild: dict) -> Organization:
-    """An unsaved org for a guild, with a prefix from the guild name and default settings."""
+    """An unsaved org for a guild, with a prefix from the guild name, default settings and new-org module switches."""
     return Organization(
         name=guild["name"],
         guild_id=guild["id"],
-        prefix=guild["name"].lower().replace(" ", "_").replace("-", "_"),
+        prefix=prefix_for(guild["name"], guild["id"]),
         description=f"Discord server: {guild['name']}",
         icon_url=guild["icon_url"],
-        config=OrganizationSettings().to_dict(),
+        config={**OrganizationSettings().to_dict(), "modules": organizations.new_org_switches()},
     )

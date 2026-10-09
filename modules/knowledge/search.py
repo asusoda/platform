@@ -7,7 +7,6 @@ text leg.
 """
 
 import math
-import os
 import re
 from typing import Any
 
@@ -15,6 +14,7 @@ from sqlalchemy import or_, text
 
 from core.log import get_logger
 from core.time import iso
+from modules.knowledge import settings
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import Embedding, KnowledgeChunk, KnowledgeSource, KnowledgeVersion, vector_sql
 from modules.knowledge.service import KnowledgeError, _text, _vector
@@ -24,17 +24,7 @@ logger = get_logger("knowledge")
 MAX_TOP_K = 50
 MAX_WINDOW = 5
 CANDIDATES = 50
-RRF_K = 60.0
 TEXT_CONFIG = "english"
-
-
-def max_distance() -> float:
-    """Cosine distance above which a vector match is dropped. KNOWLEDGE_MAX_DISTANCE, default 0.6."""
-    try:
-        value = float(os.environ.get("KNOWLEDGE_MAX_DISTANCE", "0.6"))
-    except ValueError:
-        return 0.6
-    return value if 0 < value <= 2 else 0.6
 
 
 def _dialect(db) -> str:
@@ -46,13 +36,13 @@ def _scope(query, org_id: int, category: str | None):
     return query.filter(KnowledgeChunk.category == category) if category else query
 
 
-def _dense_sql(db, org_id: int, category: str | None, vector: list[float], model: str) -> list[str]:
+def _dense_sql(db, org_id: int, category: str | None, vector: list[float], model: str, limit: float) -> list[str]:
     params: dict[str, Any] = {
         "org": org_id,
         "vec": Embedding().process_bind_param(vector, None),
         "model": model,
         "n": CANDIDATES,
-        "max": max_distance(),
+        "max": limit,
     }
     where = "(c.organization_id = :org OR c.public) AND c.embedding IS NOT NULL AND v.embedding_model = :model"
     if category:
@@ -68,7 +58,7 @@ def _dense_sql(db, org_id: int, category: str | None, vector: list[float], model
     return [row[0] for row in db.execute(text(sql), params)]
 
 
-def _dense_python(db, org_id: int, category: str | None, vector: list[float], model: str) -> list[str]:
+def _dense_python(db, org_id: int, category: str | None, vector: list[float], model: str, limit: float) -> list[str]:
     query = db.query(KnowledgeChunk.id, KnowledgeChunk.embedding).join(
         KnowledgeVersion, KnowledgeVersion.id == KnowledgeChunk.version_id
     )
@@ -76,7 +66,6 @@ def _dense_python(db, org_id: int, category: str | None, vector: list[float], mo
         KnowledgeVersion.embedding_model == model, KnowledgeChunk.embedding.isnot(None)
     )
     norm = math.sqrt(sum(x * x for x in vector)) or 1.0
-    limit = max_distance()
     scored = []
     for chunk_id, embedding in query.all():
         other = math.sqrt(sum(x * x for x in embedding)) or 1.0
@@ -120,7 +109,7 @@ def _lexical_python(db, org_id: int, category: str | None, query_text: str) -> l
     return [chunk_id for _, chunk_id in scored[:CANDIDATES]]
 
 
-def rrf(lists: list[list[str]], k: float = RRF_K) -> list[tuple[str, float]]:
+def rrf(lists: list[list[str]], k: float = 60.0) -> list[tuple[str, float]]:
     """Reciprocal rank fusion. Each ranked list contributes 1 / (k + rank)."""
     scores: dict[str, float] = {}
     for ranked in lists:
@@ -149,30 +138,39 @@ def search(
     embedding_model: Any = None,
     embedder: Embedder | None = None,
 ) -> dict:
-    """Ranked passages for a query from the org's sources and public ones. Arguments come from callers."""
+    """Ranked passages for a query from the org's sources and public ones. Arguments come from callers.
+
+    The org's knowledge settings give the mode, the defaults of top_k and window, the distance limit and
+    the fusion constant.
+    """
+    tuning = settings.for_org(db, org_id)
     query_text = _text(query, "query", 1000) or ""
     category = _text(category, "category", 100, required=False)
-    top_k = _int(top_k, "top_k", 8, 1, MAX_TOP_K)
-    window = _int(window, "window", 0, 0, MAX_WINDOW)
+    top_k = _int(top_k, "top_k", tuning["top_k"], 1, MAX_TOP_K)
+    window = _int(window, "window", tuning["window"], 0, MAX_WINDOW)
 
     vector, model = None, None
     if embedding is not None:
         vector = _vector(embedding, "embedding")
         model = _text(embedding_model, "embedding_model", 200)
-    elif embedder is not None:
+    elif embedder is not None and tuning["mode"] != "text":
         try:
             vector, model = _vector(embedder.embed_query(query_text), "query embedding"), embedder.model
         except (EmbeddingError, KnowledgeError):
             logger.warning("query embedding failed, searching on text only")
 
+    # Mode text drops the vector leg. Mode vector drops the text leg when a vector is at hand.
+    if tuning["mode"] == "text":
+        vector = None
     legs: list[list[str]] = []
     if vector is not None and model is not None:
         dense = _dense_sql if vector_sql(db, "knowledge_chunks") else _dense_python
-        legs.append(dense(db, org_id, category, vector, model))
-    lexical = _lexical_sql if _dialect(db) == "postgresql" else _lexical_python
-    legs.append(lexical(db, org_id, category, query_text))
+        legs.append(dense(db, org_id, category, vector, model, tuning["max_distance"]))
+    if not legs or tuning["mode"] != "vector":
+        lexical = _lexical_sql if _dialect(db) == "postgresql" else _lexical_python
+        legs.append(lexical(db, org_id, category, query_text))
 
-    fused = rrf(legs)
+    fused = rrf(legs, float(tuning["rrf_k"]))
     if not fused:
         return {"results": [], "dense": vector is not None}
     rows = {

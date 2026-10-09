@@ -23,7 +23,15 @@ def remove_org(app):
         db.close()
 
 
-def test_org_create_with_modules_off(cli, client, remove_org):
+def test_org_create_starts_with_optional_modules_off(cli, client, remove_org):
+    remove_org("clinew")
+    result = cli.invoke(args=["org", "create", "--name", "CLI New", "--prefix", "clinew", "--guild-id", "1011"])
+    assert result.exit_code == 0, result.output
+    assert "points=off" in result.output and "alerts=off" in result.output
+    assert client.get("/api/storefront/clinew/products").status_code == 404
+
+
+def test_org_create_with_modules_on_and_off(cli, client, remove_org):
     remove_org("clitest")
     result = cli.invoke(
         args=[
@@ -35,12 +43,14 @@ def test_org_create_with_modules_off(cli, client, remove_org):
             "clitest",
             "--guild-id",
             "1009",
+            "--on",
+            "points,calendar",
             "--off",
-            "points,storefront",
+            "storefront",
         ]
     )
     assert result.exit_code == 0, result.output
-    assert "points=off" in result.output and "calendar=on" in result.output
+    assert "points=on" in result.output and "calendar=on" in result.output and "alerts=off" in result.output
     assert client.get("/api/storefront/clitest/products").status_code == 404
 
 
@@ -80,3 +90,20 @@ def test_config_check_reports_missing_settings(cli, monkeypatch):
     assert "FAIL  BOT_TOKEN missing" in result.output
     assert "database reachable" in result.output
     assert result.exit_code != 0
+
+
+def test_config_check_names_the_bot_and_catches_a_client_id_from_another_app(cli, monkeypatch):
+    from core.config import config
+    from core.integrations.discord import DiscordDirectory
+
+    monkeypatch.setattr(config, "BOT_TOKEN", "token")
+    monkeypatch.setattr(
+        DiscordDirectory, "identity", lambda self: {"app_id": "77", "app_name": "sparky", "bot_name": "Sparky"}
+    )
+    monkeypatch.setenv("CLIENT_ID", "77")
+    result = cli.invoke(args=["config", "check"])
+    assert "ok    Discord bot Sparky of app sparky (77)" in result.output
+    assert "another Discord app" not in result.output
+
+    monkeypatch.setenv("CLIENT_ID", "88")
+    assert "CLIENT_ID 88 is from another Discord app" in cli.invoke(args=["config", "check"]).output

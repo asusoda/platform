@@ -13,13 +13,15 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from core import secrets
 from core.errors import ServiceError
+from core.integrations import github, registry
 from modules.organizations.models import Organization
 
 REPO_PATTERN = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*$")
 MAX_REPOS = 20
 RUNS_PER_REPO = 5
 CACHE_SECONDS = 120
-GITHUB_SECRET = "github_token"  # nosec B105 - a secret name, not a value
+GITHUB_SECRET = github.SECRET_NAME
+registry.use("github", "dashboard")
 
 _cache: dict[tuple[int, str], tuple[float, dict]] = {}
 

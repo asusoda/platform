@@ -17,13 +17,12 @@ from modules.organizations.models import Organization
 from . import sync
 from .clients import GoogleCalendarClient, NotionCalendarClient
 from .events import CalendarEventDTO
+from .integrations import GOOGLE_SECRET, NOTION_SECRET
 from .tracing import operation_span
 
 logger = get_logger(__name__)
 
-scopes.declare("calendar:read", "Read the org's upcoming events")
-secrets.declare("notion_api_key", "Notion integration token for this org's events database")
-secrets.declare("google_service_account", "Google service account key (JSON) that owns this org's calendar")
+scopes.declare("calendar:read", "Read the org's upcoming events", uses=("notion",))
 
 # Events per org for the website, kept 5 minutes
 _FRONTEND_CACHE = TTLCache(maxsize=100, ttl=300)
@@ -40,12 +39,12 @@ class MultiOrgCalendarService:
 
     def notion_for(self, db, org) -> NotionCalendarClient:
         """The org's own Notion integration if it has saved a token, else the instance-wide one."""
-        token = secrets.get_secret(db, org.id, "notion_api_key")
+        token = secrets.get_secret(db, org.id, NOTION_SECRET)
         return NotionCalendarClient(self.logger, token=token) if token else self.notion_client
 
     def gcal_for(self, db, org) -> GoogleCalendarClient:
         """The org's own Google service account if it has saved one, else the instance-wide one."""
-        raw = secrets.get_secret(db, org.id, "google_service_account")
+        raw = secrets.get_secret(db, org.id, GOOGLE_SECRET)
         if not raw:
             return self.gcal_client
         try:
