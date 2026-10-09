@@ -5,7 +5,7 @@ Posts the LeetCode daily question in a Discord channel of the org. Members link 
 ## Set it up
 
 1. Turn on the `leetcode` module in Settings > Modules.
-2. On the LeetCode page (Automations > LeetCode), set:
+2. On the LeetCode page (Automations > Bots > LeetCode), set:
    - **Channel**: the Discord channel for the post.
    - **Role ping**: a role to mention in the post. Optional.
    - **Daily time**: the time of the post.

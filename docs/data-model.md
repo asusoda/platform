@@ -15,24 +15,33 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 
 | Module | Tables |
 | --- | --- |
-| core | `audit_log` (successful changes and job runs), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`) |
+| core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `webhooks` (outbound webhooks of each org and their events), `notifications` (each webhook event of an org, shown in Notifications) |
 | organizations | `organizations`, `organization_configs` and `officers` (not used) |
 | users | `users`, `user_organization_memberships` |
 | points | `points` |
 | storefront | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
-| auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only), `sessions` (not used) |
+| auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only, scopes, and per-integration `limits`), `sessions` (not used) |
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |
 | games | `jeopardy_game`, `active_game` (one active game for the deployment) |
 | leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |
 | accounts | `account_grants`, `account_logins` |
 | agents | `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions` |
 | knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload) |
-| compute | `compute_pods`, `compute_keys`, `compute_sessions` |
+| compute | `compute_pods`, `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days) |
 | runpod | `runpod_apps`, `runpod_deployments` |
+
+`compute_pods` and `runpod_apps` have a `provider` column: the name of the hosting provider in `core/hosting.py`. Migration `dde330bf1668` added it with the default `runpod`, so existing rows stay on RunPod.
 | alerts | `alert_feeds`, `alert_posts`, `alert_runs` (one row for each feed run) |
+| uptime | `uptime_monitors`, `uptime_checks` (one row for each check, kept `UPTIME_RETENTION_DAYS`, default 30) |
 | jobs | `procrastinate_*` (Postgres only, from the Procrastinate SQL, not from models) |
 
 `audit_log` has one row for each successful POST, PUT, PATCH or DELETE under `/api`, and one row for each job run. It keeps the route, org, caller, status and path. It never keeps request bodies or file contents. The `audit.prune` job removes rows older than `AUDIT_RETENTION_DAYS` (default 365).
+
+`error_groups` has one row for each distinct error. Errors with the same source, org, exception type and first frame in this repo add to one row: `count` goes up and `last_seen`, `message` and `stack` change. A resolved row opens again when its error happens again. The `error_log.prune` job removes rows not seen for `ERROR_RETENTION_DAYS` (default 90).
+
+`webhooks` has one row for each outbound webhook of an org: a name, a kind (`discord`), the URL encrypted with `SECRETS_KEY` in `url_ciphertext`, a `url_hint` with no token in it, and the list of event keys it sends. `last_sent_at` and `last_error` keep the result of the last message. Migration `a1358e0da9ef` moved each org secret `error_webhook_url` to a webhook named Errors.
+
+`notifications` has one row for each webhook event of an org, whether or not a webhook takes it: the event key, title, text and color. Saving a new row removes the org's rows older than 30 days and keeps at most the newest 200.
 
 ## Migrations
 

@@ -115,6 +115,26 @@ def test_module_has_a_category(name):
     assert f"[{name}]({name}/README.md)" in section, f"Move {name} under ## {found[0]} in modules/README.md"
 
 
+@pytest.mark.parametrize("name", NAMES)
+def test_module_has_a_catalog_entry(name):
+    from modules.manifest import CATALOG
+
+    info = CATALOG.get(name)
+    assert info is not None, f"Add {name} to CATALOG in modules/manifest.py"
+    assert info.title and info.description, f"Give {name} a title and a description in CATALOG in modules/manifest.py"
+
+
+def test_catalog_names_real_packs_and_new_org_modules():
+    from modules.manifest import CATALOG, CATEGORIES, CORE, NEW_ORG_MODULES
+
+    for name, info in CATALOG.items():
+        assert name in NAMES, f"{name} in CATALOG has no folder in modules/"
+        for pack in info.packs:
+            assert (ROOT / "packs" / pack / "__init__.py").exists(), f"{name} in CATALOG names {pack}, not in packs/"
+    for name in NEW_ORG_MODULES:
+        assert name in CATALOG and name not in CATEGORIES[CORE], f"{name} in NEW_ORG_MODULES is not an optional module"
+
+
 def test_categories_name_real_modules():
     from modules.manifest import CATEGORIES
 
@@ -137,7 +157,8 @@ def test_module_is_documented(name):
 
 def test_data_model_lists_every_table():
     page = (ROOT / "docs" / "data-model.md").read_text()
-    for path in [*MODULES.glob("*/models.py"), ROOT / "core" / "audit.py", ROOT / "core" / "secrets.py"]:
+    core_tables = [ROOT / "core" / name for name in ("audit.py", "error_log.py", "secrets.py", "webhooks.py")]
+    for path in [*MODULES.glob("*/models.py"), *core_tables]:
         for table in _tables(path):
             assert f"`{table}`" in page, f"Add `{table}` to docs/data-model.md"
 

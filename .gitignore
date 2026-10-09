@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.venv/
+.venv
 venv/
 .pytest_cache/
 .mypy_cache/
@@ -11,7 +11,7 @@ venv/
 .coverage
 htmlcov/
 
-# Node: builds and caches. pnpm is the package manager of web/; dashboard/ and site/ keep package-lock.json
+# Node: builds and caches. dashboard/ and site/ keep package-lock.json
 node_modules/
 **/package-lock.json
 !dashboard/package-lock.json

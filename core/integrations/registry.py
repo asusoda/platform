@@ -116,6 +116,16 @@ def _org_set(integration: Integration, set_names: set[str]) -> bool:
     return bool(set_names) and required <= set_names
 
 
+def connected(db, org_id: int, key: str) -> bool:
+    """Whether the org has its own keys for the integration, or the deployment gives a default."""
+    integration = INTEGRATIONS.get(key)
+    if integration is None:
+        return False
+    if org_values(db, org_id, key) is not None:
+        return True
+    return bool(integration.deployment and integration.deployment())
+
+
 def org_values(db, org_id: int, key: str) -> dict[str, str] | None:
     """The org's own field values when it set every required field, else None. Optional fields may be missing."""
     integration = INTEGRATIONS.get(key)

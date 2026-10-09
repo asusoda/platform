@@ -3,9 +3,10 @@
 An org sets its own service on the Integrations page. Else the deployment default comes from
 EMBEDDINGS_URL (base URL, for example http://llama-embed:8080/v1), EMBEDDINGS_MODEL and
 EMBEDDINGS_API_KEY. Without either there is no embedder: writers send their own vectors and search
-runs on text alone. The query prefix is put before search queries, for models that embed queries and
-documents differently (Qwen3-Embedding takes an instruction). Search compares only vectors of the
-same model, so orgs with different models do not mix.
+runs on text alone. If the base URL is OpenRouter's and no embeddings key is set, the embedder uses
+the org's OpenRouter key, else OPENROUTER_API_KEY. The query prefix is put before search queries, for
+models that embed queries and documents differently (Qwen3-Embedding takes an instruction). Search
+compares only vectors of the same model, so orgs with different models do not mix.
 """
 
 import os
@@ -13,7 +14,8 @@ from dataclasses import dataclass
 
 import requests
 
-from core import net
+from core import net, secrets
+from core.integrations import openrouter
 from core.integrations.registry import Field, Integration, IntegrationError, org_values, register, use
 from core.log import get_logger
 from modules.knowledge.models import DIMENSIONS
@@ -66,7 +68,8 @@ class Embedder:
                 allow_redirects=False,
             )
             response.raise_for_status()
-            data = sorted(response.json()["data"], key=lambda row: row["index"])
+            rows = enumerate(response.json()["data"])
+            data = [row for _, row in sorted(rows, key=lambda pair: pair[1].get("index", pair[0]))]
             vectors = [[float(x) for x in row["embedding"]] for row in data]
         except (requests.RequestException, ValueError, KeyError, TypeError) as e:
             logger.warning("embedding request failed: %s", e)
@@ -81,10 +84,13 @@ def configured() -> Embedder | None:
     url = os.environ.get("EMBEDDINGS_URL", "").strip()
     if not url:
         return None
+    api_key = os.environ.get("EMBEDDINGS_API_KEY") or None
+    if api_key is None and openrouter.is_openrouter(url):
+        api_key = openrouter.deployment_key()
     return Embedder(
         url=url,
         model=os.environ.get("EMBEDDINGS_MODEL", "").strip() or "default",
-        api_key=os.environ.get("EMBEDDINGS_API_KEY") or None,
+        api_key=api_key,
         query_prefix=os.environ.get("EMBEDDINGS_QUERY_PREFIX", ""),
     )
 
@@ -94,10 +100,13 @@ def for_org(db, org_id: int) -> Embedder | None:
     saved = org_values(db, org_id, "embeddings")
     if saved is None:
         return configured()
+    api_key = saved.get(KEY_SECRET)
+    if api_key is None and openrouter.is_openrouter(saved[URL_SECRET]):
+        api_key = secrets.get_secret(db, org_id, openrouter.SECRET_NAME)
     return Embedder(
         url=saved[URL_SECRET],
         model=saved[MODEL_SECRET],
-        api_key=saved.get(KEY_SECRET),
+        api_key=api_key,
         query_prefix=saved.get(PREFIX_SECRET, ""),
         public_only=True,
     )
@@ -120,22 +129,27 @@ register(
     Integration(
         key="embeddings",
         title="Embeddings",
-        description="An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.",
+        description="Connect an OpenAI-compatible embeddings service for meaning search.",
         fields=(
             Field(
                 URL_SECRET,
                 "Base URL",
-                "For example https://api.example.com/v1, on a public address. Platform adds /embeddings.",
+                f"For example {openrouter.BASE_URL}, on a public address. Platform adds /embeddings.",
                 kind="url",
                 secret=False,
             ),
             Field(
                 MODEL_SECRET,
                 "Model",
-                f"A model that returns {DIMENSIONS} numbers, such as Qwen3-Embedding-0.6B.",
+                f"A model that returns {DIMENSIONS} numbers, such as Qwen3-Embedding-0.6B, or baai/bge-m3 on OpenRouter.",
                 secret=False,
             ),
-            Field(KEY_SECRET, "API key", "Leave empty when the service needs no key.", optional=True),
+            Field(
+                KEY_SECRET,
+                "API key",
+                "Leave empty when the service needs no key. For OpenRouter, empty uses the OpenRouter key.",
+                optional=True,
+            ),
             Field(
                 PREFIX_SECRET,
                 "Query prefix",
@@ -151,3 +165,5 @@ register(
 )
 use("embeddings", "knowledge")
 use("embeddings", "agents")
+use("openrouter", "knowledge")
+use("openrouter", "agents")

@@ -5,26 +5,34 @@ appears only as counts, never content.
 """
 
 import datetime
+import os
 from typing import cast
 
 from sqlalchemy import func
 
 from core import audit
+from core.integrations import registry as integrations
 from core.time import iso, utcnow
 from modules.accounts.models import AccountGrant
 from modules.agents.models import AgentConversation, AgentMemory, AgentPendingAction
 from modules.alerts.models import AlertFeed, AlertPost
+from modules.auth import scopes
 from modules.auth.models import MachineToken
 from modules.compute.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
+from modules.manifest import CATALOG, CATEGORIES, CORE, Need
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
+from modules.packs import catalog as packs
 from modules.points.models import Points
 from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
 from modules.users.models import UserOrganizationMembership
 
 from . import notices
+
+scopes.declare("activity:read", "Read the org overview, daily trends, notifications and the audit log")
+scopes.declare("integrations:manage", "See which integrations are set, set or clear their keys, and test them")
 
 
 def overview(db, org: Organization) -> dict:
@@ -61,6 +69,57 @@ def overview(db, org: Organization) -> dict:
         "jobs": [e for e in entries if e.get("source") == "job"][:25],
         "generated_at": now.isoformat(),
     }
+
+
+def modules(db, org: Organization) -> dict:
+    """Each module that is not Core, in category order, with its switch, its needs and its packs."""
+    org_id = cast(int, org.id)
+    result = []
+    for category, names in CATEGORIES.items():
+        if category == CORE:
+            continue
+        for name in names:
+            info = CATALOG[name]
+            needs = [_need(db, org_id, need) for need in info.needs]
+            result.append(
+                {
+                    "name": name,
+                    "title": info.title,
+                    "description": info.description,
+                    "category": category,
+                    "switchable": name in organizations.OPTIONAL_MODULES,
+                    "enabled": organizations.module_enabled(org, name),
+                    "ready": all(n["connected"] for n in needs if not n["optional"]),
+                    "needs": needs,
+                    "packs": [
+                        {"name": p.name, "title": p.title, "description": p.description}
+                        for p in map(packs.get, info.packs)
+                        if p is not None
+                    ],
+                }
+            )
+    return {"categories": [c for c in CATEGORIES if c != CORE], "modules": result}
+
+
+def _need(db, org_id: int, need: Need) -> dict:
+    """A need and its state: an integration is connected when the org or the deployment set it, a setting when it is set."""
+    if need.kind == "setting":
+        connected = bool(os.environ.get(need.key, "").strip())
+    else:
+        connected = integrations.connected(db, org_id, need.key)
+    return {"key": need.key, "label": need.label, "kind": need.kind, "optional": need.optional, "connected": connected}
+
+
+def unlocks() -> dict[str, list[str]]:
+    """The titles of the modules that each integration key unlocks, from the needs in the catalog."""
+    found: dict[str, list[str]] = {}
+    for name, info in CATALOG.items():
+        if name in CATEGORIES[CORE]:
+            continue
+        for need in info.needs:
+            if need.kind == "integration":
+                found.setdefault(need.key, []).append(info.title)
+    return {key: sorted(titles) for key, titles in found.items()}
 
 
 def _members(db, org_id: int) -> dict:
@@ -140,6 +199,7 @@ def _apps(db, org_id: int) -> dict:
         result.append(
             {
                 "name": app.name,
+                "provider": app.provider,
                 "repo": app.repo,
                 "tag": app.current_tag,
                 "status": latest.status if latest else None,

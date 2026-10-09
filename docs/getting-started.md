@@ -21,12 +21,14 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
    ```
 
 2. Copy `.env.template` to `.env`. Set the values in the table below.
-3. Start the containers with `make dev`. The API is at http://localhost:8000 and the dashboard at http://localhost:5000.
+3. Start the containers with `make dev`. The API is at http://localhost:8000, the dashboard at http://localhost:5001 and the old `web/` app at http://localhost:5000.
 4. Create an org:
 
    ```bash
    flask --app main org create --name "Robotics Club" --prefix robotics --guild-id <server id> --officer-role-id <role id>
    ```
+
+   The optional modules of a new org start off. Add them on the dashboard Modules page, or with `--on points,storefront`.
 
 `make dev` adds `docker-compose.dev.yml`. It runs `python3 main.py` with the Flask reloader and mounts the source, so a Python change does not need a rebuild. The bot runs in the `bot` container.
 

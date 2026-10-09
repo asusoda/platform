@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { CalendarClock, FolderOpen, Play, RotateCw, Square, Trash2, Users } from 'lucide-react';
+import { CalendarClock, FolderOpen, Play, RotateCw, ShieldCheck, Square, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import {
   Badge,
@@ -19,7 +19,8 @@ import {
 } from '../../components/ui';
 import { send } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
-import type { Pod } from '../../lib/types';
+import type { HostingProvider, Pod } from '../../lib/types';
+import { providerTitle, useProviders } from '../hosting/providers';
 import {
   costLabel,
   machineLabel,
@@ -31,10 +32,10 @@ import {
   statusTone,
   usePodAction,
   useRefreshCompute,
-  UsersEditor,
 } from './shared';
+import { UsersEditor } from './members';
 
-export type PodDialog = { kind: 'access' | 'sessions' | 'files' | 'terminate'; pod: Pod };
+export type PodDialog = { kind: 'access' | 'members' | 'sessions' | 'files' | 'terminate'; pod: Pod };
 
 export function AccessBadge({ pod }: { pod: Pod }) {
   if (pod.is_public) return <Badge tone="ok">All members</Badge>;
@@ -52,7 +53,7 @@ export function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
-function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: PodDialog) => void }) {
+function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; open: (d: PodDialog) => void; providers?: HostingProvider[] }) {
   const action = usePodAction(prefix, pod.id);
   const running = pod.status === 'RUNNING';
   const gone = pod.status === 'GONE';
@@ -77,6 +78,9 @@ function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: Pod
       </Td>
       <Td className="whitespace-nowrap">
         <StatusBadge status={pod.status} />
+      </Td>
+      <Td className="hidden whitespace-nowrap xl:table-cell">
+        <Badge>{providerTitle(providers, pod.provider)}</Badge>
       </Td>
       <Td className="hidden max-w-48 truncate text-sm md:table-cell" title={machine ?? undefined}>
         {machine ?? <span className="text-muted">-</span>}
@@ -116,6 +120,16 @@ function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: Pod
             variant="ghost"
             size="icon"
             className="max-sm:hidden"
+            title="Members"
+            aria-label={`Members of ${pod.name}`}
+            onClick={() => open({ kind: 'members', pod })}
+          >
+            <Users className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="max-sm:hidden"
             title="Sessions"
             aria-label={`Sessions of ${pod.name}`}
             onClick={() => open({ kind: 'sessions', pod })}
@@ -136,7 +150,10 @@ function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: Pod
                   <MenuItem icon={CalendarClock} className="sm:hidden" onClick={pick(() => open({ kind: 'sessions', pod }))}>
                     Sessions
                   </MenuItem>
-                  <MenuItem icon={Users} onClick={pick(() => open({ kind: 'access', pod }))}>
+                  <MenuItem icon={Users} className="sm:hidden" onClick={pick(() => open({ kind: 'members', pod }))}>
+                    Members
+                  </MenuItem>
+                  <MenuItem icon={ShieldCheck} onClick={pick(() => open({ kind: 'access', pod }))}>
                     Access
                   </MenuItem>
                   <MenuItem
@@ -163,6 +180,7 @@ function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: Pod
 }
 
 export function PodsTable({ prefix, pods, open }: { prefix: string; pods: Pod[]; open: (d: PodDialog) => void }) {
+  const providers = useProviders(prefix);
   return (
     <Table>
       <thead>
@@ -170,6 +188,7 @@ export function PodsTable({ prefix, pods, open }: { prefix: string; pods: Pod[];
           <Th>Name</Th>
           <Th className="hidden sm:table-cell">Pod ID</Th>
           <Th>Status</Th>
+          <Th className="hidden xl:table-cell">Provider</Th>
           <Th className="hidden md:table-cell">Machine</Th>
           <Th className="hidden text-right lg:table-cell">Cost</Th>
           <Th className="hidden lg:table-cell">Access</Th>
@@ -180,7 +199,7 @@ export function PodsTable({ prefix, pods, open }: { prefix: string; pods: Pod[];
       </thead>
       <tbody>
         {pods.map((pod) => (
-          <PodRow key={pod.id} prefix={prefix} pod={pod} open={open} />
+          <PodRow key={pod.id} prefix={prefix} pod={pod} open={open} providers={providers.data} />
         ))}
       </tbody>
     </Table>
@@ -214,7 +233,7 @@ export function AccessDialog({ prefix, pod, onClose }: { prefix: string; pod: Po
           </div>
           <Switch checked={isPublic} onChange={setPublic} label="Open to all members" />
         </div>
-        <UsersEditor users={users} onChange={setUsers} />
+        <UsersEditor prefix={prefix} users={users} onChange={setUsers} />
         <FormActions error={save.error}>
           <Button variant="primary" disabled={save.isPending}>
             Save access
@@ -231,6 +250,7 @@ export function AccessDialog({ prefix, pod, onClose }: { prefix: string; pod: Po
 export function TerminateDialog({ prefix, pod, onClose }: { prefix: string; pod: Pod; onClose: () => void }) {
   const [typed, setTyped] = useState('');
   const action = usePodAction(prefix, pod.id);
+  const providers = useProviders(prefix);
   return (
     <Dialog open onClose={onClose} title={`Terminate ${pod.name}`}>
       <form
@@ -241,7 +261,7 @@ export function TerminateDialog({ prefix, pod, onClose }: { prefix: string; pod:
         }}
       >
         <div className="rounded-lg border border-bad/30 bg-bad/10 p-3 text-sm text-pretty">
-          This deletes the pod on RunPod with its volume and every file on it, and removes its sessions. It cannot be
+          This deletes the pod on {providerTitle(providers.data, pod.provider)} with its volume and every file on it, and removes its sessions. It cannot be
           undone.
         </div>
         <Field label={`Type ${pod.name} to confirm`}>

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal, Plus, X } from 'lucide-react';
-import { type ComponentType, type ReactNode, useId, useRef, useState } from 'react';
-import { Button, cx, Input } from '../../components/ui';
+import { MoreHorizontal } from 'lucide-react';
+import { type ComponentType, type ReactNode, useId, useRef } from 'react';
+import { Button, cx } from '../../components/ui';
 import { ApiError, api, send } from '../../lib/api';
 import type { Tone } from '../../lib/format';
 import type { Pod } from '../../lib/types';
@@ -39,7 +39,7 @@ export function usePodAction(prefix: string, podId: string) {
   });
 }
 
-// True when the pod list failed because the org has no RunPod key.
+// True when the pod list failed because the org has no key for a pod's provider. RunPod is the only provider.
 export function isMissingKey(error: unknown): boolean {
   return error instanceof ApiError && error.status === 400 && error.message.includes('runpod_api_key');
 }
@@ -60,7 +60,7 @@ export function statusLabel(status: string | null): string {
 
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
 
-// A short name for the hardware RunPod placed the pod on.
+// A short name for the hardware the provider placed the pod on.
 export function machineLabel(machine: Record<string, unknown> | null): string | null {
   if (!machine) return null;
   const gpuType = machine.gpuType as Record<string, unknown> | undefined;
@@ -81,71 +81,6 @@ export function costLabel(cost: number | string | null): string | null {
 }
 
 export const isDiscordId = (value: string) => /^\d{5,25}$/.test(value);
-
-// An editable list of Discord ids.
-export function UsersEditor({ users, onChange }: { users: string[]; onChange: (users: string[]) => void }) {
-  const [value, setValue] = useState('');
-  const id = useId();
-  const candidate = value.trim();
-  const valid = isDiscordId(candidate);
-  const add = () => {
-    if (!valid) return;
-    if (!users.includes(candidate)) onChange([...users, candidate]);
-    setValue('');
-  };
-  return (
-    <div className="space-y-2">
-      <label htmlFor={id} className="block text-sm font-medium">
-        Allowed members
-      </label>
-      <div className="flex gap-2">
-        <Input
-          id={id}
-          value={value}
-          inputMode="numeric"
-          placeholder="Discord user id"
-          className="font-mono"
-          aria-invalid={Boolean(candidate) && !valid}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              add();
-            }
-          }}
-        />
-        <Button type="button" onClick={add} disabled={!valid}>
-          <Plus className="size-4" /> Add
-        </Button>
-      </div>
-      <p className="text-xs text-muted">
-        {candidate && !valid
-          ? 'A Discord id is 5 to 25 digits. Copy it from Discord with developer mode on.'
-          : 'Members listed here can connect even when the pod is not open to everyone.'}
-      </p>
-      {users.length ? (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Allowed members">
-          {users.map((user) => (
-            <li
-              key={user}
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-panel-2 pr-0.5 pl-2 font-mono text-xs"
-            >
-              {user}
-              <button
-                type="button"
-                aria-label={`Remove ${user}`}
-                onClick={() => onChange(users.filter((u) => u !== user))}
-                className="flex size-6 cursor-pointer items-center justify-center rounded text-muted hover:bg-panel hover:text-fg"
-              >
-                <X className="size-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
 
 // A dropdown of row actions on the popover API, so table and card overflow do not clip it.
 export function RowMenu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {

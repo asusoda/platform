@@ -8,7 +8,7 @@ import { type ComputeSettings, computePath, useComputeSettings } from './shared'
 export function ComputeSettingsDialog({ prefix, onClose }: { prefix: string; onClose: () => void }) {
   const current = useComputeSettings(prefix);
   return (
-    <Dialog open onClose={onClose} title="Compute settings" description="New pods use these values when the officer leaves them empty.">
+    <Dialog open onClose={onClose} title="Pod settings" description="New pods use these values when the officer leaves them empty.">
       {current.data ? <Form prefix={prefix} saved={current.data} onClose={onClose} /> : <Spinner className="size-4" />}
     </Dialog>
   );

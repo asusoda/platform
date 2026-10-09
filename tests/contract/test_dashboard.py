@@ -102,3 +102,36 @@ def test_ci_runs_for_listed_repos(client, officer_headers, clean, restore_soda_c
     client.get("/api/dashboard/soda/ci", headers=officer_headers)
     assert len(fake.calls) == 1
     assert "Authorization" not in fake.calls[0][1]
+
+
+def test_trends_count_each_day(client, officer_headers, clean):
+    from datetime import UTC, datetime
+
+    from core.db import db_connect
+    from modules.organizations.models import Organization
+    from modules.points.models import Points
+
+    db = db_connect.SessionLocal()
+    org = db.query(Organization).filter_by(prefix="soda").one()
+    point = Points(organization_id=org.id, points=7.5, event="trend test", timestamp=datetime.now(UTC))
+    db.add(point)
+    db.commit()
+    try:
+        response = client.get("/api/dashboard/soda/trends?days=7", headers=officer_headers)
+        assert response.status_code == 200
+        body = response.get_json()
+        assert body["days"] == 7
+        series = {item["key"]: item for item in body["series"]}
+        assert {"actions", "jobs"} <= set(series)
+        assert len(series["actions"]["days"]) == 7
+        today = series["points"]["days"][-1]
+        assert today["date"] == datetime.now(UTC).date().isoformat()
+        assert today["value"] >= 7.5
+    finally:
+        db.delete(point)
+        db.commit()
+        db.close()
+
+
+def test_trends_need_an_officer(client):
+    assert client.get("/api/dashboard/soda/trends").status_code == 401

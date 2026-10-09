@@ -143,7 +143,7 @@ export function KnowledgePage() {
     <>
       <PageHeader
         title="Knowledge"
-        description="The sources agents search: source packs, pages crawled on a schedule, and uploaded documents."
+        description="The sources agents search: packs, pages crawled on a schedule, and uploaded documents."
         action={headerActions}
       />
       <StatGrid className="mb-6">
@@ -208,7 +208,7 @@ export function KnowledgePage() {
           <SkeletonRows />
         ) : shown.length ? (
           <>
-            <SourceTable sources={page.shown} actions={actions} />
+            <SourceTable prefix={prefix} sources={page.shown} actions={actions} />
             <ShowMore list={page} noun="sources" />
           </>
         ) : sources.length ? (
@@ -226,7 +226,7 @@ export function KnowledgePage() {
               </div>
             }
           >
-            Add a source pack above, upload documents, add a page to crawl on a schedule, or write sources with a
+            Add a pack above, upload documents, add a page to crawl on a schedule, or write sources with a
             knowledge:write token.
           </EmptyState>
         )}

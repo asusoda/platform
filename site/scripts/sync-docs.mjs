@@ -14,15 +14,16 @@ const sections = {
       ['modules/accounts.md', 'accounts'],
       ['modules/agents.md', 'agents'],
       ['modules/alerts.md', 'alerts'],
-      ['modules/asu.md', 'asu'],
       ['modules/calendar.md', 'calendar'],
       ['modules/compute.md', 'compute'],
       ['modules/discord-bot.md', 'discord-bot'],
       ['modules/knowledge.md', 'knowledge'],
       ['modules/leetcode.md', 'leetcode'],
+      ['modules/packs.md', 'packs'],
       ['modules/points.md', 'points'],
       ['modules/runpod-apps.md', 'runpod-apps'],
       ['modules/storefront.md', 'storefront'],
+      ['modules/uptime.md', 'uptime'],
     ],
   },
   codebase: {
@@ -37,6 +38,7 @@ const sections = {
       ['api-contract.md', 'api-contract'],
       ['operations.md', 'operations'],
       ['frontends.md', 'frontends'],
+      ['webhooks.md', 'webhooks'],
     ],
   },
   project: {
@@ -58,7 +60,7 @@ function rewriteLink(target, from) {
   const file = path.posix.normalize(path.posix.join(path.posix.dirname(from), rel));
   const route = routes.get(file);
   if (route) return hash ? `${route}#${hash}` : route;
-  const url = `https://github.com/theaisocietyasu/bedrock/blob/main/${path.posix.join('docs', file)}`;
+  const url = `https://github.com/asusoda/platform/blob/main/${path.posix.join('docs', file)}`;
   return hash ? `${url}#${hash}` : url;
 }
 

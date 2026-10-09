@@ -35,7 +35,7 @@ class FakeRunPod:
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(service, "client_for", lambda db, org_id: client)
+    monkeypatch.setattr(service, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 
@@ -389,3 +389,17 @@ def test_private_repo_uses_the_github_secret_and_rollback_reuses_the_old_manifes
             secrets.delete_secret(db, org_id, service.GITHUB_SECRET)
         finally:
             db.close()
+
+
+def test_deploy_tool_previews_a_dry_run_until_confirmed(client, manager, deployer, fake, healthy):
+    name = _register(client, manager)
+    pending = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1"}, headers=deployer).get_json()
+    assert pending["result"]["confirm_required"] is True
+    assert pending["result"]["preview"]["request"]["body"]["image"].endswith(":v1")
+    assert fake.calls == []
+
+    done = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1", "confirm": True}, headers=deployer)
+    assert done.status_code == 200, done.get_json()
+    assert fake.calls[-1][0] == "POST"
+    app = client.post("/api/tools/apps.get", json={"name": name}, headers=manager).get_json()["result"]
+    assert app["deployments"][0]["tag"] == "v1"

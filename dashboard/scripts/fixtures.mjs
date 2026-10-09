@@ -8,14 +8,58 @@ export const ORG = { id: 1, name: 'Robotics Club', prefix: 'robotics', guild_id:
 
 export const BRANDING = { logo_url: null, accent_color: '#2563eb', website_url: 'https://robotics.example.org' };
 
-const MODULES = [
+export const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
   { name: 'storefront', description: 'Merch store paid with points', enabled: true },
   { name: 'calendar', description: 'Notion to Google Calendar sync and the public events feed', enabled: true },
   { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: true },
   { name: 'compute', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
   { name: 'alerts', description: 'Job and hackathon listings posted to Discord webhooks', enabled: true },
+  { name: 'uptime', description: 'Checks of sites and Hosting apps, with an event when one goes down or up', enabled: true },
 ];
+
+// The modules on the Modules page, as GET /api/dashboard/<org>/modules returns them. enabled comes from MODULES.
+const need = (key, label, connected, extra = {}) => ({ key, label, kind: 'integration', optional: false, connected, ...extra });
+const CATALOG = [
+  { name: 'games', title: 'Games', description: "Jeopardy games in the org's Discord server.", category: 'Bots', switchable: false, needs: [need('discord', 'Discord bot', true)], packs: [] },
+  { name: 'leetcode', title: 'LeetCode', description: "Posts the daily LeetCode question in a Discord channel and checks who solved it.", category: 'Bots', switchable: true, needs: [need('discord', 'Discord bot', true)], packs: [] },
+  { name: 'agents', title: 'Agents', description: "Conversations, memories and pending actions of the org's agents.", category: 'AI and agents', switchable: false, needs: [need('openrouter', 'OpenRouter', false, { optional: true })], packs: [] },
+  { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI and agents', switchable: false, needs: [], packs: [] },
+  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'AI and agents', switchable: false, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], packs: ['asu'] },
+  { name: 'mcp', title: 'MCP', description: "The MCP server that gives agents and apps the tools of each module.", category: 'AI and agents', switchable: false, needs: [], packs: [] },
+  { name: 'packs', title: 'Packs', description: "Loads content packs: campus pages and live queries for knowledge, and feeds for alerts.", category: 'AI and agents', switchable: false, needs: [need('searxng', 'Web search (SearXNG)', true, { optional: true })], packs: ['asu', 'careers'] },
+  { name: 'accounts', title: 'Member accounts', description: "Members connect Canvas, Google and Outlook, and agents read them for the member.", category: 'Members', switchable: false, needs: [need('ACCOUNTS_BASE_URL', 'ACCOUNTS_BASE_URL setting', true, { kind: 'setting' })], packs: [] },
+  { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Members', switchable: true, needs: [], packs: [] },
+  { name: 'storefront', title: 'Store', description: "A merch store that members pay for with points.", category: 'Members', switchable: true, needs: [], packs: [] },
+  { name: 'alerts', title: 'Alerts', description: "Job and hackathon listings posted to Discord webhooks.", category: 'Automations', switchable: true, needs: [], packs: ['careers'] },
+  { name: 'calendar', title: 'Calendar sync', description: "Syncs a Notion events database to Google Calendar and serves the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], packs: [] },
+  { name: 'compute', title: 'Member pods', description: "GPU and CPU pods on the org's RunPod account that members SSH into.", category: 'Infrastructure', switchable: true, needs: [need('runpod', 'RunPod', true)], packs: [] },
+  { name: 'runpod', title: 'Hosting', description: "Deploys the org's own apps to a hosting provider, checks their health and rolls them back.", category: 'Infrastructure', switchable: false, needs: [need('runpod', 'RunPod', true), need('github', 'GitHub', true, { optional: true })], packs: [] },
+  { name: 'uptime', title: 'Uptime', description: "Checks the org's sites and Hosting apps on a schedule and sends an event when one goes down or up.", category: 'Infrastructure', switchable: true, needs: [], packs: [] },
+];
+const CATEGORIES = ['Bots', 'AI and agents', 'Members', 'Automations', 'Infrastructure'];
+const PACKS = {
+  asu: { name: 'asu', title: 'Arizona State University', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.' },
+  careers: { name: 'careers', title: 'Internships and hackathons', description: 'Alert feeds for software internships, new grad roles and upcoming hackathons.' },
+};
+
+// The body of GET /api/dashboard/<org>/modules for the given switch states.
+export function moduleCatalog(states = MODULES) {
+  const enabled = Object.fromEntries(states.map((m) => [m.name, m.enabled]));
+  return {
+    categories: CATEGORIES,
+    modules: CATALOG.map((m) => ({
+      ...m,
+      enabled: enabled[m.name] ?? true,
+      ready: m.needs.every((n) => n.connected || n.optional),
+      packs: m.packs.map((p) => PACKS[p]),
+    })),
+  };
+}
+
+// The titles of the modules that need each integration.
+const UNLOCKS = CATALOG.flatMap((m) => m.needs.filter((n) => n.kind === 'integration').map((n) => [n.key, m.title]));
+const unlocks = (key) => UNLOCKS.filter(([k]) => k === key).map(([, title]) => title).sort();
 
 const SCOPES = {
   'knowledge:read': "Search the organization's knowledge and public sources",
@@ -26,9 +70,132 @@ const SCOPES = {
   'points:read': "Read the org's points leaderboard (names and totals, no emails or student IDs)",
   'apps:read': 'List apps on RunPod, their pods and deployments',
   'apps:deploy': 'Deploy a new image tag of an app',
+  'apps:manage': 'Register app manifests and roll apps back',
+  'compute:manage': "List the org's compute pods and start, stop, restart or terminate them",
+  'org:read': "Read the org's name, description and enabled modules",
+  'github:read': "Read the org's GitHub repos, issues, pull requests and Actions runs",
+  'github:write': 'Create and change issues, pull requests, comments and files on GitHub (with confirm)',
+  'google:read': "Read the org's Google Calendar events, Drive files and Sheets",
+  'google:write': 'Create Calendar events and add rows to Sheets (with confirm)',
+  'gmail:read': 'Search and read the mail of the Workspace user that Google acts as',
+  'gmail:send': 'Send mail as the Workspace user that Google acts as (with confirm)',
+  'notion:read': 'Search and read the Notion pages and databases shared with the org\'s integration',
+  'notion:write': 'Create Notion pages and database rows (with confirm)',
+  'runpod:read': "Read the org's RunPod pods, endpoints, templates, volumes and billing",
+  'runpod:write': 'Create, change, start, stop and delete pods and endpoints on RunPod (with confirm)',
+  'web:read': "Search the web through the org's SearXNG",
+};
+
+const GOOGLE_TOOLS = {
+  'google:read': ['google.calendar_events', 'google.calendar_list', 'google.drive_read', 'google.drive_search', 'google.sheets_read'],
+  'google:write': ['google.calendar_create_event', 'google.sheets_append'],
+  'gmail:read': ['google.gmail_read', 'google.gmail_search'],
+  'gmail:send': ['google.gmail_send'],
+};
+
+const INTEGRATIONS = [
+  { key: 'discord', title: 'Discord', connected: true, scopes: [], through: [], limits: [], used_by: ['alerts', 'bot', 'users'] },
+  {
+    key: 'embeddings',
+    title: 'Embeddings',
+    connected: true,
+    scopes: [],
+    through: ['agents:read', 'agents:write', 'knowledge:read', 'knowledge:write'],
+    limits: [],
+    used_by: ['agents', 'knowledge'],
+  },
+  { key: 'firecrawl', title: 'Firecrawl', connected: false, scopes: [], through: ['knowledge:write'], limits: [], used_by: ['knowledge'] },
+  {
+    key: 'github',
+    title: 'GitHub',
+    connected: true,
+    scopes: ['github:read', 'github:write'],
+    through: ['apps:manage'],
+    limits: ['repos', 'tools'],
+    tools: {},
+    remote: true,
+  },
+  {
+    key: 'google',
+    title: 'Google',
+    connected: true,
+    scopes: ['gmail:read', 'gmail:send', 'google:read', 'google:write'],
+    through: [],
+    limits: [],
+    tools: GOOGLE_TOOLS,
+  },
+  {
+    key: 'notion',
+    title: 'Notion',
+    connected: true,
+    scopes: ['notion:read', 'notion:write'],
+    through: ['calendar:read'],
+    limits: [],
+    tools: { 'notion:read': ['notion.query_database', 'notion.read_page', 'notion.search'], 'notion:write': ['notion.create_page'] },
+  },
+  { key: 'openrouter', title: 'OpenRouter', connected: true, scopes: [], through: [], limits: [], used_by: ['knowledge'] },
+  {
+    key: 'runpod',
+    title: 'RunPod',
+    connected: true,
+    scopes: ['runpod:read', 'runpod:write'],
+    through: ['apps:deploy', 'apps:manage', 'apps:read', 'compute:manage'],
+    limits: [],
+    tools: {},
+    remote: true,
+  },
+  {
+    key: 'searxng',
+    title: 'Web search (SearXNG)',
+    connected: false,
+    scopes: ['web:read'],
+    through: ['knowledge:read'],
+    limits: [],
+    tools: { 'web:read': ['web.search'] },
+  },
+];
+
+const SCOPE_USES = {
+  'agents:read': ['embeddings'],
+  'agents:write': ['embeddings'],
+  'knowledge:read': ['embeddings', 'searxng'],
+  'knowledge:write': ['embeddings', 'firecrawl'],
+  'calendar:read': ['notion'],
+  'apps:read': ['runpod'],
+  'apps:manage': ['runpod', 'github'],
+  'apps:deploy': ['runpod'],
+  'compute:manage': ['runpod'],
 };
 
 // All responses, with times relative to now so the dashboard shows "2h ago" and "in 3d".
+// 30 days of made-up daily counts. Weekdays are busier, and a few days have failures.
+function trends(now) {
+  const dates = Array.from({ length: 30 }, (_, i) => new Date(now - (29 - i) * DAY).toISOString().slice(0, 10));
+  const series = (key, title, unit, base, spread, failEvery = 0) => {
+    const days = dates.map((date, i) => {
+      const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+      const busy = weekday === 0 || weekday === 6 ? 0.4 : 1;
+      const value = Math.max(0, Math.round((base + spread * Math.sin(i * 1.7 + key.length)) * busy));
+      const failed = failEvery && i % failEvery === 3 && value ? Math.ceil(value / 4) : 0;
+      return { date, value, failed };
+    });
+    const sum = (field) => days.reduce((n, d) => n + d[field], 0);
+    return { key, title, unit, total: sum('value'), failed: sum('failed'), days };
+  };
+  return {
+    days: 30,
+    generated_at: new Date(now).toISOString(),
+    series: [
+      series('actions', 'Officer and app actions', 'actions', 14, 8),
+      series('jobs', 'Job runs', 'runs', 40, 6, 9),
+      series('points', 'Points given', 'points', 60, 45),
+      series('orders', 'Store orders', 'orders', 3, 3),
+      series('questions', 'Questions to agents', 'questions', 55, 30),
+      series('alert_posts', 'Alerts posted', 'posts', 9, 7),
+    ],
+  };
+}
+
 export function fixtures(now = Date.now()) {
   const at = (offset) => new Date(now + offset).toISOString();
 
@@ -37,7 +204,8 @@ export function fixtures(now = Date.now()) {
       id: 11,
       name: 'club-assistant',
       kind: 'agent',
-      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read'],
+      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read', 'github:read'],
+      limits: { github: { repos: ['my-org/*'] } },
       display: 'plat_4hQ2',
       created_by: 'officer',
       created_at: at(-40 * DAY),
@@ -132,6 +300,7 @@ export function fixtures(now = Date.now()) {
   const livePods = [
     {
       id: '7kq2x9ab',
+      provider: 'runpod',
       name: 'Workshop GPU (A40)',
       status: 'RUNNING',
       is_public: true,
@@ -143,6 +312,7 @@ export function fixtures(now = Date.now()) {
     },
     {
       id: 'm3v8c1tz',
+      provider: 'runpod',
       name: 'Rover vision training',
       status: 'RUNNING',
       is_public: false,
@@ -154,6 +324,7 @@ export function fixtures(now = Date.now()) {
     },
     {
       id: 'q9w4e2rd',
+      provider: 'runpod',
       name: 'Simulation (CPU)',
       status: 'EXITED',
       is_public: false,
@@ -302,6 +473,7 @@ export function fixtures(now = Date.now()) {
       description: 'Scouting site for match days',
       url: 'https://scout.robotics.example.org',
       host: 'runpod',
+      provider: 'runpod',
       manifest: { cpu: { id: 'cpu5c', vcpuCount: 4 }, health: { path: '/healthz', port: 3000 }, image: 'ghcr.io/robotics-club/match-scout', ports: ['3000/http'] },
       repo: 'robotics-club/match-scout',
       manifest_path: 'deploy/platform.app.yaml',
@@ -316,6 +488,7 @@ export function fixtures(now = Date.now()) {
       description: null,
       url: null,
       host: 'runpod',
+      provider: 'runpod',
       manifest: { cpu: { id: 'cpu3c', vcpuCount: 2 }, health: { path: '/health', port: 8000 }, image: 'ghcr.io/robotics-club/parts-inventory', ports: ['8000/http'] },
       repo: null,
       manifest_path: null,
@@ -330,6 +503,7 @@ export function fixtures(now = Date.now()) {
       description: 'Reads rover telemetry and answers questions in Discord',
       url: null,
       host: 'runpod',
+      provider: 'runpod',
       manifest: telemetryManifest,
       repo: 'robotics-club/rover-telemetry',
       manifest_path: 'platform.app.yaml',
@@ -480,6 +654,24 @@ export function fixtures(now = Date.now()) {
     ],
   };
 
+  // The full text of club/build-nights, as the source page reads it, with the first search result marked.
+  const buildNightsText = {
+    source: { ...sources[0], content_hash: 'b1d5e0', version_id: 'v1', own: true, text_chars: 2140 },
+    passages: [
+      ['p0', '# Build nights'],
+      ['p1', 'Build nights are open shop hours for every member. Sub-teams use them to build, test and fix the robot between competitions.'],
+      ['c1', 'Build nights run every Tuesday and Thursday from 6 to 9 pm in the engineering shop, room 120. Bring safety glasses; the club has spares at the door.'],
+      ['p3', '## What to bring\nA laptop with the team repository cloned.\nClosed-toe shoes. The shop does not admit sandals.\nYour shop badge, if you have one.'],
+      ['p4', '## First visit\nNew members pair with a sub-team lead for their first three sessions. The lead shows the tools, the parts shelves and the sign-out sheet.'],
+      ['p5', '## Power tools\nOnly members with the shop safety sign-off use the drill press, the band saw and the mill. Ask a lead to book the sign-off.'],
+      ['p6', 'Parking: lot 59 is free after 5 pm. The shop door locks at 9:15 pm.'],
+    ].map(([id, text], ordinal) => ({ id, ordinal, text })),
+    focus: ['c1'],
+    offset: 0,
+    next_offset: null,
+    total: 7,
+  };
+
   const overview = {
     organization: { id: ORG.id, name: ORG.name, prefix: ORG.prefix, branding: BRANDING },
     modules: MODULES,
@@ -501,9 +693,9 @@ export function fixtures(now = Date.now()) {
       },
       apps: {
         apps: [
-          { name: 'rover-telemetry', repo: 'robotics-club/rover-telemetry', tag: 'v1.8.2', status: 'healthy', deployed_at: at(-2 * HOUR), error: null },
-          { name: 'parts-inventory', repo: 'robotics-club/parts-inventory', tag: 'v0.4.0', status: 'healthy', deployed_at: at(-6 * DAY), error: null },
-          { name: 'match-scout', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
+          { name: 'rover-telemetry', provider: 'runpod', repo: 'robotics-club/rover-telemetry', tag: 'v1.8.2', status: 'healthy', deployed_at: at(-2 * HOUR), error: null },
+          { name: 'parts-inventory', provider: 'runpod', repo: 'robotics-club/parts-inventory', tag: 'v0.4.0', status: 'healthy', deployed_at: at(-6 * DAY), error: null },
+          { name: 'match-scout', provider: 'runpod', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
         ],
       },
       knowledge: {
@@ -530,10 +722,24 @@ export function fixtures(now = Date.now()) {
     subject,
     message,
     link,
+    kind: 'problem',
+    level: 'error',
+    at: null,
     resolved_at: resolvedOffset === null ? null : at(resolvedOffset),
     resolved_by: resolvedOffset === null ? null : 'officer:1290000000000000101',
   });
+  const event = (id, module, subject, message, link, level, offset) => ({
+    ...notice(`event-${id}`, module, subject, message, link),
+    kind: 'event',
+    level,
+    at: at(offset),
+  });
   const notifications = [
+    event(41, 'errors', 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out.', 'activity?tab=errors', 'error', -18 * MINUTE),
+    event(40, 'compute', 'Pod started: workshop-a40', 'By an officer or a tool', 'hosting?tab=pods', 'info', -42 * MINUTE),
+    event(39, 'jobs', 'Job failed: knowledge.reindex', 'Embeddings answered 401 Unauthorized', 'activity?tab=knowledge', 'error', -3 * HOUR),
+    event(38, 'order', 'New order: Robotics hoodie', 'Member: dana · 450 points', 'store', 'info', -5 * HOUR),
+    event(37, 'app', 'Deployed: match-scout v1.4.2', 'Healthy after 38 s', 'hosting?tab=services', 'info', -9 * HOUR),
     notice('a1', 'alerts', 'new-grad', 'The feed answered 404 Not Found', 'alerts'),
     notice('k1', 'knowledge', 'club/sponsor-packet', 'sponsors.robotics.example.org does not resolve', 'knowledge'),
     notice('k2', 'knowledge', 'asu/parking_rates', 'The page answered 503 Service Unavailable', 'knowledge'),
@@ -556,7 +762,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'discord',
       title: 'Discord',
-      description: 'The bot and officer sign-in. One Discord app serves every org; the deployment sets it in .env.',
+      description: "Connect the org's Discord server. One Discord app serves every org; the deployment sets it in .env.",
       docs: 'modules/discord-bot',
       fields: [],
       editable: false,
@@ -567,18 +773,18 @@ export function fixtures(now = Date.now()) {
     {
       key: 'embeddings',
       title: 'Embeddings',
-      description: 'An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.',
+      description: 'Connect an OpenAI-compatible embeddings service for meaning search.',
       docs: 'modules/knowledge',
       fields: [
-        field('embeddings_url', 'Base URL', 'For example https://api.example.com/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
+        field('embeddings_url', 'Base URL', 'For example https://openrouter.ai/api/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
           secret: false,
           value: 'https://embed.example.org/v1',
         }),
-        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B.', -4 * DAY, 'text', {
+        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B, or baai/bge-m3 on OpenRouter.', -4 * DAY, 'text', {
           secret: false,
           value: 'Qwen3-Embedding-0.6B',
         }),
-        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key.', -4 * DAY, 'text', { optional: true }),
+        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key. For OpenRouter, empty uses the OpenRouter key.', -4 * DAY, 'text', { optional: true }),
         field('embeddings_query_prefix', 'Query prefix', 'Text put before each search query. Qwen3-Embedding takes an instruction here.', null, 'text', {
           secret: false,
           optional: true,
@@ -592,7 +798,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'firecrawl',
       title: 'Firecrawl',
-      description: 'Renders pages that need JavaScript before knowledge reads them. Without it, pages are read with a plain GET.',
+      description: 'Connect a Firecrawl server to read pages that need JavaScript.',
       docs: 'modules/knowledge',
       fields: [
         field('firecrawl_url', 'Server URL', 'For example https://api.firecrawl.dev. It must be on a public address.', null, 'url', { secret: false }),
@@ -601,12 +807,12 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: null,
       testable: true,
-      used_by: ['asu', 'knowledge'],
+      used_by: ['knowledge', 'packs'],
     },
     {
       key: 'github',
       title: 'GitHub',
-      description: "Reads the org's private repos: CI runs on Activity and app manifests for deploys.",
+      description: "Connect the org's GitHub repos with a read-only token.",
       docs: 'modules/runpod-apps',
       fields: [field('github_token', 'Access token', 'A fine-grained token with read access to Actions and Contents.', -9 * DAY)],
       editable: true,
@@ -617,7 +823,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'google',
       title: 'Google',
-      description: "A service account that owns the org's Google Calendar.",
+      description: 'Connect a Google Cloud service account for the org.',
       docs: 'modules/calendar',
       fields: [field('google_service_account', 'Service account key', 'The JSON key of a service account with the Calendar API on.', -30 * DAY, 'json')],
       editable: true,
@@ -628,7 +834,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'notion',
       title: 'Notion',
-      description: "Reads the org's events database for calendar sync.",
+      description: "Connect the org's Notion workspace.",
       docs: 'modules/calendar',
       fields: [field('notion_api_key', 'Integration token', 'Notion > Settings > Integrations.')],
       editable: true,
@@ -637,9 +843,20 @@ export function fixtures(now = Date.now()) {
       used_by: ['calendar'],
     },
     {
+      key: 'openrouter',
+      title: 'OpenRouter',
+      description: 'Connect an OpenRouter account for hosted models.',
+      docs: 'integrations',
+      fields: [field('openrouter_api_key', 'API key', 'OpenRouter > Settings > API Keys. Embeddings uses this key when its base URL is OpenRouter.', null)],
+      editable: true,
+      source: null,
+      testable: true,
+      used_by: ['agents', 'knowledge'],
+    },
+    {
       key: 'runpod',
       title: 'RunPod',
-      description: "The org's RunPod account: compute pods for members and deploys of org apps.",
+      description: "Connect the org's RunPod account.",
       docs: 'modules/compute',
       fields: [field('runpod_api_key', 'API key', 'RunPod > Settings > API Keys, with read and write access.', -12 * DAY)],
       editable: true,
@@ -650,8 +867,8 @@ export function fixtures(now = Date.now()) {
     {
       key: 'searxng',
       title: 'Web search (SearXNG)',
-      description: 'Answers the web live query that agents use. Without it, that query answers 503.',
-      docs: 'modules/asu',
+      description: 'Connect a SearXNG server for live web search.',
+      docs: 'modules/packs',
       fields: [
         field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
         field('searxng_engines', 'Engines', 'Comma-separated. Leave empty for google,brave,bing.', null, 'text', { secret: false, optional: true }),
@@ -659,8 +876,123 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: 'deployment',
       testable: true,
-      used_by: ['asu'],
+      used_by: ['packs'],
     },
+  ];
+
+  const errorGroup = (id, source, org, kind, message, location, route, count, lastOffset, firstOffset, stack = null) => ({
+    id,
+    source,
+    org,
+    kind,
+    message,
+    location,
+    route,
+    stack,
+    count,
+    first_seen: at(firstOffset),
+    last_seen: at(lastOffset),
+    resolved_at: null,
+    resolved_by: null,
+  });
+  const podStack = [
+    'Traceback (most recent call last):',
+    '  File "modules/compute/api.py", line 88, in create_pod',
+    '    return service.create_pod(db, org, body, actor)',
+    '  File "modules/compute/service.py", line 214, in create_pod',
+    '    pod = runpod.create_pod(key, spec)',
+    '  File "core/integrations/runpod.py", line 61, in create_pod',
+    '    response.raise_for_status()',
+    'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
+  ].join('\n');
+  const asuSignedOut = {
+    title: 'ASU',
+    signed_in: false,
+    signed_in_by: null,
+    signed_in_at: null,
+    expired_at: null,
+    blocked: null,
+    attempt: null,
+  };
+  const webhookEvents = [
+    ['errors', 'Errors', 'A new error, or a resolved error that comes back. At most 30 messages an hour.', null],
+    ['job.failed', 'Failed job runs', 'A background job for the org fails, such as a crawl or a reindex.', null],
+    ['pod.started', 'Pods started', 'A pod starts or restarts, by an officer, a tool or its schedule.', 'compute'],
+    ['pod.stopped', 'Pods stopped', 'A pod stops or is terminated, by an officer, a tool or its schedule.', 'compute'],
+    ['app.deployed', 'App deploys', 'An app deploy ends: healthy, or failed with the reason.', null],
+    ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
+    ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
+    ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+    ['monitor.down', 'Monitors down', 'An uptime monitor finds its address down.', 'uptime'],
+    ['monitor.up', 'Monitors up', 'An uptime monitor that was down finds its address up again.', 'uptime'],
+    ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
+  ].map(([key, label, description, module]) => ({ key, label, description, module }));
+  const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
+    id,
+    name,
+    kind: 'discord',
+    url_hint: `discord.com ...${hint}`,
+    events,
+    enabled,
+    last_sent_at: at(lastSent),
+    last_error: lastError,
+    created_at: at(created),
+    created_by: `officer:${by}`,
+  });
+  const webhooks = [
+    webhook(1, 'Errors', '4410', ['errors', 'job.failed', 'knowledge.crawl_failed'], true, -38 * MINUTE, null, -40 * DAY, 'ava'),
+    webhook(2, 'Infra', '9027', ['pod.started', 'pod.stopped', 'app.deployed'], true, -2 * HOUR, null, -21 * DAY, 'daniel'),
+    webhook(3, 'Store desk', '3315', ['order.created', 'member.joined'], true, -5 * DAY, 'Discord refused the message with status 404', -60 * DAY, 'maya'),
+    webhook(4, 'Old ops channel', '7781', ['errors'], false, -45 * DAY, null, -120 * DAY, 'ava'),
+  ];
+
+  // Uptime monitors. down lists the bar slots (0 is the oldest of 30) whose check was down.
+  const monitor = (id, name, kind, target, every, enabled, latency, day, week, down = [], error = null) => {
+    const recent = Array.from({ length: 30 }, (_, i) => {
+      const up = !down.includes(i);
+      return {
+        checked_at: at(-(29 - i) * every * MINUTE - 20_000),
+        up,
+        status_code: up ? 200 : error ? 503 : null,
+        latency_ms: up ? latency + ((i * 37) % 23) - 11 : null,
+        error: up ? null : (error ?? 'No answer in 10 seconds'),
+      };
+    });
+    const last = recent[29];
+    return {
+      id,
+      name,
+      target_kind: kind,
+      target,
+      expected_status: '2xx',
+      timeout_seconds: 10,
+      interval_minutes: every,
+      enabled,
+      state: last.up ? 'up' : 'down',
+      state_since: at(-(last.up ? 3 * DAY : 4 * every * MINUTE)),
+      last_checked_at: last.checked_at,
+      last_check: last,
+      uptime_24h: day,
+      uptime_7d: week,
+      recent,
+    };
+  };
+  const monitors = [
+    monitor(3, 'Docs site', 'url', 'https://docs.robotics.example.org', 10, false, 98, 100, 100),
+    monitor(2, 'Match scout', 'app', 'match-scout', 5, true, 241, 99.31, 99.72, [11, 12]),
+    monitor(4, 'Parts inventory API', 'app', 'parts-inventory', 5, true, 310, 97.22, 99.1, [26, 27, 28, 29], 'Status 503, expected 2xx'),
+    monitor(5, 'Rover telemetry', 'app', 'rover-telemetry', 1, true, 187, 100, 99.98),
+    monitor(1, 'Website', 'url', 'https://robotics.example.org', 5, true, 122, 100, 99.95, [3]),
+  ];
+
+  const orgErrors = [
+    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
+    errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/hosting (mutation)', '/robotics/hosting (mutation)', 4, -26 * MINUTE, -1 * DAY),
+    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
+    errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
+  ];
+  const serverErrors = [
+    errorGroup(22, 'worker', null, 'OperationalError', 'job failed name=knowledge.crawl_due: database is locked', 'core/jobs.py:_execute', null, 26, -2 * DAY, -9 * DAY),
   ];
 
   const secret = (name, description, setOffset) => ({
@@ -889,13 +1221,54 @@ export function fixtures(now = Date.now()) {
     '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
-    [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
+    [`/api/dashboard/${ORG.prefix}/modules`]: moduleCatalog(),
+    [`/api/dashboard/${ORG.prefix}/integrations`]: {
+      integrations: integrations.map((i) => ({ ...i, unlocks: unlocks(i.key) })),
+      oauth: {
+        notion: { title: 'Notion', connected: true, connected_by: 'ash', connected_at: at(-2 * DAY), blocked: null },
+        google: { title: 'Google', connected: false, connected_by: null, connected_at: null, blocked: null },
+      },
+      asu: asuSignedOut,
+      secrets_key: true,
+    },
+    [`/api/dashboard/${ORG.prefix}/integrations/asu/signin`]: asuSignedOut,
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
+    [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
+    '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
-    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
+    [`/api/uptime/${ORG.prefix}/monitors`]: { monitors },
+    [`/api/uptime/${ORG.prefix}/targets`]: { apps: appList.map((a) => ({ name: a.name, url: a.url })) },
+    [`/api/dashboard/${ORG.prefix}/webhooks`]: {
+      webhooks,
+      events: webhookEvents,
+      kinds: [{ key: 'discord', label: 'Discord', example: 'https://discord.com/api/webhooks/...' }],
+      alerts: true,
+      feeds: feeds.map(({ key, kind, enabled, webhook_set, last_run_at, last_error }) => ({ key, kind, enabled, webhook_set, last_run_at, last_error })),
+      secrets_key: true,
+    },
+    ...Object.fromEntries(
+      webhooks.map((w) => [`/api/dashboard/${ORG.prefix}/webhooks/${w.id}/test`, { ok: true, message: 'Sent. Look for the message in the channel.' }]),
+    ),
+    [`/api/alerts/${ORG.prefix}/presets`]: {
+      presets: [
+        {
+          pack: 'careers',
+          pack_title: 'Internships and hackathons',
+          key: 'new-grad',
+          title: 'New grad roles',
+          description: 'New rows in the 2026 new grad list that vanshb03 keeps on GitHub.',
+          kind: 'github_jobs',
+          config: { repo: 'vanshb03/New-Grad-2026', branch: 'main', path: 'README.md', label: 'New grad', skip_closed: true, max_age_days: 2 },
+          every_hours: 3,
+          added: false,
+        },
+      ],
+    },
+    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS, uses: SCOPE_USES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
+    [`/api/dashboard/${ORG.prefix}/hosting/providers`]: { providers: [{ name: 'runpod', title: 'RunPod', integration: 'runpod', configured: true }] },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry`]: { ...appList[2], deployments: telemetryDeployments },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/pod`]: { pod: telemetryPod },
@@ -906,19 +1279,24 @@ export function fixtures(now = Date.now()) {
         {
           name: 'asu',
           title: 'Arizona State University',
-          description: 'Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
+          description:
+            'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
           key_prefix: 'asu/',
+          pages: 226,
+          queries: ['courses', 'course_catalog', 'scholarships', 'events', 'news', 'dining', 'web'],
           sources: 0,
         },
       ],
     },
     [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
+    [`/api/dashboard/${ORG.prefix}/knowledge/sources/club/build-nights`]: buildNightsText,
     [`/api/dashboard/${ORG.prefix}/knowledge/settings`]: knowledgeSettings,
     [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs: knowledgeRuns },
+    [`/api/dashboard/${ORG.prefix}/trends`]: trends(now),
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
     [`/api/compute/${ORG.prefix}/settings`]: {
-      settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'theaisocietyasu/godfather-base:latest' },
+      settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'ghcr.io/theaisocietyasu/godfather-base:latest' },
     },
     ...Object.fromEntries(
       livePods.map((pod) => [
@@ -926,6 +1304,59 @@ export function fixtures(now = Date.now()) {
         { sessions: podSessions.filter((s) => s.pod_id === pod.id) },
       ]),
     ),
+    [`/api/compute/${ORG.prefix}/members`]: {
+      members: [
+        ['Ava Chen', 'avachen'],
+        ['Daniel Ortiz', 'dortiz'],
+        ['Maya Patel', 'mayap'],
+        ['Noah Kim', 'noahk'],
+        ['Priya Singh', 'priya.s'],
+        ['Sam Rivera', 'samr'],
+      ].map(([name, username], i) => ({ id: String(410000000000000000n + BigInt(i)), name, username, avatar: null })),
+      total: 214,
+    },
+    [`/api/users/${ORG.prefix}/discord/sync`]: { matched: 214, new_users: 171, joined: 188, already: 26 },
+    [`/api/users/${ORG.prefix}/discord/roles`]: {
+      roles: [
+        { id: '1200', name: 'Officers', color: '#e67e22' },
+        { id: '1201', name: 'GPU workshop', color: '#3498db' },
+        { id: '1202', name: 'Members', color: '#2ecc71' },
+      ],
+    },
+    [`/api/compute/${ORG.prefix}/pods/m3v8c1tz/members`]: {
+      pod_id: 'm3v8c1tz',
+      access: {
+        is_public: false,
+        allowed: [
+          { discord_id: '1290000000000000201', name: 'Maya Patel' },
+          { discord_id: '1290000000000000202', name: 'Noah Kim' },
+          { discord_id: '1290000000000000203', name: null },
+        ],
+      },
+      recent: [
+        ['1290000000000000201', 'Maya Patel', 'mayap', false, -25 * MINUTE],
+        ['1290000000000000101', 'Ava Chen', 'avachen', true, -70 * MINUTE],
+        ['1290000000000000202', 'Noah Kim', 'noahk', false, -5 * HOUR],
+        ['1290000000000000201', 'Maya Patel', 'mayap', false, -DAY - 3 * HOUR],
+        ['1290000000000000202', 'Noah Kim', 'noahk', false, -3 * DAY],
+      ].map(([discord_id, name, username, is_admin, offset]) => ({ discord_id, name, username, is_admin, created_at: at(offset) })),
+    },
+    [`/api/compute/${ORG.prefix}/pods/m3v8c1tz/members/connected`]: {
+      pod_id: 'm3v8c1tz',
+      state: 'known',
+      reason: null,
+      sessions: [
+        { username: 'mayap', is_admin: false, seconds: 1500, discord_id: '1290000000000000201', name: 'Maya Patel' },
+        { username: 'avachen', is_admin: true, seconds: 640, discord_id: '1290000000000000101', name: 'Ava Chen' },
+      ],
+    },
+    [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/members`]: { pod_id: '7kq2x9ab', access: { is_public: true, allowed: [] }, recent: [] },
+    [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/members/connected`]: {
+      pod_id: '7kq2x9ab',
+      state: 'unknown',
+      reason: 'The pod image has no godfather-login, so its sessions cannot be read',
+      sessions: [],
+    },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files`]: { path: '/workspace', files: podFiles },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files/read`]: { path: '/workspace/README.md', content: readme },
 
@@ -960,6 +1391,24 @@ export function fixtures(now = Date.now()) {
 
 // The same org with long lists, for perf.mjs: 2,000 knowledge sources, 1,500 members, 200 knowledge runs,
 // 600 store orders and 1,000 audit log entries.
+// The ASU card while Duo shows a code, for the asu-duo screenshot.
+export function asuDuoFixtures(now = Date.now()) {
+  const data = fixtures(now);
+  const path = `/api/dashboard/${ORG.prefix}/integrations`;
+  const asu = {
+    ...data[path].asu,
+    attempt: {
+      state: 'duo_code',
+      message: 'Enter the code 482916 in the Duo app.',
+      code: '482916',
+      reason: null,
+      started_at: new Date(now - 20_000).toISOString(),
+      finished_at: null,
+    },
+  };
+  return { ...data, [path]: { ...data[path], asu }, [`${path}/asu/signin`]: asu };
+}
+
 export function largeFixtures(now = Date.now()) {
   const base = fixtures(now);
   const at = (offset) => new Date(now + offset).toISOString();

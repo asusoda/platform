@@ -19,6 +19,7 @@ import {
 import { compact, deployTone, runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import { useCi, useNotifications, useOverview } from '../lib/queries';
+import { TrendsCard } from './overview-trends';
 
 export function OverviewPage() {
   const { prefix } = useCurrentOrg();
@@ -81,13 +82,15 @@ export function OverviewPage() {
         />
       </StatGrid>
 
+      <TrendsCard prefix={prefix} />
+
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader
             title="Modules"
             hint={`${enabled} of ${data.modules.length} on for this org`}
             action={
-              <Link to="settings#modules" className={quietLink}>
+              <Link to="modules" className={quietLink}>
                 Change
               </Link>
             }
@@ -154,10 +157,10 @@ export function OverviewPage() {
 
         <Card>
           <CardHeader
-            title="Apps"
-            hint="Deploys on RunPod"
+            title="Services"
+            hint="App deploys on the org's hosting providers"
             action={
-              <Link to="apps" className={quietLink}>
+              <Link to="hosting" className={quietLink}>
                 Details
               </Link>
             }
@@ -203,8 +206,8 @@ export function OverviewPage() {
             title="Upcoming sessions"
             hint="Pods start before each session"
             action={
-              <Link to="compute" className={quietLink}>
-                Compute
+              <Link to="hosting?tab=pods" className={quietLink}>
+                Member pods
               </Link>
             }
           />

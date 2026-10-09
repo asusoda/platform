@@ -16,6 +16,7 @@ from core import secrets
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import utcnow
+from modules.auth import scopes
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -24,6 +25,8 @@ from .models import AlertFeed, AlertPost, AlertRun
 from .types import Item, SourceError
 
 logger = get_logger("alerts")
+
+scopes.declare("alerts:manage", "List, create, change, run and delete alert feeds")
 
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 WEBHOOK_PATTERN = re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$")
@@ -116,6 +119,29 @@ def describe(db, feed: AlertFeed) -> dict:
 def list_feeds(db, org_id: int) -> list[dict]:
     feeds = db.query(AlertFeed).filter_by(organization_id=org_id).order_by(AlertFeed.key).all()
     return [describe(db, f) for f in feeds]
+
+
+def presets(db, org_id: int) -> list[dict]:
+    """The feeds that packs offer, with the kind and config to create each, and whether the org has the key."""
+    from modules.packs import catalog
+
+    have = {key for (key,) in db.query(AlertFeed.key).filter_by(organization_id=org_id)}
+    return [
+        {
+            "pack": pack.name,
+            "pack_title": pack.title,
+            "key": feed.key,
+            "title": feed.title,
+            "description": feed.description,
+            "kind": feed.kind,
+            "config": KINDS[feed.kind].validate(dict(feed.config)),
+            "every_hours": feed.every_hours,
+            "added": feed.key in have,
+        }
+        for pack in catalog.PACKS.values()
+        for feed in pack.feeds
+        if feed.kind in KINDS
+    ]
 
 
 def get_feed(db, org_id: int, key: str) -> dict:

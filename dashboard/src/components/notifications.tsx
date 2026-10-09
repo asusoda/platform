@@ -8,7 +8,17 @@ import type { Notification } from '../lib/types';
 import { Tooltip } from './tooltip';
 import { Badge, Button, cx, Mono, Spinner } from './ui';
 
-const MODULE_LABELS: Record<string, string> = { alerts: 'Alerts', apps: 'Apps', knowledge: 'Knowledge' };
+const MODULE_LABELS: Record<string, string> = {
+  alerts: 'Alerts',
+  apps: 'Services',
+  app: 'Services',
+  knowledge: 'Knowledge',
+  errors: 'Errors',
+  jobs: 'Jobs',
+  compute: 'Member pods',
+  order: 'Store',
+  member: 'Members',
+};
 
 export const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module;
 
@@ -17,16 +27,18 @@ export function NotificationItem({ n, compact = false, onOpen }: { n: Notificati
   const { prefix } = useCurrentOrg();
   const change = useNotificationChange(prefix);
   const resolved = Boolean(n.resolved_at);
+  const error = n.level !== 'info';
   const busy = change.isPending;
   return (
     <li className={cx('group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-panel-2/40', resolved && 'opacity-70')}>
-      <span className={cx('mt-1.5 size-1.5 shrink-0 rounded-full', resolved ? 'bg-muted/50' : 'bg-bad')} aria-hidden />
+      <span className={cx('mt-1.5 size-1.5 shrink-0 rounded-full', resolved ? 'bg-muted/50' : error ? 'bg-bad' : 'bg-info')} aria-hidden />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <Badge tone={resolved ? 'muted' : 'bad'}>{moduleLabel(n.module)}</Badge>
+          <Badge tone={resolved ? 'muted' : error ? 'bad' : 'active'}>{moduleLabel(n.module)}</Badge>
           <Mono className="truncate text-xs text-fg" title={n.subject}>
             {n.subject}
           </Mono>
+          {n.at ? <span className="ml-auto shrink-0 text-xs text-muted tabular-nums">{timeAgo(n.at)}</span> : null}
         </div>
         <p className={cx('mt-1 text-sm break-words text-muted', compact && 'line-clamp-2')} title={n.message}>
           {n.message}
@@ -38,16 +50,18 @@ export function NotificationItem({ n, compact = false, onOpen }: { n: Notificati
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Tooltip label={`Open ${moduleLabel(n.module)}`} side="top">
-          <Link
-            to={`/${prefix}/${n.link}`}
-            onClick={onOpen}
-            aria-label={`Open ${moduleLabel(n.module)}`}
-            className="flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-fg"
-          >
-            <ArrowUpRight className="size-4" />
-          </Link>
-        </Tooltip>
+        {n.link ? (
+          <Tooltip label={`Open ${moduleLabel(n.module)}`} side="top">
+            <Link
+              to={`/${prefix}/${n.link}`}
+              onClick={onOpen}
+              aria-label={`Open ${moduleLabel(n.module)}`}
+              className="flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-fg"
+            >
+              <ArrowUpRight className="size-4" />
+            </Link>
+          </Tooltip>
+        ) : null}
         <Tooltip label={resolved ? 'Reopen' : 'Resolve'} side="top">
           <button
             type="button"

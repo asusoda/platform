@@ -1,29 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { Card, CardHeader, cx, ErrorNote, PageHeader, PageSkeleton, quietLink, Row, SkeletonRows, Switch } from '../../components/ui';
-import { api, send } from '../../lib/api';
+import { Card, CardHeader, cx, ErrorNote, PageHeader, PageSkeleton, quietLink, Row, SkeletonRows } from '../../components/ui';
+import { api } from '../../lib/api';
 import { useCurrentOrg } from '../../lib/org';
 import { useBranding, useIntegrations, useModules, useOrganization } from '../../lib/queries';
-import type { ModuleState, Organization, SecretState } from '../../lib/types';
+import type { Organization, SecretState } from '../../lib/types';
 import { BrandingForm } from './branding';
 import { GeneralForm } from './general';
 import { SecretRow } from './secrets';
 
 type Section = { id: string; label: string };
 
-// The dashboard page of each optional module.
-const MODULE_PAGES: Record<string, string> = {
-  points: 'points',
-  storefront: 'store',
-  calendar: 'calendar',
-  leetcode: 'leetcode',
-  compute: 'compute',
-  alerts: 'alerts',
-};
-
 // Sections that moved to their own pages, for links made before the move.
-const MOVED: Record<string, string> = { '#calendar': 'calendar', '#leetcode': 'leetcode' };
+const MOVED: Record<string, string> = { '#calendar': 'calendar', '#leetcode': 'leetcode', '#modules': 'modules' };
 
 // The id of the section nearest the top of the viewport.
 function useActiveSection(ids: string[]): string | undefined {
@@ -115,37 +105,27 @@ function BrandingSection({ org, prefix }: { org: Organization; prefix: string })
   );
 }
 
-function ModulesSection({ org, prefix, modules }: { org: Organization; prefix: string; modules: ReturnType<typeof useModules> }) {
-  const client = useQueryClient();
-  const toggle = useMutation({
-    mutationFn: (m: ModuleState) => send(`/api/organizations/${org.id}/modules`, 'PUT', { modules: { [m.name]: !m.enabled } }),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ['modules', org.id] });
-      client.invalidateQueries({ queryKey: ['overview'] });
-    },
-  });
+function ModulesSection({ prefix, modules }: { prefix: string; modules: ReturnType<typeof useModules> }) {
+  const states = modules.data?.modules ?? [];
+  const on = states.filter((m) => m.enabled).length;
   return (
     <Card>
-      <CardHeader title="Modules" hint="A module that is off returns 404 for this org, and its page leaves the sidebar." />
+      <CardHeader
+        title="Modules"
+        hint="Add or remove modules for this org on the Modules page."
+        action={
+          <Link to={`/${prefix}/modules`} className={quietLink}>
+            Open Modules
+          </Link>
+        }
+      />
       <Pending error={modules.error} loading={modules.isLoading} />
-      {modules.data?.modules.map((m) => (
-        <Row key={m.name}>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{m.name}</div>
-            <div className="mt-0.5 text-xs text-muted">{m.description}</div>
+      {modules.data ? (
+        <Row>
+          <div className="min-w-0 flex-1 text-sm text-muted">
+            {on} of {states.length} modules that you can add are on.
           </div>
-          {m.enabled && MODULE_PAGES[m.name] ? (
-            <Link to={`/${prefix}/${MODULE_PAGES[m.name]}`} className={quietLink}>
-              Open
-            </Link>
-          ) : null}
-          <Switch checked={m.enabled} onChange={() => toggle.mutate(m)} disabled={toggle.isPending} label={m.name} />
         </Row>
-      ))}
-      {toggle.error ? (
-        <div className="p-4">
-          <ErrorNote error={toggle.error} />
-        </div>
       ) : null}
     </Card>
   );
@@ -165,7 +145,7 @@ function SecretsSection({ orgId, prefix }: { orgId: number; prefix: string }) {
         hint={
           <>
             Webhook URLs and app values, encrypted with the server's SECRETS_KEY. Values are never shown. Keys for Notion, Google,
-            GitHub and RunPod are on{' '}
+            GitHub and hosting providers such as RunPod are on{' '}
             <Link to={`/${prefix}/integrations`} className="underline underline-offset-2 hover:text-fg">
               Integrations
             </Link>
@@ -209,12 +189,12 @@ export function SettingsPage() {
   const sections: (Section & { body: ReactNode })[] = [
     { id: 'general', label: 'General', body: <GeneralSection org={org} /> },
     { id: 'branding', label: 'Branding', body: <BrandingSection org={org} prefix={prefix} /> },
-    { id: 'modules', label: 'Modules', body: <ModulesSection org={org} prefix={prefix} modules={modules} /> },
+    { id: 'modules-link', label: 'Modules', body: <ModulesSection prefix={prefix} modules={modules} /> },
     { id: 'secrets', label: 'Secrets', body: <SecretsSection orgId={org.id} prefix={prefix} /> },
   ];
   return (
     <>
-      <PageHeader title="Settings" description="General settings, branding, modules and secrets of the org." />
+      <PageHeader title="Settings" description="General settings, branding and secrets of the org, and a link to its modules." />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:gap-10">
         <SectionNav sections={sections} />
         <div className="min-w-0 space-y-6">

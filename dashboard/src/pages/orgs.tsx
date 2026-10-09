@@ -1,14 +1,14 @@
 import { ArrowRight, Building2, LogOut } from 'lucide-react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { AuthFrame } from '../components/auth-frame';
 import { OrgMark } from '../components/org-mark';
 import { Button, Card, EmptyState, ErrorNote, Mono, SkeletonRows } from '../components/ui';
-import { tokens } from '../lib/auth';
 import { useOrganizations } from '../lib/org';
+import { useSignOut } from '../lib/query-client';
 
 export function OrganizationsPage() {
   const { data, isLoading, error } = useOrganizations();
-  const navigate = useNavigate();
+  const signOut = useSignOut();
   if (data?.length === 1) return <Navigate to={`/${data[0].prefix}`} replace />;
   return (
     <AuthFrame width="max-w-md">
@@ -47,10 +47,7 @@ export function OrganizationsPage() {
         <Button
           variant="ghost"
           className="text-xs"
-          onClick={() => {
-            tokens.clear();
-            navigate('/login');
-          }}
+          onClick={signOut}
         >
           <LogOut className="size-3.5" /> Sign out
         </Button>

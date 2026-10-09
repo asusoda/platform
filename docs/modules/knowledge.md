@@ -66,6 +66,17 @@ A page that starts to fail keeps its last chunks; the error shows on the source.
 
 A PDF must have a text layer. Platform does not read scanned pages.
 
+## Read a source
+
+`GET /api/dashboard/<org>/knowledge/sources/<key>` gives the full text of one source, one page at a time. An org reads its own sources and public sources. It cannot read the private sources of another org. If the org has no source with the key, the oldest public source with that key is used.
+
+- `chunk`: a `chunk_id` from a search result. The source that holds this chunk is used. `focus` lists the page text rows the chunk covers, and the page starts near them.
+- `offset`: the first page text row of the page. Give `next_offset` to read the next page.
+
+The response has `source` (the fields of the sources list, plus `own` and `text_chars`), `passages` (`id`, `ordinal`, `text`, in order), `focus`, `offset`, `next_offset` (`null` at the end) and `total`. A page holds up to 500 rows or 200,000 characters. Summary rows are not in the text. The text that a row repeats from the end of the row before (`chunk_overlap`) is removed. The `knowledge.read_source` tool gives the same pages as one `text`.
+
+On the Knowledge page, select a source or a search result to open its text at `/<org>/knowledge/sources/<key>`. A search result opens with its passage marked.
+
 ## Run log
 
 Each crawl and upload adds a row to `knowledge_runs`: the source key, `crawl` or `upload`, the time, the duration, if the index changed, the passage count and the error. Platform keeps the last 500 rows of each org. `GET /api/dashboard/<org>/knowledge/runs?limit=&failed=1` reads them; the Activity page of the dashboard shows them in the Knowledge runs tab.
@@ -86,9 +97,9 @@ Each org sets these on the Knowledge page (`GET` and `PUT /api/dashboard/<org>/k
 
 A new passage size applies when a source is indexed again. `POST /api/dashboard/<org>/knowledge/reindex` starts the `knowledge.reindex` job, which crawls every crawled source of the org with `force`. Upload a document again to split it again.
 
-## Source packs
+## Packs
 
-A source pack is a named set of crawled sources that a module adds in one step, such as the ASU pages of the `asu` module. A module registers a pack with `modules.knowledge.packs.register`, with a key prefix and a sync function. The pack owns the org's sources whose keys start with that prefix. The Knowledge page of the dashboard lists the packs (`GET /api/dashboard/<org>/knowledge/packs`) and syncs one (`POST /api/dashboard/<org>/knowledge/packs/<name>/sync`), which also starts the crawl job.
+A [pack](./packs.md) is a set of crawled pages and live queries that an org adds in one step, such as the ASU pack. The pack owns the org's sources whose keys start with `<pack>/`. The Knowledge page of the dashboard lists the packs (`GET /api/dashboard/<org>/knowledge/packs`) and syncs one (`POST /api/dashboard/<org>/knowledge/packs/<name>/sync`), which also starts the crawl job.
 
 The dashboard groups sources by domain: the part of the key before the first `/`.
 
@@ -112,7 +123,8 @@ An org sets its own embeddings service and Firecrawl on the Integrations page of
 | --- | --- | --- |
 | `EMBEDDINGS_URL` | not set | An OpenAI-compatible base URL (`.../v1`). If neither the org nor this sets one, there is no embedder |
 | `EMBEDDINGS_MODEL` | `default` | The model name sent to the URL and kept on each version |
-| `EMBEDDINGS_API_KEY` | not set | The bearer token for the URL |
+| `EMBEDDINGS_API_KEY` | not set | The bearer token for the URL. If it is empty and the URL is OpenRouter's, Platform sends the OpenRouter key |
+| `OPENROUTER_API_KEY` | not set | The default key of the OpenRouter integration ([integrations](../integrations.md#openrouter)) |
 | `EMBEDDINGS_QUERY_PREFIX` | empty | Text put before queries, for models that need it |
 | `KNOWLEDGE_MAX_DISTANCE` | 0.6 | The default of the org setting `max_distance` |
 | `KNOWLEDGE_PUBLISHERS` | empty | Org prefixes that can write public sources, in addition to the ones the superadmin marks |

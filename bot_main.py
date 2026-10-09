@@ -13,12 +13,14 @@ import discord
 from core.config import config
 from core.log import get_logger, init_sentry
 from modules.bot.factory import create_bot
+from modules.dashboard import errors as error_alerts
 
 logger = get_logger(__name__)
 
 
 def main() -> int:
-    init_sentry(config.SENTRY_DSN)
+    init_sentry(config.SENTRY, "bot")
+    error_alerts.setup("bot")
     if not config.BOT_TOKEN:
         logger.error("BOT_TOKEN is not set; the bot cannot start")
         return 1
