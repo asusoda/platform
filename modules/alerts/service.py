@@ -16,6 +16,7 @@ from core import secrets
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import utcnow
+from modules.auth import scopes
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -24,6 +25,8 @@ from .models import AlertFeed, AlertPost, AlertRun
 from .types import Item, SourceError
 
 logger = get_logger("alerts")
+
+scopes.declare("alerts:manage", "List, create, change, run and delete alert feeds")
 
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 WEBHOOK_PATTERN = re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$")

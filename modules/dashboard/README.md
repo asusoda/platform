@@ -11,12 +11,13 @@ Routes for the officer dashboard in `dashboard/`: one overview of all that the o
 | `notices.py` | Notifications: the org's current problems, and which ones officers marked resolved |
 | `ci.py` | The org's repo list and its GitHub Actions runs, in a cache for 120 seconds |
 | `api.py` | Officer routes for the overview, branding, CI runs and the repo list; officer routes that call the `runpod` and `knowledge` services |
+| `tools.py` | Tools for the overview, trends, notifications, audit log and integrations |
 
 ## Surface
 
 - Routes: `/api/dashboard/<org>/overview`, `/trends?days=7..90`, `/notifications`, `/notifications/resolve`, `/notifications/reopen`, `/ci`, `/ci/repos`, `/branding`, `/apps/...` and `/knowledge/...`. Officers of the org only. The apps and knowledge routes are the same operations as the machine routes in those modules, without a token scope.
 - Jobs: none.
-- Tools: none.
+- Tools: `org.overview`, `org.trends`, `notifications.list`, `activity.log` (scope `activity:read`); `notifications.resolve`, `notifications.reopen` (scope `settings:write`); `integrations.list`, `integrations.save` (confirm), `integrations.test` (scope `integrations:manage`). Secret values are never returned. Tools marked confirm run only with `confirm=true`.
 - Tables: none. The repo list is `dashboard.repos`, the resolved notifications are `dashboard.resolved`, and the branding is `branding` in the org config. The optional org secret `github_token` reads private repos.
 
 See [docs/frontends.md](../../docs/frontends.md).

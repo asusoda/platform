@@ -39,17 +39,25 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
     """Run one tool. Raises ToolError. Every call, refused or not, is written to the audit log."""
     started = time.monotonic()
     status = 200
+    pending = False
     try:
         spec = TOOLS.get(name)
         org = _org(db, caller)
         if spec is None or not _usable(spec, org, caller):
             # Same answer for unknown and not allowed, so a token cannot probe for tools
             raise ToolError(f"No tool named {name}", 404)
-        args = arguments or {}
+        args = dict(arguments or {})
         try:
             jsonschema.validate(args, spec.input_schema)
         except jsonschema.ValidationError as e:
             raise ToolError(f"Invalid arguments: {e.message}", 400) from e
+        confirmed = args.pop("confirm", False) is True
+        if spec.confirm and not confirmed:
+            pending = True
+            result = _preview(spec, args)
+            if spec.preview is not None:
+                result["preview"] = spec.preview(db, org, caller, **args)
+            return result
         return spec.func(db, org, caller, **args)
     except ToolError as e:
         status = e.status
@@ -67,10 +75,20 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             source=source,
             org=None if status == 403 else _prefix(db, caller),
             actor_kind="machine",
-            actor_id=f"{caller.kind}:{caller.name}#{caller.token_id}",
+            actor_id=caller.actor,
             status=status,
-            details={"ms": round((time.monotonic() - started) * 1000)},
+            details={"ms": round((time.monotonic() - started) * 1000)} | ({"confirm": "pending"} if pending else {}),
         )
+
+
+def _preview(spec: ToolSpec, args: dict) -> dict:
+    """The answer to a confirm tool called without confirm=true. Nothing has changed."""
+    return {
+        "confirm_required": True,
+        "tool": spec.name,
+        "arguments": args,
+        "message": f"Nothing changed. To run {spec.name}, call it again with the same arguments and confirm=true.",
+    }
 
 
 def _prefix(db, caller: MachineCaller) -> str | None:
@@ -79,4 +97,11 @@ def _prefix(db, caller: MachineCaller) -> str | None:
 
 
 def describe(spec: ToolSpec) -> dict:
-    return {"name": spec.name, "description": spec.description, "scope": spec.scope, "input_schema": spec.input_schema}
+    return {
+        "name": spec.name,
+        "description": spec.description,
+        "scope": spec.scope,
+        "read_only": spec.read_only,
+        "confirm": spec.confirm,
+        "input_schema": spec.input_schema,
+    }

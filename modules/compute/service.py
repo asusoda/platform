@@ -16,6 +16,7 @@ from core import secrets
 from core.errors import ServiceError
 from core.integrations import registry, runpod
 from core.log import get_logger
+from modules.auth import scopes
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
 from modules.organizations.models import Organization
@@ -30,6 +31,8 @@ USER_CA_KEY = "user_ca"
 POD_ENV_PREFIX = "GODFATHER_"
 DEFAULT_GPU = "NVIDIA RTX A4000"
 DEFAULT_CPU_FLAVOR = "cpu3c"
+scopes.declare("compute:manage", "List the org's compute pods and start, stop, restart or terminate them")
+
 ACTIONS = ("start", "stop", "restart", "terminate")
 CLOUD_TYPES = ("COMMUNITY", "SECURE")
 MAX_ALLOWED_USERS = 500

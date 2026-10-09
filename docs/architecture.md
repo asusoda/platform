@@ -67,16 +67,29 @@ Apps and agents read and change Platform data through tools. A module declares a
 
 Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only the tools that its token scopes allow and that its org has turned on. An unknown tool and a refused tool both return 404, so a token cannot find tools it may not use. A tool always acts on the caller's org. It has no org argument.
 
-| Tool | Scope | Module |
+| Tools | Scope | Module |
 | --- | --- | --- |
-| `org.info` | `org:read` | organizations |
+| `org.info`, `org.branding` | `org:read` | organizations |
+| `org.set_modules` (confirm), `org.set_branding` | `settings:write` | organizations |
+| `org.overview`, `org.trends`, `notifications.list`, `activity.log` | `activity:read` | dashboard |
+| `notifications.resolve`, `notifications.reopen` | `settings:write` | dashboard |
+| `integrations.list`, `integrations.save` (confirm), `integrations.test` | `integrations:manage` | dashboard |
 | `events.list` | `calendar:read` | calendar |
 | `points.leaderboard` | `points:read` | points |
-| `knowledge.search` | `knowledge:read` | knowledge |
+| `knowledge.search`, `knowledge.sources`, `knowledge.packs`, `knowledge.settings`, `knowledge.runs` | `knowledge:read` | knowledge |
+| `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_pack`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
 | `asu.query` | `knowledge:read` | asu |
-| `apps.list` | `apps:read` | runpod |
+| `apps.list`, `apps.get` | `apps:read` | runpod |
+| `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
+| `apps.deploy` (confirm) | `apps:deploy` | runpod |
+| `alerts.list`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
+| `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
 
-Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>` and `source=mcp` or `api`. The MCP server keeps no session state, so you can run more than one. Start it with `docker compose --profile mcp up -d mcp`.
+A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
+
+No tool reads a secret value, makes or revokes a token, or changes points or the store. Officers do those in the dashboard.
+
+Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`, `source=mcp` or `api`, and the token as the actor. A call that waits for confirm has `details.confirm=pending`. The MCP server keeps no session state, so you can run more than one. Start it with `docker compose --profile mcp up -d mcp`.
 
 ## Outside services
 
