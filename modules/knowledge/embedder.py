@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import requests
 
-from core import net
+from core import net, secrets
 from core.integrations import openrouter
 from core.integrations.registry import Field, Integration, IntegrationError, org_values, register, use
 from core.log import get_logger
@@ -102,7 +102,7 @@ def for_org(db, org_id: int) -> Embedder | None:
         return configured()
     api_key = saved.get(KEY_SECRET)
     if api_key is None and openrouter.is_openrouter(saved[URL_SECRET]):
-        api_key = openrouter.key_for(db, org_id)
+        api_key = secrets.get_secret(db, org_id, openrouter.SECRET_NAME)
     return Embedder(
         url=saved[URL_SECRET],
         model=saved[MODEL_SECRET],

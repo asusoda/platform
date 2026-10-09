@@ -49,7 +49,7 @@ OpenRouter gives one API key for many hosted models, with an OpenAI-compatible A
 4. Leave the Embeddings API key empty.
 5. Click Test on the Embeddings card. It shows the number of dimensions.
 
-If the Embeddings base URL is https on `openrouter.ai` and the Embeddings API key is empty, Platform sends the OpenRouter key. It uses the org's OpenRouter key, else `OPENROUTER_API_KEY`. The same rule applies to `EMBEDDINGS_URL` and `EMBEDDINGS_API_KEY` in `.env`. An Embeddings API key, when set, always wins. Platform sends the OpenRouter key only to `https://openrouter.ai`.
+If the Embeddings base URL is https on `openrouter.ai` and the Embeddings API key is empty, Platform sends the OpenRouter key. Org Embeddings settings use only the org's OpenRouter key, never `OPENROUTER_API_KEY`. The `.env` default works the same way: `EMBEDDINGS_URL` with no `EMBEDDINGS_API_KEY` uses `OPENROUTER_API_KEY`. An Embeddings API key, when set, always wins. Platform sends the OpenRouter key only to `https://openrouter.ai`.
 
 Test on the OpenRouter card reads the key's name and credit limit from OpenRouter. It does not show the key.
 

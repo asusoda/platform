@@ -217,7 +217,7 @@ def test_embeddings_use_the_openrouter_key(client, officer_headers, cleared, pub
     db = db_connect.SessionLocal()
     try:
         assert embedder.for_org(db, _org_id("soda")).api_key == "deployment-or"
-        assert embedder.for_org(db, _org_id()).api_key == "deployment-or"
+        assert embedder.for_org(db, _org_id()).api_key is None
     finally:
         db.close()
 
