@@ -10,7 +10,7 @@ import hashlib
 from collections.abc import Callable, Hashable
 from typing import Any
 
-from flask import Flask, Response, current_app, request
+from flask import Flask, Response, jsonify, request
 
 from core.cache import cache
 from core.log import get_logger
@@ -27,7 +27,7 @@ def org_key(org_prefix: str, *parts: Hashable) -> tuple[Hashable, ...]:
 
 def _encode(payload: Any) -> tuple[bytes, str]:
     """The JSON body as jsonify writes it, and its ETag."""
-    body = (current_app.json.dumps(payload) + "\n").encode()
+    body = jsonify(payload).get_data()
     return body, hashlib.sha256(body).hexdigest()[:32]
 
 
