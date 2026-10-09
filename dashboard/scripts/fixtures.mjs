@@ -955,6 +955,25 @@ export function fixtures(now = Date.now()) {
         { sessions: podSessions.filter((s) => s.pod_id === pod.id) },
       ]),
     ),
+    [`/api/compute/${ORG.prefix}/members`]: {
+      members: [
+        ['Ava Chen', 'avachen'],
+        ['Daniel Ortiz', 'dortiz'],
+        ['Maya Patel', 'mayap'],
+        ['Noah Kim', 'noahk'],
+        ['Priya Singh', 'priya.s'],
+        ['Sam Rivera', 'samr'],
+      ].map(([name, username], i) => ({ id: String(410000000000000000n + BigInt(i)), name, username, avatar: null })),
+      total: 214,
+    },
+    [`/api/users/${ORG.prefix}/discord/sync`]: { matched: 214, new_users: 171, joined: 188, already: 26 },
+    [`/api/users/${ORG.prefix}/discord/roles`]: {
+      roles: [
+        { id: '1200', name: 'Officers', color: '#e67e22' },
+        { id: '1201', name: 'GPU workshop', color: '#3498db' },
+        { id: '1202', name: 'Members', color: '#2ecc71' },
+      ],
+    },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files`]: { path: '/workspace', files: podFiles },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files/read`]: { path: '/workspace/README.md', content: readme },
 

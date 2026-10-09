@@ -223,6 +223,8 @@
 /api/tools/<string:name> OPTIONS,POST tools.call_tool
 /api/users/ GET,HEAD,OPTIONS users.users_index
 /api/users/<string:org_prefix>/createUser OPTIONS,POST users.create_user_in_org
+/api/users/<string:org_prefix>/discord/roles GET,HEAD,OPTIONS users.discord_roles
+/api/users/<string:org_prefix>/discord/sync OPTIONS,POST users.discord_sync
 /api/users/<string:org_prefix>/submit-form OPTIONS,POST users.handle_form_submission_in_org
 /api/users/<string:org_prefix>/user GET,HEAD,OPTIONS,POST users.user_in_org
 /api/users/<string:org_prefix>/users GET,HEAD,OPTIONS users.get_organization_users

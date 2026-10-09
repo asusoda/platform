@@ -1,4 +1,4 @@
-import { CalendarCheck, Coins, Plus, Upload, UserPlus, Users } from 'lucide-react';
+import { CalendarCheck, Coins, Plus, RefreshCw, Upload, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { TabBar, useTabParam } from '../../components/tabs';
 import { Button, PageHeader, Stat, StatGrid } from '../../components/ui';
@@ -6,6 +6,7 @@ import { compact } from '../../lib/format';
 import { useCurrentOrg } from '../../lib/org';
 import type { PointsMember } from '../../lib/types';
 import { AwardDialog } from './award';
+import { DiscordSyncDialog } from './discord-sync';
 import { EventsTab } from './events';
 import { HistoryDialog } from './history';
 import { MemberDialog } from './member-form';
@@ -23,6 +24,7 @@ export function PointsPage() {
   const [tab, setTab] = useTabParam(TABS);
   const [awarding, setAwarding] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [viewing, setViewing] = useState<PointsMember | null>(null);
   const [editing, setEditing] = useState<{ member: PointsMember | null } | null>(null);
   const { members, entries } = usePoints(prefix);
@@ -51,6 +53,9 @@ export function PointsPage() {
         description="Members and their points, and the events that gave points."
         action={
           <>
+            <Button onClick={() => setSyncing(true)}>
+              <RefreshCw className="size-4" /> Add from Discord
+            </Button>
             <Button onClick={() => setEditing({ member: null })}>
               <UserPlus className="size-4" /> Add member
             </Button>
@@ -85,6 +90,7 @@ export function PointsPage() {
       )}
       <AwardDialog prefix={prefix} members={list} open={awarding} onClose={() => setAwarding(false)} />
       <UploadDialog prefix={prefix} open={uploading} onClose={() => setUploading(false)} />
+      <DiscordSyncDialog prefix={prefix} open={syncing} onClose={() => setSyncing(false)} />
       <HistoryDialog
         prefix={prefix}
         member={viewing}

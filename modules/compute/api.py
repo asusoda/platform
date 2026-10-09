@@ -123,22 +123,34 @@ def pod_action(db, org, pod_id):
 
 @_officer_route("/members", ["GET"])
 def find_members(db, org):
-    """Server members for the allowed members field: ?q= searches names, ?ids= names the given ids."""
+    """Server members for the allowed members field.
+
+    ?ids= names the given ids. Otherwise ?q= searches names, ?role= keeps the holders of one role, and
+    ?limit= (1 to 500, default 50) caps the list. Without q the whole member list is read.
+    """
     directory = access.discord_directory()
     if directory is None or not directory.is_ready():
         return {"error": "Discord is not set up, so members cannot be looked up. Enter Discord ids."}, 503
     query = (request.args.get("q") or "").strip()[:100]
+    role = (request.args.get("role") or "").strip()
     ids = [i for i in (request.args.get("ids") or "").split(",") if i.isdigit()][:50]
+    limit = max(1, min(request.args.get("limit", type=int) or 50, service.MAX_ALLOWED_USERS))
     try:
         if ids:
             names = {i: directory.get_display_name(org.guild_id, i) for i in ids}
             return {"members": [{"id": i, "name": name} for i, name in names.items() if name]}
-        if not query:
-            return {"members": []}
-        return {"members": directory.search_members(org.guild_id, query, 10)}
+        return service.member_page(directory, org.guild_id, query, role if role.isdigit() else "", limit)
     except DiscordUnavailable as e:
         logger.warning("member lookup failed for org %s: %s", org.id, e)
+        if "403" in str(e) and not query:
+            return {"error": _NO_MEMBERS_INTENT}, 503
         return {"error": "Discord did not answer the member search. Enter Discord ids."}, 503
+
+
+_NO_MEMBERS_INTENT = (
+    "Discord refused the member list. Turn on Server Members Intent for the bot in the Discord Developer Portal "
+    "(Bot > Privileged Gateway Intents), or search by name."
+)
 
 
 @_member_route("/pods", ["GET"])
