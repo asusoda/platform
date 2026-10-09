@@ -47,6 +47,8 @@
 /api/apps/<string:name>/deployments GET,HEAD,OPTIONS apps.list_deployments
 /api/apps/<string:name>/pod GET,HEAD,OPTIONS apps.get_pod
 /api/apps/<string:name>/rollback OPTIONS,POST apps.rollback
+/api/apps/templates GET,HEAD,OPTIONS apps.list_templates
+/api/apps/templates/<string:template> OPTIONS,POST apps.create_from_template
 /api/asu/queries GET,HEAD,OPTIONS asu.asu_queries
 /api/asu/query OPTIONS,POST asu.asu_query
 /api/asu/sync OPTIONS,POST asu.asu_sync
@@ -105,6 +107,8 @@
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/rename OPTIONS,POST compute.rename_file
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/upload OPTIONS,POST compute.upload_file
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/write OPTIONS,POST compute.write_file
+/api/compute/<string:org_prefix>/pods/<string:pod_id>/members GET,HEAD,OPTIONS compute.pod_members
+/api/compute/<string:org_prefix>/pods/<string:pod_id>/members/connected GET,HEAD,OPTIONS compute.pod_connected
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions GET,HEAD,OPTIONS compute.list_sessions
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions OPTIONS,POST compute.add_session
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions/<int:session_id> DELETE,OPTIONS compute.delete_session
@@ -118,6 +122,8 @@
 /api/dashboard/<string:org_prefix>/apps/<string:name>/deploy OPTIONS,POST dashboard.deploy_app
 /api/dashboard/<string:org_prefix>/apps/<string:name>/pod GET,HEAD,OPTIONS dashboard.get_app_pod
 /api/dashboard/<string:org_prefix>/apps/<string:name>/rollback OPTIONS,POST dashboard.rollback_app
+/api/dashboard/<string:org_prefix>/apps/templates GET,HEAD,OPTIONS dashboard.list_app_templates
+/api/dashboard/<string:org_prefix>/apps/templates/<string:template> OPTIONS,POST dashboard.create_app_from_template
 /api/dashboard/<string:org_prefix>/branding GET,HEAD,OPTIONS dashboard.get_branding
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
@@ -126,6 +132,7 @@
 /api/dashboard/<string:org_prefix>/errors/reopen OPTIONS,POST dashboard.reopen_errors
 /api/dashboard/<string:org_prefix>/errors/report OPTIONS,POST dashboard.report_error
 /api/dashboard/<string:org_prefix>/errors/resolve OPTIONS,POST dashboard.resolve_errors
+/api/dashboard/<string:org_prefix>/hosting/providers GET,HEAD,OPTIONS dashboard.hosting_providers
 /api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
 /api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
 /api/dashboard/<string:org_prefix>/integrations/<string:key>/oauth DELETE,OPTIONS dashboard.stop_oauth
@@ -147,6 +154,7 @@
 /api/dashboard/<string:org_prefix>/knowledge/sources GET,HEAD,OPTIONS dashboard.list_sources
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> DELETE,OPTIONS dashboard.delete_source
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> GET,HEAD,OPTIONS dashboard.read_source
+/api/dashboard/<string:org_prefix>/modules GET,HEAD,OPTIONS dashboard.list_modules
 /api/dashboard/<string:org_prefix>/notifications GET,HEAD,OPTIONS dashboard.list_notifications
 /api/dashboard/<string:org_prefix>/notifications/reopen OPTIONS,POST dashboard.reopen_notifications
 /api/dashboard/<string:org_prefix>/notifications/resolve OPTIONS,POST dashboard.resolve_notifications
@@ -244,6 +252,13 @@
 /api/superadmin/update_officer_role/<int:org_id> OPTIONS,PUT superadmin.update_officer_role
 /api/tools GET,HEAD,OPTIONS tools.list_tools
 /api/tools/<string:name> OPTIONS,POST tools.call_tool
+/api/uptime/<string:org_prefix>/monitors GET,HEAD,OPTIONS uptime.list_monitors
+/api/uptime/<string:org_prefix>/monitors OPTIONS,POST uptime.create_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id> DELETE,OPTIONS uptime.delete_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id> GET,HEAD,OPTIONS uptime.get_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id> OPTIONS,PUT uptime.update_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id>/check OPTIONS,POST uptime.check_monitor
+/api/uptime/<string:org_prefix>/targets GET,HEAD,OPTIONS uptime.list_targets
 /api/users/ GET,HEAD,OPTIONS users.users_index
 /api/users/<string:org_prefix>/createUser OPTIONS,POST users.create_user_in_org
 /api/users/<string:org_prefix>/discord/roles GET,HEAD,OPTIONS users.discord_roles

@@ -90,7 +90,7 @@ export function OverviewPage() {
             title="Modules"
             hint={`${enabled} of ${data.modules.length} on for this org`}
             action={
-              <Link to="settings#modules" className={quietLink}>
+              <Link to="modules" className={quietLink}>
                 Change
               </Link>
             }
@@ -158,7 +158,7 @@ export function OverviewPage() {
         <Card>
           <CardHeader
             title="Services"
-            hint="App deploys on RunPod"
+            hint="App deploys on the org's hosting providers"
             action={
               <Link to="hosting" className={quietLink}>
                 Details

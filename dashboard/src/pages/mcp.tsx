@@ -81,14 +81,20 @@ export function McpPage() {
     <>
       <PageHeader
         title="MCP"
-        description="Agents connect to Platform over MCP and keep member data here. Counts only: officers cannot read conversations or memories."
+        description="Agents that connect to Platform over MCP: their tokens, scopes, linked accounts and activity."
       />
-      <StatGrid>
-        <Stat label="Conversations this week" value={compact(a.active_7_days)} sub={`${compact(a.conversations)} kept`} />
-        <Stat label="Members this week" value={compact(a.members_7_days)} />
-        <Stat label="Memories" value={compact(a.memories)} />
-        <Stat label="Waiting for confirmation" value={a.pending_actions} />
-      </StatGrid>
+      <section aria-label="Agent activity">
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold">Agent activity</h2>
+          <p className="mt-0.5 text-xs text-muted">Counts only. Officers cannot read member conversations or memories.</p>
+        </div>
+        <StatGrid>
+          <Stat label="Conversations this week" value={compact(a.active_7_days)} sub={`${compact(a.conversations)} kept`} />
+          <Stat label="Members this week" value={compact(a.members_7_days)} />
+          <Stat label="Memories" value={compact(a.memories)} />
+          <Stat label="Waiting for confirmation" value={a.pending_actions} />
+        </StatGrid>
+      </section>
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Agent tokens" hint="Agents call Platform and its MCP server with these" />

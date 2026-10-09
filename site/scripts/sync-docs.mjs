@@ -23,6 +23,7 @@ const sections = {
       ['modules/points.md', 'points'],
       ['modules/runpod-apps.md', 'runpod-apps'],
       ['modules/storefront.md', 'storefront'],
+      ['modules/uptime.md', 'uptime'],
     ],
   },
   codebase: {
