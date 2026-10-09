@@ -26,6 +26,7 @@ from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.packs import service as packs
 from modules.runpod import service as apps
+from modules.runpod import templates as app_templates
 from packs.asu.signin import service as asu
 
 from . import ci, errors, notices, service, webhooks
@@ -77,10 +78,16 @@ def reopen_notifications(db, org):
     return notices.reopen(db, org, json_body().get("ids"))
 
 
+@_route("/modules", ["GET"])
+def list_modules(db, org):
+    return service.modules(db, org)
+
+
 @_route("/integrations", ["GET"])
 def list_integrations(db, org):
+    unlocks = service.unlocks()
     return {
-        "integrations": integrations.status(db, _org_id(org)),
+        "integrations": [i | {"unlocks": unlocks.get(i["key"], [])} for i in integrations.status(db, _org_id(org))],
         "oauth": oauth.status(db, _org_id(org)),
         "asu": asu.status(db, _org_id(org)),
         "secrets_key": secrets.configured(),
@@ -234,6 +241,27 @@ def hosting_providers(db, org):
 @_route("/apps", ["GET"])
 def list_apps(db, org):
     return {"apps": apps.list_apps(db, _org_id(org))}
+
+
+@_route("/apps/templates", ["GET"])
+def list_app_templates(db, org):
+    return {"templates": app_templates.list_templates()}
+
+
+@_route("/apps/templates/<string:template>", ["POST"])
+def create_app_from_template(db, org, template):
+    data = json_body()
+    app = app_templates.create(
+        db,
+        _org_id(org),
+        template,
+        data.get("name"),
+        data.get("values"),
+        data.get("secrets"),
+        data.get("provider"),
+        _actor(),
+    )
+    return app, 201
 
 
 @_route("/apps/<string:name>", ["GET"])

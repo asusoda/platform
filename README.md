@@ -20,6 +20,7 @@ Each org route checks access. The audit log records each change that an officer 
 | `accounts` | Canvas, Google and Outlook sign-in for a member, so that agents can act for them |
 | `alerts` | New job listings and hackathons posted to Discord webhooks |
 | `runpod` | Deploys of an org's apps to RunPod from a manifest, with health checks and rollback |
+| `uptime` | Checks of sites and Hosting apps on a schedule, with events when one goes down or up |
 | `dashboard` | One page for each org with problems, activity, jobs, CI runs and module state |
 | `mcp` | An MCP server and `/api/tools` that give agents the module tools through scoped machine tokens |
 | `auth`, `public`, `bot` | Discord sign-in, tokens and access checks; open reads for public pages; the Discord bot |
