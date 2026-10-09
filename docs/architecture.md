@@ -84,6 +84,8 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `apps.deploy` (confirm) | `apps:deploy` | runpod |
 | `alerts.list`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
 | `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
+| `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
+| `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 

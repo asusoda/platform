@@ -10,7 +10,7 @@ import importlib
 CATEGORIES = {
     "Members": ["accounts", "games", "points", "storefront", "users"],
     "Automations": ["alerts", "calendar", "leetcode"],
-    "Knowledge and agents": ["agents", "asu", "knowledge", "mcp"],
+    "Knowledge and agents": ["agents", "asu", "integrations", "knowledge", "mcp"],
     "Infrastructure": ["compute", "runpod"],
     "Platform": ["auth", "bot", "dashboard", "organizations", "public", "superadmin"],
 }

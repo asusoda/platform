@@ -20,7 +20,7 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 | users | `users`, `user_organization_memberships` |
 | points | `points` |
 | storefront | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
-| auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only), `sessions` (not used) |
+| auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only, scopes, and per-integration `limits`), `sessions` (not used) |
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |
 | games | `jeopardy_game`, `active_game` (one active game for the deployment) |
 | leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |

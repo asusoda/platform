@@ -7,7 +7,8 @@ does not leak usable tokens. No Flask here; routes and the MCP server both call 
 import datetime
 import hashlib
 import secrets
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from core.time import iso, utcnow
 from modules.auth.models import MachineToken
@@ -31,14 +32,44 @@ class MachineCaller:
     kind: str
     scopes: frozenset[str]
     created_by: str | None = None
+    limits: dict = field(default_factory=dict, hash=False, compare=False)
 
     def allows(self, scope: str) -> bool:
         return scope in self.scopes
+
+    def limit(self, integration: str, name: str) -> list[str] | None:
+        """The token's list for one limit of an integration, or None when the token has no such limit."""
+        value = (self.limits.get(integration) or {}).get(name)
+        return list(value) if isinstance(value, list) else None
 
     @property
     def actor(self) -> str:
         """How the audit log and updated_by fields name this token."""
         return f"{self.kind}:{self.name}#{self.token_id}"
+
+
+# Checks for the limits of each integration. Each one returns the cleaned limits or raises TokenError.
+LIMIT_CHECKS: dict[str, Callable[[object], dict]] = {}
+LIMIT_NAMES: dict[str, tuple[str, ...]] = {}
+
+
+def declare_limits(integration: str, names: tuple[str, ...], check: Callable[[object], dict]) -> None:
+    LIMIT_CHECKS[integration] = check
+    LIMIT_NAMES[integration] = names
+
+
+def _limits(value: object) -> dict | None:
+    if value is None or value == {}:
+        return None
+    if not isinstance(value, dict):
+        raise TokenError("limits must be an object of integration names")
+    cleaned = {}
+    for integration, limits in value.items():
+        check = LIMIT_CHECKS.get(str(integration))
+        if check is None:
+            raise TokenError(f"No limits for {integration}")
+        cleaned[integration] = check(limits)
+    return cleaned
 
 
 def _hash(token: str) -> str:
@@ -58,6 +89,7 @@ def issue(
     scopes: object,
     created_by: str | None = None,
     expires_days: object = None,
+    limits: object = None,
 ) -> tuple[str, MachineToken]:
     """Create a token from untrusted input. Returns the token value (shown once) and its row. Commits."""
     if not isinstance(name, str) or not name.strip():
@@ -71,12 +103,14 @@ def issue(
         raise TokenError(f"Unknown scope: {', '.join(unknown)}")
     if expires_days is not None and (not isinstance(expires_days, int) or expires_days < 1):
         raise TokenError("expires_days must be a positive integer")
+    cleaned_limits = _limits(limits)
     value = PREFIX + secrets.token_urlsafe(32)
     row = MachineToken(
         organization_id=organization_id,
         name=name.strip(),
         kind=kind,
         scopes=sorted(set(scopes)),
+        limits=cleaned_limits,
         token_hash=_hash(value),
         display=value[: len(PREFIX) + 6],
         created_by=created_by,
@@ -105,6 +139,7 @@ def verify(db, token: str | None) -> MachineCaller | None:
         kind=str(row.kind),
         scopes=frozenset(row.scopes or []),
         created_by=str(row.created_by) if row.created_by is not None else None,
+        limits=dict(row.limits or {}),
     )
 
 
@@ -123,6 +158,7 @@ def to_dict(row: MachineToken) -> dict:
         "name": row.name,
         "kind": row.kind,
         "scopes": row.scopes,
+        "limits": row.limits or {},
         "display": row.display,
         "created_by": row.created_by,
         "created_at": iso(row.created_at),

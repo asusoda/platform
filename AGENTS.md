@@ -44,7 +44,7 @@ flask --app main org|jobs|config ...
 | `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
-Modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users.
+Modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users.
 
 ## Rules
 

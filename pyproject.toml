@@ -173,6 +173,8 @@ source_modules = [
     "modules.games.cog",
     "modules.games.jeopardy",
     "modules.games.ui",
+    "modules.integrations.mcp_client",
+    "modules.integrations.servers",
     "modules.knowledge.crawl",
     "modules.knowledge.documents",
     "modules.knowledge.embedder",
