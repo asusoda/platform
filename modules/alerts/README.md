@@ -1,6 +1,6 @@
 # alerts
 
-Posts new job listings and upcoming hackathons to an org's Discord channels through webhooks. Each feed reads one source on a schedule and posts only new items.
+Posts new job listings and upcoming hackathons to an org's Discord channels through webhooks. Each feed reads one source on a schedule and posts only new items. Other org events go through `core/webhooks.py`; the Webhooks page lists the feeds.
 
 ## Files
 

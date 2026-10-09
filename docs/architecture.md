@@ -102,5 +102,6 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
 | RunPod | Compute pods and app deploys | `core/integrations/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
-| Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors, with Discord alerts | `core/error_log.py`, `modules/dashboard/errors.py` |
+| Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
+| Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to Discord webhooks | `core/webhooks.py`, `modules/dashboard/webhooks.py` |
 | Sentry | Optional: errors, logs and sampled traces if `SENTRY_DSN` is set | `core/log.py` |

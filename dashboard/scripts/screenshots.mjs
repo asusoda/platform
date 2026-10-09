@@ -34,6 +34,7 @@ const SCREENS = [
     },
   },
   { name: 'settings', path: 'settings' },
+  { name: 'webhooks', path: 'webhooks' },
 ];
 
 async function loadPlaywright() {

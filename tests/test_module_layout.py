@@ -137,7 +137,8 @@ def test_module_is_documented(name):
 
 def test_data_model_lists_every_table():
     page = (ROOT / "docs" / "data-model.md").read_text()
-    for path in [*MODULES.glob("*/models.py"), ROOT / "core" / "audit.py", ROOT / "core" / "secrets.py"]:
+    core_tables = [ROOT / "core" / name for name in ("audit.py", "error_log.py", "secrets.py", "webhooks.py")]
+    for path in [*MODULES.glob("*/models.py"), *core_tables]:
         for table in _tables(path):
             assert f"`{table}`" in page, f"Add `{table}` to docs/data-model.md"
 

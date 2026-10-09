@@ -721,6 +721,35 @@ export function fixtures(now = Date.now()) {
     '    response.raise_for_status()',
     'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
   ].join('\n');
+  const webhookEvents = [
+    ['errors', 'Errors', 'A new error, or a resolved error that comes back. At most 30 messages an hour.', null],
+    ['job.failed', 'Failed job runs', 'A background job for the org fails, such as a crawl or a reindex.', null],
+    ['pod.started', 'Pods started', 'A pod starts or restarts, by an officer, a tool or its schedule.', 'compute'],
+    ['pod.stopped', 'Pods stopped', 'A pod stops or is terminated, by an officer, a tool or its schedule.', 'compute'],
+    ['app.deployed', 'App deploys', 'An app deploy ends: healthy, or failed with the reason.', null],
+    ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
+    ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
+    ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+  ].map(([key, label, description, module]) => ({ key, label, description, module }));
+  const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
+    id,
+    name,
+    kind: 'discord',
+    url_hint: `discord.com ...${hint}`,
+    events,
+    enabled,
+    last_sent_at: at(lastSent),
+    last_error: lastError,
+    created_at: at(created),
+    created_by: `officer:${by}`,
+  });
+  const webhooks = [
+    webhook(1, 'Errors', '4410', ['errors', 'job.failed', 'knowledge.crawl_failed'], true, -38 * MINUTE, null, -40 * DAY, 'ava'),
+    webhook(2, 'Infra', '9027', ['pod.started', 'pod.stopped', 'app.deployed'], true, -2 * HOUR, null, -21 * DAY, 'daniel'),
+    webhook(3, 'Store desk', '3315', ['order.created', 'member.joined'], true, -5 * DAY, 'Discord refused the message with status 404', -60 * DAY, 'maya'),
+    webhook(4, 'Old ops channel', '7781', ['errors'], false, -45 * DAY, null, -120 * DAY, 'ava'),
+  ];
+
   const orgErrors = [
     errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
     errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/compute (mutation)', '/robotics/compute (mutation)', 4, -26 * MINUTE, -1 * DAY),
@@ -963,6 +992,17 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
     '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
+    [`/api/dashboard/${ORG.prefix}/webhooks`]: {
+      webhooks,
+      events: webhookEvents,
+      kinds: [{ key: 'discord', label: 'Discord', example: 'https://discord.com/api/webhooks/...' }],
+      alerts: true,
+      feeds: feeds.map(({ key, kind, enabled, webhook_set, last_run_at, last_error }) => ({ key, kind, enabled, webhook_set, last_run_at, last_error })),
+      secrets_key: true,
+    },
+    ...Object.fromEntries(
+      webhooks.map((w) => [`/api/dashboard/${ORG.prefix}/webhooks/${w.id}/test`, { ok: true, message: 'Sent. Look for the message in the channel.' }]),
+    ),
     [`/api/alerts/${ORG.prefix}/presets`]: {
       presets: [
         {

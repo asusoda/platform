@@ -164,6 +164,7 @@ source_modules = [
     "modules.dashboard.errors",
     "modules.dashboard.notices",
     "modules.dashboard.trends",
+    "modules.dashboard.webhooks",
     "modules.games.cog",
     "modules.games.jeopardy",
     "modules.games.ui",

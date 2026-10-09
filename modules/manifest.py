@@ -20,6 +20,7 @@ MODEL_MODULES = [
     "core.audit",
     "core.error_log",
     "core.secrets",
+    "core.webhooks",
     "modules.accounts.models",
     "modules.alerts.models",
     "modules.agents.models",

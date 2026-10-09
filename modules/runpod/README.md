@@ -17,6 +17,7 @@ Deploys an org's own apps to RunPod pods: register an app's manifest, deploy a n
 - Routes: `/api/apps`. Machine tokens only, with `apps:read`, `apps:manage` or `apps:deploy`.
 - Jobs: `runpod.check_deployments`, schedule `* * * * *`.
 - Tools: `apps.list`, `apps.get` (scope `apps:read`); `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) (scope `apps:manage`); `apps.deploy` (confirm, scope `apps:deploy`). Without `confirm=true`, deploy and rollback return their dry run. Tools marked confirm run only with `confirm=true`.
+- Webhook events: `app.deployed`, when a deploy becomes healthy or fails. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `runpod_apps`, `runpod_deployments`.
 
 See [docs/modules/runpod-apps.md](../../docs/modules/runpod-apps.md).
