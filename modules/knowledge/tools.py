@@ -1,7 +1,8 @@
 """Knowledge tools."""
 
 from core.tools import tool
-from modules.knowledge import crawl, documents, embedder, packs, runs, search, service, settings
+from modules.knowledge import crawl, documents, embedder, runs, search, service, settings
+from modules.packs import service as packs
 
 
 @tool(
@@ -134,14 +135,14 @@ def knowledge_crawl_now(db, org, caller, key: str, force: bool = False):
     return {"queued": key}
 
 
-@tool("knowledge.packs", description="Source packs the org can add, such as a campus pack.", scope="knowledge:read")
+@tool("knowledge.packs", description="Packs the org can add, such as a campus pack.", scope="knowledge:read")
 def knowledge_packs(db, org, caller):
     return {"packs": packs.list_packs(db, int(org.id))}
 
 
 @tool(
     "knowledge.sync_pack",
-    description="Add or update a source pack's sources, then start the crawl of the sources that are due.",
+    description="Add or update a pack's pages, then start the crawl of the sources that are due.",
     scope="knowledge:write",
     input_schema={
         "type": "object",

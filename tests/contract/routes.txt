@@ -38,6 +38,7 @@
 /api/alerts/<string:org_prefix>/feeds/<string:key> OPTIONS,PUT alerts.put_feed
 /api/alerts/<string:org_prefix>/feeds/<string:key>/history GET,HEAD,OPTIONS alerts.feed_history
 /api/alerts/<string:org_prefix>/feeds/<string:key>/run OPTIONS,POST alerts.run_feed
+/api/alerts/<string:org_prefix>/presets GET,HEAD,OPTIONS alerts.list_presets
 /api/apps GET,HEAD,OPTIONS apps.list_apps
 /api/apps/<string:name> DELETE,OPTIONS apps.delete_app
 /api/apps/<string:name> GET,HEAD,OPTIONS apps.get_app
@@ -46,9 +47,9 @@
 /api/apps/<string:name>/deployments GET,HEAD,OPTIONS apps.list_deployments
 /api/apps/<string:name>/pod GET,HEAD,OPTIONS apps.get_pod
 /api/apps/<string:name>/rollback OPTIONS,POST apps.rollback
-/api/asu/queries GET,HEAD,OPTIONS asu.list_queries
-/api/asu/query OPTIONS,POST asu.run_query
-/api/asu/sync OPTIONS,POST asu.sync_sources
+/api/asu/queries GET,HEAD,OPTIONS asu.asu_queries
+/api/asu/query OPTIONS,POST asu.asu_query
+/api/asu/sync OPTIONS,POST asu.asu_sync
 /api/auth/appToken GET,HEAD,OPTIONS auth.get_app_token
 /api/auth/appTokens GET,HEAD,OPTIONS auth.list_app_tokens
 /api/auth/appTokens/<int:token_id> DELETE,OPTIONS auth.revoke_app_token
@@ -172,6 +173,10 @@
 /api/organizations/<int:org_id>/tokens GET,HEAD,OPTIONS organizations.list_machine_tokens
 /api/organizations/<int:org_id>/tokens OPTIONS,POST organizations.create_machine_token
 /api/organizations/<int:org_id>/tokens/<int:token_id> DELETE,OPTIONS organizations.revoke_machine_token
+/api/packs GET,HEAD,OPTIONS packs.list_packs
+/api/packs/<string:name>/queries GET,HEAD,OPTIONS packs.list_queries
+/api/packs/<string:name>/query OPTIONS,POST packs.run_query
+/api/packs/<string:name>/sync OPTIONS,POST packs.sync_pack
 /api/points/ GET,HEAD,OPTIONS points.index
 /api/points/<string:org_prefix>/add_points OPTIONS,POST points.add_points_to_org
 /api/points/<string:org_prefix>/assignPoints OPTIONS,POST points.assign_points_to_org

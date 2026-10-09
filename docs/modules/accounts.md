@@ -37,8 +37,9 @@ Other routes:
 | --- | --- |
 | `ACCOUNTS_BASE_URL` | The public URL of the API. Required, because providers send the browser back to it |
 | `ACCOUNTS_<NAME>_CLIENT_ID`, `ACCOUNTS_<NAME>_CLIENT_SECRET` | Turn on a provider. Names: `GOOGLE`, `CANVAS`, `MICROSOFT` |
+| `ACCOUNTS_CANVAS_URL` | The school's Canvas, like `https://canvas.example.edu`. If it is not set, Platform uses the `canvas_url` of the one pack that sets it, such as `https://canvas.asu.edu` from the ASU pack |
 | `ACCOUNTS_<NAME>_SCOPES` | Space-separated. Defaults: Google calendar events read, all that the Canvas key allows, Microsoft calendar and mail read |
-| `ACCOUNTS_<NAME>_AUTHORIZE_URL`, `ACCOUNTS_<NAME>_TOKEN_URL` | Other provider URLs. Canvas defaults to canvas.asu.edu, Microsoft to the common tenant |
+| `ACCOUNTS_<NAME>_AUTHORIZE_URL`, `ACCOUNTS_<NAME>_TOKEN_URL` | Other provider URLs. Microsoft defaults to the common tenant |
 
 Add these redirect URLs:
 
