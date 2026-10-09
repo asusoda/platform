@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Copy, KeyRound, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { IntegrationIcon } from '../components/integration-icons';
+import { Tooltip } from '../components/tooltip';
 import {
   Badge,
   Button,
@@ -30,6 +32,8 @@ type TokenList = {
   tokens: MachineToken[];
   scopes: Record<string, string>;
   integrations: TokenIntegration[];
+  // Platform scopes and the integrations each one calls for the agent
+  uses?: Record<string, string[]>;
 };
 
 // What each limit takes, with an example.
@@ -53,30 +57,75 @@ function list(text: string): string[] {
     .filter(Boolean);
 }
 
+function titles(keys: string[], integrations: TokenIntegration[]): string {
+  const names = keys.map((key) => integrations.find((i) => i.key === key)?.title ?? key);
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : (names[0] ?? '');
+}
+
 function ScopeBox({
   scope,
   description,
   on,
   onChange,
+  uses = [],
+  integrations = [],
+  disabled = false,
 }: {
   scope: string;
   description: string;
   on: boolean;
   onChange: (on: boolean) => void;
+  uses?: string[];
+  integrations?: TokenIntegration[];
+  disabled?: boolean;
 }) {
   return (
     <label
       className={cx(
-        'flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
+        'flex items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
+        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
         on ? 'border-fg/40 bg-panel-2' : 'border-line hover:bg-panel-2/50',
       )}
     >
-      <input type="checkbox" className="mt-0.5 size-4 accent-current" checked={on} onChange={(e) => onChange(e.target.checked)} />
-      <span className="min-w-0">
+      <input
+        type="checkbox"
+        className="mt-0.5 size-4 accent-current"
+        checked={on}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="min-w-0 flex-1">
         <span className="block font-mono text-xs">{scope}</span>
         <span className="mt-0.5 block text-xs text-muted">{description}</span>
       </span>
+      {uses.length ? (
+        <Tooltip label={`Uses ${titles(uses, integrations)} with the org's keys`} side="top">
+          <span className="flex shrink-0 items-center gap-1 text-muted" aria-label={`Uses ${titles(uses, integrations)}`}>
+            {uses.map((key) => (
+              <IntegrationIcon key={key} name={key} className="size-3.5" />
+            ))}
+          </span>
+        </Tooltip>
+      ) : null}
     </label>
+  );
+}
+
+// A small toggle for a Platform scope shown under an integration it calls.
+function ScopeChip({ scope, on, onChange }: { scope: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => onChange(!on)}
+      className={cx(
+        'inline-flex items-center gap-1 rounded-md border px-2 py-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+        on ? 'border-fg/40 bg-panel-2' : 'border-line text-muted hover:bg-panel-2/50',
+      )}
+    >
+      {on ? <Check className="size-3" /> : null}
+      {scope}
+    </button>
   );
 }
 
@@ -84,11 +133,13 @@ function NewToken({
   orgId,
   scopes,
   integrations,
+  uses,
   onDone,
 }: {
   orgId: number;
   scopes: Record<string, string>;
   integrations: TokenIntegration[];
+  uses: Record<string, string[]>;
   onDone: () => void;
 }) {
   const client = useQueryClient();
@@ -171,34 +222,56 @@ function NewToken({
             {Object.entries(scopes)
               .filter(([scope]) => !owned.has(scope))
               .map(([scope, description]) => (
-                <ScopeBox key={scope} scope={scope} description={description} on={chosen.includes(scope)} onChange={toggle(scope)} />
+                <ScopeBox
+                  key={scope}
+                  scope={scope}
+                  description={description}
+                  on={chosen.includes(scope)}
+                  onChange={toggle(scope)}
+                  uses={uses[scope]}
+                  integrations={integrations}
+                />
               ))}
           </div>
+          <p className="mt-2 text-xs text-muted">Icons mark scopes that call an integration with the org's keys.</p>
         </fieldset>
+        <div>
+          <h3 className="text-sm font-medium">Integrations</h3>
+          <p className="mt-0.5 text-xs text-muted">
+            What a token can reach in each service: its own tools, or Platform scopes that call it.
+          </p>
+        </div>
         {integrations.map((integration) => {
           const picked = integration.scopes.some((scope) => chosen.includes(scope));
+          const through = integration.through ?? [];
           return (
-            <fieldset key={integration.key} disabled={!integration.connected} className="disabled:opacity-60">
-              <legend className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-                {integration.title} tools
+            <fieldset key={integration.key} className="rounded-lg border border-line p-3">
+              <legend className="flex items-center gap-2 px-1 text-sm font-medium">
+                <IntegrationIcon name={integration.key} className="size-4" />
+                {integration.title}
                 <Badge>{integration.connected ? 'connected' : 'not connected'}</Badge>
               </legend>
-              <p className="mb-2 text-xs text-muted">
-                {integration.connected
-                  ? `Agents call ${integration.title} with the org's key, which they never see. Tools that change something run only with confirm=true.`
-                  : `Connect ${integration.title} on the Integrations page to give a token its tools.`}
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {integration.scopes.map((scope) => (
-                  <ScopeBox
-                    key={scope}
-                    scope={scope}
-                    description={scopes[scope] ?? ''}
-                    on={chosen.includes(scope)}
-                    onChange={toggle(scope)}
-                  />
-                ))}
-              </div>
+              {integration.scopes.length ? (
+                <>
+                  <p className="mb-2 text-xs text-muted">
+                    {integration.connected
+                      ? `Tools: agents call ${integration.title} with the org's key, which they never see. Tools that change something run only with confirm=true.`
+                      : `Connect ${integration.title} on the Integrations page to give a token its tools.`}
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {integration.scopes.map((scope) => (
+                      <ScopeBox
+                        key={scope}
+                        scope={scope}
+                        description={scopes[scope] ?? ''}
+                        on={chosen.includes(scope)}
+                        onChange={toggle(scope)}
+                        disabled={!integration.connected}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : null}
               {picked ? (
                 <div className="mt-3 grid gap-5 sm:grid-cols-2">
                   {integration.limits.map((limit) => {
@@ -219,6 +292,17 @@ function NewToken({
                     );
                   })}
                 </div>
+              ) : null}
+              {through.length ? (
+                <div className={cx('flex flex-wrap items-center gap-1.5', integration.scopes.length > 0 && 'mt-3')}>
+                  <span className="mr-1 text-xs text-muted">Through Platform scopes</span>
+                  {through.map((scope) => (
+                    <ScopeChip key={scope} scope={scope} on={chosen.includes(scope)} onChange={toggle(scope)} />
+                  ))}
+                </div>
+              ) : null}
+              {!integration.scopes.length && !through.length ? (
+                <p className="text-xs text-muted">No scope gives a token access to {integration.title}.</p>
               ) : null}
             </fieldset>
           );
@@ -262,7 +346,13 @@ export function TokensPage() {
         }
       />
       {adding && org && list.data ? (
-        <NewToken orgId={org.id} scopes={list.data.scopes} integrations={list.data.integrations ?? []} onDone={() => setAdding(false)} />
+        <NewToken
+          orgId={org.id}
+          scopes={list.data.scopes}
+          integrations={list.data.integrations ?? []}
+          uses={list.data.uses ?? {}}
+          onDone={() => setAdding(false)}
+        />
       ) : null}
       {list.error ? (
         <div className="mb-4">

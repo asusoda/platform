@@ -22,8 +22,12 @@ from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import DIMENSIONS, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
 from modules.organizations.models import Organization
 
-scopes.declare("knowledge:read", "Search the organization's knowledge and public sources")
-scopes.declare("knowledge:write", "Write and delete the organization's knowledge sources")
+scopes.declare(
+    "knowledge:read", "Search the organization's knowledge and public sources", uses=("embeddings", "searxng")
+)
+scopes.declare(
+    "knowledge:write", "Write and delete the organization's knowledge sources", uses=("embeddings", "firecrawl")
+)
 
 MAX_CHUNKS = 5000
 MAX_CHUNK_CHARS = 20000
