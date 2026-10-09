@@ -90,6 +90,7 @@
 /api/compute/<string:org_prefix>/cli/login GET,HEAD,OPTIONS compute.cli_sign_in
 /api/compute/<string:org_prefix>/me/pods GET,HEAD,OPTIONS compute.my_pods
 /api/compute/<string:org_prefix>/me/pods/<string:pod_id>/connect OPTIONS,POST compute.connect
+/api/compute/<string:org_prefix>/members GET,HEAD,OPTIONS compute.find_members
 /api/compute/<string:org_prefix>/pods GET,HEAD,OPTIONS compute.list_pods
 /api/compute/<string:org_prefix>/pods OPTIONS,POST compute.create_pod
 /api/compute/<string:org_prefix>/pods/<string:pod_id> GET,HEAD,OPTIONS compute.get_pod

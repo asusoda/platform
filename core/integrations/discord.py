@@ -7,7 +7,7 @@ add_reaction post to channels.
 import os
 import threading
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
 from sqlalchemy import text
@@ -22,6 +22,19 @@ API = "https://discord.com/api/v10"
 
 class DiscordUnavailable(Exception):
     """Discord could not be reached or refused the bot token."""
+
+
+def _member_summary(member: dict) -> dict:
+    """The id, display name, username and avatar URL of a guild member object."""
+    user = member.get("user") or {}
+    user_id = str(user.get("id", ""))
+    avatar = user.get("avatar")
+    return {
+        "id": user_id,
+        "name": member.get("nick") or user.get("global_name") or user.get("username") or user_id,
+        "username": user.get("username"),
+        "avatar": f"https://cdn.discordapp.com/avatars/{user_id}/{avatar}.png?size=64" if avatar else None,
+    }
 
 
 class DiscordDirectory:
@@ -120,6 +133,11 @@ class DiscordDirectory:
             return None
         user = member.get("user", {})
         return member.get("nick") or user.get("global_name") or user.get("username")
+
+    def search_members(self, guild_id, query: str, limit: int = 10) -> list[dict]:
+        """Members whose username or server nickname starts with query, as id, name, username and avatar."""
+        path = f"/guilds/{int(guild_id)}/members/search?{urlencode({'query': query, 'limit': int(limit)})}"
+        return [_member_summary(member) for member in self._get(path, ttl=30) or []]
 
     def check_user_membership(self, user_id, guild_id) -> bool:
         return self.get_member(guild_id, user_id) is not None
