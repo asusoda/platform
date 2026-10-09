@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 
 def main() -> int:
-    init_sentry(config.SENTRY_DSN)
+    init_sentry(config.SENTRY, "bot")
     if not config.BOT_TOKEN:
         logger.error("BOT_TOKEN is not set; the bot cannot start")
         return 1

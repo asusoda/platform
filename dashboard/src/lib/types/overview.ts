@@ -69,3 +69,17 @@ export type CiRepo = { repo: string; runs: CiRun[]; error: string | null };
 export type TrendDay = { date: string; value: number; failed: number };
 export type TrendSeries = { key: string; title: string; unit: string; total: number; failed: number; days: TrendDay[] };
 export type Trends = { days: number; series: TrendSeries[]; generated_at: string };
+
+export type SentryIssue = {
+  id: string;
+  short_id: string | null;
+  title: string | null;
+  culprit: string | null;
+  level: string | null;
+  count: number;
+  users: number;
+  first_seen: string | null;
+  last_seen: string | null;
+  url: string | null;
+};
+export type SentryIssues = { configured: boolean; issues: SentryIssue[]; error: string | null; project_url: string | null };

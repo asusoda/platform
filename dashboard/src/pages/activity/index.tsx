@@ -3,11 +3,13 @@ import { PageHeader } from '../../components/ui';
 import { KnowledgeRuns } from '../knowledge/runs';
 import { AuditLog } from './audit-log';
 import { CiRuns } from './ci-runs';
+import { SentryErrors } from './errors';
 
 const TABS = [
   { id: 'changes', label: 'Changes' },
   { id: 'knowledge', label: 'Knowledge runs' },
   { id: 'ci', label: 'CI runs' },
+  { id: 'errors', label: 'Errors' },
 ] as const;
 
 export function ActivityPage() {
@@ -16,10 +18,10 @@ export function ActivityPage() {
     <>
       <PageHeader
         title="Activity"
-        description="Changes by officers, tokens and jobs, knowledge runs, and the CI runs of the org's repos."
+        description="Changes by officers, tokens and jobs, knowledge runs, CI runs of the org's repos, and errors from Sentry."
       />
       <TabBar label="Activity" tabs={TABS} value={tab} onChange={setTab} />
-      {tab === 'ci' ? <CiRuns /> : tab === 'knowledge' ? <KnowledgeRuns /> : <AuditLog />}
+      {tab === 'errors' ? <SentryErrors /> : tab === 'ci' ? <CiRuns /> : tab === 'knowledge' ? <KnowledgeRuns /> : <AuditLog />}
     </>
   );
 }

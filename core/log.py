@@ -2,10 +2,12 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 
 import colorlog
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 # key=value pairs in the request_log and access lines, lifted into JSON fields
 _PAIR = re.compile(r"(\w+)=(\S+)")
@@ -69,16 +71,37 @@ def get_logger(name):
     return logging.getLogger(name)
 
 
-def init_sentry(dsn: str | None) -> None:
-    """Send errors, traces and logs to Sentry when a DSN is set."""
-    if not dsn:
+@dataclass(frozen=True)
+class SentrySettings:
+    """Sentry settings from the environment. An empty dsn turns Sentry off."""
+
+    dsn: str | None = None
+    environment: str = "production"
+    release: str | None = None
+    traces_sample_rate: float = 0.1
+    profiles_sample_rate: float = 0.0
+    logs_level: str = "WARNING"
+
+
+def init_sentry(settings: SentrySettings, service: str) -> None:
+    """Send errors, log lines and sampled traces to Sentry when a DSN is set. service tags each event."""
+    if not settings.dsn:
         logging.getLogger(__name__).warning("SENTRY_DSN not found in environment. Sentry not initialized.")
         return
+    logs_level = logging.getLevelNamesMapping().get(settings.logs_level.upper(), logging.WARNING)
     sentry_sdk.init(
-        dsn=dsn,
-        integrations=[FlaskIntegration()],
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
+        dsn=settings.dsn,
+        environment=settings.environment,
+        release=settings.release,
+        integrations=[FlaskIntegration(), LoggingIntegration(sentry_logs_level=logs_level)],
+        traces_sample_rate=settings.traces_sample_rate,
+        profiles_sample_rate=settings.profiles_sample_rate,
         enable_logs=True,
     )
-    logging.getLogger(__name__).info("Sentry initialized with logging enabled.")
+    sentry_sdk.set_tag("service", service)
+    logging.getLogger(__name__).info(
+        "Sentry initialized service=%s environment=%s traces=%s",
+        service,
+        settings.environment,
+        settings.traces_sample_rate,
+    )

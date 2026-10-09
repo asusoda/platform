@@ -24,7 +24,7 @@ from modules.registry import register_modules
 
 logger = get_logger(__name__)
 
-init_sentry(config.SENTRY_DSN)
+init_sentry(config.SENTRY, "api")
 
 
 class App(Flask):

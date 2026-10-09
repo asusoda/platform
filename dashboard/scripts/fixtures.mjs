@@ -676,6 +676,22 @@ export function fixtures(now = Date.now()) {
       used_by: ['compute', 'runpod'],
     },
     {
+      key: 'sentry',
+      title: 'Sentry',
+      description: 'Connect the org's Sentry project.',
+      docs: 'integrations',
+      fields: [
+        field('sentry_auth_token', 'Auth token', 'An internal integration or user auth token with project:read and event:read.', -2 * DAY),
+        field('sentry_org', 'Org slug', 'The organization slug in the Sentry URL.', -2 * DAY, 'text', { secret: false, value: 'robotics-club' }),
+        field('sentry_project', 'Project slug', 'The project that gets the errors.', -2 * DAY, 'text', { secret: false, value: 'platform' }),
+        field('sentry_url', 'Sentry URL', 'Only for self-hosted Sentry or a regional host. Default https://sentry.io.', null, 'url', { secret: false, optional: true }),
+      ],
+      editable: true,
+      source: 'org',
+      testable: true,
+      used_by: ['dashboard'],
+    },
+    {
       key: 'searxng',
       title: 'Web search (SearXNG)',
       description: 'Connect a SearXNG server for live web search.',
@@ -690,6 +706,31 @@ export function fixtures(now = Date.now()) {
       used_by: ['asu'],
     },
   ];
+
+  const issue = (id, title, culprit, level, count, users, lastOffset, firstOffset) => ({
+    id: String(id),
+    short_id: `PLATFORM-${id}`,
+    title,
+    culprit,
+    level,
+    count,
+    users,
+    first_seen: at(firstOffset),
+    last_seen: at(lastOffset),
+    url: `https://robotics-club.sentry.io/issues/${id}/`,
+  });
+  const sentryIssues = {
+    configured: true,
+    error: null,
+    project_url: 'https://sentry.io/organizations/robotics-club/issues/?query=is%3Aunresolved',
+    issues: [
+      issue(41, 'RunPodError: pod create timed out after 30s', 'modules.compute.service in create_pod', 'error', 7, 2, -18 * MINUTE, -2 * DAY),
+      issue(38, "KeyError: 'guild_id'", 'modules.users.service in sync_discord_members', 'error', 3, 1, -3 * HOUR, -3 * HOUR),
+      issue(35, 'Knowledge crawl refused: page text under half of previous version', 'modules.knowledge.crawl in run', 'warning', 12, 0, -5 * HOUR, -6 * DAY),
+      issue(29, 'ApiError: Could not reach the API', 'query compute', 'error', 4, 3, -1 * DAY, -1 * DAY),
+      issue(22, 'OperationalError: database is locked', 'core.jobs in run_due', 'warning', 26, 0, -2 * DAY, -9 * DAY),
+    ],
+  };
 
   const secret = (name, description, setOffset) => ({
     name,
@@ -920,6 +961,7 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
+    [`/api/dashboard/${ORG.prefix}/errors`]: sentryIssues,
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },

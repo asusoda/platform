@@ -71,7 +71,7 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | --- | --- | --- |
 | `org.info`, `org.branding` | `org:read` | organizations |
 | `org.set_modules` (confirm), `org.set_branding` | `settings:write` | organizations |
-| `org.overview`, `org.trends`, `notifications.list`, `activity.log` | `activity:read` | dashboard |
+| `org.overview`, `org.trends`, `notifications.list`, `errors.list`, `activity.log` | `activity:read` | dashboard |
 | `notifications.resolve`, `notifications.reopen` | `settings:write` | dashboard |
 | `integrations.list`, `integrations.save` (confirm), `integrations.test` | `integrations:manage` | dashboard |
 | `events.list` | `calendar:read` | calendar |
@@ -100,4 +100,4 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
 | RunPod | Compute pods and app deploys | `core/integrations/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
-| Sentry | Errors, logs and traces, if `SENTRY_DSN` is set | `core/log.py` |
+| Sentry | Errors, logs and sampled traces if `SENTRY_DSN` is set; the dashboard reads issues through the Sentry integration | `core/log.py`, `core/integrations/sentry.py` |

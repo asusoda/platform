@@ -112,7 +112,9 @@ DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
 - `GET /health` returns `status`, `commit` and `started_at`. `commit` comes from the `GIT_COMMIT_HASH` build argument, so it shows the image, not the files on disk.
 - `make logs` shows the last 50 lines. `make logs-follow` follows them.
 - With `LOG_FORMAT=json` (set in compose), each line is a JSON object with `ts`, `level`, `logger`, `msg` and the request fields (`route`, `status`, `org`, `reason`). `LOG_FORMAT=text` gives colored lines.
-- If `SENTRY_DSN` is set, Sentry gets errors, logs and a trace of each request (`traces_sample_rate=1.0` in `core/log.py`). If the cost is too high, decrease the sample rates.
+- If `SENTRY_DSN` is set, the API, bot, job worker and MCP server send errors to Sentry, with a `service` tag (`api`, `bot`, `worker`, `mcp`) and the commit as the release. They also send log lines at `SENTRY_LOGS_LEVEL` (default `WARNING`) and above, and traces for `SENTRY_TRACES_SAMPLE_RATE` of requests (default `0.1`). `SENTRY_PROFILES_SAMPLE_RATE` (default `0`) turns on profiles. `SENTRY_ENVIRONMENT` (default `production`) names the environment.
+- The dashboard sends browser errors and failed API calls to Sentry when it is built with `VITE_SENTRY_DSN`. Use a second Sentry project (Browser JavaScript) for it.
+- To see the unresolved issues on the dashboard, connect the Sentry card on the Integrations page. The Activity page then has an Errors tab.
 
 Caution: do not delete `data/jwt_private.pem` or `data/jwt_public.pem`. If you delete them, every officer must sign in again.
 

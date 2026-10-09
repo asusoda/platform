@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api, send } from './api';
-import type { Branding, CiRepo, IntegrationList, ModuleState, NotificationList, OrganizationDetail, Overview, Trends } from './types';
+import type {
+  Branding,
+  CiRepo,
+  IntegrationList,
+  ModuleState,
+  NotificationList,
+  OrganizationDetail,
+  Overview,
+  SentryIssues,
+  Trends,
+} from './types';
 
 export function useOverview(prefix: string) {
   return useQuery({
@@ -25,6 +35,15 @@ export function useCi(prefix: string) {
   return useQuery({
     queryKey: ['ci', prefix],
     queryFn: () => api<{ repos: CiRepo[] }>(`/api/dashboard/${prefix}/ci`),
+    refetchInterval: 60_000,
+    enabled: Boolean(prefix),
+  });
+}
+
+export function useSentryIssues(prefix: string) {
+  return useQuery({
+    queryKey: ['errors', prefix],
+    queryFn: () => api<SentryIssues>(`/api/dashboard/${prefix}/errors?limit=50`),
     refetchInterval: 60_000,
     enabled: Boolean(prefix),
   });

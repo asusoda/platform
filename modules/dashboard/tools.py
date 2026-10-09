@@ -1,10 +1,10 @@
-"""Dashboard tools: the overview, trends, notifications, audit log and integrations."""
+"""Dashboard tools: the overview, trends, notifications, Sentry issues, audit log and integrations."""
 
 from core import audit
 from core.integrations import registry as integrations
 from core.tools import tool
 
-from . import notices, service, trends
+from . import errors, notices, service, trends
 
 IDS = {"type": "array", "items": {"type": "string", "maxLength": 200}, "minItems": 1, "maxItems": 200}
 KEY = {"type": "string", "minLength": 1, "maxLength": 64}
@@ -56,6 +56,20 @@ def notifications_resolve(db, org, caller, ids: list[str]):
 )
 def notifications_reopen(db, org, caller, ids: list[str]):
     return notices.reopen(db, org, ids)
+
+
+@tool(
+    "errors.list",
+    description="Unresolved issues in the org's Sentry project, newest first, with counts and links.",
+    scope="activity:read",
+    input_schema={
+        "type": "object",
+        "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": errors.MAX_ISSUES}},
+        "additionalProperties": False,
+    },
+)
+def errors_list(db, org, caller, limit: int = 25):
+    return errors.issues(db, org, limit)
 
 
 @tool(

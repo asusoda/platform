@@ -121,6 +121,7 @@
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
+/api/dashboard/<string:org_prefix>/errors GET,HEAD,OPTIONS dashboard.sentry_issues
 /api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
 /api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
 /api/dashboard/<string:org_prefix>/integrations/<string:key>/test OPTIONS,POST dashboard.test_integration

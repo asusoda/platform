@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 def main() -> int:
-    init_sentry(config.SENTRY_DSN)
+    init_sentry(config.SENTRY, "worker")
     if jobs.queue_backend() != "procrastinate":
         logger.error("The job worker needs Postgres (DATABASE_URL=postgresql://...); on SQLite the API runs jobs")
         return 1

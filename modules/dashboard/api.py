@@ -21,7 +21,7 @@ from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
 from modules.runpod import service as apps
 
-from . import ci, notices, service
+from . import ci, errors, notices, service
 from . import trends as trends_service
 
 dashboard_blueprint = Blueprint("dashboard", __name__)
@@ -99,6 +99,11 @@ def set_branding(db, org):
 @_route("/ci", ["GET"])
 def ci_runs(db, org):
     return ci.runs(db, org)
+
+
+@_route("/errors", ["GET"])
+def sentry_issues(db, org):
+    return errors.issues(db, org, request.args.get("limit", 25, type=int))
 
 
 @_route("/ci/repos", ["PUT"])

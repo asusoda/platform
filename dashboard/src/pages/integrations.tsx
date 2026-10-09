@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Brain, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Search } from 'lucide-react';
+import { BookOpen, Brain, Bug, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Search } from 'lucide-react';
 import { type ComponentType, useState } from 'react';
 import { Link } from 'react-router';
 import { DiscordIcon, GitHubIcon } from '../components/brand-icons';
@@ -34,6 +34,7 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   embeddings: Brain,
   firecrawl: Flame,
   searxng: Search,
+  sentry: Bug,
 };
 
 // The module names the API sends, with their label and dashboard page.
@@ -43,7 +44,7 @@ const MODULES: Record<string, { label: string; path?: string }> = {
   auth: { label: 'Sign-in' },
   calendar: { label: 'Calendar sync', path: 'calendar' },
   compute: { label: 'Compute', path: 'compute' },
-  dashboard: { label: 'CI runs', path: 'activity?tab=ci' },
+  dashboard: { label: 'Activity', path: 'activity' },
   games: { label: 'Games' },
   knowledge: { label: 'Knowledge', path: 'knowledge' },
   leetcode: { label: 'LeetCode', path: 'leetcode' },
@@ -52,7 +53,7 @@ const MODULES: Record<string, { label: string; path?: string }> = {
 
 // The groups of cards, in order. An integration with a key in no group goes in the last group.
 const GROUPS: { title: string; hint: string; keys: string[] }[] = [
-  { title: 'Accounts', hint: "The org's accounts at other services.", keys: ['discord', 'github', 'google', 'notion', 'runpod'] },
+  { title: 'Accounts', hint: "The org's accounts at other services.", keys: ['discord', 'github', 'google', 'notion', 'runpod', 'sentry'] },
   { title: 'Services', hint: 'Servers that Platform calls for search and page reads.', keys: [] },
 ];
 

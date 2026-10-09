@@ -4,7 +4,7 @@ An integration is an account or a service outside Platform, such as Notion or Ru
 
 The page shows the cards in two groups:
 
-- Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion and RunPod.
+- Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion, RunPod and Sentry.
 - Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl and SearXNG.
 
 The description of a card says what the officer connects, not what each module does with it. The "Used by" links show the modules.
@@ -20,7 +20,10 @@ The description of a card says what the officer connects, not what each module d
 | Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
 | Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
 | RunPod | `runpod_api_key` | none | Compute, Apps |
+| Sentry | `sentry_auth_token`, `sentry_org`, `sentry_project`, [`sentry_url`] | none | Errors tab on Activity |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
+
+The Sentry card only reads issues for the Errors tab on the Activity page. Sending errors to Sentry is `SENTRY_DSN` in `.env` (see [Operations](./operations.md)). The token needs the `project:read` and `event:read` scopes.
 
 The keys are org secrets, encrypted with `SECRETS_KEY`. The API never returns a secret key. It returns the value of a field that is not secret, such as a URL or a model name, so the form can show it. When an org saves its own keys, they replace the deployment default for that org as a whole: Platform never mixes an org URL with a deployment key. An org must set every required field. Discord is set only in `.env`, for every org.
 
