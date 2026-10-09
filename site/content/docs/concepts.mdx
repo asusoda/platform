@@ -32,7 +32,8 @@ Background work is declared with `@job` in each module's `jobs.py`. On Postgres 
 | Process | Entry point | Port |
 | --- | --- | --- |
 | API | `main.py` under gunicorn | 8000 |
-| Dashboard | `dashboard/` (Vite, React) | 5000 |
+| Dashboard | `dashboard/` (Vite, React) | 5001 |
+| Web, the old officer app | `web/` (Create React App) | 5000 |
 | Discord bot | `bot_main.py` | |
 | Job worker | `worker_main.py` | |
 | MCP server | `mcp_main.py` | 8001 |
