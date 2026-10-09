@@ -31,6 +31,16 @@ const SCREENS = [
     },
   },
   {
+    name: 'tokens-integrations',
+    path: 'tokens',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'New token' }).click();
+      await page.getByLabel('google:read').check();
+      await page.locator('legend', { hasText: /^Googleconnected$/ }).scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 260);
+    },
+  },
+  {
     name: 'tokens',
     path: 'tokens',
     before: async (page) => {
@@ -42,6 +52,15 @@ const SCREENS = [
       await page.getByPlaceholder('my-org/website, my-org/*').fill('my-org/*');
     },
   },
+  {
+    name: 'integrations-sign-in',
+    path: 'integrations',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'Sign in with Google' }).scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, -200);
+    },
+  },
+  { name: 'notifications', path: 'notifications' },
   { name: 'settings', path: 'settings' },
   { name: 'webhooks', path: 'webhooks' },
   {

@@ -41,19 +41,43 @@ If Firecrawl is not connected, knowledge reads pages with a plain GET. If SearXN
 
 ## Tools for agents
 
-An agent with a machine token can also use the tools of a connected service, through the same MCP server and `/api/tools`. Platform passes the call to the service's own MCP server with the org's saved keys. The agent never gets the keys.
+An agent with a machine token can use the tools of each service the org connects, through the same MCP server and `/api/tools`. The tools show up when the org connects the service and the token has its scope. The agent never gets the keys.
 
-| Service | Server | Scopes |
+Platform gives tools in two ways:
+
+- It passes the call to the service's own MCP server with the org's saved key. Use this when the server takes an API key.
+- It passes the call to the service's own MCP server as an officer who signed in with the service (OAuth). Notion and Google work this way. See [Sign in with a service](#sign-in-with-a-service).
+- It calls the service's API itself with the org's saved key. Google and Notion also work this way, with no sign-in.
+
+| Service | How | Scopes and tools |
 | --- | --- | --- |
 | GitHub | `GITHUB_MCP_URL`, default `https://api.githubcopilot.com/mcp/`, with the org's GitHub token | `github:read`: the tools the server marks read-only. `github:write`: the other tools |
+| RunPod | `RUNPOD_MCP_URL`, default `https://mcp.getrunpod.io/`, with the org's RunPod key | `runpod:read`: the tools the server marks read-only. `runpod:write`: the other tools |
+| Google | The Calendar, Drive, Sheets and Gmail APIs, with the org's service account key | `google:read`: `calendar_list`, `calendar_events`, `drive_search`, `drive_read`, `sheets_read`. `google:write`: `calendar_create_event`, `sheets_append`. `gmail:read`: `gmail_search`, `gmail_read`. `gmail:send`: `gmail_send` |
+| Notion | The Notion API, with the org's integration token | `notion:read`: `search`, `read_page`, `query_database`. `notion:write`: `create_page` |
+| Notion, signed in | `NOTION_MCP_URL`, default `https://mcp.notion.com/mcp`, as the officer who signed in | `notion:read`: the tools the server marks read-only, such as `notion.notion-search`. `notion:write`: the other tools |
+| Google, signed in | Google's Gmail, Drive and Calendar MCP servers (`gmailmcp`, `drivemcp`, `calendarmcp.googleapis.com`), as the officer who signed in | `gmail.*`: `gmail:read` and `gmail:send`. `drive.*` and `calendar.*`: `google:read` and `google:write` |
+| Web search | The org's SearXNG, or the one in `.env` | `web:read`: `search` |
 
-- A tool name starts with the service key, such as `github.list_issues`. The token sees the tools only when the org connected the service.
-- A tool that is not read-only runs only with `confirm=true`. Without it, the call returns what it would do.
-- Token limits narrow a token further. `repos` lists the repos a call may act on, as `owner/name` or `owner/*`. With `repos`, the token sees only tools that take one repo. `tools` lists name patterns, such as `github.*issue*`. Set both on the Tokens page.
+- A tool name starts with the service key, such as `github.list_issues` or `google.drive_search`.
+- A tool that changes something runs only with `confirm=true`. Without it, the call returns what it would do.
+- Google and Notion tools use only the org's own keys, never a default in `.env`. So an agent reads only its own org's data.
+- Google: share a calendar, Drive file or Sheet with the service account's email to let the tools see it. A service account has no mailbox, so the Gmail tools show only when the org sets **Act as Workspace user**. That works only in a Google Workspace domain whose admin allows the service account's client ID these scopes under domain-wide delegation: `calendar`, `drive.readonly`, `spreadsheets`, `gmail.readonly`, `gmail.send`.
+- Notion: share each page or database with the integration in Notion.
+- Token limits narrow a token further. `repos` lists the GitHub repos a call may act on, as `owner/name` or `owner/*`. With `repos`, the token sees only tools that take one repo. `tools` lists GitHub tool name patterns, such as `github.*issue*`. Set both on the Tokens page.
 - Each call is in the audit log and its failures are in the error log, as for other tools.
-- The list of tools of each org is kept for 10 minutes. The GitHub token must allow what the tools do: write access to Issues and Pull requests for the write tools.
+- The list of tools of each MCP server is kept for 10 minutes per org. The key must allow what the tools do, for example write access to Issues and Pull requests for the GitHub write tools.
 
-To add the tools of another service, add a `RemoteServer` in `modules/integrations/servers.py`: its URL, the headers that sign in with the org's keys, a read and a write scope, how to find the target in the arguments, and a check for its token limits.
+### Sign in with a service
+
+Some MCP servers take no API key. The officer signs in with the service, and the agent acts as that person. On the Integrations page, click **Sign in with Notion** or **Sign in with Google**. **Sign out** removes the saved sign-in. Platform keeps the sign-in as the org secret `oauth_<key>` and refreshes it before it expires.
+
+- The API must have a public URL in `ACCOUNTS_BASE_URL`. The service sends the browser back to `<ACCOUNTS_BASE_URL>/api/dashboard/integrations/oauth/callback`.
+- Notion: nothing to set up. Platform finds the sign-in URLs from the MCP server and registers itself as a client.
+- Google: Platform uses the Google OAuth app of connected accounts, `ACCOUNTS_GOOGLE_CLIENT_ID` and `ACCOUNTS_GOOGLE_CLIENT_SECRET`. In Google Cloud, add the callback URL above to the app's redirect URIs, and turn on the Gmail, Drive and Calendar MCP APIs. Google's MCP servers are a Developer Preview, so the project must be enrolled.
+- A sign-in must finish within 15 minutes.
+
+To pass through another service's MCP server, add a `RemoteServer` in `modules/integrations/servers.py`: its URL, the headers that sign in with the org's keys and a read and a write scope. For a server that takes OAuth, register a `Service` in `modules/integrations/oauth.py` and use `_oauth_headers(<key>)`. To call a service's API, add a file in `modules/integrations/` with `@tool(..., integration="<key>", available=<check>)`, and import it in `modules/integrations/tools.py`.
 
 ## Routes
 
@@ -64,6 +88,10 @@ All routes are under `/api/dashboard/<org>`, for officers of the org.
 | `GET /integrations` | Each integration, its fields, its state and the modules that use it |
 | `PUT /integrations/<key>` | Body `{"fields": {"<secret name>": "<value>" or null}}`. null removes that key |
 | `POST /integrations/<key>/test` | `{"ok": true or false, "message": "..."}` |
+| `POST /integrations/<key>/oauth` | Starts a sign-in. Returns `{"url": "..."}` to open in the browser |
+| `DELETE /integrations/<key>/oauth` | Removes the saved sign-in |
+
+`GET /api/dashboard/integrations/oauth/callback` takes no login. The service calls it with `state` and `code`; a `state` works one time. It sends the browser back to the Integrations page.
 
 The older routes `/api/organizations/<id>/secrets/<name>` still work and write the same secrets.
 

@@ -25,6 +25,16 @@ export type Integration = {
   used_by: string[];
 };
 
-export type IntegrationList = { integrations: Integration[]; secrets_key: boolean };
+// An OAuth sign-in that gives agents the tools of the service's own MCP server.
+export type OAuthState = {
+  title: string;
+  connected: boolean;
+  connected_by: string | null;
+  connected_at: string | null;
+  // Why the sign-in cannot start on this server, or null
+  blocked: string | null;
+};
+
+export type IntegrationList = { integrations: Integration[]; oauth?: Record<string, OAuthState>; secrets_key: boolean };
 
 export type IntegrationTest = { ok: boolean; message: string };

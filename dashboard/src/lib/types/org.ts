@@ -28,6 +28,12 @@ export type TokenIntegration = {
   // Platform scopes that call the integration for the agent
   through?: string[];
   limits: string[];
+  // The Platform tools each of its scopes gives, by scope
+  tools?: Record<string, string[]>;
+  // The tools come from the service's own MCP server
+  remote?: boolean;
+  // The modules that use the integration
+  used_by?: string[];
 };
 
 export type MachineToken = {

@@ -1,16 +1,20 @@
-"""Notifications for officers: the problems an org has now, and the ones an officer marked resolved. No Flask here.
+"""Notifications for officers: the problems an org has now, the events it had, and which ones an officer resolved.
 
-A notification is a current problem: an enabled alert feed whose last run failed, an app whose latest deploy
-failed, or a crawled knowledge source whose last fetch failed. Its id is a hash of the module, the subject and
-the message, so a new error on the same subject is a new notification. Resolved ids are in the org config key
-dashboard.resolved. When a problem goes away, its id is removed at the next resolve or reopen.
+A problem is a current state: an enabled alert feed whose last run failed, an app whose latest deploy failed,
+or a crawled knowledge source whose last fetch failed. Its id is a hash of the module, the subject and the
+message, so a new error on the same subject is a new notification. An event is one webhook event of the org
+(core/webhooks.py saves each one): an error, a failed job, a pod started or stopped, a deploy, a store order,
+a new member. Its id is event-<row id>. Resolved ids are in the org config key dashboard.resolved. When a
+problem goes away or an event is dropped, its id is removed at the next resolve or reopen.
 """
 
 import hashlib
+from datetime import datetime
 from typing import cast
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from core import webhooks
 from core.errors import ServiceError
 from core.time import iso, utcnow
 from modules.alerts.models import AlertFeed
@@ -19,6 +23,21 @@ from modules.organizations.models import Organization
 from modules.runpod.models import App, AppDeployment
 
 MAX_KNOWLEDGE = 200
+MAX_EVENTS = 200
+# The page that shows each event, relative to /<org>/
+EVENT_LINKS = {
+    "errors": "activity?tab=errors",
+    "job.failed": "activity?tab=knowledge",
+    "knowledge.crawl_failed": "activity?tab=knowledge",
+    "pod.started": "hosting?tab=pods",
+    "pod.stopped": "hosting?tab=pods",
+    "app.deployed": "hosting?tab=services",
+    "order.created": "store",
+    "member.joined": "points",
+}
+# The module label of each event in the dashboard
+EVENT_MODULES = {"errors": "errors", "job.failed": "jobs", "pod.started": "compute", "pod.stopped": "compute"}
+ERROR_COLORS = (webhooks.RED, webhooks.AMBER)
 MAX_IDS = 500
 
 
@@ -38,7 +57,41 @@ def _notice(module: str, subject: str, message: str, link: str) -> dict:
         "subject": subject,
         "message": message,
         "link": link,
+        "kind": "problem",
+        "level": "error",
+        "at": None,
     }
+
+
+def _event(row: webhooks.Notification) -> dict:
+    event = str(row.event)
+    module = EVENT_MODULES.get(event) or event.split(".")[0]
+    return {
+        "id": f"event-{row.id}",
+        "module": module,
+        "subject": str(row.title),
+        "message": str(row.text or ""),
+        "link": EVENT_LINKS.get(event, ""),
+        "kind": "event",
+        "level": "error" if row.color in ERROR_COLORS else "info",
+        "at": iso(cast(datetime, row.created_at)),
+    }
+
+
+def events(db, org_id: int) -> list[dict]:
+    """The org's saved webhook events, newest first."""
+    rows = (
+        db.query(webhooks.Notification)
+        .filter_by(organization_id=org_id)
+        .order_by(webhooks.Notification.id.desc())
+        .limit(MAX_EVENTS)
+    )
+    return [_event(row) for row in rows]
+
+
+def current(db, org_id: int) -> list[dict]:
+    """Every notification of the org: problems first, then events, newest first."""
+    return problems(db, org_id) + events(db, org_id)
 
 
 def problems(db, org_id: int) -> list[dict]:
@@ -73,16 +126,16 @@ def _resolved(org: Organization) -> dict[str, dict]:
 
 
 def unresolved(org: Organization, found: list[dict]) -> list[dict]:
-    """The problems in found that no officer marked resolved."""
+    """The notifications in found that no officer marked resolved."""
     resolved = _resolved(org)
-    return [p for p in found if notice_id(p["module"], p["subject"], p["message"]) not in resolved]
+    return [p for p in found if p.get("id", notice_id(p["module"], p["subject"], p["message"])) not in resolved]
 
 
 def listing(db, org: Organization) -> dict:
     """Open and resolved notifications of the org, with who resolved each one and when."""
     resolved = _resolved(org)
     notices = []
-    for p in problems(db, cast(int, org.id)):
+    for p in current(db, cast(int, org.id)):
         entry = resolved.get(p["id"])
         notices.append(
             p | {"resolved_at": entry.get("at") if entry else None, "resolved_by": entry.get("by") if entry else None}
@@ -96,9 +149,9 @@ def _ids(value: object) -> list[str]:
     return cast(list[str], value)
 
 
-def _save(db, org: Organization, kept: dict[str, dict], current: set[str]) -> None:
+def _save(db, org: Organization, kept: dict[str, dict], ids: set[str]) -> None:
     config = dict(cast(dict, org.config) or {})
-    entries = [e for i, e in kept.items() if i in current]
+    entries = [e for i, e in kept.items() if i in ids]
     config["dashboard"] = {**(config.get("dashboard") or {}), "resolved": entries}
     org.config = config
     flag_modified(org, "config")
@@ -108,19 +161,19 @@ def _save(db, org: Organization, kept: dict[str, dict], current: set[str]) -> No
 def resolve(db, org: Organization, ids: object, actor: str) -> dict:
     """Mark notifications resolved. Ids that match no current problem are ignored."""
     wanted = set(_ids(ids))
-    current = {p["id"] for p in problems(db, cast(int, org.id))}
+    ids = {p["id"] for p in current(db, cast(int, org.id))}
     kept = _resolved(org)
     at = iso(utcnow())
-    for i in wanted & current:
+    for i in wanted & ids:
         kept.setdefault(i, {"id": i, "by": actor, "at": at})
-    _save(db, org, kept, current)
+    _save(db, org, kept, ids)
     return listing(db, org)
 
 
 def reopen(db, org: Organization, ids: object) -> dict:
     """Mark resolved notifications open again."""
     wanted = set(_ids(ids))
-    current = {p["id"] for p in problems(db, cast(int, org.id))}
+    ids = {p["id"] for p in current(db, cast(int, org.id))}
     kept = {i: e for i, e in _resolved(org).items() if i not in wanted}
-    _save(db, org, kept, current)
+    _save(db, org, kept, ids)
     return listing(db, org)

@@ -11,7 +11,7 @@ const TABS = [
   { id: 'resolved', label: 'Resolved' },
 ] as const;
 
-// Every current problem of the org. Resolve hides one until its message changes.
+// Every current problem and recent event of the org. Resolve hides one; a problem comes back when its message changes.
 export function NotificationsPage() {
   const { prefix } = useCurrentOrg();
   const { data, isLoading, error } = useNotifications(prefix);
@@ -31,7 +31,7 @@ export function NotificationsPage() {
     <>
       <PageHeader
         title="Notifications"
-        description="Problems that need an officer: failed alert runs, failed deploys and sources that could not be fetched."
+        description="Problems that need an officer, and what happened in the org: errors, failed jobs, pods started and stopped, deploys, store orders and new members. Webhooks can send the same events to Discord."
         action={
           tab === 'open' && shown.length ? (
             <Button disabled={change.isPending} onClick={() => change.mutate({ action: 'resolve', ids: shown.map((n) => n.id) })}>

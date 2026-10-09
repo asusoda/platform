@@ -31,10 +31,26 @@ const SCOPES = {
   'org:read': "Read the org's name, description and enabled modules",
   'github:read': "Read the org's GitHub repos, issues, pull requests and Actions runs",
   'github:write': 'Create and change issues, pull requests, comments and files on GitHub (with confirm)',
+  'google:read': "Read the org's Google Calendar events, Drive files and Sheets",
+  'google:write': 'Create Calendar events and add rows to Sheets (with confirm)',
+  'gmail:read': 'Search and read the mail of the Workspace user that Google acts as',
+  'gmail:send': 'Send mail as the Workspace user that Google acts as (with confirm)',
+  'notion:read': 'Search and read the Notion pages and databases shared with the org\'s integration',
+  'notion:write': 'Create Notion pages and database rows (with confirm)',
+  'runpod:read': "Read the org's RunPod pods, endpoints, templates, volumes and billing",
+  'runpod:write': 'Create, change, start, stop and delete pods and endpoints on RunPod (with confirm)',
+  'web:read': "Search the web through the org's SearXNG",
+};
+
+const GOOGLE_TOOLS = {
+  'google:read': ['google.calendar_events', 'google.calendar_list', 'google.drive_read', 'google.drive_search', 'google.sheets_read'],
+  'google:write': ['google.calendar_create_event', 'google.sheets_append'],
+  'gmail:read': ['google.gmail_read', 'google.gmail_search'],
+  'gmail:send': ['google.gmail_send'],
 };
 
 const INTEGRATIONS = [
-  { key: 'discord', title: 'Discord', connected: true, scopes: [], through: [], limits: [] },
+  { key: 'discord', title: 'Discord', connected: true, scopes: [], through: [], limits: [], used_by: ['alerts', 'bot', 'users'] },
   {
     key: 'embeddings',
     title: 'Embeddings',
@@ -42,14 +58,57 @@ const INTEGRATIONS = [
     scopes: [],
     through: ['agents:read', 'agents:write', 'knowledge:read', 'knowledge:write'],
     limits: [],
+    used_by: ['agents', 'knowledge'],
   },
-  { key: 'firecrawl', title: 'Firecrawl', connected: false, scopes: [], through: ['knowledge:write'], limits: [] },
-  { key: 'github', title: 'GitHub', connected: true, scopes: ['github:read', 'github:write'], through: ['apps:manage'], limits: ['repos', 'tools'] },
-  { key: 'google', title: 'Google', connected: false, scopes: [], through: [], limits: [] },
-  { key: 'notion', title: 'Notion', connected: true, scopes: [], through: ['calendar:read'], limits: [] },
-  { key: 'openrouter', title: 'OpenRouter', connected: true, scopes: [], through: [], limits: [] },
-  { key: 'runpod', title: 'RunPod', connected: true, scopes: [], through: ['apps:deploy', 'apps:manage', 'apps:read', 'compute:manage'], limits: [] },
-  { key: 'searxng', title: 'SearXNG', connected: false, scopes: [], through: ['knowledge:read'], limits: [] },
+  { key: 'firecrawl', title: 'Firecrawl', connected: false, scopes: [], through: ['knowledge:write'], limits: [], used_by: ['knowledge'] },
+  {
+    key: 'github',
+    title: 'GitHub',
+    connected: true,
+    scopes: ['github:read', 'github:write'],
+    through: ['apps:manage'],
+    limits: ['repos', 'tools'],
+    tools: {},
+    remote: true,
+  },
+  {
+    key: 'google',
+    title: 'Google',
+    connected: true,
+    scopes: ['gmail:read', 'gmail:send', 'google:read', 'google:write'],
+    through: [],
+    limits: [],
+    tools: GOOGLE_TOOLS,
+  },
+  {
+    key: 'notion',
+    title: 'Notion',
+    connected: true,
+    scopes: ['notion:read', 'notion:write'],
+    through: ['calendar:read'],
+    limits: [],
+    tools: { 'notion:read': ['notion.query_database', 'notion.read_page', 'notion.search'], 'notion:write': ['notion.create_page'] },
+  },
+  { key: 'openrouter', title: 'OpenRouter', connected: true, scopes: [], through: [], limits: [], used_by: ['knowledge'] },
+  {
+    key: 'runpod',
+    title: 'RunPod',
+    connected: true,
+    scopes: ['runpod:read', 'runpod:write'],
+    through: ['apps:deploy', 'apps:manage', 'apps:read', 'compute:manage'],
+    limits: [],
+    tools: {},
+    remote: true,
+  },
+  {
+    key: 'searxng',
+    title: 'Web search (SearXNG)',
+    connected: false,
+    scopes: ['web:read'],
+    through: ['knowledge:read'],
+    limits: [],
+    tools: { 'web:read': ['web.search'] },
+  },
 ];
 
 const SCOPE_USES = {
@@ -613,10 +672,24 @@ export function fixtures(now = Date.now()) {
     subject,
     message,
     link,
+    kind: 'problem',
+    level: 'error',
+    at: null,
     resolved_at: resolvedOffset === null ? null : at(resolvedOffset),
     resolved_by: resolvedOffset === null ? null : 'officer:1290000000000000101',
   });
+  const event = (id, module, subject, message, link, level, offset) => ({
+    ...notice(`event-${id}`, module, subject, message, link),
+    kind: 'event',
+    level,
+    at: at(offset),
+  });
   const notifications = [
+    event(41, 'errors', 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out.', 'activity?tab=errors', 'error', -18 * MINUTE),
+    event(40, 'compute', 'Pod started: workshop-a40', 'By an officer or a tool', 'hosting?tab=pods', 'info', -42 * MINUTE),
+    event(39, 'jobs', 'Job failed: knowledge.reindex', 'Embeddings answered 401 Unauthorized', 'activity?tab=knowledge', 'error', -3 * HOUR),
+    event(38, 'order', 'New order: Robotics hoodie', 'Member: dana · 450 points', 'store', 'info', -5 * HOUR),
+    event(37, 'app', 'Deployed: match-scout v1.4.2', 'Healthy after 38 s', 'hosting?tab=services', 'info', -9 * HOUR),
     notice('a1', 'alerts', 'new-grad', 'The feed answered 404 Not Found', 'alerts'),
     notice('k1', 'knowledge', 'club/sponsor-packet', 'sponsors.robotics.example.org does not resolve', 'knowledge'),
     notice('k2', 'knowledge', 'asu/parking_rates', 'The page answered 503 Service Unavailable', 'knowledge'),
@@ -1047,7 +1120,14 @@ export function fixtures(now = Date.now()) {
     '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
-    [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
+    [`/api/dashboard/${ORG.prefix}/integrations`]: {
+      integrations,
+      oauth: {
+        notion: { title: 'Notion', connected: true, connected_by: 'ash', connected_at: at(-2 * DAY), blocked: null },
+        google: { title: 'Google', connected: false, connected_by: null, connected_at: null, blocked: null },
+      },
+      secrets_key: true,
+    },
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
@@ -1109,7 +1189,7 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/trends`]: trends(now),
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
     [`/api/compute/${ORG.prefix}/settings`]: {
-      settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'theaisocietyasu/godfather-base:latest' },
+      settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'ghcr.io/theaisocietyasu/godfather-base:latest' },
     },
     ...Object.fromEntries(
       livePods.map((pod) => [

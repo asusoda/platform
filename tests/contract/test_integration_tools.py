@@ -155,18 +155,27 @@ def test_no_tools_without_the_org_key(client, officer_headers, github):
 def test_token_list_groups_integration_scopes(client, officer_headers, soda):
     body = client.get(f"/api/organizations/{soda}/tokens", headers=officer_headers).get_json()
     github = next(i for i in body["integrations"] if i["key"] == "github")
-    assert github == {
+    assert {k: v for k, v in github.items() if k != "used_by"} == {
         "key": "github",
         "title": "GitHub",
         "connected": True,
         "scopes": ["github:read", "github:write"],
         "through": ["apps:manage"],
         "limits": ["repos", "tools"],
+        "tools": {},
+        "remote": True,
     }
+    assert "integrations" in github["used_by"]
+    google = next(i for i in body["integrations"] if i["key"] == "google")
+    assert google["scopes"] == ["gmail:read", "gmail:send", "google:read", "google:write"]
+    assert "google.calendar_events" in google["tools"]["google:read"] and google["remote"] is True
+    notion = next(i for i in body["integrations"] if i["key"] == "notion")
+    assert notion["tools"]["notion:write"] == ["notion.create_page"]
     keys = [i["key"] for i in body["integrations"]]
     assert {"discord", "embeddings", "notion", "runpod"} <= set(keys)
     runpod = next(i for i in body["integrations"] if i["key"] == "runpod")
-    assert runpod["scopes"] == [] and "compute:manage" in runpod["through"]
+    assert runpod["scopes"] == ["runpod:read", "runpod:write"] and runpod["remote"] is True
+    assert "compute:manage" in runpod["through"]
     assert body["uses"]["knowledge:write"] == ["embeddings", "firecrawl"]
     assert "org:read" not in body["uses"]
 
