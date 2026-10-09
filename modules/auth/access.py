@@ -9,19 +9,23 @@ The checks start in report mode. Each request that would be refused logs one
 lines into 403 responses (`decision=deny`). Run in report mode until the log is clean.
 """
 
-import time
-
 import jwt
 from flask import current_app, request, session
 
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import get_logger
-from shared import config, tokenManager
+from core.cache import cache
+from core.config import config
+from core.db import db_connect
+from core.http.request_log import bearer_token
+from core.integrations.discord import DiscordUnavailable
+from core.integrations.registry import use
+from core.log import get_logger
+from modules.auth.tokens import token_manager
+
+use("discord", "auth")
 
 logger = get_logger("access")
 
 OFFICER_CACHE_SECONDS = 60
-_officer_cache: dict[str, tuple[float, frozenset[str]]] = {}
 
 
 class Principal:
@@ -40,13 +44,11 @@ def current_principal() -> Principal | None:
     """Read the platform credential on this request without re-validating it."""
     token = session.get("token")
     if not token:
-        header = request.headers.get("Authorization", "")
-        if header.startswith("Bearer ") and header[7:].strip():
-            token = header[7:].strip()
+        token = bearer_token()
     if not token:
         return None
     try:
-        claims = jwt.decode(token, tokenManager.public_key, algorithms=[tokenManager.algorithm])
+        claims = jwt.decode(token, token_manager.public_key, algorithms=[token_manager.algorithm])
     except jwt.InvalidTokenError:
         return None
     if "app_name" in claims:
@@ -65,10 +67,9 @@ def awarded_by(typed_name: str | None) -> str | None:
     """
     token = session.get("token")
     if not token:
-        header = request.headers.get("Authorization", "")
-        token = header[7:].strip() if header.startswith("Bearer ") else None
+        token = bearer_token()
     try:
-        signed_in = tokenManager.retrieve_username(token) if token else None
+        signed_in = token_manager.retrieve_username(token) if token else None
     except jwt.InvalidTokenError:
         signed_in = None
     typed = (typed_name or "").strip()
@@ -89,32 +90,53 @@ def discord_directory():
     return getattr(current_app, "discord_directory", None)
 
 
+def officer_guilds(directory, discord_id) -> list:
+    """Guild ids of active orgs where the user holds the org's officer role.
+
+    The superadmin gets every active org's guild. Raises DiscordUnavailable.
+    """
+    from modules.organizations.models import Organization
+
+    db = db_connect.SessionLocal()
+    try:
+        org_roles = [(str(o.guild_id), o.officer_role_id) for o in db.query(Organization).filter_by(is_active=True)]
+    finally:
+        db.close()
+    if is_superadmin(discord_id):
+        return [guild_id for guild_id, _ in org_roles]
+    return directory.officer_guilds(discord_id, org_roles)
+
+
 def officer_guild_ids(discord_id: str) -> frozenset[str] | None:
-    """Guild ids where the user holds the officer role, or None if Discord cannot tell."""
-    now = time.monotonic()
-    cached = _officer_cache.get(discord_id)
-    if cached and cached[0] > now:
-        return cached[1]
+    """Guild ids where the user holds the officer role, or None if Discord cannot tell.
+
+    Concurrent requests of one user share one Discord lookup.
+    """
+    key = ("access", "officer_guilds", discord_id)
+    found, guilds = cache.get(key)
+    if found:
+        return guilds
     directory = discord_directory()
     if directory is None or not directory.is_ready():
         return None
     try:
-        guilds = frozenset(str(g) for g in directory.check_officer(discord_id, config.SUPERADMIN_USER_ID))
+        return cache.get_or_compute(
+            key,
+            OFFICER_CACHE_SECONDS,
+            lambda: frozenset(str(g) for g in officer_guilds(directory, discord_id)),
+        )
     except DiscordUnavailable:
         logger.warning("Discord unavailable while checking officer guilds", exc_info=True)
         return None
-    _officer_cache[discord_id] = (now + OFFICER_CACHE_SECONDS, guilds)
-    return guilds
 
 
 def clear_cache() -> None:
-    _officer_cache.clear()
+    cache.invalidate("access")
 
 
 def _route_org():
     """The organization named in the URL, or None if the route names none or it does not exist."""
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     args = request.view_args or {}
     if "org_prefix" in args:
@@ -194,7 +216,7 @@ def any_officer_denial() -> tuple[str, int] | None:
 
 
 def member_details_allowed(org) -> bool:
-    """Whether the caller may see members' emails and ASU IDs: officers of org and the superadmin.
+    """Whether the caller may see members' emails and student IDs: officers of org and the superadmin.
 
     Anyone else is logged as member_details_hidden, and the details are left out only when enforcing.
     """

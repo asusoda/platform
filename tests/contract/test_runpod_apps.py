@@ -6,9 +6,9 @@ import uuid
 import pytest
 from cryptography.fernet import Fernet
 
-from core import runpod
+from core.db import db_connect
+from core.integrations import runpod
 from modules.runpod import service
-from shared import db_connect
 
 
 class FakeRunPod:
@@ -35,7 +35,7 @@ class FakeRunPod:
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(service, "client_for", lambda db, org_id: client)
+    monkeypatch.setattr(service, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 
@@ -75,12 +75,12 @@ def deployer(app):
 
 
 MANIFEST = {
-    "image": "ghcr.io/ashworks1706/sparky",
+    "image": "ghcr.io/example-club/club-bot",
     "gpu": {"id": "NVIDIA RTX A5000", "count": 1},
     "cloud": "SECURE",
     "disk": 50,
     "ports": ["8080/http"],
-    "env": {"SPARKY_MODE": "prod"},
+    "env": {"BOT_MODE": "prod"},
     "health": {"port": 8080, "path": "/health"},
 }
 
@@ -109,9 +109,9 @@ def test_first_deploy_creates_pod_then_updates_image(client, manager, deployer, 
     first = client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer)
     assert first.status_code == 202, first.get_json()
     method, _, body = fake.calls[-1]
-    assert method == "POST" and body["image"] == "ghcr.io/ashworks1706/sparky:v1"
+    assert method == "POST" and body["image"] == "ghcr.io/example-club/club-bot:v1"
     assert body["name"] == f"ais-{name}" and body["gpu"]["id"] == "NVIDIA RTX A5000"
-    assert body["env"] == {"SPARKY_MODE": "prod"}
+    assert body["env"] == {"BOT_MODE": "prod"}
 
     assert _check()["healthy"] >= 1
     assert "https://pod123-8080.proxy.runpod.net/health" in healthy["urls"]
@@ -120,11 +120,23 @@ def test_first_deploy_creates_pod_then_updates_image(client, manager, deployer, 
     client.post(f"/api/apps/{name}/deploy", json={"tag": digest}, headers=deployer)
     method, pod_id, body = fake.calls[-1]
     assert (method, pod_id) == ("PATCH", "pod123")
-    assert body["image"] == f"ghcr.io/ashworks1706/sparky@{digest}"
+    assert body["image"] == f"ghcr.io/example-club/club-bot@{digest}"
     assert "gpu" not in body and "name" not in body
 
     info = client.get(f"/api/apps/{name}", headers=manager).get_json()
     assert info["current_tag"] == digest and info["pod_id"] == "pod123"
+    assert (info["kind"], info["description"], info["url"], info["host"]) == ("service", None, None, "runpod")
+
+
+def test_kind_and_url_are_kept_out_of_the_pod(client, manager, deployer, fake):
+    name = _name()
+    manifest = {**MANIFEST, "kind": "bot", "description": "Club Discord bot", "url": "https://club.example.org"}
+    assert client.put(f"/api/apps/{name}", json={"manifest": manifest}, headers=manager).status_code in (200, 201)
+    info = client.get(f"/api/apps/{name}", headers=manager).get_json()
+    assert (info["kind"], info["description"], info["url"]) == ("bot", "Club Discord bot", "https://club.example.org")
+    client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer)
+    _, _, body = fake.calls[-1]
+    assert not {"kind", "description", "url"} & set(body)
 
 
 def test_deploy_token_can_only_deploy(client, manager, deployer, fake):
@@ -139,7 +151,7 @@ def test_deploy_token_can_only_deploy(client, manager, deployer, fake):
 
 def test_secret_env_comes_from_org_secrets_and_dry_run_redacts(client, manager, deployer, fake, monkeypatch):
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
-    manifest = {**MANIFEST, "secret_env": {"DISCORD_TOKEN": "app_sparky_discord_token"}}
+    manifest = {**MANIFEST, "secret_env": {"DISCORD_TOKEN": "app_club_bot_discord_token"}}
     name = _register(client, manager, manifest)
 
     dry = client.post(f"/api/apps/{name}/deploy", json={"tag": "v1", "dry_run": True}, headers=deployer)
@@ -155,7 +167,7 @@ def test_secret_env_comes_from_org_secrets_and_dry_run_redacts(client, manager, 
     db = db_connect.SessionLocal()
     try:
         org_id = db.query(Organization.id).filter_by(prefix="ais").scalar()
-        secrets.set_secret(db, org_id, "app_sparky_discord_token", "real-token")
+        secrets.set_secret(db, org_id, "app_club_bot_discord_token", "real-token")
     finally:
         db.close()
     assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 202
@@ -210,6 +222,9 @@ def test_runpod_failure_is_recorded(client, manager, deployer, fake):
         {**MANIFEST, "image": "ghcr.io/x/y:latest"},
         {**MANIFEST, "ports": ["8080"]},
         {**MANIFEST, "unknown": 1},
+        {**MANIFEST, "kind": "game"},
+        {**MANIFEST, "url": "http://club.example.org"},
+        {**MANIFEST, "description": "x" * 201},
     ],
 )
 def test_rejects_bad_manifests(client, manager, manifest):
@@ -253,3 +268,138 @@ def test_app_secrets_need_the_prefix(monkeypatch):
     finally:
         secrets.delete_secret(db, 1, "app_listed")
         db.close()
+
+
+class _GitHubFile:
+    def __init__(self, status, text=""):
+        self.status_code = status
+        self.text = text
+        self.content = text.encode()
+
+
+@pytest.fixture
+def github(monkeypatch):
+    """(repo, path, ref) -> YAML text served instead of GitHub. Records each request."""
+    files: dict = {}
+    seen: list = []
+
+    def get(url, params=None, headers=None, timeout=None):
+        prefix = "https://api.github.com/repos/"
+        assert url.startswith(prefix)
+        repo_and_path = url[len(prefix) :]
+        owner, repo, _, path = repo_and_path.split("/", 3)
+        ref = (params or {}).get("ref")
+        seen.append((f"{owner}/{repo}", path, ref, headers or {}))
+        text = files.get((f"{owner}/{repo}", path, ref))
+        return _GitHubFile(404) if text is None else _GitHubFile(200, text)
+
+    monkeypatch.setattr(service.requests, "get", get)
+    return files, seen
+
+
+def _yaml(**changes):
+    import yaml
+
+    return yaml.safe_dump({**MANIFEST, **changes})
+
+
+def test_manifest_from_the_repo_at_the_deployed_ref(client, manager, deployer, fake, github):
+    files, seen = github
+    files[("example-club/club-bot", "platform.app.yaml", None)] = _yaml()
+    files[("example-club/club-bot", "platform.app.yaml", "abc123")] = _yaml(env={"BOT_MODE": "canary"})
+    name = _name()
+    registered = client.put(f"/api/apps/{name}", json={"repo": "example-club/club-bot"}, headers=manager)
+    assert registered.status_code == 200, registered.get_json()
+    assert registered.get_json()["repo"] == "example-club/club-bot"
+
+    dry = client.post(
+        f"/api/apps/{name}/deploy", json={"tag": "v2", "ref": "abc123", "dry_run": True}, headers=deployer
+    )
+    assert dry.get_json()["manifest"]["env"] == {"BOT_MODE": "canary"} and fake.calls == []
+
+    response = client.post(f"/api/apps/{name}/deploy", json={"tag": "v2", "ref": "abc123"}, headers=deployer)
+    assert response.status_code == 202, response.get_json()
+    assert fake.calls[-1][2]["env"] == {"BOT_MODE": "canary"}
+    assert response.get_json()["deployment"]["manifest_ref"] == "abc123"
+    assert client.get(f"/api/apps/{name}", headers=manager).get_json()["manifest"]["env"] == {"BOT_MODE": "canary"}
+    assert "Authorization" not in seen[-1][3]
+
+
+def test_repo_manifest_errors(client, manager, deployer, fake, github):
+    files, _ = github
+    name = _name()
+    missing = client.put(f"/api/apps/{name}", json={"repo": "ais/none"}, headers=manager)
+    assert missing.status_code == 422 and "github_token" in missing.get_json()["error"]
+    files[("ais/bad", "platform.app.yaml", None)] = "image: [unclosed"
+    assert client.put(f"/api/apps/{name}", json={"repo": "ais/bad"}, headers=manager).status_code == 422
+    files[("ais/bad", "deploy/app.yaml", None)] = _yaml(image="ghcr.io/x/y:latest")
+    body = {"repo": "ais/bad", "manifest_path": "deploy/app.yaml"}
+    assert client.put(f"/api/apps/{name}", json=body, headers=manager).status_code == 422
+    for body in (
+        {"repo": "../x"},
+        {"repo": "ais/x", "manifest_path": "../secrets"},
+        {"repo": "a/b", "manifest": MANIFEST},
+    ):
+        assert client.put(f"/api/apps/{name}", json=body, headers=manager).status_code == 400
+
+    files[("ais/ok", "platform.app.yaml", None)] = _yaml()
+    client.put(f"/api/apps/{name}", json={"repo": "ais/ok"}, headers=manager)
+    assert (
+        client.post(f"/api/apps/{name}/deploy", json={"tag": "v1", "ref": "nope"}, headers=deployer).status_code == 422
+    )
+    assert (
+        client.post(f"/api/apps/{name}/deploy", json={"tag": "v1", "ref": "a..b"}, headers=deployer).status_code == 400
+    )
+    plain = _register(client, manager)
+    assert (
+        client.post(f"/api/apps/{plain}/deploy", json={"tag": "v1", "ref": "main"}, headers=deployer).status_code == 400
+    )
+
+
+def test_private_repo_uses_the_github_secret_and_rollback_reuses_the_old_manifest(
+    client, manager, deployer, fake, github, healthy, monkeypatch
+):
+    from core import secrets
+    from modules.organizations.models import Organization
+
+    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
+    files, seen = github
+    db = db_connect.SessionLocal()
+    try:
+        org_id = db.query(Organization.id).filter_by(prefix="ais").scalar()
+        secrets.set_secret(db, org_id, service.GITHUB_SECRET, "ghp_test")
+    finally:
+        db.close()
+    try:
+        files[("ais/private", "platform.app.yaml", None)] = _yaml()
+        files[("ais/private", "platform.app.yaml", "v1")] = _yaml(env={"V": "1"})
+        files[("ais/private", "platform.app.yaml", "v2")] = _yaml(env={"V": "2"})
+        name = _name()
+        client.put(f"/api/apps/{name}", json={"repo": "ais/private"}, headers=manager)
+        assert seen[-1][3]["Authorization"] == "Bearer ghp_test"
+        client.post(f"/api/apps/{name}/deploy", json={"tag": "v1", "ref": "v1"}, headers=deployer)
+        _check()
+        client.post(f"/api/apps/{name}/deploy", json={"tag": "v2", "ref": "v2"}, headers=deployer)
+        assert fake.calls[-1][2]["env"] == {"V": "2"}
+        assert client.post(f"/api/apps/{name}/rollback", headers=manager).status_code == 202
+        assert fake.calls[-1][2]["env"] == {"V": "1"} and fake.calls[-1][2]["image"].endswith(":v1")
+    finally:
+        db = db_connect.SessionLocal()
+        try:
+            secrets.delete_secret(db, org_id, service.GITHUB_SECRET)
+        finally:
+            db.close()
+
+
+def test_deploy_tool_previews_a_dry_run_until_confirmed(client, manager, deployer, fake, healthy):
+    name = _register(client, manager)
+    pending = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1"}, headers=deployer).get_json()
+    assert pending["result"]["confirm_required"] is True
+    assert pending["result"]["preview"]["request"]["body"]["image"].endswith(":v1")
+    assert fake.calls == []
+
+    done = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1", "confirm": True}, headers=deployer)
+    assert done.status_code == 200, done.get_json()
+    assert fake.calls[-1][0] == "POST"
+    app = client.post("/api/tools/apps.get", json={"name": name}, headers=manager).get_json()["result"]
+    assert app["deployments"][0]["tag"] == "v1"

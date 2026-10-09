@@ -1,6 +1,6 @@
 from sqlalchemy import JSON, Column, Integer, String
 
-from core.base import Base
+from core.db import Base
 
 
 class JeopardyGame(Base):

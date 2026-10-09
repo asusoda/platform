@@ -10,6 +10,7 @@ from anyio import to_thread
 from mcp import types
 from mcp.server.lowlevel import Server
 
+from core.db import db_connect
 from core.tools import ToolError
 from modules.auth import machine_tokens
 from modules.mcp import runtime
@@ -25,20 +26,19 @@ def _token(ctx) -> str | None:
     return header[7:].strip() if header.lower().startswith("bearer ") else None
 
 
-def _session():
-    from shared import db_connect
-
-    return db_connect.SessionLocal()
-
-
 def _list(token: str | None) -> list[types.Tool]:
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         caller = machine_tokens.verify(db, token)
         if caller is None:
             raise Unauthorized("A valid machine token is required")
         return [
-            types.Tool(name=spec.name, description=spec.description, input_schema=spec.input_schema)
+            types.Tool(
+                name=spec.name,
+                description=spec.description,
+                input_schema=spec.input_schema,
+                annotations=types.ToolAnnotations(read_only_hint=spec.read_only, destructive_hint=spec.confirm),
+            )
             for spec in runtime.available(db, caller)
         ]
     finally:
@@ -46,7 +46,7 @@ def _list(token: str | None) -> list[types.Tool]:
 
 
 def _call(token: str | None, name: str, arguments: dict | None) -> types.CallToolResult:
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         caller = machine_tokens.verify(db, token)
         if caller is None:

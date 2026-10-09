@@ -6,6 +6,8 @@ SHELL := /usr/bin/env bash
 # Configuration
 PROJECT_DIR ?= /var/www/soda-internal-api
 BRANCH ?= main
+# The commit before this deploy, to find the changed files. cd.yml sets it.
+DEPLOY_FROM ?=
 COMPOSE_CMD := $(shell if command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; elif docker compose version > /dev/null 2>&1; then echo "docker compose"; else echo "docker-compose"; fi)
 CONTAINER_CMD := $(shell if command -v podman > /dev/null 2>&1; then echo "podman"; else echo "docker"; fi)
 
@@ -53,6 +55,11 @@ build-web:
 	@echo -e "$(GREEN)[INFO]$(NC) Building web image..."
 	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build web
 
+# Build only the dashboard
+build-dashboard:
+	@echo -e "$(GREEN)[INFO]$(NC) Building dashboard image..."
+	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build dashboard
+
 # Start services in development mode
 up:
 	@echo -e "$(GREEN)[INFO]$(NC) Starting services..."
@@ -96,7 +103,8 @@ deploy:
 			echo -e "$(YELLOW)[WARNING]$(NC) Not in project directory, changing to $(PROJECT_DIR)"; \
 			cd $(PROJECT_DIR); \
 		fi; \
-		OLD_HEAD=$$(git rev-parse HEAD 2>/dev/null || echo ""); \
+		OLD_HEAD="$(DEPLOY_FROM)"; \
+		if [ -z "$$OLD_HEAD" ]; then OLD_HEAD=$$(git rev-parse HEAD 2>/dev/null || echo ""); fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Fetching latest changes from repository..."; \
 		git fetch origin $(BRANCH); \
 		echo -e "$(GREEN)[INFO]$(NC) Checking out $(BRANCH) branch..."; \
@@ -109,6 +117,7 @@ deploy:
 		fi; \
 		BUILD_API=0; \
 		BUILD_WEB=0; \
+		BUILD_DASHBOARD=0; \
 		if [ -n "$$CHANGED_FILES" ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Changed files since last deploy commit:"; \
 			printf "%s\n" "$$CHANGED_FILES"; \
@@ -116,8 +125,10 @@ deploy:
 				case "$$FILE" in \
 					web/*|Dockerfile.web) \
 						BUILD_WEB=1 ;; \
+					dashboard/*|Dockerfile.dashboard) \
+						BUILD_DASHBOARD=1 ;; \
 					docker-compose.yml|docker-compose.dev.yml|Makefile) \
-						BUILD_API=1; BUILD_WEB=1 ;; \
+						BUILD_API=1; BUILD_WEB=1; BUILD_DASHBOARD=1 ;; \
 					.github/*|*.md|CLAUDE.md|AGENTS.md|.pre-commit-config.yaml) \
 						;; \
 					*) \
@@ -130,12 +141,11 @@ deploy:
 		SERVICES_TO_BUILD=""; \
 		if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD api"; fi; \
 		if [ "$$BUILD_WEB" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD web"; fi; \
+		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD dashboard"; fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."; \
 		mkdir -p data; \
 		chmod -R 755 data; \
 		chown -R 1000:1000 data; \
-		echo -e "$(GREEN)[INFO]$(NC) Running database migrations..."; \
-		uv run alembic upgrade head || { echo -e "$(RED)[ERROR]$(NC) Database migration failed!"; exit 1; }; \
 		if [ "$$BUILD_API" -eq 1 ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Tagging API image as previous..."; \
 			$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true; \
@@ -144,12 +154,22 @@ deploy:
 			echo -e "$(GREEN)[INFO]$(NC) Tagging web image as previous..."; \
 			$(CONTAINER_CMD) tag soda-web:latest soda-web:previous 2>/dev/null || true; \
 		fi; \
+		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then \
+			echo -e "$(GREEN)[INFO]$(NC) Tagging dashboard image as previous..."; \
+			$(CONTAINER_CMD) tag soda-dashboard:latest soda-dashboard:previous 2>/dev/null || true; \
+		fi; \
 		if [ -n "$$SERVICES_TO_BUILD" ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Building changed service images:$$SERVICES_TO_BUILD"; \
 			export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 			BUILDAH_LAYERS=true DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build $$SERVICES_TO_BUILD; \
-			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_BUILD"; \
-			$(COMPOSE_CMD) -f docker-compose.yml up -d $$SERVICES_TO_BUILD; \
+		fi; \
+		echo -e "$(GREEN)[INFO]$(NC) Running database migrations..."; \
+		uv run alembic upgrade head || { echo -e "$(RED)[ERROR]$(NC) Database migration failed!"; exit 1; }; \
+		if [ -n "$$SERVICES_TO_BUILD" ]; then \
+			SERVICES_TO_START="$$SERVICES_TO_BUILD"; \
+			if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_START="$$SERVICES_TO_START bot"; fi; \
+			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_START"; \
+			$(COMPOSE_CMD) -f docker-compose.yml up -d --remove-orphans $$SERVICES_TO_START; \
 		else \
 			echo -e "$(YELLOW)[WARNING]$(NC) No deploy-impacting service changes detected. Skipping build/restart."; \
 		fi; \
@@ -179,6 +199,9 @@ deploy:
 		fi; \
 		if [ "$$BUILD_WEB" -eq 1 ]; then \
 			wait_for_health soda-web 60; \
+		fi; \
+		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then \
+			wait_for_health soda-dashboard 60; \
 		fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Container status:"; \
 		$(COMPOSE_CMD) ps; \

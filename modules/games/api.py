@@ -1,20 +1,16 @@
 import json
-import os
 
 from flask import Blueprint, current_app, jsonify, request
 
-from core.logging_config import get_logger
+from core.db import db_connect as db
+from core.log import get_logger
 from modules.auth.access import any_officer_denial
-from shared import db_connect as db
 
-# Get module logger
+from . import service
+
 logger = get_logger("games.api")
 
 game_blueprint = Blueprint("game", __name__, template_folder=None, static_folder=None)
-# bot_running is a complex state now, depends on whether the auth_bot thread is alive and bot is logged in.
-# For simplicity, we remove direct start/stop/status from here or make them reflect Flask app state.
-# Let's assume for now these endpoints manage a conceptual bot state if needed by frontend,
-# but actual bot lifecycle is managed in main.py threads.
 
 logger.info("Bot API module initialized (game_blueprint)")
 
@@ -32,30 +28,6 @@ def require_officer():
 def game_index():
     logger.debug("Game API index endpoint called")
     return jsonify({"message": "game api for auth_bot"}), 200
-
-
-# Routes like /startbot, /stopbot, /botstatus are problematic as the bot runs in a separate thread.
-# comment them out for now as direct control from API is complex with new setup.
-
-# @game_blueprint.route("/botstatus", methods=["GET"])
-# def bot_status():
-#     # This would need to check health of the auth_bot_thread and auth_bot.is_ready()
-#     bot = current_app.auth_bot if hasattr(current_app, 'auth_bot') else None
-#     status = bot.is_ready() if bot else False
-#     logger.debug(f"Bot status requested, auth_bot ready: {status}")
-#     return jsonify({"status": status})
-
-# @game_blueprint.route("/startbot", methods=["POST"])
-# async def start_bot():
-#     # Bot is started in a dedicated thread by main.py, this endpoint is no longer suitable.
-#     logger.warning("Attempted to call /startbot, which is deprecated.")
-#     return jsonify({"message": "Bot is managed by the main application process.", "status": "managed"}), 403
-
-# @game_blueprint.route("/stopbot", methods=["POST"])
-# async def stop_bot():
-#     # Bot is stopped when main application process ends.
-#     logger.warning("Attempted to call /stopbot, which is deprecated.")
-#     return jsonify({"message": "Bot is managed by the main application process.", "status": "managed"}), 403
 
 
 @game_blueprint.route("/getavailablegames", methods=["GET"])
@@ -85,24 +57,7 @@ def get_game_data():
     file_name = request.args.get("file_name")
     logger.info(f"Getting game data for file: {file_name}")
     try:
-        if not file_name or not isinstance(file_name, str):
-            raise Exception("Missing or invalid file_name parameter")
-
-        # Only allow safe filenames: alphanumeric, dash, underscore
-        import re
-
-        SAFE_FILENAME_RE = r"^[\w\-]+$"
-        if not re.match(SAFE_FILENAME_RE, file_name):
-            raise Exception("Invalid file name")
-
-        base_dir = os.path.abspath("./data")
-        requested_path = os.path.abspath(os.path.join(base_dir, f"{file_name}.json"))
-        if not requested_path.startswith(base_dir + os.sep):
-            raise Exception("Attempted path traversal or invalid path")
-
-        with open(requested_path) as f:
-            game_data = json.load(f)
-        return jsonify(game_data)
+        return jsonify(service.read_game_file(file_name))
     except Exception as e:
         logger.error(f"Error retrieving game data: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
@@ -114,7 +69,6 @@ def start_game():
     logger.info(f"Starting game: {game_name}")
     try:
         db.get_game(game_name)  # type: ignore[attr-defined]
-        # Implement game start logic here
         return jsonify({"message": f"Game {game_name} started", "status": "success"}), 200
     except Exception as e:
         logger.error(f"Error starting game {game_name}: {str(e)}", exc_info=True)
@@ -125,34 +79,10 @@ def start_game():
 def stop_game():
     logger.info("Stopping current game")
     try:
-        # Implement game stop logic here
         return jsonify({"message": "Game stopped", "status": "success"}), 200
     except Exception as e:
         logger.error(f"Error stopping game: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 400
-
-
-def is_valid_game_json(data):
-    if "game" not in data or "questions" not in data:
-        return False
-    game_info = data["game"]
-    required_game_keys = {
-        "name",
-        "description",
-        "players",
-        "categories",
-        "per_category",
-        "teams",
-        "uuid",
-    }
-    if not all(key in game_info for key in required_game_keys):
-        return False
-    for _category, questions in data["questions"].items():
-        for question in questions:
-            required_question_keys = {"question", "answer", "value", "uuid"}
-            if not all(key in question for key in required_question_keys):
-                return False
-    return True
 
 
 @game_blueprint.route("/uploadgame", methods=["POST"])
@@ -171,7 +101,7 @@ def upload_game():
         # Read the file content first since FileStorage is not directly compatible with json.load
         file_content = file.read()
         game_data = json.loads(file_content.decode("utf-8"))
-        if not is_valid_game_json(game_data):
+        if not service.is_valid_game(game_data):
             logger.warning("Invalid game JSON format")
             return jsonify({"error": "Invalid game JSON format"}), 400
 
@@ -277,16 +207,13 @@ async def clean_active_game():
 
     logger.info("Cleaning active game via auth_bot")
     try:
-        # Assuming `clean_game` might be a direct method on the bot or a cog method
-        # If it's a cog method, need to get cog first.
-        # For now, assuming it's a method on a cog or bot that `execute` can handle if it were there.
-        # Let's assume it is on GameCog for consistency
+        # GameCog.clear_game, else a clean_game method on the bot
         cog = bot.get_cog("GameCog")  # type: ignore[attr-defined]
-        if cog and hasattr(cog, "clear_game"):  # clear_game seems more appropriate based on GameCog.py
+        if cog and hasattr(cog, "clear_game"):
             await cog.clear_game()
             logger.info("Active game cleaned successfully via GameCog")
             return jsonify({"message": "Active game cleaned successfully"}), 200
-        elif hasattr(bot, "clean_game"):  # Fallback if it was a direct bot method
+        elif hasattr(bot, "clean_game"):
             await bot.clean_game()  # type: ignore[attr-defined]
             logger.info("Active game cleaned successfully via bot.clean_game()")
             return jsonify({"message": "Active game cleaned successfully"}), 200
@@ -307,13 +234,11 @@ def get_active_game_state():
 
     logger.info("Getting active game state from auth_bot")
     try:
-        # Accessing bot.active_game directly is not safe if it's not a public/stable API of your BotFork or GameCog
-        # Prefer using a method from the cog if possible
+        # The state of GameCog.game, else of bot.active_game
         cog = bot.get_cog("GameCog")  # type: ignore[attr-defined]
         if cog and hasattr(cog, "game") and cog.game is not None and hasattr(cog.game, "get_state"):
             state = cog.game.get_state()
             return jsonify(state), 200
-        # Fallback for direct access if `active_game` was a custom attribute on your bot instance
         elif hasattr(bot, "active_game") and bot.active_game not in [None, ""]:
             return jsonify(bot.active_game.get_state()), 200  # type: ignore[attr-defined]
         else:

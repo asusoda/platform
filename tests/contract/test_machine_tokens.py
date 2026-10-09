@@ -13,7 +13,7 @@ def soda_id(client, officer_headers):
 
 
 def _issue(client, headers, org_id, **body):
-    payload = {"name": "sparky", "kind": "agent", "scopes": ["calendar:read"], **body}
+    payload = {"name": "club-agent", "kind": "agent", "scopes": ["calendar:read"], **body}
     return client.post(f"/api/organizations/{org_id}/tokens", json=payload, headers=headers)
 
 
@@ -34,7 +34,7 @@ def test_issue_list_whoami_revoke(client, officer_headers, soda_id):
     assert "calendar:read" in listing["scopes"]
 
     whoami = client.get("/api/auth/machine/whoami", headers=_bearer(token))
-    assert whoami.get_json() == {"org": "soda", "name": "sparky", "kind": "agent", "scopes": ["calendar:read"]}
+    assert whoami.get_json() == {"org": "soda", "name": "club-agent", "kind": "agent", "scopes": ["calendar:read"]}
 
     assert (
         client.delete(f"/api/organizations/{soda_id}/tokens/{body['id']}", headers=officer_headers).status_code == 200
@@ -43,8 +43,8 @@ def test_issue_list_whoami_revoke(client, officer_headers, soda_id):
 
 
 def test_only_the_hash_is_stored(client, officer_headers, soda_id):
+    from core.db import db_connect
     from modules.auth.models import MachineToken
-    from shared import db_connect
 
     token = _issue(client, officer_headers, soda_id).get_json()["token"]
     db = db_connect.SessionLocal()
@@ -64,8 +64,8 @@ def test_bad_requests_are_refused(client, officer_headers, soda_id, body):
 
 
 def test_expired_token_is_refused(client, officer_headers, soda_id):
+    from core.db import db_connect
     from modules.auth.models import MachineToken
-    from shared import db_connect
 
     body = _issue(client, officer_headers, soda_id, expires_days=1).get_json()
     db = db_connect.SessionLocal()
@@ -85,7 +85,7 @@ def test_machine_token_cannot_use_officer_routes(client, officer_headers, soda_i
 
 @pytest.fixture
 def scoped_app(app):
-    from modules.auth.decoraters import machine_scope_required
+    from modules.auth.decorators import machine_scope_required
 
     probe = Flask("probe")
 

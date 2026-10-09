@@ -8,7 +8,6 @@ services:
       - ./modules:/app/modules
       - ./core:/app/core
       - ./main.py:/app/main.py
-      - ./shared.py:/app/shared.py
     environment:
       - IS_PROD=false
       - LOG_FORMAT=text
@@ -18,7 +17,6 @@ services:
       - ./modules:/app/modules
       - ./core:/app/core
       - ./bot_main.py:/app/bot_main.py
-      - ./shared.py:/app/shared.py
     environment:
       - IS_PROD=false
       - LOG_FORMAT=text

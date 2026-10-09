@@ -10,7 +10,7 @@ from tests.contract.test_access import SUPERADMIN_ID, headers_for
 def entries(app):
     """Read audit rows written during the test."""
     from core.audit import AuditEntry
-    from shared import db_connect
+    from core.db import db_connect
 
     db = db_connect.SessionLocal()
     start = db.query(AuditEntry.id).order_by(AuditEntry.id.desc()).limit(1).scalar() or 0
@@ -76,8 +76,8 @@ def test_org_audit_shows_only_that_org(client, officer_headers, soda_id):
 
 
 def test_superadmin_audit_needs_the_superadmin(client, monkeypatch, app):
+    from core.config import config
     from modules.auth import access
-    from shared import config
     from tests.contract.test_access import ScopedBot
 
     access.clear_cache()
