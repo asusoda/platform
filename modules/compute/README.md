@@ -20,6 +20,7 @@ Runs GPU and CPU pods on an org's own RunPod account that members connect to ove
 - Routes: `/api/compute`, behind the `compute` switch. Officer routes need an officer of the org. Member routes need a Discord session or a CLI token with `compute:connect`.
 - Jobs: `compute.schedule`, schedule `*/5 * * * *`.
 - Tools: `compute.pods` and `compute.pod_action` (confirm), scope `compute:manage`. Tools marked confirm run only with `confirm=true`.
+- Webhook events: `pod.started` and `pod.stopped`, from `act()` and the session schedule. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `compute_pods`, `compute_keys`, `compute_sessions`.
 
 See [docs/modules/compute.md](../../docs/modules/compute.md) for setup, `COMPUTE_CLI_NAME`, `COMPUTE_POD_IMAGE`, the org default pod image and the pod image contract.

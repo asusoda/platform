@@ -24,6 +24,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 - Routes: `/api/knowledge`. Machine tokens only, with `knowledge:read` or `knowledge:write`. The officer routes for sources, crawls, uploads, settings, runs, packs and reindex are in `modules/dashboard/api.py`.
 - Jobs: `knowledge.crawl_due`, schedule `*/10 * * * *`; `knowledge.crawl_source` and `knowledge.reindex`, on request.
 - Tools: `knowledge.search`, `knowledge.sources`, `knowledge.packs`, `knowledge.settings`, `knowledge.runs` (scope `knowledge:read`); `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_pack`, `knowledge.update_settings`, `knowledge.reindex` (confirm) (scope `knowledge:write`). Tools marked confirm run only with `confirm=true`.
+- Webhook events: `knowledge.crawl_failed`, from `runs.record()`. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs`.
 
 See [docs/modules/knowledge.md](../../docs/modules/knowledge.md).

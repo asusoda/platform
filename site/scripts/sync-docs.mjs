@@ -37,6 +37,7 @@ const sections = {
       ['api-contract.md', 'api-contract'],
       ['operations.md', 'operations'],
       ['frontends.md', 'frontends'],
+      ['webhooks.md', 'webhooks'],
     ],
   },
   project: {

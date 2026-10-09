@@ -10,14 +10,14 @@ deployment healthy or failed. Each org pays with its own RunPod key, the org sec
 import datetime
 import json
 import re
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 import jsonschema
 import requests
 import yaml
 
-from core import secrets
+from core import secrets, webhooks
 from core.errors import ServiceError
 from core.integrations import github, registry, runpod
 from core.log import get_logger
@@ -36,6 +36,7 @@ secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named 
 scopes.declare("apps:read", "List apps on RunPod, their pods and deployments")
 scopes.declare("apps:manage", "Register app manifests and roll apps back")
 scopes.declare("apps:deploy", "Deploy a new image tag of an app")
+webhooks.declare("app.deployed", "App deploys", "An app deploy ends: healthy, or failed with the reason.")
 
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 TAG_PATTERN = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|sha256:[a-f0-9]{64})$")
@@ -101,6 +102,20 @@ MANIFEST_SCHEMA: dict = {
 
 class AppError(ServiceError, ValueError):
     pass
+
+
+def _announce(app: App, deployment: AppDeployment) -> None:
+    """Send the app.deployed webhook event for a deployment that ended."""
+    healthy = deployment.status == "healthy"
+    fields = [("Tag", str(deployment.tag)), ("By", str(deployment.actor or "-"))]
+    if not healthy:
+        fields.append(("Error", str(deployment.error or "-")))
+    message = webhooks.Message(
+        title=f"App {app.name} {'is healthy' if healthy else 'deploy failed'}",
+        fields=tuple(fields),
+        color=webhooks.GREEN if healthy else webhooks.RED,
+    )
+    webhooks.emit(cast(int, app.organization_id), "app.deployed", message)
 
 
 def client_for(db, org_id: int) -> runpod.RunPodClient:
@@ -351,6 +366,7 @@ def deploy(
         deployment.status, deployment.finished_at = "failed", utcnow()
         deployment.error = e.message if isinstance(e, runpod.RunPodError) else "RunPod returned no pod id"
         db.commit()
+        _announce(app, deployment)
         raise AppError(f"Deploy failed: {deployment.error}", 502) from e
     app.current_tag, app.updated_at = tag, utcnow()
     db.commit()
@@ -384,17 +400,22 @@ def check_deployments(db, now: datetime.datetime | None = None) -> dict:
     """Mark running deployments healthy when their health path answers, failed after HEALTH_TIMEOUT. Commits."""
     now = now or utcnow()
     counts = {"healthy": 0, "failed": 0, "waiting": 0}
+    ended = []
     running = db.query(AppDeployment, App).join(App, App.id == AppDeployment.app_id)
     for deployment, app in running.filter(AppDeployment.status == "deploying").all():
         health = _manifest(app)["health"]
         if app.pod_id and _healthy(runpod.proxy_url(str(app.pod_id), health["port"], health["path"])):
             deployment.status, deployment.finished_at = "healthy", now
             counts["healthy"] += 1
+            ended.append((app, deployment))
         elif deployment.started_at <= now - HEALTH_TIMEOUT:
             deployment.status, deployment.finished_at = "failed", now
             deployment.error = "The health path did not answer in time"
             counts["failed"] += 1
+            ended.append((app, deployment))
         else:
             counts["waiting"] += 1
     db.commit()
+    for app, deployment in ended:
+        _announce(app, deployment)
     return counts

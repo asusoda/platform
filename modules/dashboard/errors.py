@@ -1,21 +1,19 @@
-"""The error log for officers: the org's errors, resolve and reopen, dashboard reports, and Discord alerts.
+"""The error log for officers: the org's errors, resolve and reopen, dashboard reports, and alerts.
 
 core/error_log.py stores the errors. setup() installs its handler in a process and adds the org lookup and
-the Discord alert. A new error group, or a resolved one that comes back, posts one message to the org's
-webhook (org secret error_webhook_url) and to ERROR_WEBHOOK_URL from .env, at most ALERTS_PER_HOUR per
-process. No Flask here.
+the alert. A new error group, or a resolved one that comes back, sends the errors webhook event to the org's
+webhooks (core/webhooks.py), and posts to ERROR_WEBHOOK_URL from .env, at most ALERTS_PER_HOUR per process.
+No Flask here.
 """
 
 import os
-import re
 import threading
 import time
 from typing import cast
 
-import requests
 from sqlalchemy import or_
 
-from core import error_log, secrets
+from core import error_log, webhooks
 from core.db import session
 from core.errors import ServiceError
 from core.log import get_logger
@@ -23,13 +21,14 @@ from modules.organizations.models import Organization
 
 logger = get_logger("error_alerts")
 
-WEBHOOK_SECRET = "error_webhook_url"  # nosec B105 - the name of an org secret, not its value
-WEBHOOK_PATTERN = re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$")
 ALERTS_PER_HOUR = 30
 MAX_REPORT_FIELD = 5000
-LEVEL_COLOR = 0xE5484D
 
-secrets.declare(WEBHOOK_SECRET, "Discord webhook URL that gets a message for each new error")
+webhooks.declare(
+    "errors",
+    "Errors",
+    "A new error, or a resolved error that comes back. At most 30 messages an hour.",
+)
 
 _sent: list[float] = []
 _sent_lock = threading.Lock()
@@ -58,47 +57,27 @@ def _allow_alert() -> bool:
         return True
 
 
-def _message(group: dict) -> dict:
+def _message(group: dict) -> webhooks.Message:
     where = " · ".join(p for p in (group["source"], group.get("org"), group.get("route") or group.get("location")) if p)
-    return {
-        "embeds": [
-            {
-                "title": f"{group['kind']}"[:256],
-                "description": f"{group['message']}"[:1500],
-                "color": LEVEL_COLOR,
-                "footer": {"text": f"{where}"[:2048]},
-            }
-        ],
-        "allowed_mentions": {"parse": []},
-    }
-
-
-def _post(url: str, payload: dict) -> None:
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        if response.status_code >= 400:
-            logger.warning("error alert refused status=%s", response.status_code)
-    except requests.RequestException:
-        logger.warning("error alert could not reach Discord")
+    return webhooks.Message(
+        title=str(group["kind"]), text=str(group["message"]), color=webhooks.RED, footer=where or None
+    )
 
 
 def _alert(group: dict) -> None:
-    """Post a new or returning error group to the Discord webhooks, in a background thread."""
-    urls = []
+    """Send a new or returning error group to the org's webhooks and to ERROR_WEBHOOK_URL, in the background."""
+    message = _message(group)
     if group.get("org"):
-        with session() as db:
-            org = db.query(Organization).filter(Organization.prefix == group["org"]).first()
-            if org is not None:
-                url = secrets.get_secret(db, cast(int, org.id), WEBHOOK_SECRET)
-                if url:
-                    urls.append(url)
-    if os.environ.get("ERROR_WEBHOOK_URL"):
-        urls.append(os.environ["ERROR_WEBHOOK_URL"])
-    if not urls or not _allow_alert():
-        return
-    payload = _message(group)
-    for url in dict.fromkeys(urls):
-        threading.Thread(target=_post, args=(url, payload), daemon=True).start()
+        webhooks.emit(group["org"], "errors", message)
+    url = os.environ.get("ERROR_WEBHOOK_URL")
+    if url and _allow_alert():
+        webhooks.spawn(_post_server, url, message)
+
+
+def _post_server(url: str, message: webhooks.Message) -> None:
+    error = webhooks.post("discord", url, message)
+    if error:
+        logger.warning("error alert to ERROR_WEBHOOK_URL failed: %s", error)
 
 
 def setup(source: str) -> None:
@@ -116,8 +95,14 @@ def listing(db, org: Organization, status: str = "open", limit: int = 50) -> dic
     return {
         "errors": error_log.list_groups(db, org=prefix, status=status, limit=limit),
         **error_log.counts(db, org=prefix),
-        "webhook_set": bool(secrets.get_secret(db, cast(int, org.id), WEBHOOK_SECRET)),
+        "webhook_set": _sends_errors(db, cast(int, org.id)),
     }
+
+
+def _sends_errors(db, org_id: int) -> bool:
+    """True when an enabled webhook of the org takes the errors event."""
+    rows = db.query(webhooks.Webhook).filter_by(organization_id=org_id, enabled=True).all()
+    return any("errors" in (row.events or []) for row in rows)
 
 
 def _ids(value: object) -> list[int]:
@@ -156,19 +141,3 @@ def report(org: Organization, body: object) -> dict:
         group_key=cast(str, fields["message"])[:200],
     )
     return {"recorded": True}
-
-
-def set_webhook(db, org: Organization, url: object, actor: str | None) -> dict:
-    """Set or clear the org's error alert webhook. The URL is never returned."""
-    if url is not None and (not isinstance(url, str) or not WEBHOOK_PATTERN.match(url)):
-        raise ErrorLogError("Use a Discord webhook URL: https://discord.com/api/webhooks/...")
-    org_id = cast(int, org.id)
-    if url is None:
-        secrets.delete_secret(db, org_id, WEBHOOK_SECRET)
-        db.commit()
-        return {"webhook_set": False}
-    try:
-        secrets.set_secret(db, org_id, WEBHOOK_SECRET, url, updated_by=actor)
-    except secrets.SecretsError as e:
-        raise ErrorLogError(str(e)) from e
-    return {"webhook_set": True}

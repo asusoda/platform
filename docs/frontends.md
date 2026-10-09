@@ -8,7 +8,7 @@ Platform has one frontend, `dashboard/`. Officers use it to see and control what
 
 The sidebar puts the pages in sections: Members (Points, Store), Automations, Knowledge and MCP (Knowledge, MCP), and Infrastructure (Compute, Apps, Tokens). Automations has a group for each kind:
 
-- Webhooks: Alerts.
+- Webhooks: Webhooks, Alerts.
 - Scheduled jobs: Calendar sync.
 - Bots: LeetCode.
 
@@ -32,12 +32,13 @@ Lists that can be long (knowledge sources, points members and events, knowledge 
 | Calendar sync | The Notion database and Google calendar settings, sync on or off, sync now, create the Google calendar, and the upcoming events |
 | LeetCode | The daily post settings (channel, role to ping, time) and the slash commands members use |
 | Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
+| Webhooks | The org's outbound webhooks: add, edit, turn on or off, send test, delete. Each has a name, a destination (Discord), the events it sends and the result of its last message. The alert feeds show below with a link to Alerts. See [webhooks.md](./webhooks.md) |
 | Alerts | Feeds: create, pause, run now, delete, and the history of each feed: its last 50 runs with counts and errors, and its last 50 items |
 | Apps | The org's bots, agents, sites and services, grouped by kind, with the host of each: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
 | Knowledge | Source packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
 | MCP | How to connect an agent to the MCP server, agent tokens, linked accounts, and conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
-| Activity | Four tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists; Errors, the org's errors from the error log with Resolve, Reopen, the stack trace and the Discord alert webhook |
+| Activity | Four tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists; Errors, the org's errors from the error log with Resolve, Reopen and the stack trace. Activity only shows data: webhooks are on the Webhooks page |
 | Settings | General, branding, module switches and org secrets |
 | Superadmin | Orgs, officer roles, Discord servers without an org, the audit log of all orgs, and the errors of every org and of the server. Only the superadmin sees it |
 
@@ -50,6 +51,7 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `GET /api/dashboard/<org>/ci` | The latest runs for each listed repo, kept in a cache for 120 seconds |
 | `PUT /api/dashboard/<org>/ci/repos` | Sets the repo list: `{"repos": ["owner/name"]}`, 20 or fewer |
 | `GET`, `PUT /api/dashboard/<org>/branding` | Gets or sets `logo_url` (https), `accent_color` (`#RRGGBB`) and `website_url` (https). An empty string or null removes a value |
+| `/api/dashboard/<org>/webhooks/...` | List, add, change, delete and test outbound webhooks. See [webhooks.md](./webhooks.md) |
 | `/api/dashboard/<org>/apps/...` | List, register, delete, deploy and roll back apps, and read the pod. The same operations as `/api/apps` in [runpod-apps](modules/runpod-apps.md), for officers |
 | `/api/dashboard/<org>/knowledge/...` | List and delete sources, upload documents, add and run crawls, read and set the search settings, start a reindex, read the run log, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
 

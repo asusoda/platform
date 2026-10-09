@@ -1,13 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bug, CheckCheck } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { ErrorList } from '../../components/error-list';
-import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, Field, Input, Select, SkeletonRows } from '../../components/ui';
-import { send } from '../../lib/api';
+import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, Select, SkeletonRows } from '../../components/ui';
 import { useCurrentOrg } from '../../lib/org';
 import { type ErrorStatus, useErrorChange, useErrors } from '../../lib/queries';
 
-// The org's errors from the Platform error log, and the Discord webhook for new ones. Shown on the Activity page.
+// The org's errors from the Platform error log. Shown on the Activity page. The Webhooks page sets where new errors go.
 export function ErrorsTab() {
   const { prefix } = useCurrentOrg();
   const [status, setStatus] = useState<ErrorStatus>('open');
@@ -61,59 +60,12 @@ export function ErrorsTab() {
           </EmptyState>
         )}
       </Card>
-      <WebhookCard set={Boolean(list.data?.webhook_set)} />
+      <p className="text-xs text-muted">
+        {list.data?.webhook_set ? 'A webhook sends new errors to a channel.' : 'No webhook sends errors to a channel.'}{' '}
+        <Link to={`/${prefix}/webhooks`} className="text-fg underline-offset-2 hover:underline">
+          Set webhooks
+        </Link>
+      </p>
     </div>
-  );
-}
-
-function WebhookCard({ set }: { set: boolean }) {
-  const { prefix } = useCurrentOrg();
-  const client = useQueryClient();
-  const [url, setUrl] = useState('');
-  const save = useMutation({
-    mutationFn: (value: string | null) => send(`/api/dashboard/${prefix}/errors/webhook`, 'PUT', { url: value }),
-    onSuccess: () => {
-      setUrl('');
-      client.invalidateQueries({ queryKey: ['errors', prefix] });
-    },
-  });
-  return (
-    <Card>
-      <CardHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            Discord alerts {set ? <Badge tone="ok">On</Badge> : <Badge tone="muted">Off</Badge>}
-          </span>
-        }
-        hint="Each new error, and each resolved error that comes back, posts one message to this channel."
-      />
-      <form
-        className="space-y-4 p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate(url.trim());
-        }}
-      >
-        <Field label="Discord webhook URL" hint="Channel settings > Integrations > Webhooks. The URL is stored encrypted and never shown again.">
-          <Input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={set ? 'Saved. Paste a new URL to replace it.' : 'https://discord.com/api/webhooks/...'}
-          />
-        </Field>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="primary" disabled={save.isPending || !url.trim()}>
-            Save
-          </Button>
-          {set ? (
-            <Button type="button" variant="ghost" disabled={save.isPending} onClick={() => save.mutate(null)}>
-              Turn off
-            </Button>
-          ) : null}
-          {save.error ? <ErrorNote error={save.error} /> : null}
-        </div>
-      </form>
-    </Card>
   );
 }
