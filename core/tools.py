@@ -55,10 +55,13 @@ def tool(
     """Register a tool. The function is called as func(db, org, caller, **arguments), without confirm."""
 
     def register(func: Callable[..., Any]) -> Callable[..., Any]:
-        schema = input_schema or {"type": "object", "properties": {}}
+        schema: dict[str, Any] = input_schema or {"type": "object", "properties": {}}
         text = description
         if confirm:
-            schema = {**schema, "properties": {**schema.get("properties", {}), "confirm": {"type": "boolean"}}}
+            current = schema.get("properties")
+            properties: dict[str, Any] = {**current} if isinstance(current, dict) else {}
+            properties["confirm"] = {"type": "boolean"}
+            schema = {**schema, "properties": properties}
             text += CONFIRM_NOTE
         TOOLS[name] = ToolSpec(name, text, scope, func, module, schema, confirm, preview)
         return func
