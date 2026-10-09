@@ -25,6 +25,7 @@ import { CalendarPage } from './calendar';
 import { HostingPage } from './hosting';
 import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
+import { KnowledgeSourcePage } from './knowledge/source';
 import { LeetCodePage } from './leetcode';
 import { McpPage } from './mcp';
 import { NotificationsPage } from './notifications';
@@ -73,6 +74,8 @@ export type PageEntry = {
   gate?: boolean;
   // Only the superadmin sees the page in the sidebar.
   superadmin?: boolean;
+  // The page has no sidebar item. Links on another page open it. The first part of path selects the sidebar item.
+  hidden?: boolean;
   page: ComponentType;
 };
 
@@ -87,6 +90,7 @@ export const PAGES: PageEntry[] = [
   { path: 'calendar', label: 'Calendar sync', icon: CalendarDays, section: 'automations', group: 'scheduled', module: 'calendar', gate: true, page: CalendarPage },
   { path: 'leetcode', label: 'LeetCode', icon: CodeXml, section: 'automations', group: 'bots', module: 'leetcode', gate: true, page: LeetCodePage },
   { path: 'knowledge', label: 'Knowledge', icon: Database, section: 'knowledge', page: KnowledgePage },
+  { path: 'knowledge/sources/*', label: 'Knowledge source', icon: Database, section: 'knowledge', hidden: true, page: KnowledgeSourcePage },
   { path: 'mcp', label: 'MCP', icon: Cable, section: 'knowledge', page: McpPage },
   { path: 'hosting', label: 'Hosting', icon: Server, section: 'infrastructure', module: ['runpod', 'compute'], page: HostingPage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },

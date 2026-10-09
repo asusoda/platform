@@ -513,6 +513,24 @@ export function fixtures(now = Date.now()) {
     ],
   };
 
+  // The full text of club/build-nights, as the source page reads it, with the first search result marked.
+  const buildNightsText = {
+    source: { ...sources[0], content_hash: 'b1d5e0', version_id: 'v1', own: true, text_chars: 2140 },
+    passages: [
+      ['p0', '# Build nights'],
+      ['p1', 'Build nights are open shop hours for every member. Sub-teams use them to build, test and fix the robot between competitions.'],
+      ['c1', 'Build nights run every Tuesday and Thursday from 6 to 9 pm in the engineering shop, room 120. Bring safety glasses; the club has spares at the door.'],
+      ['p3', '## What to bring\nA laptop with the team repository cloned.\nClosed-toe shoes. The shop does not admit sandals.\nYour shop badge, if you have one.'],
+      ['p4', '## First visit\nNew members pair with a sub-team lead for their first three sessions. The lead shows the tools, the parts shelves and the sign-out sheet.'],
+      ['p5', '## Power tools\nOnly members with the shop safety sign-off use the drill press, the band saw and the mill. Ask a lead to book the sign-off.'],
+      ['p6', 'Parking: lot 59 is free after 5 pm. The shop door locks at 9:15 pm.'],
+    ].map(([id, text], ordinal) => ({ id, ordinal, text })),
+    focus: ['c1'],
+    offset: 0,
+    next_offset: null,
+    total: 7,
+  };
+
   const overview = {
     organization: { id: ORG.id, name: ORG.name, prefix: ORG.prefix, branding: BRANDING },
     modules: MODULES,
@@ -1053,6 +1071,7 @@ export function fixtures(now = Date.now()) {
     },
     [`/api/dashboard/${ORG.prefix}/knowledge/sources`]: { sources, can_publish: false },
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
+    [`/api/dashboard/${ORG.prefix}/knowledge/sources/club/build-nights`]: buildNightsText,
     [`/api/dashboard/${ORG.prefix}/knowledge/settings`]: knowledgeSettings,
     [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs: knowledgeRuns },
     [`/api/dashboard/${ORG.prefix}/trends`]: trends(now),

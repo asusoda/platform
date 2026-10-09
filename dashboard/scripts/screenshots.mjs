@@ -1,6 +1,7 @@
 // Takes screenshots of the built dashboard for the site, with every API call answered from fixtures.mjs.
 // Run with npm run screenshots. Needs Playwright with Chromium: a global install, or npm i --no-save playwright.
 // PLAYWRIGHT_CHROMIUM sets the Chromium binary when the installed browser does not match the Playwright version.
+// SCREENS takes a comma-separated list of screen names to take only those.
 
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -35,7 +36,19 @@ const SCREENS = [
   },
   { name: 'settings', path: 'settings' },
   { name: 'webhooks', path: 'webhooks' },
+  {
+    name: 'knowledge-search',
+    path: 'knowledge',
+    before: async (page) => {
+      await page.getByLabel('Search query').fill('When are build nights?');
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByText('Full text').first().scrollIntoViewIfNeeded();
+    },
+  },
+  { name: 'knowledge-source', path: 'knowledge/sources/club/build-nights?chunk=c1' },
 ];
+
+const only = process.env.SCREENS?.split(',').filter(Boolean);
 
 async function loadPlaywright() {
   try {
@@ -73,7 +86,7 @@ async function main() {
         return route.fulfill({ status: 200, json: body });
       });
       const page = await context.newPage();
-      for (const screen of SCREENS) {
+      for (const screen of SCREENS.filter((s) => !only?.length || only.includes(s.name))) {
         await page.goto(`${base}/${ORG.prefix}${screen.path ? `/${screen.path}` : ''}`);
         await page.waitForLoadState('networkidle');
         if (screen.before) await screen.before(page);
