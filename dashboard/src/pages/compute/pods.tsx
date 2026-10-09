@@ -31,8 +31,8 @@ import {
   statusTone,
   usePodAction,
   useRefreshCompute,
-  UsersEditor,
 } from './shared';
+import { UsersEditor } from './members';
 
 export type PodDialog = { kind: 'access' | 'sessions' | 'files' | 'terminate'; pod: Pod };
 
