@@ -33,9 +33,9 @@ registry.use("runpod", "runpod")
 registry.use("github", "runpod")
 secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named in its manifest's secret_env")
 
-scopes.declare("apps:read", "List apps on RunPod, their pods and deployments")
-scopes.declare("apps:manage", "Register app manifests and roll apps back")
-scopes.declare("apps:deploy", "Deploy a new image tag of an app")
+scopes.declare("apps:read", "List apps on RunPod, their pods and deployments", uses=("runpod",))
+scopes.declare("apps:manage", "Register app manifests and roll apps back", uses=("runpod", "github"))
+scopes.declare("apps:deploy", "Deploy a new image tag of an app", uses=("runpod",))
 webhooks.declare("app.deployed", "App deploys", "An app deploy ends: healthy, or failed with the reason.")
 
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")

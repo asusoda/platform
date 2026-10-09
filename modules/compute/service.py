@@ -31,7 +31,9 @@ USER_CA_KEY = "user_ca"
 POD_ENV_PREFIX = "GODFATHER_"
 DEFAULT_GPU = "NVIDIA RTX A4000"
 DEFAULT_CPU_FLAVOR = "cpu3c"
-scopes.declare("compute:manage", "List the org's compute pods and start, stop, restart or terminate them")
+scopes.declare(
+    "compute:manage", "List the org's compute pods and start, stop, restart or terminate them", uses=("runpod",)
+)
 webhooks.declare(
     "pod.started", "Pods started", "A pod starts or restarts, by an officer, a tool or its schedule.", "compute"
 )

@@ -23,6 +23,14 @@ const SCREENS = [
   { name: 'overview', path: '' },
   { name: 'hosting', path: 'hosting?tab=pods' },
   {
+    name: 'tokens-scopes',
+    path: 'tokens',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'New token' }).click();
+      await page.getByLabel('knowledge:read').check();
+    },
+  },
+  {
     name: 'tokens',
     path: 'tokens',
     before: async (page) => {

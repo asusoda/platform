@@ -10,7 +10,9 @@ import datetime
 from modules.auth import machine_tokens, scopes
 from modules.auth.models import MachineToken
 
-scopes.declare("compute:connect", "List the compute pods shared with a member and connect to them (compute CLI)")
+scopes.declare(
+    "compute:connect", "List the compute pods shared with a member and connect to them (compute CLI)", uses=("runpod",)
+)
 
 SCOPE = "compute:connect"
 KIND = "cli"

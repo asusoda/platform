@@ -26,11 +26,43 @@ const SCOPES = {
   'points:read': "Read the org's points leaderboard (names and totals, no emails or student IDs)",
   'apps:read': 'List apps on RunPod, their pods and deployments',
   'apps:deploy': 'Deploy a new image tag of an app',
+  'apps:manage': 'Register app manifests and roll apps back',
+  'compute:manage': "List the org's compute pods and start, stop, restart or terminate them",
+  'org:read': "Read the org's name, description and enabled modules",
   'github:read': "Read the org's GitHub repos, issues, pull requests and Actions runs",
   'github:write': 'Create and change issues, pull requests, comments and files on GitHub (with confirm)',
 };
 
-const INTEGRATIONS = [{ key: 'github', title: 'GitHub', connected: true, scopes: ['github:read', 'github:write'], limits: ['repos', 'tools'] }];
+const INTEGRATIONS = [
+  { key: 'discord', title: 'Discord', connected: true, scopes: [], through: [], limits: [] },
+  {
+    key: 'embeddings',
+    title: 'Embeddings',
+    connected: true,
+    scopes: [],
+    through: ['agents:read', 'agents:write', 'knowledge:read', 'knowledge:write'],
+    limits: [],
+  },
+  { key: 'firecrawl', title: 'Firecrawl', connected: false, scopes: [], through: ['knowledge:write'], limits: [] },
+  { key: 'github', title: 'GitHub', connected: true, scopes: ['github:read', 'github:write'], through: ['apps:manage'], limits: ['repos', 'tools'] },
+  { key: 'google', title: 'Google', connected: false, scopes: [], through: [], limits: [] },
+  { key: 'notion', title: 'Notion', connected: true, scopes: [], through: ['calendar:read'], limits: [] },
+  { key: 'openrouter', title: 'OpenRouter', connected: true, scopes: [], through: [], limits: [] },
+  { key: 'runpod', title: 'RunPod', connected: true, scopes: [], through: ['apps:deploy', 'apps:manage', 'apps:read', 'compute:manage'], limits: [] },
+  { key: 'searxng', title: 'SearXNG', connected: false, scopes: [], through: ['knowledge:read'], limits: [] },
+];
+
+const SCOPE_USES = {
+  'agents:read': ['embeddings'],
+  'agents:write': ['embeddings'],
+  'knowledge:read': ['embeddings', 'searxng'],
+  'knowledge:write': ['embeddings', 'firecrawl'],
+  'calendar:read': ['notion'],
+  'apps:read': ['runpod'],
+  'apps:manage': ['runpod', 'github'],
+  'apps:deploy': ['runpod'],
+  'compute:manage': ['runpod'],
+};
 
 // All responses, with times relative to now so the dashboard shows "2h ago" and "in 3d".
 // 30 days of made-up daily counts. Weekdays are busier, and a few days have failures.
@@ -1047,7 +1079,7 @@ export function fixtures(now = Date.now()) {
         },
       ],
     },
-    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS },
+    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS, uses: SCOPE_USES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },
