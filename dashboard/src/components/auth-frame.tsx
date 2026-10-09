@@ -1,13 +1,13 @@
 import { ArrowUpRight, BookOpen, Info } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ABOUT_URL, builtByLabel, DOCS_URL, REPO_URL } from '../lib/links';
+import { ABOUT_URL, builtByLabel, DOCS_URL, SOURCE_URL } from '../lib/links';
 import { GitHubIcon } from './brand-icons';
 import { Logo } from './logo';
 import { OrgMarks } from './built-by';
 
 const LINKS = [
   { label: 'Docs', href: DOCS_URL, icon: BookOpen },
-  { label: 'GitHub', href: REPO_URL, icon: GitHubIcon },
+  { label: 'GitHub', href: SOURCE_URL, icon: GitHubIcon },
   { label: 'What is this?', href: ABOUT_URL, icon: Info },
 ];
 

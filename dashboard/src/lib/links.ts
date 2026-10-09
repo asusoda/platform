@@ -1,5 +1,9 @@
 // Links to the Platform repo, its docs and its landing page.
 
+// The original repo of Platform, by SoDA. LICENSE clause 4b requires a link to it.
+export const SOURCE_URL = 'https://github.com/asusoda/platform';
+
+// The repo that holds these docs and packs.
 export const REPO_URL = 'https://github.com/theaisocietyasu/bedrock';
 
 // The URL of the site/ deployment. Without it, the links go to the docs and README in the repo.
