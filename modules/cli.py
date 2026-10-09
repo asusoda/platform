@@ -1,6 +1,6 @@
 """Command-line tools: `flask --app main <group> <command>`.
 
-org create     create an organization, optionally with modules turned off
+org create     create an organization with the modules of a new org, optionally with more turned on or off
 org list       list organizations and their module switches
 org modules    turn modules on or off for an organization
 jobs list      list registered jobs
@@ -14,6 +14,9 @@ import click
 from flask import Flask
 from flask.cli import AppGroup
 
+from core.config import config
+from core.db import db_connect
+
 org_cli = AppGroup("org", help="Organizations.")
 jobs_cli = AppGroup("jobs", help="Background jobs.")
 config_cli = AppGroup("config", help="Configuration.")
@@ -23,24 +26,19 @@ def _csv(value: str | None) -> tuple[str, ...]:
     return tuple(part.strip() for part in (value or "").split(",") if part.strip())
 
 
-def _session():
-    from shared import db_connect
-
-    return db_connect.SessionLocal()
-
-
 @org_cli.command("create")
 @click.option("--name", required=True)
-@click.option("--prefix", required=True, help="URL prefix, e.g. ais")
+@click.option("--prefix", required=True, help="URL prefix, e.g. acm")
 @click.option("--guild-id", required=True, help="Discord server id")
 @click.option("--officer-role-id", default=None, help="Discord role id that marks officers")
 @click.option("--description", default=None)
+@click.option("--on", "modules_on", default="", help="Optional modules to turn on, comma-separated")
 @click.option("--off", "modules_off", default="", help="Optional modules to turn off, comma-separated")
-def org_create(name, prefix, guild_id, officer_role_id, description, modules_off):
-    """Create an organization."""
+def org_create(name, prefix, guild_id, officer_role_id, description, modules_on, modules_off):
+    """Create an organization. Optional modules start off, except those in NEW_ORG_MODULES."""
     from modules.organizations import service
 
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         org = service.create_organization(
             db,
@@ -49,6 +47,7 @@ def org_create(name, prefix, guild_id, officer_role_id, description, modules_off
             guild_id=guild_id,
             officer_role_id=officer_role_id,
             description=description,
+            modules_on=_csv(modules_on),
             modules_off=_csv(modules_off),
         )
         click.echo(f"Created {org.name} (id {org.id}, prefix {org.prefix})")
@@ -71,7 +70,7 @@ def org_list():
     """List organizations."""
     from modules.organizations.models import Organization
 
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         for org in db.query(Organization).order_by(Organization.id).all():
             status = "active" if org.is_active else "inactive"
@@ -89,7 +88,7 @@ def org_modules(prefix, modules_on, modules_off):
     """Show or change an organization's module switches."""
     from modules.organizations import service
 
-    db = _session()
+    db = db_connect.SessionLocal()
     try:
         org = service.find_by_prefix(db, prefix)
         if org is None:
@@ -141,8 +140,6 @@ def jobs_run(name, args):
 @config_cli.command("check")
 def config_check():
     """Check settings, the database and migrations. Exits non-zero on a failure."""
-    from shared import config
-
     failures = 0
 
     def report(level: str, message: str) -> None:
@@ -153,6 +150,7 @@ def config_check():
 
     for var in ("BOT_TOKEN", "CLIENT_ID", "CLIENT_SECRET", "SYS_ADMIN"):
         report("ok" if os.environ.get(var) else "FAIL", f"{var} {'set' if os.environ.get(var) else 'missing'}")
+    _check_discord(report)
     if not (os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY")):
         report("WARN", "FLASK_SECRET_KEY missing: sessions end on every restart")
     for var, feature in (
@@ -183,13 +181,29 @@ def config_check():
     click.echo("All required checks passed")
 
 
+def _check_discord(report) -> None:
+    """Name the Discord app of BOT_TOKEN, and fail when CLIENT_ID is from another app."""
+    from core.integrations.discord import DiscordDirectory, DiscordUnavailable
+
+    if not config.BOT_TOKEN:
+        return
+    try:
+        who = DiscordDirectory(config.BOT_TOKEN).identity()
+    except DiscordUnavailable as e:
+        report("FAIL", f"BOT_TOKEN refused by Discord: {e}")
+        return
+    report("ok", f"Discord bot {who['bot_name']} of app {who['app_name']} ({who['app_id']})")
+    client_id = os.environ.get("CLIENT_ID")
+    if client_id and client_id != who["app_id"]:
+        report("FAIL", f"CLIENT_ID {client_id} is from another Discord app than BOT_TOKEN ({who['app_id']})")
+
+
 def _check_database(report) -> None:
     from alembic.config import Config
     from alembic.runtime.migration import MigrationContext
     from alembic.script import ScriptDirectory
 
     from core import jobs
-    from shared import db_connect
 
     try:
         with db_connect.engine.connect() as conn:

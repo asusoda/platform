@@ -2,9 +2,24 @@ import random
 
 import discord
 from discord.ext import commands
+from sqlalchemy.exc import SQLAlchemyError
 
-from modules.games.jeopardy.Jeopardy import JeopardyGame
+from core.db import db_connect
+from modules.games.jeopardy.game import JeopardyGame
 from modules.games.ui import QuestionPost
+
+
+def server_name(guild: discord.Guild) -> str:
+    """The name of the organization on this Discord server, or the server's own name."""
+    from modules.organizations.service import name_for_guild
+
+    db = db_connect.SessionLocal()
+    try:
+        return name_for_guild(db, guild.id) or guild.name
+    except SQLAlchemyError:
+        return guild.name
+    finally:
+        db.close()
 
 
 class GameCog(commands.Cog):
@@ -93,7 +108,6 @@ class GameCog(commands.Cog):
         await self.bot.execute("HelperCog", "delete_text_channel", self.announcement_channel)
         await self.bot.execute("HelperCog", "delete_text_channel", self.scoreboard_channel)
 
-        # Resetting attributes
         self.roles = []
         self.voice_channels = []
         self.game_category = None
@@ -157,7 +171,6 @@ class GameCog(commands.Cog):
         if team_count == 0:
             raise ValueError("No teams are set up in the game.")
 
-        # Clear current members from each team
         for team in self.game.teams:
             team.members.clear()
 
@@ -213,7 +226,7 @@ class GameCog(commands.Cog):
         )
         embed.add_field(name="Date", value=self.date or "TBD", inline=False)
         embed.add_field(name="Time", value=self.time or "TBD", inline=False)
-        embed.add_field(name="Location", value="The SoDA Discord Server", inline=False)
+        embed.add_field(name="Location", value=f"The {server_name(self.guild)} Discord Server", inline=False)
         embed.add_field(name="How to Enroll?", value="React with ✅.", inline=False)
         embed.set_footer(text="React with ✅ to enroll!")
         message = await self.announcement_channel.send(embed=embed)

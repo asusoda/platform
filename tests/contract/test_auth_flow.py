@@ -11,7 +11,7 @@ class LoginBot:
     def is_ready(self):
         return True
 
-    def check_officer(self, user_id, superadmin_user_id):
+    def officer_guilds(self, user_id, org_roles):
         return [1001] if str(user_id) == OFFICER_DISCORD_ID else []
 
     def get_display_name(self, guild_id, user_id):
@@ -28,8 +28,8 @@ class FakeResponse:
 
 @pytest.fixture
 def enforce(monkeypatch):
+    from core.config import config
     from modules.auth import access
-    from shared import config
 
     access.clear_cache()
     monkeypatch.setattr(config, "ACCESS_ENFORCE", True)
@@ -89,3 +89,16 @@ def test_game_controls_need_an_officer(client, app, monkeypatch, officer_headers
     assert client.post("/api/bot/awardpoints?team=a&points=5").status_code == 401
     assert client.get("/api/calendar/debug/organizations").status_code == 401
     assert client.get("/api/bot/", headers=officer_headers).status_code == 200
+
+
+def test_login_started_from_the_dashboard_returns_there(client, discord, monkeypatch):
+    from core.config import config
+
+    monkeypatch.setattr(config, "DASHBOARD_URL", "https://dash.example.org")
+    state = _query(client.get("/api/auth/login?client=dashboard"))["state"][0]
+    response = client.get(f"/api/auth/callback?code=abc&state={state}")
+    assert response.headers["Location"].startswith("https://dash.example.org/auth/?code=")
+
+    state = _query(client.get("/api/auth/login"))["state"][0]
+    response = client.get(f"/api/auth/callback?code=abc&state={state}")
+    assert response.headers["Location"].startswith(f"{config.CLIENT_URL}/auth/?code=")

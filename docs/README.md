@@ -1,63 +1,46 @@
-# SoDA Platform — Documentation
+# Platform documentation
 
-This folder is the knowledge-transfer pack for the SoDA Platform codebase. It is written for
-someone who has never seen this repo before. Read the pages in order the first time; after that,
-use it as a reference.
+Platform is shared infrastructure for student orgs. One deployment serves many orgs. Each org is a Discord server and turns on only the modules it uses.
 
-## What this project is, in one paragraph
+## Pages
 
-The Software Developers Association (SoDA) at ASU runs its club operations on this platform. It is
-a **Flask REST API** plus a **React admin web app** plus a **Discord bot**, all in one repository
-and deployed as two containers. The API tracks club members, awards them "points" for showing up
-to events, lets them spend those points in a merch storefront, syncs the club's Notion event
-database into Google Calendar, and runs a Discord bot that posts the daily LeetCode challenge and
-hosts Jeopardy games. Everything is scoped to an **organization** (a Discord server), so the same
-deployment can serve multiple clubs.
+| Page | Read it to |
+| --- | --- |
+| [Getting started](./getting-started.md) | Run Platform on your machine or on one RunPod pod |
+| [Architecture](./architecture.md) | Learn the processes, the module pattern, jobs, tools and the MCP server |
+| [Data model](./data-model.md) | Find a table and the module that owns it, and write a migration |
+| [Authentication](./authentication.md) | Learn the sign-in types, tokens, decorators and access checks |
+| [Integrations](./integrations.md) | Connect Notion, Google, GitHub, RunPod; add an integration |
+| [API contract](./api-contract.md) | Change a route that a live client uses |
+| [Writing a module](./writing-a-module.md) | Add a module and register it |
+| [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes |
+| [Frontends](./frontends.md) | Work on the dashboard and the member store (`dashboard/`) |
+| [Webhooks](./webhooks.md) | Send org events to Discord channels; add an event |
+| [Roadmap](./roadmap.md) | See what is left to build and the known issues |
 
-## Read these in order
+## Module pages
 
-| # | Page | What you learn |
-|---|------|----------------|
-| 1 | [Getting Started](./01-getting-started.md) | Get it running on your machine, environment variables, day-to-day commands |
-| 2 | [Architecture](./02-architecture.md) | The big picture: processes, threads, how a request flows, why files live where they do |
-| 3 | [Data Model](./03-data-model.md) | Every database table, how they relate, how migrations work |
-| 4 | [Authentication](./04-authentication.md) | The three (yes, three) auth systems and when each one applies |
-| 5 | [Backend Modules](./05-backend-modules.md) | What each `modules/*` folder does, file by file |
-| 6 | [API Reference](./06-api-reference.md) | Every HTTP endpoint, its auth requirement, and its shape |
-| 7 | [Discord Bot](./07-discord-bot.md) | The bot, its cogs, slash commands, and the LeetCode daily flow |
-| 8 | [Frontend](./08-frontend.md) | The React admin app: routes, pages, auth handling |
-| 9 | [Deployment & Operations](./09-deployment-and-operations.md) | Docker, the Makefile, CI/CD, migrations in production, rollback |
-| 10 | [Gotchas & Known Issues](./10-gotchas-and-known-issues.md) | The traps. **Read this before you change anything.** |
-| 11 | [API Contract](./api-contract.md) | Every endpoint a client depends on, the contract tests that guard them, and the request log |
+Each module has a `README.md` in its folder with its files, routes, jobs, tools and tables. The modules below also have a page here, because they need setup or have a large surface.
 
-## The 60-second orientation
+| Page | Module |
+| --- | --- |
+| [Accounts](./modules/accounts.md) | Canvas, Google and Outlook sign-in for a member |
+| [Agents](./modules/agents.md) | Conversations, memories, profile graph and turns for agents |
+| [Alerts](./modules/alerts.md) | Job and hackathon listings posted to Discord webhooks |
+| [Packs](./modules/packs.md) | Campus pages and live queries that an org adds to knowledge, such as the ASU pack |
+| [Calendar](./modules/calendar.md) | Notion events synced to Google Calendar |
+| [Compute](./modules/compute.md) | RunPod pods, SSH certificates, file manager, sessions |
+| [Discord bot](./modules/discord-bot.md) | The bot process, its setup and its commands |
+| [Knowledge](./modules/knowledge.md) | Sources, crawls and hybrid search |
+| [LeetCode](./modules/leetcode.md) | Daily question post, solve checks and slash commands |
+| [Points](./modules/points.md) | Members, points from events and the leaderboard |
+| [RunPod apps](./modules/runpod-apps.md) | App manifests, deploys, health checks and rollback |
+| [Store](./modules/storefront.md) | Merch store paid with points |
+| [Uptime](./modules/uptime.md) | Checks of sites and Hosting apps, with events when one goes down or up |
 
-```
-platform/
-├── main.py                 Entry point. Registers blueprints, starts the bot thread, runs Flask.
-├── shared.py               Global singletons: Flask app, config, DB, token manager, Notion client.
-├── modules/                All backend code. One folder per domain.
-│   ├── auth/               Discord OAuth login + the auth decorators everything else uses
-│   ├── bot/                Discord bot (BotFork), cogs, Jeopardy game engine, LeetCode
-│   ├── calendar/           Notion → Google Calendar sync
-│   ├── organizations/      Multi-tenancy: orgs, their config, their officers
-│   ├── points/             Members, memberships, point transactions, leaderboards
-│   ├── public/             Unauthenticated read-only endpoints
-│   ├── storefront/         Products, orders, checkout paid in points
-│   ├── superadmin/         Add/remove organizations, manage officer roles
-│   ├── users/              Member CRUD within an organization
-│   └── utils/              Config, DB connection, logging, JWT, Clerk verification
-├── web/                    React admin app (Create React App)
-├── alembic/                Database migrations
-├── tests/                  Pytest suite (integration-style, skipped without env vars)
-├── Makefile                Every command you will run
-└── docker-compose.yml      Two services: api (port 8000), web (port 5000)
-```
+## Notes
 
-## Conventions used in these docs
-
-- **"Org"** always means a row in the `organizations` table, which maps 1:1 to a Discord server (guild).
-- **`org_prefix`** is the URL-friendly slug for an org (e.g. `soda`). Most API routes are namespaced by it.
-- File references look like `modules/points/api.py:606` — path plus line number.
-- Where the code and the older docs disagree, these docs describe **the code**, and the disagreement
-  is called out in [Gotchas](./10-gotchas-and-known-issues.md).
+- `tests/contract/routes.txt` lists every route, its methods and its view. A test fails if the file and the app do not agree.
+- An org is a row in `organizations`. It maps to one Discord server (guild).
+- `org_prefix` is the URL name of an org, for example `robotics`. Most routes have it in the path.
+- When a page and the code do not agree, the code is correct. Change the page in the same commit.

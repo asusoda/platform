@@ -1,145 +1,29 @@
-# Utilities Module
+# core
 
-The utilities module provides shared functionality and helper classes used across the SoDA Internal API.
+Shared code that modules use: config, database, logs, HTTP hooks, Discord and RunPod clients, hosting providers, jobs, tools, audit, the error log, org secrets and outbound webhooks. `core/` imports nothing from `modules/`; the import-linter contract `core imports no module` in `pyproject.toml` checks it.
 
-## Structure
+## Files
 
-```
-utils/
-├── config.py         # Configuration management
-├── TokenManager.py   # Token handling utilities
-└── db.py            # Database utilities
-```
+| File | Holds |
+| --- | --- |
+| `config.py` | `Config` and the `config` instance: settings from `.env` and the environment |
+| `db/` | `Base` (`base.py`), `DBConnect`, the `db_connect` instance and `session()` (`session.py`) |
+| `errors.py`, `time.py` | `ServiceError`, the error a service raises with an HTTP status; `utcnow()` and `iso()` for naive UTC times |
+| `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres, threads on SQLite. A failed job with an org argument sends the `job.failed` webhook event |
+| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) |
+| `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
+| `error_log.py` | The `error_groups` table, `ErrorLogHandler` that records log lines at ERROR and above, `capture()`, and the `error_log.prune` job |
+| `webhooks.py` | The `webhooks` table, the event registry (`declare()`), `emit()` that posts an event to the org's webhooks in a thread, and the kinds (Discord). See [docs/webhooks.md](../docs/webhooks.md) |
+| `secrets.py` | The `org_secrets` table, `declare()`, `set_secret` and `get_secret`, encrypted with `SECRETS_KEY` |
+| `log.py` | `get_logger`, JSON log lines and `init_sentry` |
+| `cache.py` | `TTLCache` and the shared `cache`: values by tuple key, each with a time to live, in one process. Concurrent misses on a key compute once |
+| `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log), `cached.py` (`cached_json`: an org read kept in `cache` with an ETag, and the hook that drops the cached org reads after a successful write) |
+| `integrations/` | `discord.py` (`DiscordDirectory`, messages and reactions over Discord's REST API) and `runpod.py` (RunPod REST client and the `runpod` hosting provider) |
+| `hosting.py` | Hosting providers: the `HostingProvider` and `HostingClient` protocols, the registry (`register()`, `get()`, `listing()`) and `HostingError`. See [docs/modules/compute.md](../docs/modules/compute.md#adding-a-hosting-provider) |
 
-## Features
+## Surface
 
-### Configuration Management
-- Environment variable handling
-- Configuration validation
-- Default value management
-- Secret management
-- Configuration reloading
+- Jobs: `audit.prune`, schedule `30 3 * * *`, keeps `AUDIT_RETENTION_DAYS` (default 365). `error_log.prune`, schedule `40 3 * * *`, keeps groups seen in the last `ERROR_RETENTION_DAYS` (default 90).
+- Tables: `audit_log`, `error_groups`, `org_secrets`, `webhooks`.
 
-### Database Utilities
-- Connection pooling
-- Query building
-- Transaction management
-- Error handling
-- Connection retry logic
-
-### Token Management
-- Token generation
-- Token validation
-- Token storage
-- Token rotation
-- Token cleanup
-
-## Components
-
-### Config
-- Environment loading
-- Configuration validation
-- Secret management
-- Default values
-- Type conversion
-
-### Database
-- Connection management
-- Query execution
-- Transaction handling
-- Error recovery
-- Connection pooling
-
-### TokenManager
-- Token generation
-- Token validation
-- Token storage
-- Token rotation
-- Token cleanup
-
-## Usage Examples
-
-### Configuration
-```python
-from core.config import config
-
-# Access configuration values
-db_url = config.DB_URL
-api_key = config.API_KEY
-
-# Set configuration values
-config.set('DEBUG', True)
-```
-
-### Database
-```python
-from core.db import DBConnect
-
-# Create database connection
-db = DBConnect()
-
-# Execute query
-result = db.execute("SELECT * FROM users")
-
-# Use context manager
-with db.transaction():
-    db.execute("INSERT INTO users (name) VALUES ('John')")
-```
-
-### Token Management
-```python
-from core.TokenManager import TokenManager
-
-# Initialize token manager
-token_manager = TokenManager()
-
-# Generate token
-token = token_manager.generate_token(user_id="123")
-
-# Validate token
-is_valid = token_manager.validate_token(token)
-```
-
-## Configuration
-
-Required environment variables:
-- `DATABASE_URL`: Database connection URL
-- `TOKEN_SECRET`: Token signing secret
-- `TOKEN_EXPIRY`: Token expiration time
-- `ENVIRONMENT`: Application environment
-
-## Error Handling
-
-The module handles various utility-related errors:
-- Configuration errors
-- Database connection errors
-- Token validation errors
-- Environment errors
-- Type conversion errors
-
-## Security Considerations
-
-1. **Configuration Security**
-   - Secret encryption
-   - Environment isolation
-   - Access control
-   - Audit logging
-
-2. **Database Security**
-   - Connection encryption
-   - Query sanitization
-   - Access control
-   - Error masking
-
-3. **Token Security**
-   - Secure generation
-   - Proper validation
-   - Secure storage
-   - Regular rotation
-
-## Dependencies
-
-- `python-dotenv`: Environment management
-- `SQLAlchemy`: Database ORM
-- `PyJWT`: Token handling
-- `cryptography`: Encryption utilities 
+See [docs/architecture.md](../docs/architecture.md).

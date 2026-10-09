@@ -12,13 +12,15 @@ from datetime import UTC, datetime
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 
-from core.base import Base
-from core.logging_config import get_logger
+from core.db import Base
+from core.log import get_logger
 
 logger = get_logger("secrets")
 
 # name -> description, filled by the modules that read them
 KNOWN: dict[str, str] = {}
+# name prefix -> description, for modules whose secrets are named by the org (app env values)
+PREFIXES: dict[str, str] = {}
 
 
 class SecretsError(ValueError):
@@ -40,6 +42,16 @@ class OrgSecret(Base):
 
 def declare(name: str, description: str) -> None:
     KNOWN[name] = description
+
+
+def declare_prefix(prefix: str, description: str) -> None:
+    PREFIXES[prefix] = description
+
+
+def _allowed(name: str) -> bool:
+    if name in KNOWN:
+        return True
+    return any(name.startswith(p) and len(name) > len(p) and len(name) <= 100 for p in PREFIXES)
 
 
 def _fernet() -> MultiFernet | None:
@@ -72,7 +84,7 @@ def decrypt(ciphertext: str) -> str | None:
 
 def set_secret(db, org_id: int, name: str, value: object, updated_by: str | None = None) -> None:
     """Encrypt and store a secret. Commits."""
-    if name not in KNOWN:
+    if not _allowed(name):
         raise SecretsError(f"Unknown secret: {name}")
     if not isinstance(value, str) or not value.strip():
         raise SecretsError("Value must be a non-empty string")
@@ -116,8 +128,13 @@ def delete_secret(db, org_id: int, name: str) -> bool:
 
 
 def list_secrets(db, org_id: int) -> list[dict]:
-    """Every declared secret and whether this org has set it. Never includes values."""
+    """Every declared secret, and every prefixed one the org set, and whether it is set. Never includes values."""
     rows = {row.name: row for row in db.query(OrgSecret).filter_by(organization_id=org_id).all()}
+    named = dict(KNOWN)
+    for name in rows:
+        prefix = next((p for p in PREFIXES if name.startswith(p)), None)
+        if name not in named and prefix is not None:
+            named[name] = PREFIXES[prefix]
     return [
         {
             "name": name,
@@ -126,5 +143,5 @@ def list_secrets(db, org_id: int) -> list[dict]:
             "updated_at": rows[name].updated_at.isoformat() if name in rows else None,
             "updated_by": rows[name].updated_by if name in rows else None,
         }
-        for name, description in sorted(KNOWN.items())
+        for name, description in sorted(named.items())
     ]

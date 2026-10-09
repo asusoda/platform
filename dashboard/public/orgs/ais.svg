@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="36 76 766 736" width="766" height="736">
+<title>The AI Society</title>
+<defs><mask id="m" maskUnits="userSpaceOnUse" x="36" y="76" width="766" height="736">
+<rect x="36" y="76" width="766" height="736" fill="#fff"/>
+<g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+<rect x="248" y="293" width="342" height="300" rx="14" stroke-width="16"/>
+<path d="M338 470 L378 345 L416 470" stroke-width="36"/>
+<path d="M488 342 V470" stroke-width="36"/>
+<path d="M352 432 H394" stroke-width="22"/>
+</g>
+<text x="417.5" y="550" text-anchor="middle" textLength="215" lengthAdjust="spacingAndGlyphs" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="46" fill="#000">SOCIETY</text>
+</mask></defs>
+<g mask="url(#m)" fill="#fff">
+<path d="M215 245 H620 Q640 245 640 265 V618 Q640 638 620 638 H215 Q195 638 195 618 V265 Q195 245 215 245 Z"/>
+<g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+<path d="M300 250 L300 232 L270 198" stroke-width="22"/>
+<path d="M370 250 V143" stroke-width="22"/>
+<path d="M425 250 V205" stroke-width="22"/>
+<path d="M490 250 V185 L525 148" stroke-width="22"/>
+<path d="M200 372 H128 L97 341" stroke-width="22"/>
+<path d="M200 425 H154" stroke-width="22"/>
+<path d="M200 478 H112" stroke-width="22"/>
+<path d="M200 530 H155 L131 554" stroke-width="22"/>
+<path d="M635 350 H690 L707 331" stroke-width="22"/>
+<path d="M635 405 H726" stroke-width="22"/>
+<path d="M635 460 H683" stroke-width="22"/>
+<path d="M635 515 H700 L741 551" stroke-width="22"/>
+<path d="M330 633 V700 L301 745" stroke-width="22"/>
+<path d="M405 633 V755" stroke-width="22"/>
+<path d="M470 633 V716" stroke-width="22"/>
+<path d="M545 633 V698 L556 708" stroke-width="22"/>
+<circle cx="262" cy="190" r="15" stroke-width="19"/>
+<circle cx="365" cy="118" r="21" stroke-width="19"/>
+<circle cx="425" cy="183" r="15" stroke-width="19"/>
+<circle cx="545" cy="122" r="25" stroke-width="19"/>
+<circle cx="75" cy="318" r="23" stroke-width="19"/>
+<circle cx="90" cy="478" r="14" stroke-width="19"/>
+<circle cx="115" cy="572" r="18" stroke-width="19"/>
+<circle cx="720" cy="315" r="19" stroke-width="19"/>
+<circle cx="748" cy="405" r="14" stroke-width="19"/>
+<circle cx="760" cy="568" r="19" stroke-width="19"/>
+<circle cx="280" cy="770" r="23" stroke-width="19"/>
+<circle cx="470" cy="738" r="14" stroke-width="19"/>
+<circle cx="568" cy="728" r="16" stroke-width="19"/>
+</g>
+<circle cx="140" cy="425" r="17"/>
+<circle cx="695" cy="460" r="17"/>
+<circle cx="405" cy="770" r="18"/>
+</g></svg>

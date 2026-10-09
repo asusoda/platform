@@ -11,10 +11,7 @@ from modules.calendar import service
     module="calendar",
 )
 def events_list(db, org, caller):
-    try:
-        result = service.list_events(db, org)
-    except service.CalendarError as e:
-        raise ToolError(e.message, e.status) from e
+    result = service.list_events(db, org)
     if isinstance(result, dict) and result.get("status") == "error":
         raise ToolError(str(result.get("message", "Calendar unavailable")), 502)
     return {"events": result.get("events", [])}
