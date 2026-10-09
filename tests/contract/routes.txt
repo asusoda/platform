@@ -47,6 +47,8 @@
 /api/apps/<string:name>/deployments GET,HEAD,OPTIONS apps.list_deployments
 /api/apps/<string:name>/pod GET,HEAD,OPTIONS apps.get_pod
 /api/apps/<string:name>/rollback OPTIONS,POST apps.rollback
+/api/apps/templates GET,HEAD,OPTIONS apps.list_templates
+/api/apps/templates/<string:template> OPTIONS,POST apps.create_from_template
 /api/asu/queries GET,HEAD,OPTIONS asu.asu_queries
 /api/asu/query OPTIONS,POST asu.asu_query
 /api/asu/sync OPTIONS,POST asu.asu_sync
@@ -120,6 +122,8 @@
 /api/dashboard/<string:org_prefix>/apps/<string:name>/deploy OPTIONS,POST dashboard.deploy_app
 /api/dashboard/<string:org_prefix>/apps/<string:name>/pod GET,HEAD,OPTIONS dashboard.get_app_pod
 /api/dashboard/<string:org_prefix>/apps/<string:name>/rollback OPTIONS,POST dashboard.rollback_app
+/api/dashboard/<string:org_prefix>/apps/templates GET,HEAD,OPTIONS dashboard.list_app_templates
+/api/dashboard/<string:org_prefix>/apps/templates/<string:template> OPTIONS,POST dashboard.create_app_from_template
 /api/dashboard/<string:org_prefix>/branding GET,HEAD,OPTIONS dashboard.get_branding
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
