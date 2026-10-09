@@ -129,7 +129,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           <Field label="Name" hint="Leave empty for a random name">
             <Input value={draft.name} onChange={set('name')} placeholder="workshop" maxLength={100} />
           </Field>
-          <Field label="Image" hint="Leave empty for the org's default pod image, set in Compute settings">
+          <Field label="Image" hint="Leave empty for the org's default pod image, set in Pod settings">
             <Input
               value={draft.image}
               onChange={set('image')}

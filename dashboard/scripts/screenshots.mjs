@@ -20,7 +20,7 @@ const SCALE = 2;
 // Each screen is a dashboard path and, optionally, a step that runs before the screenshot.
 const SCREENS = [
   { name: 'overview', path: '' },
-  { name: 'compute', path: 'compute' },
+  { name: 'hosting', path: 'hosting?tab=pods' },
   {
     name: 'tokens',
     path: 'tokens',

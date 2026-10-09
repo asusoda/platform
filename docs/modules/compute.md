@@ -100,7 +100,7 @@ These officer routes work on the files of a running pod over SFTP, as root with 
 
 A stopped pod returns 409. A failed SSH connection returns 502. Platform does not check pod host keys, because RunPod does not publish them.
 
-Officers manage pods on the dashboard Compute page, `/<org>/compute`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
+Officers manage pods on the Member pods tab of the dashboard Hosting page, `/<org>/hosting?tab=pods`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
 
 ## Limits
 

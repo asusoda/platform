@@ -25,7 +25,7 @@ modules/       one folder per module, not nested; registry.py mounts the bluepri
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
 dashboard/, site/   the dashboard and member store, the docs and landing site
-deploy/        the RunPod start script, the Hermes image and the SQLite to Postgres copy script
+deploy/        the RunPod start script and the SQLite to Postgres copy script
 ```
 
 `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
