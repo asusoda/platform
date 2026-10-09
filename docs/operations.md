@@ -33,30 +33,55 @@ The API uses one gunicorn worker because the one-time sign-in codes are in proce
 
 ## Deploy
 
-`cd.yml` connects to the server over SSH and runs these targets in the repo folder:
+`cd.yml` connects to the server over SSH and runs these commands in the repo folder:
 
 ```bash
-make discard-local-changes   # git reset --hard
-make backup                  # copy data/user.db to data/backups/, keep the last 14
-make deploy
+DEPLOY_FROM="$(git rev-parse HEAD)"          # the commit that runs now
+git fetch origin main && git checkout main && git reset --hard origin/main
+make backup                                  # copy data/user.db to data/backups/, keep the last 14
+make deploy DEPLOY_FROM="$DEPLOY_FROM"
 make health
 ```
 
-If `make deploy` or `make health` fails, it runs `make rollback`.
+`cd.yml` updates the checkout before `make backup`. Thus the server uses the `Makefile` of the new commit, also when the old `Makefile` has no `backup` target. If `make deploy` or `make health` fails, `cd.yml` runs `make rollback`.
 
 `make deploy` does these steps:
 
-1. Get `origin/main` and find the changed files.
+1. Get `origin/main` and find the files changed since `DEPLOY_FROM`. If `DEPLOY_FROM` is empty, it uses the commit that was checked out before the fetch.
 2. Select the images to build. A change in `dashboard/` or `Dockerfile.dashboard` builds `dashboard`. A change in a compose file or the `Makefile` builds both. A change in `.github/` or a `.md` file builds nothing. All other changes build `api`.
-3. Run `uv run alembic upgrade head` on the host. If it fails, the deploy stops and the old containers keep running.
-4. Tag the current images as `:previous`.
-5. Build and start the changed services, then wait up to 60 seconds for each to be healthy. When it builds `api`, it also starts `bot` again, because the bot uses the same image.
+3. Tag the current images as `:previous`.
+4. Build the changed images. The old containers keep running during the build.
+5. Run `uv run alembic upgrade head` on the host. If it fails, the deploy stops and the old containers keep running.
+6. Start the changed services with `up -d --remove-orphans`, then wait up to 60 seconds for each to be healthy. When it builds `api`, it also starts `bot` again, because the bot uses the same image. `--remove-orphans` removes containers of services that are no longer in `docker-compose.yml`, so an old container does not keep a port.
+
+Caution: set `VITE_API_URL` in `.env` before you build the dashboard. If it is empty, `Dockerfile.dashboard` stops the build.
+
+## Upgrade an existing deployment
+
+Do the first deploy after a large upgrade by hand. For an upgrade from `asusoda/platform` at `579a6a84` or older, do these steps on the server:
+
+1. Pause CD, or do the deploy before the next push to `main`.
+2. Run `make backup`. If the old `Makefile` has no `backup` target, copy `data/user.db` to `data/user.db.pre-upgrade`. Keep `data/jwt_*.pem`.
+3. Run `uv run alembic current`. The result must be `a1b2c3d4e5f6`, the last SoDA migration.
+4. If the database has no `alembic_version` table (`create_all` made it), run `uv run alembic stamp a1b2c3d4e5f6`. If you do not, `alembic upgrade head` stops with "table already exists".
+5. Keep the current commit for a rollback: `OLD=$(git rev-parse HEAD)`.
+6. Run `git fetch origin main`, then `git reset --hard origin/main`.
+7. Run `make deploy DEPLOY_FROM="$OLD"`. If `DEPLOY_FROM` is not set, `make deploy` finds no changed files and builds nothing.
+8. Run `flask --app main config check` in the API container. It must show `migrations at head` and no `FAIL`.
+
+LeetCode: the API now posts the daily question as a job and keeps the "posted today" record in the `leetcode_daily` table. If you deploy after `LEETCODE_DAILY_TIME` on a day that already had a post, the channel gets a second post. Deploy before that time to prevent it.
 
 ## Roll back
 
 `make rollback` tags `soda-internal-api:previous` as `latest` and starts the containers again.
 
 Caution: the rollback does not change the dashboard image or the database. If the failed deploy ran a migration, run `uv run alembic downgrade -1`, or copy back the file that `make backup` wrote to `data/backups/`.
+
+Caution: `make rollback` alone does not work across the upgrade from `a1b2c3d4e5f6`. Migration `b7d9f1a3c5e8` renames `users.asu_id` to `student_id`, and the old image has no `alembic/` folder. To go back:
+
+1. Run `uv run alembic downgrade a1b2c3d4e5f6`, or copy the backup back to `data/user.db`.
+2. Check out the old commit: `git checkout "$OLD"`.
+3. Run `make build`, then `make up`.
 
 ## Move to Postgres
 

@@ -126,7 +126,8 @@ services:
       cache_from:
         - soda-dashboard:latest
       args:
-        - VITE_API_URL=${VITE_API_URL}
+        # Required. Dockerfile.dashboard stops the build when it is empty.
+        - VITE_API_URL=${VITE_API_URL:-}
         - VITE_SITE_URL=${VITE_SITE_URL:-}
     image: soda-dashboard:latest
     container_name: soda-dashboard
