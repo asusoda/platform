@@ -1,0 +1,20 @@
+# mcp
+
+Serves the tools of other modules to apps and agents with a machine token: over MCP streamable HTTP at `/mcp`, and over HTTP at `/api/tools`. A caller sees only the tools that its token scopes and its org's module switches allow.
+
+## Files
+
+| File | Holds |
+| --- | --- |
+| `server.py` | The MCP server app (`build_app`), run by `mcp_main.py` |
+| `runtime.py` | Lists and calls tools for a machine caller: scope, module switch and input checks; writes each call to the audit log |
+| `api.py` | `GET /api/tools` lists tools; `POST /api/tools/<name>` calls one |
+
+## Surface
+
+- Routes: `/api/tools`. Machine token required.
+- Jobs: none.
+- Tools: none of its own. It serves `core.tools.TOOLS`, which the modules in `TOOL_MODULES` in `modules/manifest.py` fill.
+- Tables: none.
+
+See [docs/architecture.md](../../docs/architecture.md#tools-and-the-mcp-server).

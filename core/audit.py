@@ -1,28 +1,20 @@
 """Audit log: a database row for every change made through the API and every job with side effects.
 
-API writes are recorded automatically after the response (POST, PUT, PATCH, DELETE with a status
-below 400). Request bodies are not stored. Jobs record their runs from core/jobs.py. Rows older
+API writes are recorded after the response by core/http/audit_hook.py (POST, PUT, PATCH, DELETE with a
+status below 400). Request bodies are not stored. This file has no Flask, so services can record. Jobs record their runs from core/jobs.py. Rows older
 than AUDIT_RETENTION_DAYS (default 365) are deleted daily by the audit.prune job.
 """
 
 import os
 from datetime import UTC, datetime, timedelta
 
-from flask import Flask, request
-from sqlalchemy import JSON, Column, DateTime, Integer, String, text
+from sqlalchemy import JSON, Column, DateTime, Integer, String
 
-from core.base import Base
+from core.db import Base, session
 from core.jobs import job
-from core.logging_config import get_logger
-from core.request_log import _credential, _org
+from core.log import get_logger
 
 logger = get_logger("audit")
-
-WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-# Writes that are too frequent or carry nothing worth keeping
-SKIPPED_ROUTES = {"/api/auth/refresh"}
-# Reads that change state
-AUDITED_READS = {"/api/auth/appToken"}
 
 
 class AuditEntry(Base):
@@ -52,12 +44,6 @@ class AuditEntry(Base):
         }
 
 
-def _session():
-    from shared import db_connect
-
-    return db_connect.SessionLocal()
-
-
 def record(
     action: str,
     *,
@@ -69,25 +55,21 @@ def record(
     details: dict | None = None,
 ) -> None:
     """Write one audit row in its own transaction. Never raises: a failed audit write is logged."""
-    db = _session()
     try:
-        db.add(
-            AuditEntry(
-                source=source,
-                action=action[:255],
-                org=org,
-                actor_kind=actor_kind,
-                actor_id=actor_id,
-                status=status,
-                details=details,
+        with session() as db:
+            db.add(
+                AuditEntry(
+                    source=source,
+                    action=action[:255],
+                    org=org,
+                    actor_kind=actor_kind,
+                    actor_id=actor_id,
+                    status=status,
+                    details=details,
+                )
             )
-        )
-        db.commit()
     except Exception:
-        db.rollback()
         logger.exception("audit write failed action=%s", action)
-    finally:
-        db.close()
 
 
 def list_entries(db, *, org: str | None = None, limit: int = 100, before_id: int | None = None) -> list[dict]:
@@ -101,59 +83,6 @@ def list_entries(db, *, org: str | None = None, limit: int = 100, before_id: int
     return [row.to_dict() for row in rows]
 
 
-def _org_prefix(db) -> str | None:
-    """The org the request names, as a prefix (routes use either a prefix or a numeric id)."""
-    args = request.view_args or {}
-    if "org_prefix" in args:
-        return str(args["org_prefix"])
-    if "org_id" in args:
-        row = db.execute(text("SELECT prefix FROM organizations WHERE id = :id"), {"id": args["org_id"]}).first()
-        return row[0] if row else str(args["org_id"])
-    return _org()
-
-
-def _actor(token_manager) -> tuple[str | None, str | None]:
-    kind, discord_id = _credential(token_manager)
-    if discord_id:
-        return kind, str(discord_id)
-    email = getattr(request, "clerk_user_email", None)
-    if email:
-        return "clerk", email
-    return kind, None
-
-
-def register_audit(app: Flask, token_manager) -> None:
-    """Record every successful API write."""
-
-    @app.after_request
-    def _audit_request(response):
-        rule = request.url_rule.rule if request.url_rule else None
-        audited = request.method in WRITE_METHODS or rule in AUDITED_READS
-        if not rule or not audited or rule in SKIPPED_ROUTES or not rule.startswith("/api/"):
-            return response
-        if response.status_code >= 400:
-            return response
-        try:
-            db = _session()
-            try:
-                org = _org_prefix(db)
-            finally:
-                db.close()
-            kind, actor_id = _actor(token_manager)
-            record(
-                f"{request.method} {rule}",
-                source="api",
-                org=org,
-                actor_kind=kind,
-                actor_id=actor_id,
-                status=response.status_code,
-                details={"path": request.path},
-            )
-        except Exception:
-            logger.exception("audit hook failed")
-        return response
-
-
 RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
 
 
@@ -161,10 +90,6 @@ RETENTION_DAYS = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))
 def prune() -> None:
     """Delete audit rows older than AUDIT_RETENTION_DAYS."""
     cutoff = datetime.now(UTC) - timedelta(days=RETENTION_DAYS)
-    db = _session()
-    try:
+    with session() as db:
         deleted = db.query(AuditEntry).filter(AuditEntry.created_at < cutoff).delete()
-        db.commit()
-        logger.info("audit pruned rows=%s", deleted)
-    finally:
-        db.close()
+    logger.info("audit pruned rows=%s", deleted)

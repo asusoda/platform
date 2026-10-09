@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18-alpine AS builder
+FROM mirror.gcr.io/library/node:18-alpine AS builder
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
@@ -23,7 +23,7 @@ ARG REACT_APP_API_URL
 RUN pnpm run build
 
 # Production stage
-FROM node:18-alpine
+FROM mirror.gcr.io/library/node:18-alpine
 
 # Install pnpm and serve globally
 ENV PNPM_HOME="/pnpm"
