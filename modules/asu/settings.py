@@ -116,7 +116,7 @@ register(
     Integration(
         key="searxng",
         title="Web search (SearXNG)",
-        description="Answers the web live query that agents use. Without it, that query answers 503.",
+        description="Connect a SearXNG server for live web search.",
         fields=(
             Field(
                 URL_SECRET,

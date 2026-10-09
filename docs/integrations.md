@@ -1,17 +1,24 @@
 # Integrations
 
-An integration is an outside service that modules use, such as Notion or RunPod. Officers connect them on the dashboard's Integrations page. Each card shows whether the service is connected, the modules that use it, a Test button and a link to its docs.
+An integration is an account or a service outside Platform, such as Notion or RunPod. An officer connects it one time on the dashboard's Integrations page. Then each module that needs it uses it. Each card shows whether the integration is connected, the modules that use it, a Test button and a link to its docs.
+
+The page shows the cards in two groups:
+
+- Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion and RunPod.
+- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl and SearXNG.
+
+The description of a card says what the officer connects, not what each module does with it. The "Used by" links show the modules.
 
 ## The integrations
 
 | Integration | Keys (optional in brackets) | Default from .env | Used by |
 | --- | --- | --- | --- |
 | Discord | none for the org | `BOT_TOKEN` | Sign-in, LeetCode |
-| Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, Agents |
+| Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, MCP |
 | Firecrawl | `firecrawl_url`, [`firecrawl_api_key`] | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | Knowledge, ASU |
 | GitHub | `github_token` | none | CI runs, Apps |
-| Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar |
-| Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar |
+| Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
+| Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
 | RunPod | `runpod_api_key` | none | Compute, Apps |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
 
@@ -28,6 +35,8 @@ A card has one of three states:
 - **Not connected**: neither.
 
 Test connects with the key the module uses and shows the result. It does not change anything.
+
+If Firecrawl is not connected, knowledge reads pages with a plain GET. If SearXNG is not connected, the ASU web live query returns 503.
 
 ## Routes
 
@@ -65,8 +74,8 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 ## Add an integration
 
 1. Write a test function `(db, org_id) -> str` that connects and returns a short result. It raises `IntegrationError` with the reason when it fails. It never puts a key in the message.
-2. Call `register(Integration(...))` from `core/integrations/registry.py` in the file that owns the client: a file in `core/integrations/` for a service that core uses, or a module file. Give the key, title, description, fields, docs page and test. `register` declares each field as an org secret. Give a field `secret=False` when the dashboard may show its value, `optional=True` when the org may leave it empty, and `kind="url"` for a URL that must be public.
+2. Call `register(Integration(...))` from `core/integrations/registry.py` in the file that owns the client: a file in `core/integrations/` for a service that core uses, or a module file. Give the key, title, description, fields, docs page and test. The description says what the officer connects, such as "Connect the org's Notion workspace." `register` declares each field as an org secret. Give a field `secret=False` when the dashboard may show its value, `optional=True` when the org may leave it empty, and `kind="url"` for a URL that must be public.
 3. Read the org's values with `org_values(db, org_id, key)`. It returns None when the org did not set every required field; then use the `.env` default.
 4. In each module that reads the service, call `use("<key>", "<module>")` at the top of the file.
-5. Add the module name to `MODULES` in `dashboard/src/pages/integrations.tsx` if it has a dashboard page, and an icon to `ICONS`.
+5. Add the module name to `MODULES` in `dashboard/src/pages/integrations.tsx` if it has a dashboard page, and an icon to `ICONS`. If it is an account, add its key to the Accounts group in `GROUPS`. A key in no group shows under Services.
 6. Add a row to the table on this page.

@@ -33,7 +33,7 @@ register(
     Integration(
         key="github",
         title="GitHub",
-        description="Reads the org's private repos: CI runs on Activity and app manifests for deploys.",
+        description="Connect the org's GitHub repos with a read-only token.",
         fields=(
             Field(
                 SECRET_NAME,

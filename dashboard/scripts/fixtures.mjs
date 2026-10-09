@@ -584,7 +584,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'discord',
       title: 'Discord',
-      description: 'The bot and officer sign-in. One Discord app serves every org; the deployment sets it in .env.',
+      description: "Connect the org's Discord server. One Discord app serves every org; the deployment sets it in .env.",
       docs: 'modules/discord-bot',
       fields: [],
       editable: false,
@@ -595,7 +595,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'embeddings',
       title: 'Embeddings',
-      description: 'An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.',
+      description: 'Connect an OpenAI-compatible embeddings service for meaning search.',
       docs: 'modules/knowledge',
       fields: [
         field('embeddings_url', 'Base URL', 'For example https://api.example.com/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
@@ -620,7 +620,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'firecrawl',
       title: 'Firecrawl',
-      description: 'Renders pages that need JavaScript before knowledge reads them. Without it, pages are read with a plain GET.',
+      description: 'Connect a Firecrawl server to read pages that need JavaScript.',
       docs: 'modules/knowledge',
       fields: [
         field('firecrawl_url', 'Server URL', 'For example https://api.firecrawl.dev. It must be on a public address.', null, 'url', { secret: false }),
@@ -634,7 +634,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'github',
       title: 'GitHub',
-      description: "Reads the org's private repos: CI runs on Activity and app manifests for deploys.",
+      description: "Connect the org's GitHub repos with a read-only token.",
       docs: 'modules/runpod-apps',
       fields: [field('github_token', 'Access token', 'A fine-grained token with read access to Actions and Contents.', -9 * DAY)],
       editable: true,
@@ -645,7 +645,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'google',
       title: 'Google',
-      description: "A service account that owns the org's Google Calendar.",
+      description: 'Connect a Google Cloud service account for the org.',
       docs: 'modules/calendar',
       fields: [field('google_service_account', 'Service account key', 'The JSON key of a service account with the Calendar API on.', -30 * DAY, 'json')],
       editable: true,
@@ -656,7 +656,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'notion',
       title: 'Notion',
-      description: "Reads the org's events database for calendar sync.",
+      description: "Connect the org's Notion workspace.",
       docs: 'modules/calendar',
       fields: [field('notion_api_key', 'Integration token', 'Notion > Settings > Integrations.')],
       editable: true,
@@ -667,7 +667,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'runpod',
       title: 'RunPod',
-      description: "The org's RunPod account: compute pods for members and deploys of org apps.",
+      description: "Connect the org's RunPod account.",
       docs: 'modules/compute',
       fields: [field('runpod_api_key', 'API key', 'RunPod > Settings > API Keys, with read and write access.', -12 * DAY)],
       editable: true,
@@ -678,7 +678,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'searxng',
       title: 'Web search (SearXNG)',
-      description: 'Answers the web live query that agents use. Without it, that query answers 503.',
+      description: 'Connect a SearXNG server for live web search.',
       docs: 'modules/asu',
       fields: [
         field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
