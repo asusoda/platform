@@ -43,7 +43,7 @@ const MODULES: Record<string, { label: string; path?: string }> = {
   auth: { label: 'Sign-in' },
   calendar: { label: 'Calendar sync', path: 'calendar' },
   compute: { label: 'Compute', path: 'compute' },
-  dashboard: { label: 'CI runs', path: 'activity?tab=ci' },
+  dashboard: { label: 'Activity', path: 'activity' },
   games: { label: 'Games' },
   knowledge: { label: 'Knowledge', path: 'knowledge' },
   leetcode: { label: 'LeetCode', path: 'leetcode' },

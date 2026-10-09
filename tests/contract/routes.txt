@@ -121,6 +121,11 @@
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
+/api/dashboard/<string:org_prefix>/errors GET,HEAD,OPTIONS dashboard.list_errors
+/api/dashboard/<string:org_prefix>/errors/reopen OPTIONS,POST dashboard.reopen_errors
+/api/dashboard/<string:org_prefix>/errors/report OPTIONS,POST dashboard.report_error
+/api/dashboard/<string:org_prefix>/errors/resolve OPTIONS,POST dashboard.resolve_errors
+/api/dashboard/<string:org_prefix>/errors/webhook OPTIONS,PUT dashboard.set_error_webhook
 /api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
 /api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
 /api/dashboard/<string:org_prefix>/integrations/<string:key>/test OPTIONS,POST dashboard.test_integration
@@ -214,6 +219,8 @@
 /api/superadmin/audit GET,HEAD,OPTIONS superadmin.get_audit
 /api/superadmin/check GET,HEAD,OPTIONS superadmin.check_superadmin
 /api/superadmin/dashboard GET,HEAD,OPTIONS superadmin.get_dashboard
+/api/superadmin/errors GET,HEAD,OPTIONS superadmin.get_errors
+/api/superadmin/errors/<string:action> OPTIONS,POST superadmin.change_errors
 /api/superadmin/guild_roles/<guild_id> GET,HEAD,OPTIONS superadmin.get_guild_roles
 /api/superadmin/publishers GET,HEAD,OPTIONS superadmin.get_publishers
 /api/superadmin/publishers/<int:org_id> OPTIONS,PUT superadmin.put_publisher

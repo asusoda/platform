@@ -691,6 +691,41 @@ export function fixtures(now = Date.now()) {
     },
   ];
 
+  const errorGroup = (id, source, org, kind, message, location, route, count, lastOffset, firstOffset, stack = null) => ({
+    id,
+    source,
+    org,
+    kind,
+    message,
+    location,
+    route,
+    stack,
+    count,
+    first_seen: at(firstOffset),
+    last_seen: at(lastOffset),
+    resolved_at: null,
+    resolved_by: null,
+  });
+  const podStack = [
+    'Traceback (most recent call last):',
+    '  File "modules/compute/api.py", line 88, in create_pod',
+    '    return service.create_pod(db, org, body, actor)',
+    '  File "modules/compute/service.py", line 214, in create_pod',
+    '    pod = runpod.create_pod(key, spec)',
+    '  File "core/integrations/runpod.py", line 61, in create_pod',
+    '    response.raise_for_status()',
+    'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
+  ].join('\n');
+  const orgErrors = [
+    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
+    errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/compute (mutation)', '/robotics/compute (mutation)', 4, -26 * MINUTE, -1 * DAY),
+    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
+    errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
+  ];
+  const serverErrors = [
+    errorGroup(22, 'worker', null, 'OperationalError', 'job failed name=knowledge.crawl_due: database is locked', 'core/jobs.py:_execute', null, 26, -2 * DAY, -9 * DAY),
+  ];
+
   const secret = (name, description, setOffset) => ({
     name,
     description,
@@ -920,6 +955,8 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
+    [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
+    '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },

@@ -37,9 +37,9 @@ Lists that can be long (knowledge sources, points members and events, knowledge 
 | Knowledge | Source packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
 | MCP | How to connect an agent to the MCP server, agent tokens, linked accounts, and conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
-| Activity | Three tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists |
+| Activity | Four tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists; Errors, the org's errors from the error log with Resolve, Reopen, the stack trace and the Discord alert webhook |
 | Settings | General, branding, module switches and org secrets |
-| Superadmin | Orgs, officer roles, Discord servers without an org, and the audit log of all orgs. Only the superadmin sees it |
+| Superadmin | Orgs, officer roles, Discord servers without an org, the audit log of all orgs, and the errors of every org and of the server. Only the superadmin sees it |
 
 The dashboard uses these officer routes in `modules/dashboard/`:
 

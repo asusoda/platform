@@ -15,7 +15,7 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 
 | Module | Tables |
 | --- | --- |
-| core | `audit_log` (successful changes and job runs), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`) |
+| core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`) |
 | organizations | `organizations`, `organization_configs` and `officers` (not used) |
 | users | `users`, `user_organization_memberships` |
 | points | `points` |
@@ -33,6 +33,8 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 | jobs | `procrastinate_*` (Postgres only, from the Procrastinate SQL, not from models) |
 
 `audit_log` has one row for each successful POST, PUT, PATCH or DELETE under `/api`, and one row for each job run. It keeps the route, org, caller, status and path. It never keeps request bodies or file contents. The `audit.prune` job removes rows older than `AUDIT_RETENTION_DAYS` (default 365).
+
+`error_groups` has one row for each distinct error. Errors with the same source, org, exception type and first frame in this repo add to one row: `count` goes up and `last_seen`, `message` and `stack` change. A resolved row opens again when its error happens again. The `error_log.prune` job removes rows not seen for `ERROR_RETENTION_DAYS` (default 90).
 
 ## Migrations
 

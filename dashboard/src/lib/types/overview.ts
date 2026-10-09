@@ -69,3 +69,20 @@ export type CiRepo = { repo: string; runs: CiRun[]; error: string | null };
 export type TrendDay = { date: string; value: number; failed: number };
 export type TrendSeries = { key: string; title: string; unit: string; total: number; failed: number; days: TrendDay[] };
 export type Trends = { days: number; series: TrendSeries[]; generated_at: string };
+
+export type ErrorGroup = {
+  id: number;
+  source: 'api' | 'bot' | 'worker' | 'mcp' | 'browser';
+  org: string | null;
+  kind: string;
+  message: string;
+  location: string | null;
+  route: string | null;
+  stack: string | null;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+};
+export type ErrorList = { errors: ErrorGroup[]; open: number; events: number; webhook_set: boolean };

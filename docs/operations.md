@@ -112,7 +112,11 @@ DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
 - `GET /health` returns `status`, `commit` and `started_at`. `commit` comes from the `GIT_COMMIT_HASH` build argument, so it shows the image, not the files on disk.
 - `make logs` shows the last 50 lines. `make logs-follow` follows them.
 - With `LOG_FORMAT=json` (set in compose), each line is a JSON object with `ts`, `level`, `logger`, `msg` and the request fields (`route`, `status`, `org`, `reason`). `LOG_FORMAT=text` gives colored lines.
-- If `SENTRY_DSN` is set, Sentry gets errors, logs and a trace of each request (`traces_sample_rate=1.0` in `core/log.py`). If the cost is too high, decrease the sample rates.
+- If `SENTRY_DSN` is set, the API, bot, job worker and MCP server send errors to Sentry, with a `service` tag (`api`, `bot`, `worker`, `mcp`) and the commit as the release. They also send log lines at `SENTRY_LOGS_LEVEL` (default `WARNING`) and above, and traces for `SENTRY_TRACES_SAMPLE_RATE` of requests (default `0.1`). `SENTRY_PROFILES_SAMPLE_RATE` (default `0`) turns on profiles. `SENTRY_ENVIRONMENT` (default `production`) names the environment.
+- Platform keeps its own error log, with no outside service. Each process (`api`, `bot`, `worker`, `mcp`) records every log line at ERROR or above in the `error_groups` table, with the stack trace, the org and the route. The dashboard sends browser errors and API calls that got no answer or a status of 500 or more. Repeats of one error add to one group.
+- Officers see their org's errors on Activity, Errors, and resolve them there. A resolved error opens again when it happens again. The superadmin page shows the errors of every org and the errors with no org, such as a failed job.
+- Discord alerts: an officer sets a Discord webhook on Activity, Errors (org secret `error_webhook_url`). `ERROR_WEBHOOK_URL` in `.env` gets every new error of every org and of the server. Each new or returning error posts one message, at most 30 for each process in an hour.
+- Sentry is optional. Set `SENTRY_DSN` only if you want Sentry in addition to the error log.
 
 Caution: do not delete `data/jwt_private.pem` or `data/jwt_public.pem`. If you delete them, every officer must sign in again.
 

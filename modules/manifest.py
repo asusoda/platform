@@ -18,6 +18,7 @@ CATEGORIES = {
 # Importing these puts every table in Base.metadata (alembic/env.py, tests/conftest.py)
 MODEL_MODULES = [
     "core.audit",
+    "core.error_log",
     "core.secrets",
     "modules.accounts.models",
     "modules.alerts.models",
@@ -38,6 +39,7 @@ MODEL_MODULES = [
 # Importing a jobs module registers its jobs with core.jobs
 JOB_MODULES = [
     "core.audit",
+    "core.error_log",
     "modules.auth.jobs",
     "modules.points.jobs",
     "modules.calendar.jobs",

@@ -1,10 +1,10 @@
-"""Dashboard tools: the overview, trends, notifications, audit log and integrations."""
+"""Dashboard tools: the overview, trends, notifications, errors, audit log and integrations."""
 
 from core import audit
 from core.integrations import registry as integrations
 from core.tools import tool
 
-from . import notices, service, trends
+from . import errors, notices, service, trends
 
 IDS = {"type": "array", "items": {"type": "string", "maxLength": 200}, "minItems": 1, "maxItems": 200}
 KEY = {"type": "string", "minLength": 1, "maxLength": 64}
@@ -56,6 +56,38 @@ def notifications_resolve(db, org, caller, ids: list[str]):
 )
 def notifications_reopen(db, org, caller, ids: list[str]):
     return notices.reopen(db, org, ids)
+
+
+@tool(
+    "errors.list",
+    description="Errors recorded by Platform for the org, newest first: type, message, where, count and stack.",
+    scope="activity:read",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "status": {"type": "string", "enum": ["open", "resolved", "all"]},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+        },
+        "additionalProperties": False,
+    },
+)
+def errors_list(db, org, caller, status: str = "open", limit: int = 50):
+    return errors.listing(db, org, status, limit)
+
+
+@tool(
+    "errors.resolve",
+    description="Mark errors resolved by id. An error shows again when it happens again.",
+    scope="settings:write",
+    input_schema={
+        "type": "object",
+        "properties": {"ids": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 200}},
+        "required": ["ids"],
+        "additionalProperties": False,
+    },
+)
+def errors_resolve(db, org, caller, ids: list[int]):
+    return errors.resolve(db, org, ids, caller.actor)
 
 
 @tool(

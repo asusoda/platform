@@ -3,9 +3,19 @@ import os
 
 from dotenv import load_dotenv
 
-from core.log import get_logger
+from core.log import SentrySettings, get_logger
 
 logger = get_logger(__name__)
+
+
+def _rate(name: str, default: float) -> float:
+    """A sample rate from the environment, from 0 to 1. A bad value gives the default."""
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        logger.warning("%s is not a number; using %s", name, default)
+        return default
+    return min(max(value, 0.0), 1.0)
 
 
 class Config:
@@ -48,6 +58,14 @@ class Config:
             self.TIMEZONE = os.environ.get("TIMEZONE", "America/Phoenix")
 
             self.SENTRY_DSN = os.environ.get("SENTRY_DSN")
+            self.SENTRY = SentrySettings(
+                dsn=self.SENTRY_DSN,
+                environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+                release=os.environ.get("GIT_COMMIT_HASH") or None,
+                traces_sample_rate=_rate("SENTRY_TRACES_SAMPLE_RATE", 0.1),
+                profiles_sample_rate=_rate("SENTRY_PROFILES_SAMPLE_RATE", 0.0),
+                logs_level=os.environ.get("SENTRY_LOGS_LEVEL", "WARNING"),
+            )
 
             # Superadmin config: the Discord user id in SYS_ADMIN
             self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
