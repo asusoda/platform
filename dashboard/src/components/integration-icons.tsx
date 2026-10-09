@@ -1,9 +1,10 @@
-import { Brain, CalendarDays, Cloud, FileText, Flame, Plug, Route, Search } from 'lucide-react';
+import { Brain, CalendarDays, Cloud, FileText, Flame, GraduationCap, Plug, Route, Search } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { DiscordIcon, GitHubIcon } from './brand-icons';
 
 // The icon of each integration key the API sends.
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  asu: GraduationCap,
   discord: DiscordIcon,
   github: GitHubIcon,
   google: CalendarDays,

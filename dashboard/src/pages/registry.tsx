@@ -1,12 +1,14 @@
 import {
   Activity,
   Bell,
+  Blocks,
   BellRing,
   Cable,
   CalendarDays,
   CodeXml,
   Coins,
   Database,
+  HeartPulse,
   KeyRound,
   LayoutDashboard,
   Plug,
@@ -30,6 +32,7 @@ import { KnowledgePage } from './knowledge';
 import { KnowledgeSourcePage } from './knowledge/source';
 import { LeetCodePage } from './leetcode';
 import { McpPage } from './mcp';
+import { ModulesPage } from './modules';
 import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
@@ -38,6 +41,7 @@ import { SettingsPage } from './settings';
 import { StorePage } from './store';
 import { prefetchStore } from './store/shared';
 import { TokensPage } from './tokens';
+import { UptimePage } from './uptime';
 import { WebhooksPage } from './webhooks';
 
 // The sidebar sections, in order. A section with no title has no header.
@@ -102,8 +106,10 @@ export const PAGES: PageEntry[] = [
   { path: 'knowledge/sources/*', label: 'Knowledge source', icon: Database, section: 'knowledge', hidden: true, page: KnowledgeSourcePage },
   { path: 'mcp', label: 'MCP', icon: Cable, section: 'knowledge', page: McpPage },
   { path: 'hosting', label: 'Hosting', icon: Server, section: 'infrastructure', module: ['runpod', 'compute'], page: HostingPage },
+  { path: 'uptime', label: 'Uptime', icon: HeartPulse, section: 'infrastructure', module: 'uptime', gate: true, page: UptimePage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
+  { path: 'modules', label: 'Modules', icon: Blocks, section: 'bottom', page: ModulesPage },
   { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },

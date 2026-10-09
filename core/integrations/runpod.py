@@ -1,11 +1,14 @@
-"""RunPod REST client (api.runpod.io/v2). Each org uses its own API key, stored as an org secret."""
+"""RunPod REST client (api.runpod.io/v2) and the runpod hosting provider.
+
+Each org uses its own API key, stored as an org secret.
+"""
 
 from typing import Any
 from urllib.parse import quote
 
 import requests
 
-from core import secrets
+from core import hosting, secrets
 from core.integrations.registry import Field, Integration, IntegrationError, register
 from core.log import get_logger
 
@@ -16,11 +19,8 @@ TIMEOUT_SECONDS = 30
 SECRET_NAME = "runpod_api_key"  # nosec B105 - the name of an org secret, not its value
 
 
-class RunPodError(RuntimeError):
-    def __init__(self, message: str, status: int | None = None):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class RunPodError(hosting.HostingError):
+    """RunPod refused or failed a request."""
 
 
 def _detail(response: requests.Response) -> str:
@@ -65,6 +65,9 @@ class RunPodClient:
         except ValueError as e:
             raise RunPodError("RunPod sent a response that is not JSON") from e
 
+    def list_pods(self) -> list[dict]:
+        return self._request("GET", "/pods") or []
+
     def get_pod(self, pod_id: str) -> dict | None:
         try:
             return self._request("GET", f"/pods/{quote(pod_id, safe='')}")
@@ -94,12 +97,69 @@ def proxy_url(pod_id: str, port: int, path: str) -> str:
     return f"https://{pod_id}-{port}.proxy.runpod.net{path}"
 
 
+class RunPodProvider:
+    """The runpod hosting provider: pods on the org's RunPod account, with the org secret runpod_api_key."""
+
+    name = "runpod"
+    title = "RunPod"
+    integration = "runpod"
+
+    def configured(self, db, org_id: int) -> bool:
+        return bool(secrets.get_secret(db, org_id, SECRET_NAME))
+
+    def client(self, db, org_id: int) -> RunPodClient:
+        key = secrets.get_secret(db, org_id, SECRET_NAME)
+        if not key:
+            raise hosting.ProviderError(f"This organization has no RunPod API key (org secret {SECRET_NAME})", 400)
+        return RunPodClient(key)
+
+    def status(self, pod: dict | None) -> str:
+        if pod is None:
+            return "GONE"
+        return str(pod.get("status") or pod.get("desiredStatus") or "UNKNOWN")
+
+    def machine(self, pod: dict | None) -> dict | None:
+        """The pod's hardware and data center, from the v2 pod fields."""
+        if not pod:
+            return None
+        if isinstance(pod.get("machine"), dict):
+            return pod["machine"]
+        gpu, cpu = pod.get("gpu") or {}, pod.get("cpu") or {}
+        machine = {
+            "gpuTypeId": gpu.get("id") if isinstance(gpu, dict) else None,
+            "cpuTypeId": cpu.get("id") if isinstance(cpu, dict) else None,
+            "dataCenterId": pod.get("dataCenterId"),
+        }
+        return {k: v for k, v in machine.items() if v} or None
+
+    def ssh_address(self, pod: dict) -> tuple[str, int] | None:
+        """(host, port) of a running pod's SSH port, from either shape RunPod reports."""
+        mappings = pod.get("portMappings")
+        if isinstance(mappings, dict) and pod.get("publicIp") and mappings.get("22"):
+            return str(pod["publicIp"]), int(mappings["22"])
+        direct = (pod.get("ssh") or {}).get("direct")
+        if isinstance(direct, dict) and direct.get("host") and direct.get("port"):
+            return str(direct["host"]), int(direct["port"])
+        runtime = pod.get("runtime") or {}
+        for port in runtime.get("ports") or []:
+            private = port.get("private", port.get("privatePort"))
+            if private == 22 and port.get("ip") and port.get("isIpPublic", True):
+                return str(port["ip"]), int(port.get("public") or port.get("publicPort") or 22)
+        return None
+
+    def proxy_url(self, pod_id: str, port: int, path: str) -> str:
+        return proxy_url(pod_id, port, path)
+
+
+hosting.register(RunPodProvider())
+
+
 def _test(db, org_id: int) -> str:
     key = secrets.get_secret(db, org_id, SECRET_NAME)
     if not key:
         raise IntegrationError("Set the RunPod API key first")
     try:
-        pods = RunPodClient(key)._request("GET", "/pods") or []
+        pods = RunPodClient(key).list_pods()
     except RunPodError as e:
         raise IntegrationError(e.args[0]) from e
     return f"Connected. {len(pods)} pods on the account."

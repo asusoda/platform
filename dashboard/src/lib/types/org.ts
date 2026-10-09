@@ -16,6 +16,32 @@ export type Branding = { logo_url: string | null; accent_color: string | null; w
 
 export type ModuleState = { name: string; description: string; enabled: boolean };
 
+// An integration or a setting that a module needs. connected says whether the org or the deployment set it.
+export type ModuleNeed = {
+  key: string;
+  label: string;
+  kind: 'integration' | 'setting';
+  optional: boolean;
+  connected: boolean;
+};
+
+export type ModulePack = { name: string; title: string; description: string };
+
+// A module on the Modules page. ready is false while a need that is not optional is not connected.
+export type CatalogModule = {
+  name: string;
+  title: string;
+  description: string;
+  category: string;
+  switchable: boolean;
+  enabled: boolean;
+  ready: boolean;
+  needs: ModuleNeed[];
+  packs: ModulePack[];
+};
+
+export type ModuleCatalog = { categories: string[]; modules: CatalogModule[] };
+
 export type SecretState = { name: string; description: string; set: boolean };
 
 // A connected service whose tools a token can get, with its scopes and the limits it takes.

@@ -39,7 +39,7 @@ export function usePodAction(prefix: string, podId: string) {
   });
 }
 
-// True when the pod list failed because the org has no RunPod key.
+// True when the pod list failed because the org has no key for a pod's provider. RunPod is the only provider.
 export function isMissingKey(error: unknown): boolean {
   return error instanceof ApiError && error.status === 400 && error.message.includes('runpod_api_key');
 }
@@ -60,7 +60,7 @@ export function statusLabel(status: string | null): string {
 
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
 
-// A short name for the hardware RunPod placed the pod on.
+// A short name for the hardware the provider placed the pod on.
 export function machineLabel(machine: Record<string, unknown> | null): string | null {
   if (!machine) return null;
   const gpuType = machine.gpuType as Record<string, unknown> | undefined;
