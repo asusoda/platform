@@ -220,7 +220,7 @@ register(
     Integration(
         key="discord",
         title="Discord",
-        description="The bot and officer sign-in. One Discord app serves every org; the deployment sets it in .env.",
+        description="Connect the org's Discord server. One Discord app serves every org; the deployment sets it in .env.",
         docs="modules/discord-bot",
         deployment=lambda: bool(os.environ.get("BOT_TOKEN")),
         test=_test,

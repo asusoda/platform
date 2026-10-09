@@ -120,7 +120,7 @@ register(
     Integration(
         key="embeddings",
         title="Embeddings",
-        description="An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.",
+        description="Connect an OpenAI-compatible embeddings service for meaning search.",
         fields=(
             Field(
                 URL_SECRET,

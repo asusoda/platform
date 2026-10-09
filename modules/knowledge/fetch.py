@@ -236,7 +236,7 @@ register(
     Integration(
         key="firecrawl",
         title="Firecrawl",
-        description="Renders pages that need JavaScript before knowledge reads them. Without it, pages are read with a plain GET.",
+        description="Connect a Firecrawl server to read pages that need JavaScript.",
         fields=(
             Field(
                 FIRECRAWL_URL_SECRET,

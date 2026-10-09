@@ -2,8 +2,8 @@ import {
   Activity,
   Bell,
   BellRing,
-  Bot,
   Boxes,
+  Cable,
   CalendarDays,
   CodeXml,
   Coins,
@@ -20,7 +20,6 @@ import type { ComponentType, ReactNode } from 'react';
 import { ModuleGate } from '../components/module-gate';
 import { ActivityPage } from './activity';
 import { AdminPage } from './admin';
-import { AgentsPage } from './agents';
 import { AlertsPage } from './alerts';
 import { AppsPage } from './apps';
 import { CalendarPage } from './calendar';
@@ -28,6 +27,7 @@ import { ComputePage } from './compute';
 import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
 import { LeetCodePage } from './leetcode';
+import { McpPage } from './mcp';
 import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
@@ -40,12 +40,22 @@ export const SECTIONS = [
   { id: 'top' },
   { id: 'members', title: 'Members' },
   { id: 'automations', title: 'Automations' },
-  { id: 'knowledge', title: 'Knowledge and agents' },
+  { id: 'knowledge', title: 'Knowledge and MCP' },
   { id: 'infrastructure', title: 'Infrastructure' },
   { id: 'bottom' },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]['id'];
+
+// The groups inside a section, in order, each under a small header. To add an automation, give its page one of
+// these groups. Pages with no group come first in their section.
+export const GROUPS = [
+  { id: 'webhooks', section: 'automations', title: 'Webhooks' },
+  { id: 'scheduled', section: 'automations', title: 'Scheduled jobs' },
+  { id: 'bots', section: 'automations', title: 'Bots' },
+] as const;
+
+export type GroupId = (typeof GROUPS)[number]['id'];
 
 export type PageEntry = {
   // The URL after /<org>/. An empty path is the org home page.
@@ -54,6 +64,8 @@ export type PageEntry = {
   label: string;
   icon: ComponentType<{ className?: string }>;
   section: SectionId;
+  // The group inside the section. It must be a group of the same section.
+  group?: GroupId;
   // The sidebar hides the page when the API says this module is off.
   module?: string;
   // With module set, the page shows a module-off note in place of its content when the module is off.
@@ -69,11 +81,11 @@ export const PAGES: PageEntry[] = [
   { path: 'notifications', label: 'Notifications', icon: Bell, section: 'top', page: NotificationsPage },
   { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage },
   { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage },
-  { path: 'alerts', label: 'Alerts', icon: BellRing, section: 'automations', module: 'alerts', gate: true, page: AlertsPage },
-  { path: 'calendar', label: 'Calendar', icon: CalendarDays, section: 'automations', module: 'calendar', gate: true, page: CalendarPage },
-  { path: 'leetcode', label: 'LeetCode', icon: CodeXml, section: 'automations', module: 'leetcode', gate: true, page: LeetCodePage },
+  { path: 'alerts', label: 'Alerts', icon: BellRing, section: 'automations', group: 'webhooks', module: 'alerts', gate: true, page: AlertsPage },
+  { path: 'calendar', label: 'Calendar sync', icon: CalendarDays, section: 'automations', group: 'scheduled', module: 'calendar', gate: true, page: CalendarPage },
+  { path: 'leetcode', label: 'LeetCode', icon: CodeXml, section: 'automations', group: 'bots', module: 'leetcode', gate: true, page: LeetCodePage },
   { path: 'knowledge', label: 'Knowledge', icon: Database, section: 'knowledge', page: KnowledgePage },
-  { path: 'agents', label: 'Agents', icon: Bot, section: 'knowledge', page: AgentsPage },
+  { path: 'mcp', label: 'MCP', icon: Cable, section: 'knowledge', page: McpPage },
   { path: 'compute', label: 'Compute', icon: Cpu, section: 'infrastructure', module: 'compute', gate: true, page: ComputePage },
   { path: 'apps', label: 'Apps', icon: Boxes, section: 'infrastructure', page: AppsPage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
@@ -84,7 +96,10 @@ export const PAGES: PageEntry[] = [
 ];
 
 // Old org paths that open another page. to is relative to the old path.
-export const REDIRECTS: { path: string; to: string }[] = [{ path: 'ci', to: '../activity?tab=ci' }];
+export const REDIRECTS: { path: string; to: string }[] = [
+  { path: 'ci', to: '../activity?tab=ci' },
+  { path: 'agents', to: '../mcp' },
+];
 
 // The element for the route of a page, inside a ModuleGate when the entry asks for one.
 export function pageElement({ page: Page, module, gate, label }: PageEntry): ReactNode {
