@@ -43,6 +43,8 @@ webhooks.declare(
 
 ACTIONS = ("start", "stop", "restart", "terminate")
 CLOUD_TYPES = ("COMMUNITY", "SECURE")
+# RunPod v2 gives a GPU pod a persistent volume of at least this size. A CPU pod has none.
+MIN_VOLUME_GB = 10
 MAX_ALLOWED_USERS = 500
 CONFIG_KEY = "compute"
 
@@ -74,7 +76,9 @@ def _call(fn, *args):
     try:
         return fn(*args)
     except runpod.RunPodError as e:
-        raise ComputeError(e.message, 502) from e
+        # 400 when RunPod refused the request, 424 when RunPod failed
+        status = 400 if e.status is not None and 400 <= e.status < 500 else 424
+        raise ComputeError(e.message, status) from e
 
 
 def keypair(db, org_id: int, kind: str) -> tuple[str, str]:
@@ -108,7 +112,22 @@ def _find(db, org_id: int, pod_id: str) -> ComputePod:
 def _status(live: dict | None) -> str:
     if live is None:
         return "GONE"
-    return str(live.get("desiredStatus") or live.get("status") or "UNKNOWN")
+    return str(live.get("status") or live.get("desiredStatus") or "UNKNOWN")
+
+
+def _machine(live: dict | None) -> dict | None:
+    """The pod's hardware and data center, from the v2 pod fields."""
+    if not live:
+        return None
+    if isinstance(live.get("machine"), dict):
+        return live["machine"]
+    gpu, cpu = live.get("gpu") or {}, live.get("cpu") or {}
+    machine = {
+        "gpuTypeId": gpu.get("id") if isinstance(gpu, dict) else None,
+        "cpuTypeId": cpu.get("id") if isinstance(cpu, dict) else None,
+        "dataCenterId": live.get("dataCenterId"),
+    }
+    return {k: v for k, v in machine.items() if v} or None
 
 
 def _pod_dict(row: ComputePod, live: dict | None) -> dict:
@@ -120,8 +139,8 @@ def _pod_dict(row: ComputePod, live: dict | None) -> dict:
         "allowed_users": list(cast(list, row.allowed_users) or []),
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat() if row.created_at else None,
-        "machine": (live or {}).get("machine"),
-        "cost_per_hour": (live or {}).get("costPerHr"),
+        "machine": _machine(live),
+        "cost_per_hour": (live or {}).get("cost", (live or {}).get("costPerHr")),
     }
 
 
@@ -177,23 +196,24 @@ def pod_request(data: dict, backend_public: str, ca_public: str, image: str) -> 
         raise ComputeError("env must map names to text")
     if any(k.startswith(POD_ENV_PREFIX) for k in env):
         raise ComputeError(f"env names starting with {POD_ENV_PREFIX} are reserved")
+    volume = 0 if cpu else _int(data, "volume_in_gb", 0, 0, 2000)
+    if 0 < volume < MIN_VOLUME_GB:
+        raise ComputeError(f"volume_in_gb must be 0 or from {MIN_VOLUME_GB} to 2000")
     settings = {
         "name": _text(data, "name", f"pod-{random.token_hex(4)}", 100),
         "image_name": _text(data, "image_name", image),
         "cloud_type": cloud,
         "use_cpu_only": cpu,
-        "volume_in_gb": _int(data, "volume_in_gb", 1, 0, 2000),
-        "container_disk_in_gb": _int(data, "container_disk_in_gb", 2, 1, 500),
+        "volume_in_gb": volume,
+        "container_disk_in_gb": _int(data, "container_disk_in_gb", 20, 1, 500),
         "volume_mount_path": _text(data, "volume_mount_path", "/workspace"),
         "env_names": sorted(env),
     }
     body: dict[str, Any] = {
         "name": settings["name"],
-        "imageName": settings["image_name"],
-        "cloudType": cloud,
-        "volumeInGb": settings["volume_in_gb"],
-        "containerDiskInGb": settings["container_disk_in_gb"],
-        "volumeMountPath": settings["volume_mount_path"],
+        "image": settings["image_name"],
+        "cloud": cloud,
+        "disk": settings["container_disk_in_gb"],
         "ports": ["22/tcp"],
         "env": {
             **env,
@@ -204,13 +224,16 @@ def pod_request(data: dict, backend_public: str, ca_public: str, image: str) -> 
     }
     if cpu:
         settings["cpu_flavor"] = _text(data, "cpu_flavor", DEFAULT_CPU_FLAVOR, 50)
-        body["computeType"] = "CPU"
-        body["cpuFlavorIds"] = [settings["cpu_flavor"]]
+        vcpus = _int(data, "vcpu_count", 2, 2, 64)
+        if vcpus & (vcpus - 1):
+            raise ComputeError("vcpu_count must be a power of two")
+        settings["vcpu_count"] = vcpus
+        body["cpu"] = {"id": settings["cpu_flavor"], "vcpuCount": vcpus}
     else:
         settings["gpu_type_id"] = _text(data, "gpu_type_id", DEFAULT_GPU, 100)
-        body["computeType"] = "GPU"
-        body["gpuTypeIds"] = [settings["gpu_type_id"]]
-        body["gpuCount"] = 1
+        body["gpu"] = {"id": settings["gpu_type_id"], "count": 1}
+        if settings["volume_in_gb"]:
+            body["mounts"] = {"persistent": {"size": settings["volume_in_gb"], "path": settings["volume_mount_path"]}}
     return body, settings
 
 
@@ -271,7 +294,7 @@ def create_pod(
     allowed = _users(data.get("allowed_users", []))
     created = _call(client.create_pod, body)
     if not isinstance(created, dict) or not created.get("id"):
-        raise ComputeError("RunPod did not return a pod id", 502)
+        raise ComputeError("RunPod did not return a pod id", 424)
     row = ComputePod(
         organization_id=org_id,
         pod_id=str(created["id"]),
@@ -367,10 +390,14 @@ def ssh_address(live: dict) -> tuple[str, int] | None:
     mappings = live.get("portMappings")
     if isinstance(mappings, dict) and live.get("publicIp") and mappings.get("22"):
         return str(live["publicIp"]), int(mappings["22"])
+    direct = (live.get("ssh") or {}).get("direct")
+    if isinstance(direct, dict) and direct.get("host") and direct.get("port"):
+        return str(direct["host"]), int(direct["port"])
     runtime = live.get("runtime") or {}
     for port in runtime.get("ports") or []:
-        if port.get("privatePort") == 22 and port.get("ip") and port.get("isIpPublic", True):
-            return str(port["ip"]), int(port.get("publicPort") or 22)
+        private = port.get("private", port.get("privatePort"))
+        if private == 22 and port.get("ip") and port.get("isIpPublic", True):
+            return str(port["ip"]), int(port.get("public") or port.get("publicPort") or 22)
     return None
 
 
