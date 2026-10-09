@@ -16,6 +16,7 @@ Members and their org memberships. Officer routes list, show, create and update 
 - Discord: `GET /<org_prefix>/discord/roles` lists the server roles. `POST /<org_prefix>/discord/sync` with `roles` (role ids; a member needs one of them; empty for everyone) and `dry_run` adds the server members to the org's members and returns `matched`, `new_users`, `joined` and `already`. A new user gets the Discord id, name and username; the username stays empty when another user has it. Bots are left out. The member list needs the Server Members intent on the bot.
 - Jobs: none.
 - Tools: none.
+- Webhook events: `member.joined`, when `manage_user_in_organization()` adds a membership. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `users`, `user_organization_memberships`.
 
 ## Known gaps

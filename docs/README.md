@@ -15,6 +15,7 @@ Platform is shared infrastructure for student orgs. One deployment serves many o
 | [Writing a module](./writing-a-module.md) | Add a module and register it |
 | [Operations](./operations.md) | Deploy, roll back, move to Postgres, turn off routes, run Hermes |
 | [Frontends](./frontends.md) | Work on the dashboard and the member store (`dashboard/`) |
+| [Webhooks](./webhooks.md) | Send org events to Discord channels; add an event |
 | [Roadmap](./roadmap.md) | See what is left to build and the known issues |
 
 ## Module pages

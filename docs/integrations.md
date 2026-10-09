@@ -16,7 +16,7 @@ The description of a card says what the officer connects, not what each module d
 | Discord | none for the org | `BOT_TOKEN` | Sign-in, LeetCode |
 | Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, MCP |
 | Firecrawl | `firecrawl_url`, [`firecrawl_api_key`] | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | Knowledge, ASU |
-| GitHub | `github_token` | none | CI runs, Apps |
+| GitHub | `github_token` | none | CI runs, Apps, `github.*` agent tools |
 | Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
 | Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
 | OpenRouter | `openrouter_api_key` | `OPENROUTER_API_KEY` | Knowledge, MCP (through Embeddings) |
@@ -39,19 +39,21 @@ Test connects with the key the module uses and shows the result. It does not cha
 
 If Firecrawl is not connected, knowledge reads pages with a plain GET. If SearXNG is not connected, the ASU web live query returns 503.
 
-## OpenRouter
+## Tools for agents
 
-OpenRouter gives one API key for many hosted models, with an OpenAI-compatible API at `https://openrouter.ai/api/v1`. Embeddings is the only part of Platform that calls a model. To use OpenRouter for embeddings:
+An agent with a machine token can also use the tools of a connected service, through the same MCP server and `/api/tools`. Platform passes the call to the service's own MCP server with the org's saved keys. The agent never gets the keys.
 
-1. On the OpenRouter card, set the API key. Or set `OPENROUTER_API_KEY` in `.env` for every org.
-2. On the Embeddings card, set the base URL to `https://openrouter.ai/api/v1`.
-3. Set the model to an OpenRouter embeddings model that returns 1024 numbers, such as `baai/bge-m3`.
-4. Leave the Embeddings API key empty.
-5. Click Test on the Embeddings card. It shows the number of dimensions.
+| Service | Server | Scopes |
+| --- | --- | --- |
+| GitHub | `GITHUB_MCP_URL`, default `https://api.githubcopilot.com/mcp/`, with the org's GitHub token | `github:read`: the tools the server marks read-only. `github:write`: the other tools |
 
-If the Embeddings base URL is https on `openrouter.ai` and the Embeddings API key is empty, Platform sends the OpenRouter key. Org Embeddings settings use only the org's OpenRouter key, never `OPENROUTER_API_KEY`. The `.env` default works the same way: `EMBEDDINGS_URL` with no `EMBEDDINGS_API_KEY` uses `OPENROUTER_API_KEY`. An Embeddings API key, when set, always wins. Platform sends the OpenRouter key only to `https://openrouter.ai`.
+- A tool name starts with the service key, such as `github.list_issues`. The token sees the tools only when the org connected the service.
+- A tool that is not read-only runs only with `confirm=true`. Without it, the call returns what it would do.
+- Token limits narrow a token further. `repos` lists the repos a call may act on, as `owner/name` or `owner/*`. With `repos`, the token sees only tools that take one repo. `tools` lists name patterns, such as `github.*issue*`. Set both on the Tokens page.
+- Each call is in the audit log and its failures are in the error log, as for other tools.
+- The list of tools of each org is kept for 10 minutes. The GitHub token must allow what the tools do: write access to Issues and Pull requests for the write tools.
 
-Test on the OpenRouter card reads the key's name and credit limit from OpenRouter. It does not show the key.
+To add the tools of another service, add a `RemoteServer` in `modules/integrations/servers.py`: its URL, the headers that sign in with the org's keys, a read and a write scope, how to find the target in the arguments, and a check for its token limits.
 
 ## Routes
 

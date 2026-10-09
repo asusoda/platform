@@ -2,11 +2,14 @@
 
 import time
 
+from core import webhooks
 from core.time import iso, utcnow
 from modules.knowledge.models import KnowledgeRun
 
 RUNS_KEPT = 500
 MAX_LIST = 200
+
+webhooks.declare("knowledge.crawl_failed", "Knowledge crawl failures", "A crawl of a knowledge source fails.")
 
 
 class Timer:
@@ -45,6 +48,11 @@ def record(
         )
     )
     db.flush()
+    if kind == "crawl" and error:
+        message = webhooks.Message(
+            title=f"Crawl of {source_key} failed", text=error[:1000], color=webhooks.RED, footer="Knowledge"
+        )
+        webhooks.emit(org_id, "knowledge.crawl_failed", message)
     oldest_kept = (
         db.query(KnowledgeRun.id)
         .filter_by(organization_id=org_id)

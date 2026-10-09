@@ -1,6 +1,6 @@
 # Alerts
 
-Posts new job listings and upcoming hackathons to Discord. An org adds feeds. Each feed reads one source on a schedule and posts the new items to one Discord webhook.
+Posts new job listings and upcoming hackathons to Discord. An org adds feeds. Each feed reads one source on a schedule and posts the new items to one Discord webhook. The dashboard page Webhooks lists the feeds too. Org events such as errors use [webhooks](../webhooks.md), not feeds.
 
 ## Feeds
 

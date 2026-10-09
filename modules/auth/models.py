@@ -70,6 +70,8 @@ class MachineToken(Base):
     name = Column(String(255), nullable=False)
     kind = Column(String(20), nullable=False)  # app, agent, cli
     scopes = Column(JSON, nullable=False)
+    # Per-integration limits, such as {"github": {"repos": ["org/*"], "tools": ["github.*issue*"]}}
+    limits = Column(JSON, nullable=True)
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
     display = Column(String(20), nullable=False)  # first characters, to tell tokens apart in a list
     created_by = Column(String(255), nullable=True)
