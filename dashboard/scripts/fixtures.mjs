@@ -629,7 +629,7 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: null,
       testable: true,
-      used_by: ['asu', 'knowledge'],
+      used_by: ['knowledge', 'packs'],
     },
     {
       key: 'github',
@@ -690,7 +690,7 @@ export function fixtures(now = Date.now()) {
       key: 'searxng',
       title: 'Web search (SearXNG)',
       description: 'Connect a SearXNG server for live web search.',
-      docs: 'modules/asu',
+      docs: 'modules/packs',
       fields: [
         field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
         field('searxng_engines', 'Engines', 'Comma-separated. Leave empty for google,brave,bing.', null, 'text', { secret: false, optional: true }),
@@ -698,7 +698,7 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: 'deployment',
       testable: true,
-      used_by: ['asu'],
+      used_by: ['packs'],
     },
   ];
 
@@ -969,6 +969,21 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
     '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
+    [`/api/alerts/${ORG.prefix}/presets`]: {
+      presets: [
+        {
+          pack: 'careers',
+          pack_title: 'Internships and hackathons',
+          key: 'new-grad',
+          title: 'New grad roles',
+          description: 'New rows in the 2026 new grad list that vanshb03 keeps on GitHub.',
+          kind: 'github_jobs',
+          config: { repo: 'vanshb03/New-Grad-2026', branch: 'main', path: 'README.md', label: 'New grad', skip_closed: true, max_age_days: 2 },
+          every_hours: 3,
+          added: false,
+        },
+      ],
+    },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
@@ -982,8 +997,11 @@ export function fixtures(now = Date.now()) {
         {
           name: 'asu',
           title: 'Arizona State University',
-          description: 'Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
+          description:
+            'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
           key_prefix: 'asu/',
+          pages: 226,
+          queries: ['courses', 'course_catalog', 'scholarships', 'events', 'news', 'dining', 'web'],
           sources: 0,
         },
       ],

@@ -121,6 +121,29 @@ def list_feeds(db, org_id: int) -> list[dict]:
     return [describe(db, f) for f in feeds]
 
 
+def presets(db, org_id: int) -> list[dict]:
+    """The feeds that packs offer, with the kind and config to create each, and whether the org has the key."""
+    from modules.packs import catalog
+
+    have = {key for (key,) in db.query(AlertFeed.key).filter_by(organization_id=org_id)}
+    return [
+        {
+            "pack": pack.name,
+            "pack_title": pack.title,
+            "key": feed.key,
+            "title": feed.title,
+            "description": feed.description,
+            "kind": feed.kind,
+            "config": KINDS[feed.kind].validate(dict(feed.config)),
+            "every_hours": feed.every_hours,
+            "added": feed.key in have,
+        }
+        for pack in catalog.PACKS.values()
+        for feed in pack.feeds
+        if feed.kind in KINDS
+    ]
+
+
 def get_feed(db, org_id: int, key: str) -> dict:
     return describe(db, _find(db, org_id, key))
 

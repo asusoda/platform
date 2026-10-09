@@ -15,10 +15,11 @@ from core.http.responses import json_body
 from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
-from modules.knowledge import crawl, documents, embedder, packs, runs, settings
+from modules.knowledge import crawl, documents, embedder, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
+from modules.packs import service as packs
 from modules.runpod import service as apps
 
 from . import ci, errors, notices, service
