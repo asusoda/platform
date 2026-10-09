@@ -163,6 +163,7 @@ source_modules = [
     "modules.calendar.tracing",
     "modules.compute.cli_login",
     "modules.compute.files",
+    "modules.compute.presence",
     "modules.compute.schedule",
     "modules.compute.ssh",
     "modules.dashboard.ci",
@@ -203,6 +204,8 @@ source_modules = [
     "modules.packs.types",
     "modules.packs.web",
     "modules.points.csv_import",
+    "modules.runpod.templates",
+    "modules.uptime.probe",
     "packs",
 ]
 forbidden_modules = ["flask"]

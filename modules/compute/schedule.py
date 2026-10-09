@@ -10,7 +10,7 @@ import datetime
 from collections.abc import Callable
 from typing import Any, cast
 
-from core.integrations import runpod
+from core import hosting
 from core.log import get_logger
 from core.time import utcnow
 from modules.compute import service
@@ -109,8 +109,11 @@ def delete_pod_sessions(db, org_id: int, pod_id: str) -> None:
     db.query(ComputeSession).filter_by(organization_id=org_id, pod_id=pod_id).delete()
 
 
-def run(db, now=None, client_for: Callable[[Any, int], runpod.RunPodClient] | None = None) -> dict:
-    """Start pods whose session is about to begin and stop pods whose sessions have ended. Commits."""
+def run(db, now=None, client_for: Callable[[Any, int, str], hosting.HostingClient] | None = None) -> dict:
+    """Start pods whose session is about to begin and stop pods whose sessions have ended. Commits.
+
+    client_for takes the db, the org id and the provider name.
+    """
     now = now or utcnow()
     client_for = client_for or service._client
     due = (
@@ -122,7 +125,7 @@ def run(db, now=None, client_for: Callable[[Any, int], runpod.RunPodClient] | No
     pods: dict[tuple[int, str], list[ComputeSession]] = {}
     for row in due:
         pods.setdefault((int(row.organization_id), str(row.pod_id)), []).append(row)  # type: ignore[arg-type]
-    clients: dict[int, runpod.RunPodClient] = {}
+    clients: dict[tuple[int, str], hosting.HostingClient] = {}
     result = {"started": [], "stopped": [], "failed": []}
     for (org_id, pod_id), rows in pods.items():
         active = [r for r in rows if r.stop_at > now]
@@ -133,11 +136,12 @@ def run(db, now=None, client_for: Callable[[Any, int], runpod.RunPodClient] | No
                 for r in rows:
                     r.finished = True  # type: ignore[assignment]
                 continue
-            if org_id not in clients:
-                clients[org_id] = client_for(db, org_id)
-            client = clients[org_id]
+            provider = str(pod.provider)
+            if (org_id, provider) not in clients:
+                clients[(org_id, provider)] = client_for(db, org_id, provider)
+            client = clients[(org_id, provider)]
             if active and not all(r.started for r in active):
-                if service._status(service._call(client.get_pod, pod_id)) != "RUNNING":
+                if service._status(service._call(client.get_pod, pod_id), provider) != "RUNNING":
                     service._call(client.start_pod, pod_id)
                     result["started"].append(pod_id)
                     service.announce(org_id, str(pod.name), pod_id, "start", "the session schedule")

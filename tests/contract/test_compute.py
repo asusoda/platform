@@ -1,5 +1,7 @@
 """Pods on an org's RunPod account: officers manage them, members connect with short-lived certificates."""
 
+from typing import cast
+
 import pytest
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.serialization import load_ssh_public_identity
@@ -49,14 +51,15 @@ class FakeRunPod:
 def runpod(app, monkeypatch):
     from core.db import db_connect
     from modules.compute import service
-    from modules.compute.models import ComputeKey, ComputePod, ComputeSession
+    from modules.compute.models import ComputeConnection, ComputeKey, ComputePod, ComputeSession
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     fake = FakeRunPod()
-    monkeypatch.setattr(service, "_client", lambda db, org_id: fake)
+    monkeypatch.setattr(service, "_client", lambda db, org_id, provider="runpod": fake)
     yield fake
     db = db_connect.SessionLocal()
     db.query(ComputeSession).delete()
+    db.query(ComputeConnection).delete()
     db.query(ComputePod).delete()
     db.query(ComputeKey).delete()
     db.commit()
@@ -379,7 +382,7 @@ def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
     assert len(client.get(base, headers=officer_headers).get_json()["sessions"]) == 2
 
     db = db_connect.SessionLocal()
-    run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id: runpod)  # noqa: E731
+    run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id, provider: runpod)  # noqa: E731
     assert run(-30) == {"started": [], "stopped": [], "failed": []}
     assert run(-5)["started"] == ["pod1"]
     assert runpod.pods["pod1"]["status"] == "RUNNING"
@@ -404,7 +407,7 @@ def test_a_running_pod_is_stopped_after_its_session_and_others_are_left_alone(cl
     client.post("/api/compute/soda/pods/pod1/sessions", json=body, headers=officer_headers)
     db = db_connect.SessionLocal()
     now = datetime.datetime(2099, 10, 9, 0, 0)
-    run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id: runpod)  # noqa: E731
+    run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id, provider: runpod)  # noqa: E731
     assert run(now)["started"] == []
     assert run(now + datetime.timedelta(hours=2))["stopped"] == ["pod1"]
     assert runpod.pods["pod2"]["status"] == "RUNNING"
@@ -553,3 +556,168 @@ def test_pod_list_reads_v2_fields(client, officer_headers, runpod):
     pod = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"][0]
     assert pod["cost_per_hour"] == 0.2
     assert pod["machine"] == {"gpuTypeId": "NVIDIA A40", "dataCenterId": "US-TX-3"}
+
+
+# Who is on a pod: access, recent connections and live sessions.
+
+
+class FakeShell:
+    """An SSH client that answers the presence script with fixed output."""
+
+    def __init__(self, output: str, status: int = 0):
+        self.output, self.status = output.encode(), status
+        self.commands: list[str] = []
+
+    def exec_command(self, command, timeout=None):
+        from types import SimpleNamespace
+
+        self.commands.append(command)
+        channel = SimpleNamespace(recv_exit_status=lambda: self.status)
+        return None, SimpleNamespace(read=lambda limit=-1: self.output, channel=channel), None
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def names(monkeypatch):
+    from modules.compute import api
+
+    known = {MEMBER_DISCORD_ID: "Alice A"}
+    monkeypatch.setattr(api, "_name_lookup", lambda org: known.get)
+    return known
+
+
+def test_connections_are_recorded_and_listed(client, member_client, officer_headers, runpod, names, monkeypatch):
+    from modules.compute import api
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    _create(client, officer_headers, allowed_users=[MEMBER_DISCORD_ID, "222222222222222222"])
+    base = "/api/compute/soda/pods/pod1/members"
+    empty = client.get(base, headers=officer_headers).get_json()
+    assert empty["recent"] == [] and empty["access"]["is_public"] is False
+    assert empty["access"]["allowed"] == [
+        {"discord_id": "222222222222222222", "name": None},
+        {"discord_id": MEMBER_DISCORD_ID, "name": "Alice A"},
+    ]
+
+    connected = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()})
+    assert connected.status_code == 200
+    recent = client.get(base, headers=officer_headers).get_json()["recent"]
+    assert [(r["discord_id"], r["name"], r["is_admin"]) for r in recent] == [(MEMBER_DISCORD_ID, "Alice A", False)]
+    assert recent[0]["username"] == connected.get_json()["ssh_info"]["user_folder"] and recent[0]["created_at"]
+    assert member_client.get(base).status_code in (401, 403)
+    assert client.get("/api/compute/soda/pods/nope/members", headers=officer_headers).status_code == 404
+
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "terminate"}, headers=officer_headers)
+    from core.db import db_connect
+    from modules.compute.models import ComputeConnection
+
+    db = db_connect.SessionLocal()
+    assert db.query(ComputeConnection).count() == 0
+    db.close()
+
+
+def test_old_connections_are_deleted(client, officer_headers, runpod):
+    import datetime
+
+    from core.db import db_connect
+    from core.time import utcnow
+    from modules.compute import service
+    from modules.compute.models import ComputeConnection
+
+    _create(client, officer_headers)
+    db = db_connect.SessionLocal()
+    org_id = cast(int, db.query(service.ComputePod).one().organization_id)
+    old = utcnow() - datetime.timedelta(days=service.CONNECTION_KEEP_DAYS + 1)
+    db.add(ComputeConnection(organization_id=org_id, pod_id="pod1", discord_id="1", username="old", created_at=old))
+    db.commit()
+    service.record_connection(db, org_id, "pod1", "2", "new", True)
+    assert [c.username for c in db.query(ComputeConnection).all()] == ["new"]
+    db.close()
+
+
+def test_connected_now_reads_the_sessions_on_the_pod(
+    client, member_client, officer_headers, runpod, names, monkeypatch
+):
+    from modules.compute import api, files
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    _create(client, officer_headers, is_public=True)
+    folder = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()}).get_json()
+    folder = folder["ssh_info"]["user_folder"]
+    shell = FakeShell(
+        f"member 340 {folder} -c cd '/workspace/users/{folder}' && exec bash\n"
+        "admin 25 GODFATHER_USER=root-officer\n"
+        "member x broken\n"
+        "admin 9 GODFATHER_USER=\n"
+    )
+    opened: list[tuple] = []
+
+    def fake_open(host, port, private_key, timeout):
+        opened.append((host, port, timeout))
+        return shell
+
+    monkeypatch.setattr(files, "open_ssh", fake_open)
+    body = client.get("/api/compute/soda/pods/pod1/members/connected", headers=officer_headers).get_json()
+    assert opened == [("203.0.113.5", 40022, 5)]
+    assert body["state"] == "known" and body["reason"] is None
+    assert body["sessions"] == [
+        {"username": folder, "is_admin": False, "seconds": 340, "discord_id": MEMBER_DISCORD_ID, "name": "Alice A"},
+        {"username": "root-officer", "is_admin": True, "seconds": 25, "discord_id": None, "name": None},
+    ]
+    assert "godfather-login" in shell.commands[0] and "{" not in shell.commands[0].replace("${args#", "")
+
+
+def test_connected_now_is_unknown_when_it_cannot_be_read(client, officer_headers, runpod, monkeypatch):
+    from modules.compute import files
+
+    _create(client, officer_headers)
+    url = "/api/compute/soda/pods/pod1/members/connected"
+
+    def refuse(host, port, private_key, timeout):
+        raise files.FilesError("Could not connect to the pod", 502)
+
+    monkeypatch.setattr(files, "open_ssh", refuse)
+    failed = client.get(url, headers=officer_headers)
+    assert failed.status_code == 200
+    assert failed.get_json() == {
+        "pod_id": "pod1",
+        "state": "unknown",
+        "reason": "Could not connect to the pod",
+        "sessions": [],
+    }
+
+    monkeypatch.setattr(files, "open_ssh", lambda *args: FakeShell("", status=3))
+    other_image = client.get(url, headers=officer_headers).get_json()
+    assert other_image["state"] == "unknown" and "godfather-login" in other_image["reason"]
+
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "stop"}, headers=officer_headers)
+    stopped = client.get(url, headers=officer_headers).get_json()
+    assert stopped["state"] == "unknown" and stopped["reason"] == "The pod is not running"
+    assert client.get("/api/compute/soda/pods/nope/members/connected", headers=officer_headers).status_code == 404
+
+
+def test_presence_script_finds_member_and_officer_sessions():
+    import os
+    import subprocess
+
+    from modules.compute import presence
+
+    # A fake ps lists a member session, an officer shell whose environment names its user, and an unrelated process
+    officer = subprocess.Popen(["sleep", "30"], env={**os.environ, "GODFATHER_USER": "bob"})
+    try:
+        fake = (
+            "test() { return 0; }; ps() { printf '%s\\n' "
+            "\"  12   340 su - godfather_alice -c cd '/workspace/users/alice' && exec bash\" "
+            f'"  {officer.pid}    25 bash --rcfile /etc/godfather/admin.bashrc -i" '
+            "'   1  9999 sleep infinity'; }; "
+        )
+        result = subprocess.run(["bash", "-c", fake + presence.SCRIPT], capture_output=True, text=True, check=True)
+    finally:
+        officer.kill()
+        officer.wait()
+    assert presence.parse(result.stdout) == [
+        {"username": "alice", "is_admin": False, "seconds": 340},
+        {"username": "bob", "is_admin": True, "seconds": 25},
+    ]

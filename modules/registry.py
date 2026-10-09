@@ -27,6 +27,7 @@ from modules.public.api import public_blueprint
 from modules.runpod.api import apps_blueprint
 from modules.storefront.member_api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
+from modules.uptime.api import uptime_blueprint
 from modules.users.api import users_blueprint
 
 
@@ -59,6 +60,7 @@ MOUNTS = [
     Mount(asu_blueprint, "/api/asu"),
     Mount(compute_blueprint, "/api/compute", module="compute"),
     Mount(alerts_blueprint, "/api/alerts", module="alerts"),
+    Mount(uptime_blueprint, "/api/uptime", module="uptime"),
     Mount(dashboard_blueprint, "/api/dashboard"),
 ]
 
