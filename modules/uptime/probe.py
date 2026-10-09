@@ -1,0 +1,52 @@
+"""One HTTP check of an address. Each URL and each redirect must resolve to public addresses. No Flask here."""
+
+import time
+from dataclasses import dataclass
+from urllib.parse import urljoin
+
+import requests
+
+from core import net
+
+USER_AGENT = "PlatformUptime/1.0"
+MAX_REDIRECTS = 5
+
+
+@dataclass(frozen=True)
+class Result:
+    """The status of the last response and the time to its headers, or the error when no response came back."""
+
+    status_code: int | None = None
+    latency_ms: int | None = None
+    error: str | None = None
+
+
+def fetch(url: str, timeout: float) -> Result:
+    """GET url and follow redirects one at a time, so that net.check_public checks each hop. The body is not read.
+
+    timeout is the limit for all hops together.
+    """
+    started = time.monotonic()
+    for _ in range(MAX_REDIRECTS + 1):
+        left = timeout - (time.monotonic() - started)
+        if left <= 0:
+            return Result(error=f"No answer in {timeout:g} seconds")
+        try:
+            net.check_public(url)
+        except ValueError as e:
+            return Result(error=str(e))
+        try:
+            response = requests.get(
+                url, headers={"User-Agent": USER_AGENT}, timeout=left, allow_redirects=False, stream=True
+            )
+        except requests.Timeout:
+            return Result(error=f"No answer in {timeout:g} seconds")
+        except requests.RequestException as e:
+            return Result(error=f"Could not connect: {type(e).__name__}")
+        response.close()
+        location = response.headers.get("location")
+        if response.is_redirect and location:
+            url = urljoin(url, location)
+            continue
+        return Result(status_code=response.status_code, latency_ms=int((time.monotonic() - started) * 1000))
+    return Result(error=f"More than {MAX_REDIRECTS} redirects")

@@ -1,72 +1,33 @@
+"""Point entries. Members and memberships are in modules/users/models.py."""
+
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
-from modules.utils.base import Base
-
-
-# Updated User model to support multiple organizations
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    discord_id = Column(String, unique=True, index=True, nullable=True)  # Can be null for non-Discord users
-    username = Column(String, unique=True, index=True, nullable=True)
-    email = Column(String, unique=True, index=True, nullable=True)
-    name = Column(String)
-    asu_id = Column(String, unique=True, index=True, nullable=True)
-    academic_standing = Column(String)
-    major = Column(String)
-    uuid = Column(String, unique=True, index=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-
-    # Relationships
-
-    points = relationship("Points", back_populates="user")
-    orders = relationship("Order", back_populates="user")
-    memberships = relationship("UserOrganizationMembership", back_populates="user")
-
-    def __repr__(self):
-        return f"<User(id={self.id}, discord_id={self.discord_id}, username={self.username})>"
-
-
-# New model to handle user-organization relationships
-
-
-class UserOrganizationMembership(Base):
-    __tablename__ = "user_organization_memberships"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    joined_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    is_active = Column(Boolean, default=True)
-
-    # Relationships
-    user = relationship("User", back_populates="memberships")
-    organization = relationship("Organization", backref="memberships")
-
-    # Unique constraint to prevent duplicate memberships
-    __table_args__ = (UniqueConstraint("user_id", "organization_id", name="unique_user_org"),)
-
-    def __repr__(self):
-        return f"<UserOrganizationMembership(user_id={self.user_id}, org_id={self.organization_id})>"
+from core.db import Base
 
 
 class Points(Base):
+    """Points one member got (or spent, when negative) in one org."""
+
     __tablename__ = "points"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     points = Column(Float, default=0.0)
-    event = Column(String, nullable=True)  # Event name/description
-    awarded_by_officer = Column(String, nullable=True)  # Officer who awarded the points
-    timestamp = Column(DateTime, default=lambda: datetime.now(UTC))  # When points were awarded
+    event = Column(String, nullable=True)
+    awarded_by_officer = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(UTC))
     last_updated = Column(DateTime, default=lambda: datetime.now(UTC))
     user = relationship("User", back_populates="points")
     organization = relationship("Organization", backref="points")
+
+    __table_args__ = (
+        Index("ix_points_organization_id_user_id", "organization_id", "user_id"),
+        Index("ix_points_user_id", "user_id"),
+    )
 
     def __repr__(self):
         return f"<Points(id={self.id}, user_id={self.user_id}, organization_id={self.organization_id}, points={self.points}, event={self.event}, timestamp={self.timestamp})>"

@@ -4,18 +4,18 @@ from tests.contract.conftest import OFFICER_DISCORD_ID
 
 
 def test_revoked_access_token_stays_revoked_after_restart(app):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    token = tokenManager.generate_token(username="revoked-officer", discord_id=OFFICER_DISCORD_ID)
-    tokenManager.delete_token(token)
-    tokenManager.blacklist.clear()  # what a restart or another process starts with
-    assert not tokenManager.is_token_valid(token)
+    token = token_manager.generate_token(username="revoked-officer", discord_id=OFFICER_DISCORD_ID)
+    token_manager.delete_token(token)
+    token_manager.blacklist.clear()  # what a restart or another process starts with
+    assert not token_manager.is_token_valid(token)
 
 
 def test_officer_lists_and_revokes_app_token(client, officer_headers):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    token = tokenManager.generate_app_token("officer", "scoreboard", OFFICER_DISCORD_ID)
+    token = token_manager.generate_app_token("officer", "scoreboard", OFFICER_DISCORD_ID)
     app_headers = {"Authorization": f"Bearer {token}"}
     assert client.get("/api/points/soda/users", headers=app_headers).status_code == 200
 
@@ -27,11 +27,11 @@ def test_officer_lists_and_revokes_app_token(client, officer_headers):
 
 
 def test_cannot_revoke_another_officers_app_token(client):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    tokenManager.generate_app_token("other", "theirs", "900000000000000077")
+    token_manager.generate_app_token("other", "theirs", "900000000000000077")
     other_headers = {
-        "Authorization": f"Bearer {tokenManager.generate_token(username='x', discord_id='900000000000000078')}"
+        "Authorization": f"Bearer {token_manager.generate_token(username='x', discord_id='900000000000000078')}"
     }
     listed = client.get("/api/auth/appTokens", headers=other_headers).get_json()
     assert listed == []

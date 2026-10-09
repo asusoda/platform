@@ -25,9 +25,7 @@ class ScopedBot:
     def is_ready(self):
         return self.ready
 
-    def check_officer(self, user_id, superadmin_user_id):
-        if str(user_id) == str(superadmin_user_id):
-            return [1001, 1002]
+    def officer_guilds(self, user_id, org_roles):
         return OFFICER_GUILDS.get(str(user_id), [])
 
     def check_user_officer_status(self, user_id, guild_id, role_id):
@@ -39,8 +37,8 @@ class ScopedBot:
 
 @pytest.fixture(autouse=True)
 def scoped(app, monkeypatch):
+    from core.config import config
     from modules.auth import access
-    from shared import config
 
     access.clear_cache()
     monkeypatch.setattr(app, "discord_directory", ScopedBot())
@@ -51,9 +49,9 @@ def scoped(app, monkeypatch):
 
 
 def headers_for(discord_id):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    return {"Authorization": f"Bearer {tokenManager.generate_token(username='u', discord_id=discord_id)}"}
+    return {"Authorization": f"Bearer {token_manager.generate_token(username='u', discord_id=discord_id)}"}
 
 
 def test_officer_reads_own_org(client):
@@ -78,7 +76,7 @@ def test_officer_refused_on_other_org(client, method, path):
 
 
 def test_report_mode_logs_and_allows(client, monkeypatch, caplog):
-    from shared import config
+    from core.config import config
 
     monkeypatch.setattr(config, "ACCESS_ENFORCE", False)
     with caplog.at_level(logging.WARNING, logger="access"):
@@ -108,23 +106,23 @@ def test_organization_list_shows_only_own_orgs(client):
 
 
 def test_app_token_is_scoped_to_its_officer(client):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    token = tokenManager.generate_app_token("u", "integration", OFFICER_DISCORD_ID)
+    token = token_manager.generate_app_token("u", "integration", OFFICER_DISCORD_ID)
     headers = {"Authorization": f"Bearer {token}"}
     assert client.get("/api/points/soda/users", headers=headers).status_code == 200
     assert client.get("/api/points/ais/users", headers=headers).status_code == 403
 
 
 def test_legacy_app_token_without_user_is_refused(client):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
     claims = {
         "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1),
         "name": "u",
         "app_name": "integration",
     }
-    token = jwt.encode(claims, tokenManager.private_key, algorithm=tokenManager.algorithm)
+    token = jwt.encode(claims, token_manager.private_key, algorithm=token_manager.algorithm)
     response = client.get("/api/points/soda/users", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 403
 

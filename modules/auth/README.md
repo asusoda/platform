@@ -1,120 +1,29 @@
-# Authentication Module
+# auth
 
-The authentication module handles all aspects of user authentication and authorization in the SoDA Internal API.
+Signs officers and members in with Discord and decides who can call a route: platform tokens, app tokens, machine tokens, and the decorators that all modules use.
 
-## Structure
+## Files
 
-```
-auth/
-├── api.py           # Authentication endpoints
-└── decorators.py    # Authentication decorators
-```
+| File | Holds |
+| --- | --- |
+| `api.py` | Discord sign-in and callback, code exchange, refresh, revoke, logout, app tokens, `/machine/whoami` |
+| `decorators.py` | `auth_required`, `dual_auth_required`, `member_required`, `org_officer_required`, `superadmin_required`, `machine_scope_required` |
+| `routes.py` | `officer_route`, `machine_route`, `member_view` and `token_org` |
+| `access.py` | The caller of a request and the officer and superadmin checks; logs refusals until `ACCESS_ENFORCE=true` |
+| `tokens.py` | `TokenManager`: RS256 keys in `./data`, access, refresh and app tokens, revocation |
+| `machine_tokens.py`, `scopes.py` | Machine tokens (stored as a hash); the scopes that modules declare |
+| `clerk.py` | `verify_clerk_token` |
+| `models.py`, `jobs.py` | Token tables; the refresh token cleanup job |
 
-## Features
+## Surface
 
-### Authentication
-- JWT-based authentication
-- Session management
-- Token refresh mechanism
-- OAuth2 integration
-- Role-based access control
+- Routes: `/api/auth`. Sign-in, callback, exchange, refresh and logout are open. `/validToken`, `/revoke`, `/name` and the app token routes need a platform token. `/machine/whoami` needs a machine token.
+- Jobs: `auth.cleanup_tokens`, schedule `0 * * * *`.
+- Tools: none.
+- Tables: `refresh_tokens`, `revoked_tokens`, `app_tokens`, `machine_tokens`, `sessions` (not used).
 
-### Security
-- Secure token storage
-- Token expiration
-- CSRF protection
-- Rate limiting
-- Secure password handling
+See [docs/authentication.md](../../docs/authentication.md).
 
-## API Endpoints
+## Known gaps
 
-### Authentication
-- `POST /auth/login`
-  - Authenticates a user
-  - Returns JWT tokens
-  - Sets session cookies
-
-- `POST /auth/logout`
-  - Invalidates current session
-  - Clears session cookies
-  - Revokes tokens
-
-- `POST /auth/refresh`
-  - Refreshes expired tokens
-  - Returns new access token
-  - Maintains session
-
-- `GET /auth/verify`
-  - Validates current token
-  - Returns user information
-  - Checks permissions
-
-## Decorators
-
-### @requires_auth
-- Validates JWT token
-- Checks token expiration
-- Verifies user permissions
-
-### @requires_role(role)
-- Checks user role
-- Validates permissions
-- Handles role hierarchy
-
-## Configuration
-
-Required environment variables:
-- `JWT_SECRET_KEY`: Secret key for JWT tokens
-- `JWT_ACCESS_TOKEN_EXPIRES`: Access token expiration time
-- `JWT_REFRESH_TOKEN_EXPIRES`: Refresh token expiration time
-- `OAUTH_CLIENT_ID`: OAuth client ID
-- `OAUTH_CLIENT_SECRET`: OAuth client secret
-
-## Usage Example
-
-```python
-from modules.auth.decorators import requires_auth, requires_role
-
-@requires_auth
-def protected_route():
-    # Route logic here
-    pass
-
-@requires_role('admin')
-def admin_route():
-    # Admin-only logic here
-    pass
-```
-
-## Error Handling
-
-The module handles various authentication errors:
-- Invalid tokens
-- Expired tokens
-- Missing permissions
-- Invalid credentials
-- Rate limit exceeded
-
-## Security Considerations
-
-1. **Token Security**
-   - Tokens are signed with a secure key
-   - Access tokens have short expiration
-   - Refresh tokens are stored securely
-
-2. **Password Security**
-   - Passwords are hashed using bcrypt
-   - Salt is generated for each password
-   - Password strength requirements
-
-3. **Session Security**
-   - Sessions are tied to IP addresses
-   - Session timeouts are enforced
-   - Concurrent sessions are limited
-
-## Dependencies
-
-- `PyJWT`: JWT token handling
-- `bcrypt`: Password hashing
-- `Flask-JWT-Extended`: JWT integration
-- `oauthlib`: OAuth2 implementation 
+- No `service.py`. The app token routes in `api.py` query and commit `app_tokens` in the view.

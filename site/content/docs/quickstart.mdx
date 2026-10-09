@@ -1,0 +1,54 @@
+---
+title: Quickstart
+description: Run Platform locally and create an organization.
+---
+
+## Requirements
+
+- Python 3.12 and [uv](https://docs.astral.sh/uv/)
+- Podman with podman-compose, or Docker
+- Make
+- A Discord application with a bot, for login and server membership checks
+
+## Run it
+
+```bash
+git clone https://github.com/theaisocietyasu/bedrock.git
+cd bedrock
+uv sync
+cp .env.template .env
+make dev
+```
+
+Fill in `.env` before `make dev`. The values you need first are `CLIENT_ID` and `CLIENT_SECRET` from the Discord application, `BOT_TOKEN`, and `SYS_ADMIN` set to your own Discord user id.
+
+The API runs at `http://localhost:8000` and the dashboard at `http://localhost:5001`.
+
+## Create an organization
+
+An organization maps to one Discord server.
+
+```bash
+flask --app main org create \
+  --name "Robotics Club" \
+  --prefix robotics \
+  --guild-id <server id> \
+  --officer-role-id <role id> \
+  --off points,storefront
+```
+
+`flask --app main org modules robotics --on points` turns modules on or off later. A module that is off returns 404 for that organization and is hidden in the dashboard.
+
+## Check the setup
+
+```bash
+flask --app main config check
+make check
+```
+
+`config check` reports missing settings and database problems. `make check` runs lint, format, type checks and tests.
+
+## Deploy
+
+- [Operations](/docs/codebase/operations) covers containers, migrations and rollback.
+- [Getting started](/docs/codebase/getting-started) also runs everything on a single RunPod pod without Docker.
