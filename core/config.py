@@ -3,9 +3,19 @@ import os
 
 from dotenv import load_dotenv
 
-from core.logging_config import get_logger
+from core.log import SentrySettings, get_logger
 
 logger = get_logger(__name__)
+
+
+def _rate(name: str, default: float) -> float:
+    """A sample rate from the environment, from 0 to 1. A bad value gives the default."""
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        logger.warning("%s is not a number; using %s", name, default)
+        return default
+    return min(max(value, 0.0), 1.0)
 
 
 class Config:
@@ -14,39 +24,23 @@ class Config:
     def __init__(self) -> None:
         load_dotenv()
         try:
-            # Core Application Config
-            self.SECRET_KEY = os.environ.get("SECRET_KEY", "test-secret-key")
+            # Discord OAuth app and client URLs
             self.CLIENT_ID = os.environ.get("CLIENT_ID", "test-client-id")
             self.CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "test-client-secret")
             self.REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/callback")
             self.CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:3000")
-            self.TNAY_API_URL = os.environ.get("TNAY_API_URL", "")
-            self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ.get("OPEN_ROUTER_CLAUDE_API_KEY", "")
-            self.DISCORD_OFFICER_WEBHOOK_URL = os.environ.get("DISCORD_OFFICER_WEBHOOK_URL", "")
-            self.DISCORD_POST_WEBHOOK_URL = os.environ.get("DISCORD_POST_WEBHOOK_URL", "")
-            self.ONEUP_PASSWORD = os.environ.get("ONEUP_PASSWORD", "")
-            self.ONEUP_EMAIL = os.environ.get("ONEUP_EMAIL", "")
-            self.PROD = os.environ.get("PROD", "false").lower() == "true"
+            # Officer dashboard (dashboard/). Login sends officers back here when they start from it
+            self.DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "").rstrip("/")
 
-            # Service Tokens
+            self.DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/user.db")
+
             self.BOT_TOKEN = os.environ.get("BOT_TOKEN")
-            self.AVERY_BOT_TOKEN = os.environ.get("AVERY_BOT_TOKEN")
-            self.AUTH_BOT_TOKEN = os.environ.get("AUTH_BOT_TOKEN")
 
-            # Auth
+            # Clerk, for member sign-in on the website
             self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
             self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
                 "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
             )
-
-            # Database Configuration
-            self.DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
-            self.DB_URI = os.environ.get("DB_URI", "sqlite:///test.db")
-            self.DB_NAME = os.environ.get("DB_NAME", "test")
-            self.DB_USER = os.environ.get("DB_USER", "test")
-            self.DB_PASSWORD = os.environ.get("DB_PASSWORD", "test")
-            self.DB_HOST = os.environ.get("DB_HOST", "localhost")
-            self.DB_PORT = os.environ.get("DB_PORT", "5432")
 
             # Google Calendar Integration
             try:
@@ -61,25 +55,34 @@ class Config:
                 self.GOOGLE_SERVICE_ACCOUNT = None
 
             self.NOTION_API_KEY = os.environ.get("NOTION_API_KEY", "")
-            self.NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "")
-            self.NOTION_TOKEN = os.environ.get("NOTION_TOKEN")
-            self.GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "")
-            self.GOOGLE_USER_EMAIL = os.environ.get("GOOGLE_USER_EMAIL", "")
-            self.SERVER_PORT = int(os.environ.get("SERVER_PORT", "5000"))
-            self.SERVER_DEBUG = os.environ.get("SERVER_DEBUG", "false").lower() == "true"
             self.TIMEZONE = os.environ.get("TIMEZONE", "America/Phoenix")
 
-            # Monitoring Configuration (Optional)
             self.SENTRY_DSN = os.environ.get("SENTRY_DSN")
-
-            # AI Service Keys
-            self.GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+            self.SENTRY = SentrySettings(
+                dsn=self.SENTRY_DSN,
+                environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+                release=os.environ.get("GIT_COMMIT_HASH") or None,
+                traces_sample_rate=_rate("SENTRY_TRACES_SAMPLE_RATE", 0.1),
+                profiles_sample_rate=_rate("SENTRY_PROFILES_SAMPLE_RATE", 0.0),
+                logs_level=os.environ.get("SENTRY_LOGS_LEVEL", "WARNING"),
+            )
 
             # Superadmin config: the Discord user id in SYS_ADMIN
             self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
 
+            # Path prefixes that answer 404 like an unknown route, comma-separated. Empty turns none off
+            self.DISABLED_ROUTES = tuple(
+                p.strip() for p in os.environ.get("DISABLED_ROUTES", "").split(",") if p.strip()
+            )
+
             # Access checks (modules/auth/access.py): false logs refusals, true enforces them
             self.ACCESS_ENFORCE = os.environ.get("ACCESS_ENFORCE", "false").lower() == "true"
+
+            # Compute (modules/compute): the CLI name members see in messages, and the default pod image
+            self.COMPUTE_CLI_NAME = os.environ.get("COMPUTE_CLI_NAME", "the compute CLI")
+            self.COMPUTE_POD_IMAGE = os.environ.get(
+                "COMPUTE_POD_IMAGE", "ghcr.io/theaisocietyasu/godfather-base:latest"
+            )
 
             # LeetCode Daily Bot
             self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")
@@ -89,11 +92,5 @@ class Config:
         except json.JSONDecodeError as e:
             raise RuntimeError(f"Configuration error: {str(e)}") from e
 
-    @property
-    def google_calendar_config(self) -> dict:
-        """Get Google Calendar configuration as a dictionary"""
-        return {
-            "service_account": self.GOOGLE_SERVICE_ACCOUNT,
-            "calendar_id": self.GOOGLE_CALENDAR_ID,
-            "user_email": self.GOOGLE_USER_EMAIL,
-        }
+
+config = Config()

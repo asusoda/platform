@@ -38,14 +38,19 @@ jobs:
           fi
           cd "$PROJECT_DIR"
 
-          echo "Discarding local changes..."
-          make discard-local-changes
+          # Update the checkout first, so the next steps use the Makefile of this commit.
+          # DEPLOY_FROM gives make deploy the old commit, to find the changed files.
+          DEPLOY_FROM="$(git rev-parse HEAD)"
+          echo "Updating the checkout from $DEPLOY_FROM..."
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
 
           echo "Backing up the database..."
           make backup
 
           echo "Starting deployment..."
-          if ! make deploy; then
+          if ! make deploy DEPLOY_FROM="$DEPLOY_FROM"; then
             echo "Deployment failed, rolling back..."
             make logs || true
             make rollback || true

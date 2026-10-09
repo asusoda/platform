@@ -29,7 +29,7 @@ class FakeBot:
     def is_ready(self):
         return True
 
-    def check_officer(self, user_id, superadmin_user_id):
+    def officer_guilds(self, user_id, org_roles):
         return [1001]
 
     def check_user_membership(self, user_id, guild_id):
@@ -61,8 +61,9 @@ class FakeBot:
 
 def _seed(db_connect):
     from modules.organizations.models import Organization
-    from modules.points.models import Points, User, UserOrganizationMembership
+    from modules.points.models import Points
     from modules.storefront.models import Order, OrderItem, Product
+    from modules.users.models import User, UserOrganizationMembership
 
     db = next(db_connect.get_db())
     try:
@@ -84,10 +85,10 @@ def _seed(db_connect):
             username="alice",
             email=MEMBER_EMAIL,
             name="Alice",
-            asu_id="1200000001",
+            student_id="1200000001",
             uuid=str(uuid.UUID(int=1)),
         )
-        bob = User(username="bob", email="bob@asu.edu", name="Bob", asu_id="1200000002", uuid=str(uuid.UUID(int=2)))
+        bob = User(username="bob", email="bob@asu.edu", name="Bob", student_id="1200000002", uuid=str(uuid.UUID(int=2)))
         db.add_all([alice, bob])
         db.flush()
 
@@ -116,7 +117,7 @@ def _seed(db_connect):
 @pytest.fixture(scope="session")
 def app():
     import main
-    from shared import db_connect
+    from core.db import db_connect
     from tests.conftest import create_schema
 
     create_schema()
@@ -129,11 +130,14 @@ def app():
 
 @pytest.fixture(autouse=True)
 def stubs(app, monkeypatch):
-    """Replace Clerk and Notion with local stand-ins so no test reaches the network."""
-    import core.clerk_auth as clerk_auth
+    """Replace Clerk and Notion with local stand-ins so no test reaches the network. Each test starts with no cache."""
+    from core.cache import cache
+    from modules.auth import clerk
+    from modules.calendar import service as calendar_service
 
-    monkeypatch.setattr(clerk_auth, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
-    monkeypatch.setattr(app.multi_org_calendar_service.notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
+    monkeypatch.setattr(clerk, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
+    monkeypatch.setattr(calendar_service.get_service().notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
+    cache.clear()
 
 
 @pytest.fixture
@@ -152,9 +156,9 @@ def member_client(app):
 
 @pytest.fixture(scope="session")
 def officer_headers(app):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    token = tokenManager.generate_token(username="officer", discord_id=OFFICER_DISCORD_ID)
+    token = token_manager.generate_token(username="officer", discord_id=OFFICER_DISCORD_ID)
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -166,8 +170,8 @@ def clerk_headers():
 @pytest.fixture
 def restore_soda_config(app):
     """Put SoDA's config JSON back after a test that changes it (the contract snapshots read it)."""
+    from core.db import db_connect
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     original = copy.deepcopy(db.query(Organization).filter_by(prefix="soda").one().config)
@@ -179,3 +183,40 @@ def restore_soda_config(app):
         db.commit()
     finally:
         db.close()
+
+
+class WebhookResponse:
+    def __init__(self, status_code: int = 204) -> None:
+        self.status_code = status_code
+
+
+class Sent(list):
+    """Messages posted to webhooks, as (url, payload). status is the status code the next post gets."""
+
+    status = 204
+
+
+@pytest.fixture
+def sent(app, monkeypatch):
+    """Posts to webhooks, sent in the test thread. Removes every webhook after the test."""
+    from cryptography.fernet import Fernet
+
+    from core import net, webhooks
+    from core.db import db_connect
+
+    posts = Sent()
+
+    def post(url, json, timeout, allow_redirects):
+        posts.append((url, json))
+        return WebhookResponse(posts.status)
+
+    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
+    monkeypatch.setattr(webhooks, "spawn", lambda target, *args: target(*args))
+    monkeypatch.setattr(webhooks.requests, "post", post)
+    monkeypatch.setattr(webhooks, "_sent", {})
+    monkeypatch.setattr(net, "check_public", lambda url: None)
+    yield posts
+    db = db_connect.SessionLocal()
+    db.query(webhooks.Webhook).delete()
+    db.commit()
+    db.close()

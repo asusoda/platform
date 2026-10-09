@@ -1,4 +1,4 @@
-"""Member credentials for the godfather CLI. No Flask here.
+"""Member credentials for the compute CLI. No Flask here.
 
 A member signs in with Discord in the browser and gets a machine token of kind cli with the
 scope compute:connect, bound to their Discord id and the org. The CLI sends it as a bearer token
@@ -10,7 +10,9 @@ import datetime
 from modules.auth import machine_tokens, scopes
 from modules.auth.models import MachineToken
 
-scopes.declare("compute:connect", "List the compute pods shared with a member and connect to them (godfather CLI)")
+scopes.declare(
+    "compute:connect", "List the compute pods shared with a member and connect to them (compute CLI)", uses=("runpod",)
+)
 
 SCOPE = "compute:connect"
 KIND = "cli"
@@ -29,7 +31,7 @@ def issue(db, org_id: int, discord_id: str) -> str:
     value, _ = machine_tokens.issue(
         db,
         organization_id=org_id,
-        name="godfather cli",
+        name="compute cli",
         kind=KIND,
         scopes=[SCOPE],
         created_by=discord_id,

@@ -1,21 +1,22 @@
-# modules/calendar/api.py
 """HTTP routes for the calendar. The logic is in service.py; these only translate to and from HTTP."""
 
 from flask import Blueprint, jsonify
 from sentry_sdk import set_tag, start_transaction
 
+from core.db import db_connect
+from core.log import get_logger
 from modules.auth.access import any_officer_denial
-from modules.auth.decoraters import auth_required
+from modules.auth.decorators import auth_required
+from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from shared import db_connect, logger
 
 from . import service
 from .errors import APIErrorHandler
 
-# Initialize the service and a top-level error handler for routes
+logger = get_logger(__name__)
+
 route_error_handler = APIErrorHandler(logger, "CalendarAPI_Route")
 
-# Create Flask Blueprint
 calendar_blueprint = Blueprint("calendar", __name__)
 
 
@@ -90,8 +91,7 @@ def sync_organization_calendar(org_prefix):
 
     try:
         with next(db_connect.get_db()) as session:
-            # Get organization by prefix
-            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+            org = organizations.find_by_prefix(session, org_prefix, active_only=True)
 
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
@@ -132,8 +132,7 @@ def setup_organization_calendar(org_prefix):
 
     try:
         with next(db_connect.get_db()) as session:
-            # Get organization by prefix
-            org = session.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+            org = organizations.find_by_prefix(session, org_prefix, active_only=True)
 
             if not org:
                 logger.warning(f"Organization with prefix '{org_prefix}' not found or inactive")
@@ -179,7 +178,6 @@ def sync_all_organizations():
     set_tag("request_type", "POST")
 
     try:
-        # Sync all organizations using multi-org service
         sync_result = service.sync_all(transaction)
 
         if sync_result.get("status") == "error":

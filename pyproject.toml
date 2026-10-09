@@ -5,56 +5,56 @@ description = "SoDA Platform"
 authors = [{name = "SoDA", email = "asu@thesoda.io"}]
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "aiohttp>=3.13.3",
+    "aiohttp>=3.13.5",
     "aiosignal==1.4.0",
     "asgiref==3.11.1",
     "async-timeout==5.0.1",
-    "attrs==25.4.0",
+    "attrs==26.1.0",
     "blinker==1.9.0",
-    "cachetools==7.0.0",
-    "certifi==2026.1.4",
-    "charset-normalizer==3.4.4",
-    "click==8.3.1",
+    "cachetools==7.0.6",
+    "certifi==2026.4.22",
+    "charset-normalizer==3.4.7",
+    "click==8.3.3",
     "colorama==0.4.6",
     "dnspython==2.8.0",
-    "flask==3.1.2",
+    "flask==3.1.3",
     "flask-cors==6.0.2",
     "frozenlist==1.8.0",
-    "greenlet==3.3.1",
+    "greenlet==3.5.0",
     "h11==0.16.0",
-    "idna>=3.11",
-    "importlib-metadata==8.7.1",
+    "idna>=3.13",
+    "importlib-metadata==9.0.0",
     "itsdangerous==2.2.0",
     "jinja2==3.1.6",
     "markupsafe==3.0.3",
     "multidict>=6.3.2",
     "nest-asyncio==1.6.0",
     "oauthlib==3.3.1",
-    "py-cord>=2.6.1",
-    "pyjwt>=2.9.0",
-    "psycopg2-binary>=2.9.10",
-    "requests==2.32.5",
+    "py-cord>=2.7.2",
+    "pyjwt>=2.12.1",
+    "psycopg2-binary>=2.9.12",
+    "requests==2.33.1",
     "requests-oauthlib==2.0.0",
-    "sqlalchemy==2.0.46",
+    "sqlalchemy==2.0.49",
     "typing-extensions>=4.13.1",
     "urllib3==2.6.3",
-    "werkzeug==3.1.5",
-    "yarl>=1.18.3",
-    "zipp==3.23.0",
-    "python-dotenv>=1.1.0",
-    "google-auth>=2.38.0",
-    "google-api-python-client>=2.166.0",
-    "cryptography>=44.0.2",
-    "gunicorn==25.0.1",
-    "notion-client>=2.3.0",
-    "google-auth-oauthlib>=1.0.0",
-    "google-api-core>=2.11.0",
-    "sentry-sdk[flask]>=2.35.0",
-    "pytz>=2025.2",
+    "werkzeug==3.1.8",
+    "yarl>=1.23.0",
+    "zipp==3.23.1",
+    "python-dotenv>=1.2.2",
+    "google-auth>=2.49.2",
+    "google-api-python-client>=2.194.0",
+    "cryptography>=46.0.7",
+    "gunicorn==25.3.0",
+    "notion-client>=3.0.0",
+    "google-auth-oauthlib>=1.3.1",
+    "google-api-core>=2.30.3",
+    "sentry-sdk[flask]>=2.58.0",
+    "pytz>=2026.1.post1",
     "python-dateutil>=2.9.0.post0",
-    "tzdata>=2025.2",
+    "tzdata>=2026.2",
     "colorlog>=6.9.0",
-    "clerk-backend-api>=4.2.0",
+    "clerk-backend-api>=5.0.6",
     "alembic>=1.18.4",
     "procrastinate==3.9.0",
     "croniter>=6.0",
@@ -65,7 +65,14 @@ dependencies = [
     "defusedxml>=0.7.1",
     "pyyaml>=6.0.3",
     "paramiko>=3.4",
+    "httpx>=0.28.1",
+    "uvicorn>=0.54.0",
+    "pypdf>=6.19.0",
 ]
+
+[project.optional-dependencies]
+# The ASU sign-in (packs/asu/signin). Install with `uv sync --extra browser`, then `playwright install chromium`.
+browser = ["playwright>=1.49"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -73,20 +80,17 @@ python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--verbose"
 
-[tool.hatch.build.targets.wheel]
-packages = ["modules"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+# An application, not a library: uv installs the dependencies only.
+[tool.uv]
+package = false
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.1",
-    "ruff>=0.8.7",
+    "pytest>=9.0.3",
+    "ruff>=0.15.12",
     "ty>=0.0.14",
-    "bandit>=1.7.0",
-    "pre-commit>=4.0.0",
+    "bandit>=1.9.4",
+    "pre-commit>=4.6.0",
     "import-linter>=2.15",
 ]
 
@@ -115,49 +119,93 @@ indent-style = "space"
 [tool.bandit]
 exclude_dirs = ["tests", "web", "node_modules", ".venv"]
 
-# Module boundaries, checked in CI by `lint-imports` (docs/roadmap.md, "Codebase layout").
+# Module boundaries, checked in CI by `lint-imports` (docs/writing-a-module.md).
 [tool.importlinter]
-root_packages = ["core", "modules"]
+root_packages = ["core", "modules", "packs"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "core imports no module"
 type = "forbidden"
 source_modules = ["core"]
-forbidden_modules = ["modules"]
-# Existing exceptions, to be moved into core or behind a service function:
-ignore_imports = [
-    "core.db -> modules.storefront.models",
-    "core.TokenManager -> modules.auth.models",
-    "core.discord_directory -> modules.organizations.models",
-]
+forbidden_modules = ["modules", "packs"]
 
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
 type = "forbidden"
+# Every service, models, jobs and tools file, by wildcard. List each other Flask-free file below.
 source_modules = [
+    "modules.*.service",
+    "modules.*.models",
+    "modules.*.jobs",
+    "modules.*.tools",
+    "modules.accounts.canvas",
     "modules.accounts.providers",
-    "modules.accounts.service",
-    "modules.agents.service",
+    "modules.agents.conversations",
+    "modules.agents.memories",
+    "modules.agents.pending",
+    "modules.agents.profile",
     "modules.agents.turns",
-    "modules.asu.service",
+    "modules.alerts.hackathons",
+    "modules.alerts.jobs_table",
+    "modules.alerts.types",
+    "modules.auth.clerk",
     "modules.auth.machine_tokens",
-    "modules.calendar.service",
+    "modules.auth.scopes",
+    "modules.auth.tokens",
+    "modules.bot",
+    "modules.calendar.clients",
+    "modules.calendar.dates",
+    "modules.calendar.errors",
+    "modules.calendar.integrations",
+    "modules.calendar.events",
+    "modules.calendar.sync",
+    "modules.calendar.tracing",
     "modules.compute.cli_login",
     "modules.compute.files",
+    "modules.compute.presence",
     "modules.compute.schedule",
-    "modules.compute.service",
     "modules.compute.ssh",
+    "modules.dashboard.ci",
+    "modules.dashboard.errors",
+    "modules.dashboard.notices",
+    "modules.dashboard.trends",
+    "modules.dashboard.webhooks",
+    "modules.games.cog",
+    "modules.games.jeopardy",
+    "modules.games.ui",
+    "modules.integrations.google",
+    "modules.integrations.mcp_client",
+    "modules.integrations.notion",
+    "modules.integrations.oauth",
+    "modules.integrations.servers",
+    "modules.integrations.web",
     "modules.knowledge.crawl",
+    "modules.knowledge.documents",
     "modules.knowledge.embedder",
     "modules.knowledge.extract",
     "modules.knowledge.fetch",
-    "modules.knowledge.service",
+    "modules.knowledge.runs",
+    "modules.knowledge.search",
+    "modules.knowledge.settings",
+    "modules.leetcode.client",
+    "modules.leetcode.cog",
     "modules.leetcode.daily",
-    "modules.leetcode.service",
+    "modules.manifest",
     "modules.mcp.runtime",
-    "modules.organizations.service",
-    "modules.points.service",
-    "modules.runpod.service",
+    "modules.mcp.server",
+    "modules.organizations.config",
+    "modules.packs.catalog",
+    "modules.packs.http",
+    "modules.packs.params",
+    "modules.packs.queries",
+    "modules.packs.search",
+    "modules.packs.text",
+    "modules.packs.types",
+    "modules.packs.web",
+    "modules.points.csv_import",
+    "modules.runpod.templates",
+    "modules.uptime.probe",
+    "packs",
 ]
 forbidden_modules = ["flask"]

@@ -3,10 +3,9 @@ from datetime import UTC, datetime
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
-from core.base import Base
+from core.db import Base
 
 
-# Database Models
 class Product(Base):
     __tablename__ = "products"
 
@@ -21,7 +20,6 @@ class Product(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Relationships
     organization = relationship("Organization", backref="products")
     order_items = relationship("OrderItem", back_populates="product")
 
@@ -42,7 +40,6 @@ class Order(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Relationships
     organization = relationship("Organization", backref="orders")
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -61,7 +58,6 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     price_at_time = Column(Float, nullable=False)
 
-    # Relationships
     organization = relationship("Organization", backref="order_items")
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")

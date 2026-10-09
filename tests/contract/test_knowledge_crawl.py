@@ -6,9 +6,9 @@ import uuid
 
 import pytest
 
+from core.db import db_connect
 from modules.knowledge import crawl, extract, fetch
 from modules.knowledge.models import KnowledgeSource
-from shared import db_connect
 
 
 def _issue(prefix, *scopes):
@@ -135,7 +135,7 @@ def test_due_sources(client, writer, pages):
     db = db_connect.SessionLocal()
     try:
         assert key in [s.key for s in crawl.due(db, limit=1000)]
-        result = crawl.crawl_due(db, None)
+        result = crawl.crawl_due(db, lambda org_id: None)
         assert result["crawled"] >= 1
         assert key not in [s.key for s in crawl.due(db, limit=1000)]
         later = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) + datetime.timedelta(hours=3)

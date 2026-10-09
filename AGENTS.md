@@ -1,1 +1,67 @@
-CLAUDE.md
+# AGENTS.md
+
+Instructions for AI agents in this repo. `CLAUDE.md` and `AGENTS.md` have the same text; change both.
+
+Platform is shared infrastructure for student orgs: a Flask API, a Discord bot, a job worker and an MCP server on one database. Each org is a Discord server and turns modules on or off. In prose, call the project "Platform" and use the terms in the `technical-writing` skill.
+
+## Skills
+
+The procedures are in `.agents/skills/` (linked from `.claude/skills/`) and listed in `.agents/README.md`.
+
+- `check`: before each commit.
+- `new-module`: to add a module.
+- `migration`: after a model change.
+- `api-contract`: to change a route that thesoda.io or `dashboard/` calls.
+- `technical-writing`: for all prose, comments and messages.
+- `pr-ready`: before you open a PR.
+
+## Commands
+
+```bash
+uv sync                          # install dependencies
+make dev                         # start the containers with logs and the reloader
+make up | down | logs | status | shell | build
+make check                       # fix lint and format, then ty, pytest, alembic check
+make ci                          # the same checks with no changes to files; CI runs this
+uv run bandit -q -c pyproject.toml -r .
+uv run pytest tests/contract/test_compute.py -v
+uv run alembic upgrade head      # make migrate
+make deploy | health | rollback  # on the server
+flask --app main org|jobs|config ...
+```
+
+## Layout
+
+| Path | Holds |
+| --- | --- |
+| `main.py`, `bot_main.py`, `worker_main.py`, `mcp_main.py` | API, Discord bot, job worker (Postgres only), MCP server on port 8001 |
+| `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, hosting providers (`core/hosting.py`) |
+| `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, only the files it needs |
+| `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; categories, the module catalog, the modules of a new org, and model, job and tool modules |
+| `apps/` | App templates that officers create apps from on the Hosting page. No Platform code |
+| `alembic/` | Migrations. Nothing creates tables at startup |
+| `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
+| `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
+| `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site |
+| `web/` | Old officer app, kept for SoDA at admin.thesoda.io |
+| `docs/` | Guides, indexed in `docs/README.md` |
+
+Modules: accounts, agents, alerts, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, packs, points, public, runpod, storefront, superadmin, uptime, users.
+
+## Rules
+
+- `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
+- A new module is registered in each place that `docs/writing-a-module.md` lists. `tests/test_module_layout.py` checks them.
+- A service takes a database session and plain values and raises a `core.errors.ServiceError` subclass.
+- Use `officer_route`, `machine_route` and `member_view` from `modules/auth/routes.py` for new routes.
+- A model change needs an Alembic migration. `make ci` runs `alembic check`.
+- A route change updates `tests/contract/routes.txt` (`UPDATE_ROUTES=1`). A change to a route that a client uses follows the `api-contract` skill.
+- Use `get_logger(__name__)` from `core/log.py`. Do not use `print()`.
+- Do not add `# noqa`, `# type: ignore` or `# nosec` to get a green run. `# nosec` is only for a false positive, with the reason.
+- Settings come from `.env` through `core/config.py`. A new setting goes in `.env.template`. Never write a secret in code, docs or commits.
+- ruff (line length 120) and ty check the code. Comments are plain ASCII and say what the code does.
+- Commit subjects are imperative and 72 characters or fewer. The body says why.
+
+## Docs
+
+When you change what a doc describes, change the doc in the same commit: the module `README.md`, the page in `docs/`, and this file. `site/scripts/sync-docs.mjs` copies `docs/` to the site; a new or renamed page goes there too.

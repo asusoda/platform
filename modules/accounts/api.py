@@ -3,12 +3,13 @@
 import html
 from typing import cast
 
-from flask import Blueprint, g, jsonify, redirect, request, session
+from flask import Blueprint, jsonify, redirect, request, session
 
-from core import audit_http
-from modules.auth.decoraters import machine_scope_required, member_required
-from modules.organizations.models import Organization
-from shared import config, db_connect
+from core.config import config
+from core.db import db_connect
+from core.http import audit_hook
+from modules.auth.decorators import member_required
+from modules.auth.routes import machine_route
 
 from . import providers, service
 
@@ -17,7 +18,7 @@ accounts_blueprint = Blueprint("accounts", __name__)
 M = "/members/<string:discord_id>"
 
 # Releasing a token is a read worth recording
-audit_http.AUDITED_READS.add(f"/api/accounts{M}/<string:provider>/token")
+audit_hook.AUDITED_READS.add(f"/api/accounts{M}/<string:provider>/token")
 
 
 def _page(message: str, status: int = 200):
@@ -31,25 +32,14 @@ def _page(message: str, status: int = 200):
 
 
 def _agent_route(rule: str, scope: str, methods: list[str]):
-    """Register a machine route. The view gets (db, org_id, discord_id, **path args)."""
+    """A machine route under /members/<discord_id>. The view gets (db, org_id, discord_id, **path args)."""
 
     def decorator(view):
-        def wrapper(discord_id, **kwargs):
-            db = db_connect.SessionLocal()
-            try:
-                org = db.query(Organization).filter_by(id=g.machine_caller.organization_id, is_active=True).first()
-                if org is None:
-                    return jsonify({"error": "The token's organization is inactive or gone"}), 403
-                result = view(db, cast(int, org.id), service.member(discord_id), **kwargs)
-                return result if isinstance(result, tuple) else jsonify(result)
-            except service.AccountError as e:
-                db.rollback()
-                return jsonify({"error": e.message}), e.status
-            finally:
-                db.close()
+        def bound(db, org, discord_id, **kwargs):
+            return view(db, cast(int, org.id), service.member(discord_id), **kwargs)
 
-        wrapper.__name__ = view.__name__
-        accounts_blueprint.route(M + rule, methods=methods)(machine_scope_required(scope)(wrapper))
+        bound.__name__ = view.__name__
+        machine_route(accounts_blueprint, M + rule, scope, methods)(bound)
         return view
 
     return decorator
