@@ -6,7 +6,8 @@ Runs GPU and CPU pods on an org's own RunPod account that members connect to ove
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Officer routes under `/<org_prefix>/pods`, member routes under `/<org_prefix>/me`, and the CLI sign-in through Discord |
+| `api.py` | Officer routes under `/<org_prefix>/pods` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me`, and the CLI sign-in through Discord |
+| `tools.py` | The `compute.*` tools for agents |
 | `service.py` | Pods on RunPod, sharing and member connect; reads the org secret `runpod_api_key` |
 | `ssh.py` | The org's SSH keys and short-lived certificates |
 | `files.py` | File operations on a pod over SFTP, as root with the org's backend key |
@@ -18,7 +19,8 @@ Runs GPU and CPU pods on an org's own RunPod account that members connect to ove
 
 - Routes: `/api/compute`, behind the `compute` switch. Officer routes need an officer of the org. Member routes need a Discord session or a CLI token with `compute:connect`.
 - Jobs: `compute.schedule`, schedule `*/5 * * * *`.
-- Tools: none.
+- Tools: `compute.pods` and `compute.pod_action` (confirm), scope `compute:manage`. Tools marked confirm run only with `confirm=true`.
+- Webhook events: `pod.started` and `pod.stopped`, from `act()` and the session schedule. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `compute_pods`, `compute_keys`, `compute_sessions`.
 
 See [docs/modules/compute.md](../../docs/modules/compute.md) for setup, `COMPUTE_CLI_NAME`, `COMPUTE_POD_IMAGE`, the org default pod image and the pod image contract.

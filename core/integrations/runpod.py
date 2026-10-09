@@ -97,7 +97,7 @@ register(
     Integration(
         key="runpod",
         title="RunPod",
-        description="The org's RunPod account: compute pods for members and deploys of org apps.",
+        description="Connect the org's RunPod account.",
         fields=(Field(SECRET_NAME, "API key", "RunPod > Settings > API Keys, with read and write access."),),
         docs="modules/compute",
         test=_test,

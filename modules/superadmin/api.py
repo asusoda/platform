@@ -248,3 +248,45 @@ def put_publisher(org_id):
         return respond(db, lambda db: {"publishers": knowledge.set_publisher(db, org_id, data.get("publisher"))})
     finally:
         db.close()
+
+
+@superadmin_blueprint.route("/errors", methods=["GET"])
+@superadmin_required
+def get_errors():
+    """Errors of every org and of the whole server, newest first. ?org=<prefix>&status=open|resolved|all."""
+    from core import error_log
+
+    db = next(db_connect.get_db())
+    try:
+        return jsonify(
+            {
+                "errors": error_log.list_groups(
+                    db,
+                    org=request.args.get("org") or None,
+                    everything=True,
+                    status=request.args.get("status", "open"),
+                    limit=request.args.get("limit", 100, type=int),
+                )
+            }
+        )
+    finally:
+        db.close()
+
+
+@superadmin_blueprint.route("/errors/<string:action>", methods=["POST"])
+@superadmin_required
+def change_errors(action):
+    """Resolve or reopen errors of any org. Body: {"ids": [1, 2]}."""
+    from core import error_log
+
+    ids = (request.get_json(silent=True) or {}).get("ids")
+    if action not in ("resolve", "reopen"):
+        return jsonify({"error": "Unknown action"}), 404
+    if not isinstance(ids, list) or not ids or len(ids) > 200 or not all(isinstance(i, int) for i in ids):
+        return jsonify({"error": "ids must be a list of 1 to 200 error ids"}), 400
+    db = next(db_connect.get_db())
+    try:
+        changed = error_log.set_resolved(db, ids, resolved=action == "resolve", actor="superadmin")
+        return jsonify({"changed": changed})
+    finally:
+        db.close()

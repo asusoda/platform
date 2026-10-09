@@ -15,10 +15,15 @@ export function useModuleOn(name: string): { on: boolean; loading: boolean } {
 
 // The page of an optional module, or a note that the module is off with a link to turn it on.
 export function ModuleGate({ module, title, children }: { module: string; title: string; children: ReactNode }) {
-  const { prefix } = useCurrentOrg();
   const { on, loading } = useModuleOn(module);
   if (loading) return <PageSkeleton />;
   if (on) return children;
+  return <ModuleOff module={module} title={title} />;
+}
+
+// A page header and a note that the module is off, with a link to turn it on.
+export function ModuleOff({ module, title }: { module: string; title: string }) {
+  const { prefix } = useCurrentOrg();
   return (
     <>
       <PageHeader title={title} />

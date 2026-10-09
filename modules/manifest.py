@@ -10,7 +10,7 @@ import importlib
 CATEGORIES = {
     "Members": ["accounts", "games", "points", "storefront", "users"],
     "Automations": ["alerts", "calendar", "leetcode"],
-    "Knowledge and agents": ["agents", "asu", "knowledge", "mcp"],
+    "Knowledge and agents": ["agents", "integrations", "knowledge", "mcp", "packs"],
     "Infrastructure": ["compute", "runpod"],
     "Platform": ["auth", "bot", "dashboard", "organizations", "public", "superadmin"],
 }
@@ -18,7 +18,9 @@ CATEGORIES = {
 # Importing these puts every table in Base.metadata (alembic/env.py, tests/conftest.py)
 MODEL_MODULES = [
     "core.audit",
+    "core.error_log",
     "core.secrets",
+    "core.webhooks",
     "modules.accounts.models",
     "modules.alerts.models",
     "modules.agents.models",
@@ -38,6 +40,7 @@ MODEL_MODULES = [
 # Importing a jobs module registers its jobs with core.jobs
 JOB_MODULES = [
     "core.audit",
+    "core.error_log",
     "modules.auth.jobs",
     "modules.points.jobs",
     "modules.calendar.jobs",
@@ -45,7 +48,7 @@ JOB_MODULES = [
     "modules.accounts.jobs",
     "modules.runpod.jobs",
     "modules.knowledge.jobs",
-    "modules.asu.jobs",
+    "modules.packs.jobs",
     "modules.leetcode.jobs",
     "modules.compute.jobs",
     "modules.alerts.jobs",
@@ -58,7 +61,10 @@ TOOL_MODULES = [
     "modules.points.tools",
     "modules.knowledge.tools",
     "modules.runpod.tools",
-    "modules.asu.tools",
+    "modules.packs.tools",
+    "modules.dashboard.tools",
+    "modules.alerts.tools",
+    "modules.compute.tools",
 ]
 
 

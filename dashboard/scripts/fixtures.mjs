@@ -26,9 +26,41 @@ const SCOPES = {
   'points:read': "Read the org's points leaderboard (names and totals, no emails or student IDs)",
   'apps:read': 'List apps on RunPod, their pods and deployments',
   'apps:deploy': 'Deploy a new image tag of an app',
+  'github:read': "Read the org's GitHub repos, issues, pull requests and Actions runs",
+  'github:write': 'Create and change issues, pull requests, comments and files on GitHub (with confirm)',
 };
 
+const INTEGRATIONS = [{ key: 'github', title: 'GitHub', connected: true, scopes: ['github:read', 'github:write'], limits: ['repos', 'tools'] }];
+
 // All responses, with times relative to now so the dashboard shows "2h ago" and "in 3d".
+// 30 days of made-up daily counts. Weekdays are busier, and a few days have failures.
+function trends(now) {
+  const dates = Array.from({ length: 30 }, (_, i) => new Date(now - (29 - i) * DAY).toISOString().slice(0, 10));
+  const series = (key, title, unit, base, spread, failEvery = 0) => {
+    const days = dates.map((date, i) => {
+      const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+      const busy = weekday === 0 || weekday === 6 ? 0.4 : 1;
+      const value = Math.max(0, Math.round((base + spread * Math.sin(i * 1.7 + key.length)) * busy));
+      const failed = failEvery && i % failEvery === 3 && value ? Math.ceil(value / 4) : 0;
+      return { date, value, failed };
+    });
+    const sum = (field) => days.reduce((n, d) => n + d[field], 0);
+    return { key, title, unit, total: sum('value'), failed: sum('failed'), days };
+  };
+  return {
+    days: 30,
+    generated_at: new Date(now).toISOString(),
+    series: [
+      series('actions', 'Officer and app actions', 'actions', 14, 8),
+      series('jobs', 'Job runs', 'runs', 40, 6, 9),
+      series('points', 'Points given', 'points', 60, 45),
+      series('orders', 'Store orders', 'orders', 3, 3),
+      series('questions', 'Questions to agents', 'questions', 55, 30),
+      series('alert_posts', 'Alerts posted', 'posts', 9, 7),
+    ],
+  };
+}
+
 export function fixtures(now = Date.now()) {
   const at = (offset) => new Date(now + offset).toISOString();
 
@@ -37,7 +69,8 @@ export function fixtures(now = Date.now()) {
       id: 11,
       name: 'club-assistant',
       kind: 'agent',
-      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read'],
+      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read', 'github:read'],
+      limits: { github: { repos: ['my-org/*'] } },
       display: 'plat_4hQ2',
       created_by: 'officer',
       created_at: at(-40 * DAY),
@@ -556,7 +589,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'discord',
       title: 'Discord',
-      description: 'The bot and officer sign-in. One Discord app serves every org; the deployment sets it in .env.',
+      description: "Connect the org's Discord server. One Discord app serves every org; the deployment sets it in .env.",
       docs: 'modules/discord-bot',
       fields: [],
       editable: false,
@@ -567,18 +600,18 @@ export function fixtures(now = Date.now()) {
     {
       key: 'embeddings',
       title: 'Embeddings',
-      description: 'An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.',
+      description: 'Connect an OpenAI-compatible embeddings service for meaning search.',
       docs: 'modules/knowledge',
       fields: [
-        field('embeddings_url', 'Base URL', 'For example https://api.example.com/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
+        field('embeddings_url', 'Base URL', 'For example https://openrouter.ai/api/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
           secret: false,
           value: 'https://embed.example.org/v1',
         }),
-        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B.', -4 * DAY, 'text', {
+        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B, or baai/bge-m3 on OpenRouter.', -4 * DAY, 'text', {
           secret: false,
           value: 'Qwen3-Embedding-0.6B',
         }),
-        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key.', -4 * DAY, 'text', { optional: true }),
+        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key. For OpenRouter, empty uses the OpenRouter key.', -4 * DAY, 'text', { optional: true }),
         field('embeddings_query_prefix', 'Query prefix', 'Text put before each search query. Qwen3-Embedding takes an instruction here.', null, 'text', {
           secret: false,
           optional: true,
@@ -592,7 +625,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'firecrawl',
       title: 'Firecrawl',
-      description: 'Renders pages that need JavaScript before knowledge reads them. Without it, pages are read with a plain GET.',
+      description: 'Connect a Firecrawl server to read pages that need JavaScript.',
       docs: 'modules/knowledge',
       fields: [
         field('firecrawl_url', 'Server URL', 'For example https://api.firecrawl.dev. It must be on a public address.', null, 'url', { secret: false }),
@@ -601,12 +634,12 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: null,
       testable: true,
-      used_by: ['asu', 'knowledge'],
+      used_by: ['knowledge', 'packs'],
     },
     {
       key: 'github',
       title: 'GitHub',
-      description: "Reads the org's private repos: CI runs on Activity and app manifests for deploys.",
+      description: "Connect the org's GitHub repos with a read-only token.",
       docs: 'modules/runpod-apps',
       fields: [field('github_token', 'Access token', 'A fine-grained token with read access to Actions and Contents.', -9 * DAY)],
       editable: true,
@@ -617,7 +650,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'google',
       title: 'Google',
-      description: "A service account that owns the org's Google Calendar.",
+      description: 'Connect a Google Cloud service account for the org.',
       docs: 'modules/calendar',
       fields: [field('google_service_account', 'Service account key', 'The JSON key of a service account with the Calendar API on.', -30 * DAY, 'json')],
       editable: true,
@@ -628,7 +661,7 @@ export function fixtures(now = Date.now()) {
     {
       key: 'notion',
       title: 'Notion',
-      description: "Reads the org's events database for calendar sync.",
+      description: "Connect the org's Notion workspace.",
       docs: 'modules/calendar',
       fields: [field('notion_api_key', 'Integration token', 'Notion > Settings > Integrations.')],
       editable: true,
@@ -637,9 +670,20 @@ export function fixtures(now = Date.now()) {
       used_by: ['calendar'],
     },
     {
+      key: 'openrouter',
+      title: 'OpenRouter',
+      description: 'Connect an OpenRouter account for hosted models.',
+      docs: 'integrations',
+      fields: [field('openrouter_api_key', 'API key', 'OpenRouter > Settings > API Keys. Embeddings uses this key when its base URL is OpenRouter.', null)],
+      editable: true,
+      source: null,
+      testable: true,
+      used_by: ['agents', 'knowledge'],
+    },
+    {
       key: 'runpod',
       title: 'RunPod',
-      description: "The org's RunPod account: compute pods for members and deploys of org apps.",
+      description: "Connect the org's RunPod account.",
       docs: 'modules/compute',
       fields: [field('runpod_api_key', 'API key', 'RunPod > Settings > API Keys, with read and write access.', -12 * DAY)],
       editable: true,
@@ -650,8 +694,8 @@ export function fixtures(now = Date.now()) {
     {
       key: 'searxng',
       title: 'Web search (SearXNG)',
-      description: 'Answers the web live query that agents use. Without it, that query answers 503.',
-      docs: 'modules/asu',
+      description: 'Connect a SearXNG server for live web search.',
+      docs: 'modules/packs',
       fields: [
         field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
         field('searxng_engines', 'Engines', 'Comma-separated. Leave empty for google,brave,bing.', null, 'text', { secret: false, optional: true }),
@@ -659,8 +703,72 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: 'deployment',
       testable: true,
-      used_by: ['asu'],
+      used_by: ['packs'],
     },
+  ];
+
+  const errorGroup = (id, source, org, kind, message, location, route, count, lastOffset, firstOffset, stack = null) => ({
+    id,
+    source,
+    org,
+    kind,
+    message,
+    location,
+    route,
+    stack,
+    count,
+    first_seen: at(firstOffset),
+    last_seen: at(lastOffset),
+    resolved_at: null,
+    resolved_by: null,
+  });
+  const podStack = [
+    'Traceback (most recent call last):',
+    '  File "modules/compute/api.py", line 88, in create_pod',
+    '    return service.create_pod(db, org, body, actor)',
+    '  File "modules/compute/service.py", line 214, in create_pod',
+    '    pod = runpod.create_pod(key, spec)',
+    '  File "core/integrations/runpod.py", line 61, in create_pod',
+    '    response.raise_for_status()',
+    'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
+  ].join('\n');
+  const webhookEvents = [
+    ['errors', 'Errors', 'A new error, or a resolved error that comes back. At most 30 messages an hour.', null],
+    ['job.failed', 'Failed job runs', 'A background job for the org fails, such as a crawl or a reindex.', null],
+    ['pod.started', 'Pods started', 'A pod starts or restarts, by an officer, a tool or its schedule.', 'compute'],
+    ['pod.stopped', 'Pods stopped', 'A pod stops or is terminated, by an officer, a tool or its schedule.', 'compute'],
+    ['app.deployed', 'App deploys', 'An app deploy ends: healthy, or failed with the reason.', null],
+    ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
+    ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
+    ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+  ].map(([key, label, description, module]) => ({ key, label, description, module }));
+  const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
+    id,
+    name,
+    kind: 'discord',
+    url_hint: `discord.com ...${hint}`,
+    events,
+    enabled,
+    last_sent_at: at(lastSent),
+    last_error: lastError,
+    created_at: at(created),
+    created_by: `officer:${by}`,
+  });
+  const webhooks = [
+    webhook(1, 'Errors', '4410', ['errors', 'job.failed', 'knowledge.crawl_failed'], true, -38 * MINUTE, null, -40 * DAY, 'ava'),
+    webhook(2, 'Infra', '9027', ['pod.started', 'pod.stopped', 'app.deployed'], true, -2 * HOUR, null, -21 * DAY, 'daniel'),
+    webhook(3, 'Store desk', '3315', ['order.created', 'member.joined'], true, -5 * DAY, 'Discord refused the message with status 404', -60 * DAY, 'maya'),
+    webhook(4, 'Old ops channel', '7781', ['errors'], false, -45 * DAY, null, -120 * DAY, 'ava'),
+  ];
+
+  const orgErrors = [
+    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
+    errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/hosting (mutation)', '/robotics/hosting (mutation)', 4, -26 * MINUTE, -1 * DAY),
+    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
+    errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
+  ];
+  const serverErrors = [
+    errorGroup(22, 'worker', null, 'OperationalError', 'job failed name=knowledge.crawl_due: database is locked', 'core/jobs.py:_execute', null, 26, -2 * DAY, -9 * DAY),
   ];
 
   const secret = (name, description, setOffset) => ({
@@ -892,8 +1000,36 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
+    [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
+    '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
-    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
+    [`/api/dashboard/${ORG.prefix}/webhooks`]: {
+      webhooks,
+      events: webhookEvents,
+      kinds: [{ key: 'discord', label: 'Discord', example: 'https://discord.com/api/webhooks/...' }],
+      alerts: true,
+      feeds: feeds.map(({ key, kind, enabled, webhook_set, last_run_at, last_error }) => ({ key, kind, enabled, webhook_set, last_run_at, last_error })),
+      secrets_key: true,
+    },
+    ...Object.fromEntries(
+      webhooks.map((w) => [`/api/dashboard/${ORG.prefix}/webhooks/${w.id}/test`, { ok: true, message: 'Sent. Look for the message in the channel.' }]),
+    ),
+    [`/api/alerts/${ORG.prefix}/presets`]: {
+      presets: [
+        {
+          pack: 'careers',
+          pack_title: 'Internships and hackathons',
+          key: 'new-grad',
+          title: 'New grad roles',
+          description: 'New rows in the 2026 new grad list that vanshb03 keeps on GitHub.',
+          kind: 'github_jobs',
+          config: { repo: 'vanshb03/New-Grad-2026', branch: 'main', path: 'README.md', label: 'New grad', skip_closed: true, max_age_days: 2 },
+          every_hours: 3,
+          added: false,
+        },
+      ],
+    },
+    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },
@@ -906,8 +1042,11 @@ export function fixtures(now = Date.now()) {
         {
           name: 'asu',
           title: 'Arizona State University',
-          description: 'Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
+          description:
+            'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
           key_prefix: 'asu/',
+          pages: 226,
+          queries: ['courses', 'course_catalog', 'scholarships', 'events', 'news', 'dining', 'web'],
           sources: 0,
         },
       ],
@@ -916,6 +1055,7 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
     [`/api/dashboard/${ORG.prefix}/knowledge/settings`]: knowledgeSettings,
     [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs: knowledgeRuns },
+    [`/api/dashboard/${ORG.prefix}/trends`]: trends(now),
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
     [`/api/compute/${ORG.prefix}/settings`]: {
       settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'theaisocietyasu/godfather-base:latest' },
@@ -926,6 +1066,25 @@ export function fixtures(now = Date.now()) {
         { sessions: podSessions.filter((s) => s.pod_id === pod.id) },
       ]),
     ),
+    [`/api/compute/${ORG.prefix}/members`]: {
+      members: [
+        ['Ava Chen', 'avachen'],
+        ['Daniel Ortiz', 'dortiz'],
+        ['Maya Patel', 'mayap'],
+        ['Noah Kim', 'noahk'],
+        ['Priya Singh', 'priya.s'],
+        ['Sam Rivera', 'samr'],
+      ].map(([name, username], i) => ({ id: String(410000000000000000n + BigInt(i)), name, username, avatar: null })),
+      total: 214,
+    },
+    [`/api/users/${ORG.prefix}/discord/sync`]: { matched: 214, new_users: 171, joined: 188, already: 26 },
+    [`/api/users/${ORG.prefix}/discord/roles`]: {
+      roles: [
+        { id: '1200', name: 'Officers', color: '#e67e22' },
+        { id: '1201', name: 'GPU workshop', color: '#3498db' },
+        { id: '1202', name: 'Members', color: '#2ecc71' },
+      ],
+    },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files`]: { path: '/workspace', files: podFiles },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files/read`]: { path: '/workspace/README.md', content: readme },
 

@@ -25,6 +25,18 @@ async function refresh(): Promise<boolean> {
   return true;
 }
 
+const UNREACHABLE =
+  'Could not reach the API. It may be restarting or have stopped mid-request. Check the server logs, then try again.';
+
+// The JSON body of a response, or null when it is empty or not JSON, such as a proxy error page.
+function parse(text: string): { error?: string; message?: string } | null {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
 // Sends a request with the access token, refreshing it once on a 401.
 async function request(path: string, init: RequestInit, retried = false): Promise<Response> {
   const headers = new Headers(init.headers);
@@ -33,20 +45,29 @@ async function request(path: string, init: RequestInit, retried = false): Promis
   if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...init, headers });
+  } catch {
+    // fetch rejects only when no response arrived: the API is down, restarting, or the connection dropped.
+    throw new ApiError(UNREACHABLE, 0);
+  }
   if (response.status === 401 && !retried && (await refresh())) return request(path, init, true);
   return response;
 }
 
 function failure(response: Response, body: { error?: string; message?: string } | null): ApiError {
   if (response.status === 401) tokens.clear();
-  return new ApiError(body?.error ?? body?.message ?? `Request failed (${response.status})`, response.status);
+  const fallback =
+    response.status >= 502 && response.status <= 524
+      ? `The API did not answer (${response.status}). It may be restarting or the request took too long.`
+      : `Request failed (${response.status})`;
+  return new ApiError(body?.error ?? body?.message ?? fallback, response.status);
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await request(path, init);
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  const body = parse(await response.text());
   if (!response.ok) throw failure(response, body);
   return body as T;
 }
@@ -55,14 +76,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export async function apiBlob(path: string, init: RequestInit = {}): Promise<Blob> {
   const response = await request(path, init);
   if (!response.ok) {
-    const text = await response.text();
-    let body = null;
-    try {
-      body = text ? JSON.parse(text) : null;
-    } catch {
-      body = null;
-    }
-    throw failure(response, body);
+    throw failure(response, parse(await response.text()));
   }
   return response.blob();
 }

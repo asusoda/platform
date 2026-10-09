@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Badge, Button, CheckOption, Field, FormActions, Input, Select, SkeletonRows, Spinner } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import type { KnowledgeMode, KnowledgeSettings, KnowledgeTuning } from '../../lib/types';
@@ -133,7 +134,11 @@ function SettingsDraft({
         </div>
         {!data.embeddings.configured ? (
           <p className="text-xs text-pretty text-muted">
-            Without EMBEDDINGS_URL on the API, every mode searches on text only.
+            Without an embedding service, every mode searches on text only. Connect one in{' '}
+            <Link to={`/${prefix}/integrations`} className="text-accent hover:underline">
+              Integrations &gt; Embeddings
+            </Link>
+            .
           </p>
         ) : null}
         <Field label="Mode" hint="Hybrid finds both exact words and paraphrases. Agents and the MCP server use the same mode.">

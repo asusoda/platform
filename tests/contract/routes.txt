@@ -38,6 +38,7 @@
 /api/alerts/<string:org_prefix>/feeds/<string:key> OPTIONS,PUT alerts.put_feed
 /api/alerts/<string:org_prefix>/feeds/<string:key>/history GET,HEAD,OPTIONS alerts.feed_history
 /api/alerts/<string:org_prefix>/feeds/<string:key>/run OPTIONS,POST alerts.run_feed
+/api/alerts/<string:org_prefix>/presets GET,HEAD,OPTIONS alerts.list_presets
 /api/apps GET,HEAD,OPTIONS apps.list_apps
 /api/apps/<string:name> DELETE,OPTIONS apps.delete_app
 /api/apps/<string:name> GET,HEAD,OPTIONS apps.get_app
@@ -46,9 +47,9 @@
 /api/apps/<string:name>/deployments GET,HEAD,OPTIONS apps.list_deployments
 /api/apps/<string:name>/pod GET,HEAD,OPTIONS apps.get_pod
 /api/apps/<string:name>/rollback OPTIONS,POST apps.rollback
-/api/asu/queries GET,HEAD,OPTIONS asu.list_queries
-/api/asu/query OPTIONS,POST asu.run_query
-/api/asu/sync OPTIONS,POST asu.sync_sources
+/api/asu/queries GET,HEAD,OPTIONS asu.asu_queries
+/api/asu/query OPTIONS,POST asu.asu_query
+/api/asu/sync OPTIONS,POST asu.asu_sync
 /api/auth/appToken GET,HEAD,OPTIONS auth.get_app_token
 /api/auth/appTokens GET,HEAD,OPTIONS auth.list_app_tokens
 /api/auth/appTokens/<int:token_id> DELETE,OPTIONS auth.revoke_app_token
@@ -90,6 +91,7 @@
 /api/compute/<string:org_prefix>/cli/login GET,HEAD,OPTIONS compute.cli_sign_in
 /api/compute/<string:org_prefix>/me/pods GET,HEAD,OPTIONS compute.my_pods
 /api/compute/<string:org_prefix>/me/pods/<string:pod_id>/connect OPTIONS,POST compute.connect
+/api/compute/<string:org_prefix>/members GET,HEAD,OPTIONS compute.find_members
 /api/compute/<string:org_prefix>/pods GET,HEAD,OPTIONS compute.list_pods
 /api/compute/<string:org_prefix>/pods OPTIONS,POST compute.create_pod
 /api/compute/<string:org_prefix>/pods/<string:pod_id> GET,HEAD,OPTIONS compute.get_pod
@@ -120,6 +122,10 @@
 /api/dashboard/<string:org_prefix>/branding OPTIONS,PUT dashboard.set_branding
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
+/api/dashboard/<string:org_prefix>/errors GET,HEAD,OPTIONS dashboard.list_errors
+/api/dashboard/<string:org_prefix>/errors/reopen OPTIONS,POST dashboard.reopen_errors
+/api/dashboard/<string:org_prefix>/errors/report OPTIONS,POST dashboard.report_error
+/api/dashboard/<string:org_prefix>/errors/resolve OPTIONS,POST dashboard.resolve_errors
 /api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
 /api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
 /api/dashboard/<string:org_prefix>/integrations/<string:key>/test OPTIONS,POST dashboard.test_integration
@@ -139,6 +145,12 @@
 /api/dashboard/<string:org_prefix>/notifications/reopen OPTIONS,POST dashboard.reopen_notifications
 /api/dashboard/<string:org_prefix>/notifications/resolve OPTIONS,POST dashboard.resolve_notifications
 /api/dashboard/<string:org_prefix>/overview GET,HEAD,OPTIONS dashboard.overview
+/api/dashboard/<string:org_prefix>/trends GET,HEAD,OPTIONS dashboard.trends
+/api/dashboard/<string:org_prefix>/webhooks GET,HEAD,OPTIONS dashboard.list_webhooks
+/api/dashboard/<string:org_prefix>/webhooks OPTIONS,POST dashboard.create_webhook
+/api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id> DELETE,OPTIONS dashboard.delete_webhook
+/api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id> OPTIONS,PUT dashboard.update_webhook
+/api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id>/test OPTIONS,POST dashboard.test_webhook
 /api/knowledge/crawls/<path:key> OPTIONS,PUT knowledge.schedule_crawl
 /api/knowledge/crawls/run OPTIONS,POST knowledge.run_crawl
 /api/knowledge/search OPTIONS,POST knowledge.search
@@ -165,6 +177,10 @@
 /api/organizations/<int:org_id>/tokens GET,HEAD,OPTIONS organizations.list_machine_tokens
 /api/organizations/<int:org_id>/tokens OPTIONS,POST organizations.create_machine_token
 /api/organizations/<int:org_id>/tokens/<int:token_id> DELETE,OPTIONS organizations.revoke_machine_token
+/api/packs GET,HEAD,OPTIONS packs.list_packs
+/api/packs/<string:name>/queries GET,HEAD,OPTIONS packs.list_queries
+/api/packs/<string:name>/query OPTIONS,POST packs.run_query
+/api/packs/<string:name>/sync OPTIONS,POST packs.sync_pack
 /api/points/ GET,HEAD,OPTIONS points.index
 /api/points/<string:org_prefix>/add_points OPTIONS,POST points.add_points_to_org
 /api/points/<string:org_prefix>/assignPoints OPTIONS,POST points.assign_points_to_org
@@ -212,6 +228,8 @@
 /api/superadmin/audit GET,HEAD,OPTIONS superadmin.get_audit
 /api/superadmin/check GET,HEAD,OPTIONS superadmin.check_superadmin
 /api/superadmin/dashboard GET,HEAD,OPTIONS superadmin.get_dashboard
+/api/superadmin/errors GET,HEAD,OPTIONS superadmin.get_errors
+/api/superadmin/errors/<string:action> OPTIONS,POST superadmin.change_errors
 /api/superadmin/guild_roles/<guild_id> GET,HEAD,OPTIONS superadmin.get_guild_roles
 /api/superadmin/publishers GET,HEAD,OPTIONS superadmin.get_publishers
 /api/superadmin/publishers/<int:org_id> OPTIONS,PUT superadmin.put_publisher
@@ -221,6 +239,8 @@
 /api/tools/<string:name> OPTIONS,POST tools.call_tool
 /api/users/ GET,HEAD,OPTIONS users.users_index
 /api/users/<string:org_prefix>/createUser OPTIONS,POST users.create_user_in_org
+/api/users/<string:org_prefix>/discord/roles GET,HEAD,OPTIONS users.discord_roles
+/api/users/<string:org_prefix>/discord/sync OPTIONS,POST users.discord_sync
 /api/users/<string:org_prefix>/submit-form OPTIONS,POST users.handle_form_submission_in_org
 /api/users/<string:org_prefix>/user GET,HEAD,OPTIONS,POST users.user_in_org
 /api/users/<string:org_prefix>/users GET,HEAD,OPTIONS users.get_organization_users

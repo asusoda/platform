@@ -74,16 +74,17 @@ def test_officer_manages_crawls(client, officer_headers, queued):
 
 
 def test_officer_syncs_a_source_pack(client, officer_headers, queued):
-    from modules.asu.sources import SOURCES
+    from packs.asu.sources import SOURCES
 
     base = "/api/dashboard/ais/knowledge"
     listed = client.get(f"{base}/packs", headers=officer_headers).get_json()["packs"]
-    assert [(p["name"], p["key_prefix"], p["sources"]) for p in listed] == [("asu", "asu/", 0)]
+    assert ("asu", "asu/", 0) in [(p["name"], p["key_prefix"], p["sources"]) for p in listed]
 
     first = client.post(f"{base}/packs/asu/sync", headers=officer_headers)
     assert first.status_code == 200 and first.get_json()["added"] == len(SOURCES)
     assert queued[-1] == ("knowledge.crawl_due", {})
-    assert client.get(f"{base}/packs", headers=officer_headers).get_json()["packs"][0]["sources"] == len(SOURCES)
+    listed = client.get(f"{base}/packs", headers=officer_headers).get_json()["packs"]
+    assert next(p for p in listed if p["name"] == "asu")["sources"] == len(SOURCES)
     assert client.post(f"{base}/packs/asu/sync", headers=officer_headers).get_json()["added"] == 0
     assert client.post(f"{base}/packs/nope/sync", headers=officer_headers).status_code == 404
 

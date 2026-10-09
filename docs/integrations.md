@@ -1,17 +1,25 @@
 # Integrations
 
-An integration is an outside service that modules use, such as Notion or RunPod. Officers connect them on the dashboard's Integrations page. Each card shows whether the service is connected, the modules that use it, a Test button and a link to its docs.
+An integration is an account or a service outside Platform, such as Notion or RunPod. An officer connects it one time on the dashboard's Integrations page. Then each module that needs it uses it. Each card shows whether the integration is connected, the modules that use it, a Test button and a link to its docs.
+
+The page shows the cards in two groups:
+
+- Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion and RunPod.
+- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl, OpenRouter and SearXNG.
+
+The description of a card says what the officer connects, not what each module does with it. The "Used by" links show the modules.
 
 ## The integrations
 
 | Integration | Keys (optional in brackets) | Default from .env | Used by |
 | --- | --- | --- | --- |
 | Discord | none for the org | `BOT_TOKEN` | Sign-in, LeetCode |
-| Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, Agents |
+| Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, MCP |
 | Firecrawl | `firecrawl_url`, [`firecrawl_api_key`] | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | Knowledge, ASU |
-| GitHub | `github_token` | none | CI runs, Apps |
-| Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar |
-| Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar |
+| GitHub | `github_token` | none | CI runs, Apps, `github.*` agent tools |
+| Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
+| Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
+| OpenRouter | `openrouter_api_key` | `OPENROUTER_API_KEY` | Knowledge, MCP (through Embeddings) |
 | RunPod | `runpod_api_key` | none | Compute, Apps |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
 
@@ -28,6 +36,24 @@ A card has one of three states:
 - **Not connected**: neither.
 
 Test connects with the key the module uses and shows the result. It does not change anything.
+
+If Firecrawl is not connected, knowledge reads pages with a plain GET. If SearXNG is not connected, the ASU web live query returns 503.
+
+## Tools for agents
+
+An agent with a machine token can also use the tools of a connected service, through the same MCP server and `/api/tools`. Platform passes the call to the service's own MCP server with the org's saved keys. The agent never gets the keys.
+
+| Service | Server | Scopes |
+| --- | --- | --- |
+| GitHub | `GITHUB_MCP_URL`, default `https://api.githubcopilot.com/mcp/`, with the org's GitHub token | `github:read`: the tools the server marks read-only. `github:write`: the other tools |
+
+- A tool name starts with the service key, such as `github.list_issues`. The token sees the tools only when the org connected the service.
+- A tool that is not read-only runs only with `confirm=true`. Without it, the call returns what it would do.
+- Token limits narrow a token further. `repos` lists the repos a call may act on, as `owner/name` or `owner/*`. With `repos`, the token sees only tools that take one repo. `tools` lists name patterns, such as `github.*issue*`. Set both on the Tokens page.
+- Each call is in the audit log and its failures are in the error log, as for other tools.
+- The list of tools of each org is kept for 10 minutes. The GitHub token must allow what the tools do: write access to Issues and Pull requests for the write tools.
+
+To add the tools of another service, add a `RemoteServer` in `modules/integrations/servers.py`: its URL, the headers that sign in with the org's keys, a read and a write scope, how to find the target in the arguments, and a check for its token limits.
 
 ## Routes
 
@@ -49,14 +75,14 @@ A setting stays in `.env` when it is the same for every org or when it is about 
 - The one Discord app and the sign-in: `BOT_TOKEN`, `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI`, `SYS_ADMIN`, the Clerk keys.
 - The OAuth apps of connected accounts (`ACCOUNTS_*`). Their callback URLs are on the API, so one app serves every org.
 - URLs of the frontends and CORS: `CLIENT_URL`, `DASHBOARD_URL`, `CORS_EXTRA_ORIGINS`.
-- Limits and schedules of jobs: `CALENDAR_SYNC_CRON`, `AUDIT_RETENTION_DAYS`, `AGENT_RETENTION_DAYS`, `KNOWLEDGE_CRAWL_*`, `ASU_QUERY_MAX_CHARS`.
+- Limits and schedules of jobs: `CALENDAR_SYNC_CRON`, `AUDIT_RETENTION_DAYS`, `ERROR_RETENTION_DAYS`, `ERROR_WEBHOOK_URL`, `AGENT_RETENTION_DAYS`, `KNOWLEDGE_CRAWL_*`, `PACK_QUERY_MAX_CHARS`.
 - `COMPUTE_CLI_NAME`: the name of the one CLI that talks to this API.
 
 These settings moved to the dashboard, and the `.env` value is now the default for orgs that set none:
 
 | `.env` | Dashboard |
 | --- | --- |
-| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY` | Integrations |
+| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY`, `OPENROUTER_API_KEY` | Integrations |
 | `COMPUTE_POD_IMAGE` | Compute > Settings |
 | `KNOWLEDGE_PUBLISHERS` | Superadmin > Knowledge publishers. Orgs in `.env` stay publishers |
 | `KNOWLEDGE_CHUNK_CHARS`, `KNOWLEDGE_MAX_DISTANCE` | Knowledge > Search settings |
@@ -65,8 +91,8 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 ## Add an integration
 
 1. Write a test function `(db, org_id) -> str` that connects and returns a short result. It raises `IntegrationError` with the reason when it fails. It never puts a key in the message.
-2. Call `register(Integration(...))` from `core/integrations/registry.py` in the file that owns the client: a file in `core/integrations/` for a service that core uses, or a module file. Give the key, title, description, fields, docs page and test. `register` declares each field as an org secret. Give a field `secret=False` when the dashboard may show its value, `optional=True` when the org may leave it empty, and `kind="url"` for a URL that must be public.
+2. Call `register(Integration(...))` from `core/integrations/registry.py` in the file that owns the client: a file in `core/integrations/` for a service that core uses, or a module file. Give the key, title, description, fields, docs page and test. The description says what the officer connects, such as "Connect the org's Notion workspace." `register` declares each field as an org secret. Give a field `secret=False` when the dashboard may show its value, `optional=True` when the org may leave it empty, and `kind="url"` for a URL that must be public.
 3. Read the org's values with `org_values(db, org_id, key)`. It returns None when the org did not set every required field; then use the `.env` default.
 4. In each module that reads the service, call `use("<key>", "<module>")` at the top of the file.
-5. Add the module name to `MODULES` in `dashboard/src/pages/integrations.tsx` if it has a dashboard page, and an icon to `ICONS`.
+5. Add the module name to `MODULES` in `dashboard/src/pages/integrations.tsx` if it has a dashboard page, and an icon to `ICONS`. If it is an account, add its key to the Accounts group in `GROUPS`. A key in no group shows under Services.
 6. Add a row to the table on this page.

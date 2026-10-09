@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import jwt
 from flask import Flask, g, request, session
 
+from core import error_log
 from core.log import get_logger
 
 logger = get_logger("request_log")
@@ -70,6 +71,14 @@ def register_request_logging(app: Flask, token_manager) -> None:
     @app.before_request
     def _start_timer():
         g.request_started = time.perf_counter()
+        # The error log tags errors of this request with its org and route
+        error_log.current_org.set(org_from_request() if request.path.startswith("/api/") else None)
+        error_log.current_route.set(request.url_rule.rule if request.url_rule else request.path)
+
+    @app.teardown_request
+    def _clear_error_context(_error):
+        error_log.current_org.set(None)
+        error_log.current_route.set(None)
 
     @app.after_request
     def _log_request(response):

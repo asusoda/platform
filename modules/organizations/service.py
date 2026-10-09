@@ -12,6 +12,7 @@ from modules.auth import machine_tokens, scopes
 from modules.organizations.models import Organization
 
 scopes.declare("org:read", "Read the org's name, description and enabled modules")
+scopes.declare("settings:write", "Turn modules on or off, change branding, and resolve notifications")
 
 # Modules an organization can turn off. Everything else (auth, users, organizations,
 # superadmin, public pages) is always on. A module missing from an org's config is on,
@@ -202,12 +203,27 @@ def delete_secret(db, org_id: int, name: str) -> bool:
 
 
 def token_list(db, org_id: int) -> dict:
-    """The org's active machine tokens, and the scopes a token can hold."""
-    return {"tokens": machine_tokens.list_active(db, org_id), "scopes": scopes.SCOPES}
+    """The org's active machine tokens, the scopes a token can hold, and the integrations whose tools a scope gives."""
+    from core.integrations import registry
+
+    groups: dict[str, list[str]] = {}
+    for scope, integration in scopes.INTEGRATION_SCOPES.items():
+        groups.setdefault(integration, []).append(scope)
+    integrations = [
+        {
+            "key": key,
+            "title": registry.INTEGRATIONS[key].title if key in registry.INTEGRATIONS else key,
+            "connected": registry.connected(db, org_id, key),
+            "scopes": sorted(names),
+            "limits": sorted(machine_tokens.LIMIT_NAMES.get(key, ())),
+        }
+        for key, names in sorted(groups.items())
+    ]
+    return {"tokens": machine_tokens.list_active(db, org_id), "scopes": scopes.SCOPES, "integrations": integrations}
 
 
 def issue_token(db, org_id: int, data: dict, created_by: str | None) -> dict:
-    """Issue a machine token from {"name", "kind", "scopes", "expires_days"}. The value is in the result only.
+    """Issue a machine token from {"name", "kind", "scopes", "expires_days", "limits"}. The value is in the result only.
 
     Raises machine_tokens.TokenError when the request is refused.
     """
@@ -219,6 +235,7 @@ def issue_token(db, org_id: int, data: dict, created_by: str | None) -> dict:
         scopes=data.get("scopes"),
         created_by=created_by,
         expires_days=data.get("expires_days"),
+        limits=data.get("limits"),
     )
     return {"token": value, **machine_tokens.to_dict(row)}
 
