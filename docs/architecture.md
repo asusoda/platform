@@ -84,7 +84,7 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
 | `apps.deploy` (confirm) | `apps:deploy` | runpod |
 | `alerts.list`, `alerts.presets`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
-| `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
+| `compute.pods`, `compute.pod_members`, `compute.pod_action` (confirm) | `compute:manage` | compute |
 | `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
 | `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
 | `runpod.*`: the read-only tools of RunPod's MCP server | `runpod:read` | integrations |

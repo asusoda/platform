@@ -27,7 +27,7 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 | accounts | `account_grants`, `account_logins` |
 | agents | `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions` |
 | knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload) |
-| compute | `compute_pods`, `compute_keys`, `compute_sessions` |
+| compute | `compute_pods`, `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days) |
 | runpod | `runpod_apps`, `runpod_deployments` |
 | alerts | `alert_feeds`, `alert_posts`, `alert_runs` (one row for each feed run) |
 | jobs | `procrastinate_*` (Postgres only, from the Procrastinate SQL, not from models) |

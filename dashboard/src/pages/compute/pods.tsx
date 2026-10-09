@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { CalendarClock, FolderOpen, Play, RotateCw, Square, Trash2, Users } from 'lucide-react';
+import { CalendarClock, FolderOpen, Play, RotateCw, ShieldCheck, Square, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import {
   Badge,
@@ -34,7 +34,7 @@ import {
 } from './shared';
 import { UsersEditor } from './members';
 
-export type PodDialog = { kind: 'access' | 'sessions' | 'files' | 'terminate'; pod: Pod };
+export type PodDialog = { kind: 'access' | 'members' | 'sessions' | 'files' | 'terminate'; pod: Pod };
 
 export function AccessBadge({ pod }: { pod: Pod }) {
   if (pod.is_public) return <Badge tone="ok">All members</Badge>;
@@ -116,6 +116,16 @@ function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: Pod
             variant="ghost"
             size="icon"
             className="max-sm:hidden"
+            title="Members"
+            aria-label={`Members of ${pod.name}`}
+            onClick={() => open({ kind: 'members', pod })}
+          >
+            <Users className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="max-sm:hidden"
             title="Sessions"
             aria-label={`Sessions of ${pod.name}`}
             onClick={() => open({ kind: 'sessions', pod })}
@@ -136,7 +146,10 @@ function PodRow({ prefix, pod, open }: { prefix: string; pod: Pod; open: (d: Pod
                   <MenuItem icon={CalendarClock} className="sm:hidden" onClick={pick(() => open({ kind: 'sessions', pod }))}>
                     Sessions
                   </MenuItem>
-                  <MenuItem icon={Users} onClick={pick(() => open({ kind: 'access', pod }))}>
+                  <MenuItem icon={Users} className="sm:hidden" onClick={pick(() => open({ kind: 'members', pod }))}>
+                    Members
+                  </MenuItem>
+                  <MenuItem icon={ShieldCheck} onClick={pick(() => open({ kind: 'access', pod }))}>
                     Access
                   </MenuItem>
                   <MenuItem

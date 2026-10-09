@@ -54,3 +54,19 @@ class ComputeSession(Base):
     created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (Index("ix_compute_sessions_due", "finished", "start_at"),)
+
+
+class ComputeConnection(Base):
+    """A certificate issued to a member or officer for one pod. Rows older than KEEP_DAYS are deleted on write."""
+
+    __tablename__ = "compute_connections"
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    pod_id = Column(String(64), nullable=False)  # RunPod's id
+    discord_id = Column(String(32), nullable=False)
+    username = Column(String(32), nullable=False)  # the user folder on the pod
+    is_admin = Column(Boolean, nullable=False, default=False)  # a root certificate
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+
+    __table_args__ = (Index("ix_compute_connections_pod", "organization_id", "pod_id", "created_at"),)

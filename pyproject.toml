@@ -163,6 +163,7 @@ source_modules = [
     "modules.calendar.tracing",
     "modules.compute.cli_login",
     "modules.compute.files",
+    "modules.compute.presence",
     "modules.compute.schedule",
     "modules.compute.ssh",
     "modules.dashboard.ci",
