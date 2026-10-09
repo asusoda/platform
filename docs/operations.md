@@ -162,7 +162,7 @@ Set these in the pod env, then restart the pod.
 | Agent | Variable | Value |
 | --- | --- | --- |
 | Sparky | `SPARKY_DISCORD__TOKEN`, `SPARKY_DISCORD__GUILD_ID` | The Sparky bot token and the server id |
-| Sparky | `SPARKY_PLATFORM__TOKEN` | A machine token of kind `agent` with `agents:read`, `agents:write`, `knowledge:read`, `accounts:link`, `accounts:token` |
+| Sparky | `SPARKY_PLATFORM__TOKEN` | A machine token of kind `agent` with `agents:read`, `agents:write`, `knowledge:read`, `accounts:link`, `accounts:token`. Sparky also uses the MCP server at `http://127.0.0.1:8001/mcp`: every scope you add gives it those tools. Every member can use read tools, so add only reads that all members may see. Write tools need the Manage Server permission in Discord and a confirmation |
 | Sparky | `SPARKY_MODEL__BASE_URL`, `SPARKY_MODEL__API_KEY`, `SPARKY_MODEL__NAME` | Any OpenAI-compatible chat API. The summary model is the same unless `SPARKY_SUMMARY__*` is set |
 | Sparky | `SPARKY_TAG` | Optional. An image tag (commit sha) in place of `main` |
 | Hermes | `HERMES_ENV_DISCORD_BOT_TOKEN` | The Hermes bot token. Hermes gets each `HERMES_ENV_*` variable without the prefix |

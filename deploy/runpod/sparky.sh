@@ -26,6 +26,8 @@ export SPARKY_CONFIG_FILE="$DIR/bin/sparky.toml"
 export SPARKY_APP__ENV="${SPARKY_APP__ENV:-production}"
 export SPARKY_PLATFORM__ENABLED=true
 export SPARKY_PLATFORM__URL="${SPARKY_PLATFORM__URL:-http://127.0.0.1:8000}"
+# Sparky registers the platform tools its token allows. Write tools need the Manage Server role in Discord.
+export SPARKY_PLATFORM__MCP_URL="${SPARKY_PLATFORM__MCP_URL:-http://127.0.0.1:${MCP_PORT:-8001}/mcp}"
 export SPARKY_APP__HTTP_ADDR="${SPARKY_APP__HTTP_ADDR:-127.0.0.1:8080}"
 export SPARKY_ENGINE__BASE_URL="http://${SPARKY_APP__HTTP_ADDR}"
 # The pod cannot run containers, so run_sandbox stays off.
