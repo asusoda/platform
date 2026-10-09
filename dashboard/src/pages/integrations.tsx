@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Brain, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Search } from 'lucide-react';
+import { BookOpen, Brain, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Route, Search } from 'lucide-react';
 import { type ComponentType, useState } from 'react';
 import { Link } from 'react-router';
 import { DiscordIcon, GitHubIcon } from '../components/brand-icons';
@@ -33,6 +33,7 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   runpod: Cloud,
   embeddings: Brain,
   firecrawl: Flame,
+  openrouter: Route,
   searxng: Search,
 };
 

@@ -12,7 +12,7 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
-from core import secrets
+from core import secrets, webhooks
 from core.errors import ServiceError
 from core.integrations import registry, runpod
 from core.log import get_logger
@@ -32,6 +32,12 @@ POD_ENV_PREFIX = "GODFATHER_"
 DEFAULT_GPU = "NVIDIA RTX A4000"
 DEFAULT_CPU_FLAVOR = "cpu3c"
 scopes.declare("compute:manage", "List the org's compute pods and start, stop, restart or terminate them")
+webhooks.declare(
+    "pod.started", "Pods started", "A pod starts or restarts, by an officer, a tool or its schedule.", "compute"
+)
+webhooks.declare(
+    "pod.stopped", "Pods stopped", "A pod stops or is terminated, by an officer, a tool or its schedule.", "compute"
+)
 
 ACTIONS = ("start", "stop", "restart", "terminate")
 CLOUD_TYPES = ("COMMUNITY", "SECURE")
@@ -41,6 +47,18 @@ CONFIG_KEY = "compute"
 
 class ComputeError(ServiceError):
     pass
+
+
+def announce(org_id: int, name: str, pod_id: str, action: str, by: str) -> None:
+    """Send the pod.started or pod.stopped webhook event for an action on a pod."""
+    started = action in ("start", "restart")
+    verb = {"start": "started", "stop": "stopped", "restart": "restarted", "terminate": "terminated"}[action]
+    message = webhooks.Message(
+        title=f"Pod {name} {verb}",
+        fields=(("Pod", pod_id), ("By", by)),
+        color=webhooks.GREEN if started else webhooks.AMBER,
+    )
+    webhooks.emit(org_id, "pod.started" if started else "pod.stopped", message)
 
 
 def _client(db, org_id: int) -> runpod.RunPodClient:
@@ -288,6 +306,7 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
     if action not in ACTIONS:
         raise ComputeError(f"action must be one of {', '.join(ACTIONS)}")
     row = _find(db, org_id, pod_id)
+    name = str(row.name)
     client = client or _client(db, org_id)
     if action == "start":
         _call(client.start_pod, pod_id)
@@ -304,6 +323,7 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
         db.delete(row)
         db.commit()
     logger.info("compute pod %s org=%s pod=%s", action, org_id, pod_id)
+    announce(org_id, name, pod_id, str(action), "an officer or a tool")
     return {"id": pod_id, "action": action}
 
 

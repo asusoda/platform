@@ -1,4 +1,8 @@
-"""Lists and runs tools for a machine token. Shared by the MCP server and /api/tools. No Flask here."""
+"""Lists and runs tools for a machine token. Shared by the MCP server and /api/tools. No Flask here.
+
+The tools are the modules' tools in core.tools.TOOLS and the tools of connected services that
+modules/integrations passes through to their MCP servers.
+"""
 
 import time
 from typing import Any
@@ -10,6 +14,7 @@ from core.errors import ServiceError
 from core.log import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec
 from modules.auth.machine_tokens import MachineCaller
+from modules.integrations import service as remote
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -32,7 +37,8 @@ def _usable(spec: ToolSpec, org: Organization, caller: MachineCaller) -> bool:
 def available(db, caller: MachineCaller) -> list[ToolSpec]:
     """Tools this token may call: its scopes allow them and its org has their module on."""
     org = _org(db, caller)
-    return [spec for spec in sorted(TOOLS.values(), key=lambda s: s.name) if _usable(spec, org, caller)]
+    local = [spec for spec in TOOLS.values() if _usable(spec, org, caller)]
+    return sorted(local + remote.tools_for(db, caller.organization_id, caller), key=lambda s: s.name)
 
 
 def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source: str) -> Any:
@@ -41,9 +47,13 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
     status = 200
     pending = False
     try:
-        spec = TOOLS.get(name)
         org = _org(db, caller)
-        if spec is None or not _usable(spec, org, caller):
+        spec = TOOLS.get(name)
+        if spec is not None and not _usable(spec, org, caller):
+            spec = None
+        if spec is None and name not in TOOLS:
+            spec = remote.find(db, caller.organization_id, caller, name)
+        if spec is None:
             # Same answer for unknown and not allowed, so a token cannot probe for tools
             raise ToolError(f"No tool named {name}", 404)
         args = dict(arguments or {})

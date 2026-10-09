@@ -128,7 +128,8 @@ def run(db, now=None, client_for: Callable[[Any, int], runpod.RunPodClient] | No
         active = [r for r in rows if r.stop_at > now]
         ended = [r for r in rows if r.stop_at <= now]
         try:
-            if db.query(ComputePod).filter_by(organization_id=org_id, pod_id=pod_id).first() is None:
+            pod = db.query(ComputePod).filter_by(organization_id=org_id, pod_id=pod_id).first()
+            if pod is None:
                 for r in rows:
                     r.finished = True  # type: ignore[assignment]
                 continue
@@ -139,11 +140,13 @@ def run(db, now=None, client_for: Callable[[Any, int], runpod.RunPodClient] | No
                 if service._status(service._call(client.get_pod, pod_id)) != "RUNNING":
                     service._call(client.start_pod, pod_id)
                     result["started"].append(pod_id)
+                    service.announce(org_id, str(pod.name), pod_id, "start", "the session schedule")
                 for r in active:
                     r.started = True  # type: ignore[assignment]
             if ended and not active and any(r.started for r in ended):
                 service._call(client.stop_pod, pod_id)
                 result["stopped"].append(pod_id)
+                service.announce(org_id, str(pod.name), pod_id, "stop", "the session schedule")
             for r in ended:
                 r.finished = True  # type: ignore[assignment]
         except service.ComputeError as e:

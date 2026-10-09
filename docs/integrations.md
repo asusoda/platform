@@ -5,7 +5,7 @@ An integration is an account or a service outside Platform, such as Notion or Ru
 The page shows the cards in two groups:
 
 - Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion and RunPod.
-- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl and SearXNG.
+- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl, OpenRouter and SearXNG.
 
 The description of a card says what the officer connects, not what each module does with it. The "Used by" links show the modules.
 
@@ -16,10 +16,11 @@ The description of a card says what the officer connects, not what each module d
 | Discord | none for the org | `BOT_TOKEN` | Sign-in, LeetCode |
 | Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, MCP |
 | Firecrawl | `firecrawl_url`, [`firecrawl_api_key`] | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | Knowledge, ASU |
-| GitHub | `github_token` | none | CI runs, Hosting > Services |
+| GitHub | `github_token` | none | CI runs, Apps, `github.*` agent tools |
 | Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
 | Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
-| RunPod | `runpod_api_key` | none | Hosting > Services and Member pods |
+| OpenRouter | `openrouter_api_key` | `OPENROUTER_API_KEY` | Knowledge, MCP (through Embeddings) |
+| RunPod | `runpod_api_key` | none | Compute, Apps |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
 
 The keys are org secrets, encrypted with `SECRETS_KEY`. The API never returns a secret key. It returns the value of a field that is not secret, such as a URL or a model name, so the form can show it. When an org saves its own keys, they replace the deployment default for that org as a whole: Platform never mixes an org URL with a deployment key. An org must set every required field. Discord is set only in `.env`, for every org.
@@ -37,6 +38,22 @@ A card has one of three states:
 Test connects with the key the module uses and shows the result. It does not change anything.
 
 If Firecrawl is not connected, knowledge reads pages with a plain GET. If SearXNG is not connected, the ASU web live query returns 503.
+
+## Tools for agents
+
+An agent with a machine token can also use the tools of a connected service, through the same MCP server and `/api/tools`. Platform passes the call to the service's own MCP server with the org's saved keys. The agent never gets the keys.
+
+| Service | Server | Scopes |
+| --- | --- | --- |
+| GitHub | `GITHUB_MCP_URL`, default `https://api.githubcopilot.com/mcp/`, with the org's GitHub token | `github:read`: the tools the server marks read-only. `github:write`: the other tools |
+
+- A tool name starts with the service key, such as `github.list_issues`. The token sees the tools only when the org connected the service.
+- A tool that is not read-only runs only with `confirm=true`. Without it, the call returns what it would do.
+- Token limits narrow a token further. `repos` lists the repos a call may act on, as `owner/name` or `owner/*`. With `repos`, the token sees only tools that take one repo. `tools` lists name patterns, such as `github.*issue*`. Set both on the Tokens page.
+- Each call is in the audit log and its failures are in the error log, as for other tools.
+- The list of tools of each org is kept for 10 minutes. The GitHub token must allow what the tools do: write access to Issues and Pull requests for the write tools.
+
+To add the tools of another service, add a `RemoteServer` in `modules/integrations/servers.py`: its URL, the headers that sign in with the org's keys, a read and a write scope, how to find the target in the arguments, and a check for its token limits.
 
 ## Routes
 
@@ -65,8 +82,8 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 
 | `.env` | Dashboard |
 | --- | --- |
-| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY` | Integrations |
-| `COMPUTE_POD_IMAGE` | Hosting > Member pods > Settings |
+| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY`, `OPENROUTER_API_KEY` | Integrations |
+| `COMPUTE_POD_IMAGE` | Compute > Settings |
 | `KNOWLEDGE_PUBLISHERS` | Superadmin > Knowledge publishers. Orgs in `.env` stay publishers |
 | `KNOWLEDGE_CHUNK_CHARS`, `KNOWLEDGE_MAX_DISTANCE` | Knowledge > Search settings |
 | `LEETCODE_*` | LeetCode. The `.env` post is the older post for one server |

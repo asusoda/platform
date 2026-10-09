@@ -26,7 +26,11 @@ const SCOPES = {
   'points:read': "Read the org's points leaderboard (names and totals, no emails or student IDs)",
   'apps:read': 'List apps on RunPod, their pods and deployments',
   'apps:deploy': 'Deploy a new image tag of an app',
+  'github:read': "Read the org's GitHub repos, issues, pull requests and Actions runs",
+  'github:write': 'Create and change issues, pull requests, comments and files on GitHub (with confirm)',
 };
+
+const INTEGRATIONS = [{ key: 'github', title: 'GitHub', connected: true, scopes: ['github:read', 'github:write'], limits: ['repos', 'tools'] }];
 
 // All responses, with times relative to now so the dashboard shows "2h ago" and "in 3d".
 // 30 days of made-up daily counts. Weekdays are busier, and a few days have failures.
@@ -65,7 +69,8 @@ export function fixtures(now = Date.now()) {
       id: 11,
       name: 'club-assistant',
       kind: 'agent',
-      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read'],
+      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read', 'github:read'],
+      limits: { github: { repos: ['my-org/*'] } },
       display: 'plat_4hQ2',
       created_by: 'officer',
       created_at: at(-40 * DAY),
@@ -598,15 +603,15 @@ export function fixtures(now = Date.now()) {
       description: 'Connect an OpenAI-compatible embeddings service for meaning search.',
       docs: 'modules/knowledge',
       fields: [
-        field('embeddings_url', 'Base URL', 'For example https://api.example.com/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
+        field('embeddings_url', 'Base URL', 'For example https://openrouter.ai/api/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
           secret: false,
           value: 'https://embed.example.org/v1',
         }),
-        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B.', -4 * DAY, 'text', {
+        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B, or baai/bge-m3 on OpenRouter.', -4 * DAY, 'text', {
           secret: false,
           value: 'Qwen3-Embedding-0.6B',
         }),
-        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key.', -4 * DAY, 'text', { optional: true }),
+        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key. For OpenRouter, empty uses the OpenRouter key.', -4 * DAY, 'text', { optional: true }),
         field('embeddings_query_prefix', 'Query prefix', 'Text put before each search query. Qwen3-Embedding takes an instruction here.', null, 'text', {
           secret: false,
           optional: true,
@@ -665,6 +670,17 @@ export function fixtures(now = Date.now()) {
       used_by: ['calendar'],
     },
     {
+      key: 'openrouter',
+      title: 'OpenRouter',
+      description: 'Connect an OpenRouter account for hosted models.',
+      docs: 'integrations',
+      fields: [field('openrouter_api_key', 'API key', 'OpenRouter > Settings > API Keys. Embeddings uses this key when its base URL is OpenRouter.', null)],
+      editable: true,
+      source: null,
+      testable: true,
+      used_by: ['agents', 'knowledge'],
+    },
+    {
       key: 'runpod',
       title: 'RunPod',
       description: "Connect the org's RunPod account.",
@@ -716,6 +732,35 @@ export function fixtures(now = Date.now()) {
     '    response.raise_for_status()',
     'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
   ].join('\n');
+  const webhookEvents = [
+    ['errors', 'Errors', 'A new error, or a resolved error that comes back. At most 30 messages an hour.', null],
+    ['job.failed', 'Failed job runs', 'A background job for the org fails, such as a crawl or a reindex.', null],
+    ['pod.started', 'Pods started', 'A pod starts or restarts, by an officer, a tool or its schedule.', 'compute'],
+    ['pod.stopped', 'Pods stopped', 'A pod stops or is terminated, by an officer, a tool or its schedule.', 'compute'],
+    ['app.deployed', 'App deploys', 'An app deploy ends: healthy, or failed with the reason.', null],
+    ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
+    ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
+    ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+  ].map(([key, label, description, module]) => ({ key, label, description, module }));
+  const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
+    id,
+    name,
+    kind: 'discord',
+    url_hint: `discord.com ...${hint}`,
+    events,
+    enabled,
+    last_sent_at: at(lastSent),
+    last_error: lastError,
+    created_at: at(created),
+    created_by: `officer:${by}`,
+  });
+  const webhooks = [
+    webhook(1, 'Errors', '4410', ['errors', 'job.failed', 'knowledge.crawl_failed'], true, -38 * MINUTE, null, -40 * DAY, 'ava'),
+    webhook(2, 'Infra', '9027', ['pod.started', 'pod.stopped', 'app.deployed'], true, -2 * HOUR, null, -21 * DAY, 'daniel'),
+    webhook(3, 'Store desk', '3315', ['order.created', 'member.joined'], true, -5 * DAY, 'Discord refused the message with status 404', -60 * DAY, 'maya'),
+    webhook(4, 'Old ops channel', '7781', ['errors'], false, -45 * DAY, null, -120 * DAY, 'ava'),
+  ];
+
   const orgErrors = [
     errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
     errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/hosting (mutation)', '/robotics/hosting (mutation)', 4, -26 * MINUTE, -1 * DAY),
@@ -958,6 +1003,17 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
     '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
+    [`/api/dashboard/${ORG.prefix}/webhooks`]: {
+      webhooks,
+      events: webhookEvents,
+      kinds: [{ key: 'discord', label: 'Discord', example: 'https://discord.com/api/webhooks/...' }],
+      alerts: true,
+      feeds: feeds.map(({ key, kind, enabled, webhook_set, last_run_at, last_error }) => ({ key, kind, enabled, webhook_set, last_run_at, last_error })),
+      secrets_key: true,
+    },
+    ...Object.fromEntries(
+      webhooks.map((w) => [`/api/dashboard/${ORG.prefix}/webhooks/${w.id}/test`, { ok: true, message: 'Sent. Look for the message in the channel.' }]),
+    ),
     [`/api/alerts/${ORG.prefix}/presets`]: {
       presets: [
         {
@@ -973,7 +1029,7 @@ export function fixtures(now = Date.now()) {
         },
       ],
     },
-    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
+    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },

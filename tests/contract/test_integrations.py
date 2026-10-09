@@ -15,6 +15,7 @@ def cleared(client, officer_headers, monkeypatch):
     yield
     client.put(f"{BASE}/notion", json={"fields": {"notion_api_key": None}}, headers=officer_headers)
     client.put(f"{BASE}/google", json={"fields": {"google_service_account": None}}, headers=officer_headers)
+    client.put(f"{BASE}/openrouter", json={"fields": {"openrouter_api_key": None}}, headers=officer_headers)
     for key, names in (
         ("embeddings", ("embeddings_url", "embeddings_model", "embeddings_api_key", "embeddings_query_prefix")),
         ("firecrawl", ("firecrawl_url", "firecrawl_api_key")),
@@ -142,5 +143,114 @@ def test_org_firecrawl_and_searxng(client, officer_headers, cleared, public_dns,
             search = settings.settings().search
             assert search.base_url == "https://s.example" and search.engines == settings.DEFAULT_ENGINES
         assert settings.settings().search.base_url == "http://searxng:8080"
+    finally:
+        db.close()
+
+
+class _Response:
+    def __init__(self, status_code, body):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        return self._body
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+
+            raise requests.HTTPError(str(self.status_code))
+
+
+def test_openrouter_key_and_test(client, officer_headers, cleared, monkeypatch):
+    from core.integrations import openrouter
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    entry = _by_key(client.get(BASE, headers=officer_headers).get_json())["openrouter"]
+    assert entry["source"] is None and entry["testable"] is True
+    assert set(entry["used_by"]) == {"agents", "knowledge"}
+    missing = client.post(f"{BASE}/openrouter/test", headers=officer_headers).get_json()
+    assert missing == {"ok": False, "message": "Set an OpenRouter API key first"}
+
+    saved = client.put(
+        f"{BASE}/openrouter", json={"fields": {"openrouter_api_key": "or-test"}}, headers=officer_headers
+    )
+    assert saved.status_code == 200 and "or-test" not in saved.get_data(as_text=True)
+    assert _by_key(saved.get_json())["openrouter"]["source"] == "org"
+
+    calls = []
+
+    def fake_get(url, headers, **kwargs):
+        calls.append((url, headers))
+        return _Response(200, {"data": {"label": "club", "limit": 10, "limit_remaining": 7.5}})
+
+    monkeypatch.setattr(openrouter.requests, "get", fake_get)
+    result = client.post(f"{BASE}/openrouter/test", headers=officer_headers).get_json()
+    assert result == {"ok": True, "message": "Connected as club. 7.5 credits left of 10."}
+    assert calls == [("https://openrouter.ai/api/v1/key", {"Authorization": "Bearer or-test"})]
+
+    monkeypatch.setattr(
+        openrouter.requests,
+        "get",
+        lambda *a, **k: _Response(200, {"data": {"label": "sk-or-v1-abc...", "limit": None}}),
+    )
+    result = client.post(f"{BASE}/openrouter/test", headers=officer_headers).get_json()
+    assert result == {"ok": True, "message": "Connected. The key has no credit limit."}
+
+    monkeypatch.setattr(openrouter.requests, "get", lambda *a, **k: _Response(401, {}))
+    result = client.post(f"{BASE}/openrouter/test", headers=officer_headers).get_json()
+    assert result == {"ok": False, "message": "OpenRouter refused the key"}
+
+
+def test_embeddings_use_the_openrouter_key(client, officer_headers, cleared, public_dns, monkeypatch):
+    from core.db import db_connect
+    from modules.knowledge import embedder
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "deployment-or")
+    monkeypatch.setenv("EMBEDDINGS_URL", "https://openrouter.ai/api/v1")
+    monkeypatch.setenv("EMBEDDINGS_MODEL", "deployment-model")
+    monkeypatch.delenv("EMBEDDINGS_API_KEY", raising=False)
+    assert _by_key(client.get(BASE, headers=officer_headers).get_json())["openrouter"]["source"] == "deployment"
+
+    fields = {"embeddings_url": "https://openrouter.ai/api/v1", "embeddings_model": "org-model"}
+    assert client.put(f"{BASE}/embeddings", json={"fields": fields}, headers=officer_headers).status_code == 200
+    db = db_connect.SessionLocal()
+    try:
+        assert embedder.for_org(db, _org_id("soda")).api_key == "deployment-or"
+        assert embedder.for_org(db, _org_id()).api_key is None
+    finally:
+        db.close()
+
+    client.put(f"{BASE}/openrouter", json={"fields": {"openrouter_api_key": "org-or"}}, headers=officer_headers)
+    posted = []
+
+    def fake_post(url, json, headers, **kwargs):
+        posted.append((url, json, headers))
+        return _Response(200, {"data": [{"embedding": [0.5] * embedder.DIMENSIONS}]})
+
+    monkeypatch.setattr(embedder.requests, "post", fake_post)
+    result = client.post(f"{BASE}/embeddings/test", headers=officer_headers).get_json()
+    assert result["ok"] is True, result
+    assert posted == [
+        (
+            "https://openrouter.ai/api/v1/embeddings",
+            {"model": "org-model", "input": ["test"]},
+            {"Authorization": "Bearer org-or"},
+        )
+    ]
+
+    own = {"embeddings_api_key": "embed-key"}
+    client.put(f"{BASE}/embeddings", json={"fields": own}, headers=officer_headers)
+    db = db_connect.SessionLocal()
+    try:
+        assert embedder.for_org(db, _org_id()).api_key == "embed-key"
+    finally:
+        db.close()
+
+    other = {"embeddings_url": "https://e.example/v1", "embeddings_api_key": None}
+    client.put(f"{BASE}/embeddings", json={"fields": other}, headers=officer_headers)
+    db = db_connect.SessionLocal()
+    try:
+        assert embedder.for_org(db, _org_id()).api_key is None
     finally:
         db.close()

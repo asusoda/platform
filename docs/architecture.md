@@ -84,6 +84,8 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `apps.deploy` (confirm) | `apps:deploy` | runpod |
 | `alerts.list`, `alerts.presets`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
 | `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
+| `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
+| `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 
@@ -100,5 +102,6 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
 | RunPod | Compute pods and app deploys | `core/integrations/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
-| Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors, with Discord alerts | `core/error_log.py`, `modules/dashboard/errors.py` |
+| Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
+| Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to Discord webhooks | `core/webhooks.py`, `modules/dashboard/webhooks.py` |
 | Sentry | Optional: errors, logs and sampled traces if `SENTRY_DSN` is set | `core/log.py` |

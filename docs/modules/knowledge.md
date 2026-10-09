@@ -112,7 +112,8 @@ An org sets its own embeddings service and Firecrawl on the Integrations page of
 | --- | --- | --- |
 | `EMBEDDINGS_URL` | not set | An OpenAI-compatible base URL (`.../v1`). If neither the org nor this sets one, there is no embedder |
 | `EMBEDDINGS_MODEL` | `default` | The model name sent to the URL and kept on each version |
-| `EMBEDDINGS_API_KEY` | not set | The bearer token for the URL |
+| `EMBEDDINGS_API_KEY` | not set | The bearer token for the URL. If it is empty and the URL is OpenRouter's, Platform sends the OpenRouter key |
+| `OPENROUTER_API_KEY` | not set | The default key of the OpenRouter integration ([integrations](../integrations.md#openrouter)) |
 | `EMBEDDINGS_QUERY_PREFIX` | empty | Text put before queries, for models that need it |
 | `KNOWLEDGE_MAX_DISTANCE` | 0.6 | The default of the org setting `max_distance` |
 | `KNOWLEDGE_PUBLISHERS` | empty | Org prefixes that can write public sources, in addition to the ones the superadmin marks |

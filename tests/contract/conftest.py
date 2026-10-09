@@ -181,3 +181,40 @@ def restore_soda_config(app):
         db.commit()
     finally:
         db.close()
+
+
+class WebhookResponse:
+    def __init__(self, status_code: int = 204) -> None:
+        self.status_code = status_code
+
+
+class Sent(list):
+    """Messages posted to webhooks, as (url, payload). status is the status code the next post gets."""
+
+    status = 204
+
+
+@pytest.fixture
+def sent(app, monkeypatch):
+    """Posts to webhooks, sent in the test thread. Removes every webhook after the test."""
+    from cryptography.fernet import Fernet
+
+    from core import net, webhooks
+    from core.db import db_connect
+
+    posts = Sent()
+
+    def post(url, json, timeout, allow_redirects):
+        posts.append((url, json))
+        return WebhookResponse(posts.status)
+
+    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
+    monkeypatch.setattr(webhooks, "spawn", lambda target, *args: target(*args))
+    monkeypatch.setattr(webhooks.requests, "post", post)
+    monkeypatch.setattr(webhooks, "_sent", {})
+    monkeypatch.setattr(net, "check_public", lambda url: None)
+    yield posts
+    db = db_connect.SessionLocal()
+    db.query(webhooks.Webhook).delete()
+    db.commit()
+    db.close()

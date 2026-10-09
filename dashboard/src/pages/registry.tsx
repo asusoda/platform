@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
+  Webhook,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { ModuleGate } from '../components/module-gate';
@@ -32,6 +33,7 @@ import { PointsPage } from './points';
 import { SettingsPage } from './settings';
 import { StorePage } from './store';
 import { TokensPage } from './tokens';
+import { WebhooksPage } from './webhooks';
 
 // The sidebar sections, in order. A section with no title has no header.
 export const SECTIONS = [
@@ -80,6 +82,7 @@ export const PAGES: PageEntry[] = [
   { path: 'notifications', label: 'Notifications', icon: Bell, section: 'top', page: NotificationsPage },
   { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage },
   { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage },
+  { path: 'webhooks', label: 'Webhooks', icon: Webhook, section: 'automations', group: 'webhooks', page: WebhooksPage },
   { path: 'alerts', label: 'Alerts', icon: BellRing, section: 'automations', group: 'webhooks', module: 'alerts', gate: true, page: AlertsPage },
   { path: 'calendar', label: 'Calendar sync', icon: CalendarDays, section: 'automations', group: 'scheduled', module: 'calendar', gate: true, page: CalendarPage },
   { path: 'leetcode', label: 'LeetCode', icon: CodeXml, section: 'automations', group: 'bots', module: 'leetcode', gate: true, page: LeetCodePage },

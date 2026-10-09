@@ -1,9 +1,7 @@
-"""The error log: grouping, resolve and reopen, dashboard reports, Discord alerts and the superadmin view."""
+"""The error log: grouping, resolve and reopen, dashboard reports, webhook alerts and the superadmin view."""
 
 import logging
 import uuid
-
-import pytest
 
 from core import error_log
 from modules.dashboard import errors
@@ -12,27 +10,6 @@ from tests.contract.test_access import SUPERADMIN_ID, headers_for
 
 BASE = "/api/dashboard/ais/errors"
 WEBHOOK = "https://discord.com/api/webhooks/123/abc-DEF"
-
-
-@pytest.fixture
-def posts(monkeypatch):
-    """Discord posts the alert sends, run in the test thread."""
-    sent = []
-
-    class Thread:
-        def __init__(self, target, args, daemon):
-            self.target, self.args = target, args
-
-        def start(self):
-            self.target(*self.args)
-
-    class Response:
-        status_code = 204
-
-    monkeypatch.setattr(errors.threading, "Thread", Thread)
-    monkeypatch.setattr(errors.requests, "post", lambda url, json, timeout: sent.append((url, json)) or Response())
-    monkeypatch.setattr(errors, "_sent", [])
-    return sent
 
 
 def _raise(kind: str, org: str | None = "ais") -> None:
@@ -119,27 +96,32 @@ def test_dashboard_report(client, officer_headers):
     assert client.post(f"{BASE}/report", json={"kind": 1}, headers=officer_headers).status_code == 400
 
 
-def test_webhook_alerts_new_errors_once(client, officer_headers, posts, monkeypatch):
-    from cryptography.fernet import Fernet
-
-    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
-    assert (
-        client.put(f"{BASE}/webhook", json={"url": "https://example.com/x"}, headers=officer_headers).status_code == 400
-    )
-    saved = client.put(f"{BASE}/webhook", json={"url": WEBHOOK}, headers=officer_headers)
-    assert saved.get_json() == {"webhook_set": True}
-    assert _open(client, officer_headers)["webhook_set"] is True
-    try:
-        marker = uuid.uuid4().hex
-        _raise(marker)
-        _raise(marker)
-        mine = [p for p in posts if marker in p[1]["embeds"][0]["description"]]
-        assert len(mine) == 1
-        assert mine[0][0] == WEBHOOK
-        assert mine[0][1]["allowed_mentions"] == {"parse": []}
-    finally:
-        client.put(f"{BASE}/webhook", json={"url": None}, headers=officer_headers)
+def test_webhook_alerts_new_errors_once(client, officer_headers, sent):
     assert _open(client, officer_headers)["webhook_set"] is False
+    hook = client.post(
+        "/api/dashboard/ais/webhooks",
+        json={"name": "Errors", "url": WEBHOOK, "events": ["errors"]},
+        headers=officer_headers,
+    )
+    assert hook.status_code == 201
+    assert _open(client, officer_headers)["webhook_set"] is True
+    marker = uuid.uuid4().hex
+    _raise(marker)
+    _raise(marker)
+    mine = [p for p in sent if marker in p[1]["embeds"][0]["description"]]
+    assert len(mine) == 1
+    assert mine[0][0] == WEBHOOK
+    assert mine[0][1]["allowed_mentions"] == {"parse": []}
+
+
+def test_server_webhook_gets_every_org(sent, monkeypatch):
+    monkeypatch.setenv("ERROR_WEBHOOK_URL", WEBHOOK)
+    monkeypatch.setattr(errors, "_sent", [])
+    marker = uuid.uuid4().hex
+    _raise(marker, "soda")
+    _raise(uuid.uuid4().hex, None)
+    assert [p[0] for p in sent] == [WEBHOOK, WEBHOOK]
+    assert marker in sent[0][1]["embeds"][0]["description"]
 
 
 def test_superadmin_sees_every_org(client, monkeypatch, app):

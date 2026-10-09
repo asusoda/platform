@@ -6,11 +6,18 @@ from typing import Any, cast
 
 from sqlalchemy.exc import IntegrityError
 
+from core import webhooks
 from core.db import db_connect
 from core.log import get_logger
 from modules.users.models import User, UserOrganizationMembership
 
 logger = get_logger(__name__)
+
+webhooks.declare(
+    "member.joined",
+    "New members",
+    "A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.",
+)
 
 # Request and response keys kept for thesoda.io and the dashboard, and the column each one names
 LEGACY_MEMBER_KEYS = {"asu_id": "student_id", "academic_standing": "class_standing"}
@@ -142,6 +149,13 @@ def _recover_duplicate_email(db, organization_id, email):
         return None
 
 
+def _announce_join(organization_id, user: User) -> None:
+    """Send the member.joined webhook event. The message has the name and username, not the email."""
+    fields = (("Username", str(user.username or "-")),)
+    message = webhooks.Message(title=f"{user.name or 'A new member'} joined", fields=fields, color=webhooks.GREEN)
+    webhooks.emit(int(organization_id), "member.joined", message)
+
+
 def manage_user_in_organization(db, organization_id, user_data, discord_id=None, user_identifier=None):
     """Find, update or create a user and make them a member of the org. Commits.
 
@@ -175,6 +189,7 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                 db.add(membership)
                 db.commit()
                 updated_fields.append("organization_membership")
+                _announce_join(organization_id, user)
 
             if profile_changes is not None:
                 error = merge_profile_fields(membership, profile_changes)
@@ -212,6 +227,7 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                 return new_user, False, error
         db.add(membership)
         db.commit()
+        _announce_join(organization_id, new_user)
 
         return new_user, True, "User created successfully"
 
