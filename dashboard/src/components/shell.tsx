@@ -190,9 +190,9 @@ function Nav({ collapsed = false, onNavigate, className = 'w-[248px]' }: { colla
   const { data: superadmin } = useSuperadmin();
   const modules = useModules(org?.id).data?.modules;
   const website = useBranding(prefix).data?.website_url;
-  // A module is hidden only when the API says it is off.
-  const shown = (page: PageEntry) =>
-    (!page.superadmin || superadmin) && !(page.module && modules?.some((m) => m.name === page.module && !m.enabled));
+  // A module is hidden only when the API says it is off. A page with a list of modules is hidden when all are off.
+  const off = (name: string) => modules?.some((m) => m.name === name && !m.enabled) ?? false;
+  const shown = (page: PageEntry) => (!page.superadmin || superadmin) && !(page.module && [page.module].flat().every(off));
   // Each section holds its pages with no group, then each group of the section that has a page to show.
   const sections = SECTIONS.map((s) => {
     const items = PAGES.filter((p) => p.section === s.id && shown(p));

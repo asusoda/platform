@@ -1,10 +1,10 @@
 # RunPod apps
 
-Deploys an org's own apps (a Discord bot, an agent, a model server) to RunPod pods. An officer registers the app's manifest one time. Then the app's CI deploys each new image tag with a token that can do nothing else. Each org deploys with its own RunPod key and pays for its own pods. [Hermes Agent](../operations.md#hermes-agent) is an example.
+Deploys an org's own apps (a Discord bot, an agent, a model server) to RunPod pods. An officer registers the app's manifest one time. Then the app's CI deploys each new image tag with a token that can do nothing else. Each org deploys with its own RunPod key and pays for its own pods.
 
 ## Setup
 
-Officers can do steps 1, 2 and 4 on the dashboard (Settings > Secrets, and the Apps page). The Apps page also deploys, rolls back and deletes.
+Officers can do steps 1, 2 and 4 on the dashboard (Settings > Secrets, and the Services tab of the Hosting page). The Services tab also deploys, rolls back and deletes.
 
 1. Connect RunPod on the dashboard's Integrations page. This saves the org secret `runpod_api_key`.
 2. Save each secret env value of the app as an org secret with a name that starts with `app_`.

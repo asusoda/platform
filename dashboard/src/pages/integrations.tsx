@@ -42,12 +42,12 @@ const MODULES: Record<string, { label: string; path?: string }> = {
   asu: { label: 'ASU pack', path: 'knowledge' },
   auth: { label: 'Sign-in' },
   calendar: { label: 'Calendar sync', path: 'calendar' },
-  compute: { label: 'Compute', path: 'compute' },
+  compute: { label: 'Member pods', path: 'hosting?tab=pods' },
   dashboard: { label: 'Activity', path: 'activity' },
   games: { label: 'Games' },
   knowledge: { label: 'Knowledge', path: 'knowledge' },
   leetcode: { label: 'LeetCode', path: 'leetcode' },
-  runpod: { label: 'Apps', path: 'apps' },
+  runpod: { label: 'Services', path: 'hosting' },
 };
 
 // The groups of cards, in order. An integration with a key in no group goes in the last group.

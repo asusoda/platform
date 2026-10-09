@@ -2,16 +2,15 @@ import {
   Activity,
   Bell,
   BellRing,
-  Boxes,
   Cable,
   CalendarDays,
   CodeXml,
   Coins,
-  Cpu,
   Database,
   KeyRound,
   LayoutDashboard,
   Plug,
+  Server,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -21,9 +20,8 @@ import { ModuleGate } from '../components/module-gate';
 import { ActivityPage } from './activity';
 import { AdminPage } from './admin';
 import { AlertsPage } from './alerts';
-import { AppsPage } from './apps';
 import { CalendarPage } from './calendar';
-import { ComputePage } from './compute';
+import { HostingPage } from './hosting';
 import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
 import { LeetCodePage } from './leetcode';
@@ -66,9 +64,10 @@ export type PageEntry = {
   section: SectionId;
   // The group inside the section. It must be a group of the same section.
   group?: GroupId;
-  // The sidebar hides the page when the API says this module is off.
-  module?: string;
-  // With module set, the page shows a module-off note in place of its content when the module is off.
+  // The sidebar hides the page when the API says this module is off. With a list, it hides the page when every
+  // module in the list is off.
+  module?: string | string[];
+  // With one module set, the page shows a module-off note in place of its content when the module is off.
   gate?: boolean;
   // Only the superadmin sees the page in the sidebar.
   superadmin?: boolean;
@@ -86,8 +85,7 @@ export const PAGES: PageEntry[] = [
   { path: 'leetcode', label: 'LeetCode', icon: CodeXml, section: 'automations', group: 'bots', module: 'leetcode', gate: true, page: LeetCodePage },
   { path: 'knowledge', label: 'Knowledge', icon: Database, section: 'knowledge', page: KnowledgePage },
   { path: 'mcp', label: 'MCP', icon: Cable, section: 'knowledge', page: McpPage },
-  { path: 'compute', label: 'Compute', icon: Cpu, section: 'infrastructure', module: 'compute', gate: true, page: ComputePage },
-  { path: 'apps', label: 'Apps', icon: Boxes, section: 'infrastructure', page: AppsPage },
+  { path: 'hosting', label: 'Hosting', icon: Server, section: 'infrastructure', module: ['runpod', 'compute'], page: HostingPage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
   { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
@@ -99,11 +97,13 @@ export const PAGES: PageEntry[] = [
 export const REDIRECTS: { path: string; to: string }[] = [
   { path: 'ci', to: '../activity?tab=ci' },
   { path: 'agents', to: '../mcp' },
+  { path: 'apps', to: '../hosting?tab=services' },
+  { path: 'compute', to: '../hosting?tab=pods' },
 ];
 
 // The element for the route of a page, inside a ModuleGate when the entry asks for one.
 export function pageElement({ page: Page, module, gate, label }: PageEntry): ReactNode {
-  return module && gate ? (
+  return typeof module === 'string' && gate ? (
     <ModuleGate module={module} title={label}>
       <Page />
     </ModuleGate>

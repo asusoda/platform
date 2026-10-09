@@ -6,7 +6,7 @@ Platform has one frontend, `dashboard/`. Officers use it to see and control what
 
 `dashboard/` is a Vite and React app with Tailwind and TanStack Query. It calls the API and has no server code.
 
-The sidebar puts the pages in sections: Members (Points, Store), Automations, Knowledge and MCP (Knowledge, MCP), and Infrastructure (Compute, Apps, Tokens). Automations has a group for each kind:
+The sidebar puts the pages in sections: Members (Points, Store), Automations, Knowledge and MCP (Knowledge, MCP), and Infrastructure (Hosting, Tokens). Automations has a group for each kind:
 
 - Webhooks: Alerts.
 - Scheduled jobs: Calendar sync.
@@ -14,7 +14,7 @@ The sidebar puts the pages in sections: Members (Points, Store), Automations, Kn
 
 `dashboard/src/pages/registry.tsx` has one entry for each page, with its section and group. To add an automation, add its page there with `group` set to `webhooks`, `scheduled` or `bots`. To add a kind, add a line to `GROUPS`.
 
-The sidebar hides the page of an optional module when the module is off for the org. A section or group with no pages has no header. If you open the Points, Store, Calendar sync or LeetCode page while its module is off, the page links to Settings, Modules. The old path `agents` opens `mcp`, and `ci` opens Activity, CI runs.
+The sidebar hides the page of an optional module when the module is off for the org. It hides Hosting only when the `runpod` and `compute` modules are both off. A section or group with no pages has no header. If you open the Points, Store, Calendar sync or LeetCode page while its module is off, the page links to Settings, Modules. The old path `agents` opens `mcp`, and `ci` opens Activity, CI runs. The old paths `apps` and `compute` open the Services and Member pods tabs of Hosting.
 
 The sidebar collapses to a 56px rail of icons. To collapse or expand it, use the button at the left of the top bar, Ctrl+B (Cmd+B on a Mac) or `[`. The `[` key does nothing while you type in a field. The rail shows a tooltip with the page name on hover and on keyboard focus. The dashboard keeps the state in `localStorage` as `platform.sidebar`. On a phone, the sidebar is a menu that opens from the top bar.
 
@@ -24,16 +24,15 @@ Lists that can be long (knowledge sources, points members and events, knowledge 
 
 | Page | Shows |
 | --- | --- |
-| Overview | A link to open notifications, module switches, members, points, pods, agent use, CI, apps, alert feeds, sessions, recent changes and job runs |
+| Overview | A link to open notifications, module switches, members, points, pods, agent use, CI, services, alert feeds, sessions, recent changes and job runs |
 | Integrations | The accounts and services the org connects, in two groups: state, keys, Test and the modules that use each one. See [integrations.md](./integrations.md) |
 | Notifications | Problems that need an officer: failed alert runs, failed deploys, knowledge sources that could not be fetched. Resolve or reopen each one. The bell in the top bar shows the open count and the newest ones |
 | Points | Members ranked by points, with the entries of each member. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV. Events grouped by name, with delete for all entries of an event |
 | Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: change the status, add a message to the member, delete |
 | Calendar sync | The Notion database and Google calendar settings, sync on or off, sync now, create the Google calendar, and the upcoming events |
 | LeetCode | The daily post settings (channel, role to ping, time) and the slash commands members use |
-| Compute | Pods with their live RunPod status: create, start, stop, restart, terminate, who can connect, sessions and files |
 | Alerts | Feeds: create, pause, run now, delete, and the history of each feed: its last 50 runs with counts and errors, and its last 50 items |
-| Apps | The org's bots, agents, sites and services, grouped by kind, with the host of each: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
+| Hosting | What the org runs on RunPod, in two tabs. Each tab shows only when its module is on. Services (`?tab=services`, `runpod` module): the org's bots, agents, sites and services, grouped by kind, with the host of each. Register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete. Member pods (`?tab=pods`, `compute` module): the pods that members connect to, with their live RunPod status. Create, start, stop, restart, terminate, change who can connect, sessions, files and pod settings |
 | Knowledge | Source packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
 | MCP | How to connect an agent to the MCP server, agent tokens, linked accounts, and conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
@@ -97,7 +96,7 @@ To deploy the dashboard:
 
 ### Code layout
 
-`dashboard/src/pages/registry.tsx` lists every org page: its path, sidebar label, icon, sidebar section, optional module and page component. `src/app.tsx` makes the routes from this list, and `src/components/shell.tsx` makes the sidebar from it. A small page is one file in `src/pages/`. A large page is a folder, such as `src/pages/apps/`: `index.tsx` exports the page, and each other file holds one part. `shared.tsx` in a page folder holds the parts that two or more files of that page use.
+`dashboard/src/pages/registry.tsx` lists every org page: its path, sidebar label, icon, sidebar section, optional module and page component. `src/app.tsx` makes the routes from this list, and `src/components/shell.tsx` makes the sidebar from it. A small page is one file in `src/pages/`. A large page is a folder, such as `src/pages/knowledge/`: `index.tsx` exports the page, and each other file holds one part. `shared.tsx` in a page folder holds the parts that two or more files of that page use.
 
 These files hold the parts that two or more pages use. Use them on a new page. Do not style a one-off control.
 

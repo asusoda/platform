@@ -16,10 +16,10 @@ The description of a card says what the officer connects, not what each module d
 | Discord | none for the org | `BOT_TOKEN` | Sign-in, LeetCode |
 | Embeddings | `embeddings_url`, `embeddings_model`, [`embeddings_api_key`, `embeddings_query_prefix`] | `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_QUERY_PREFIX` | Knowledge, MCP |
 | Firecrawl | `firecrawl_url`, [`firecrawl_api_key`] | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | Knowledge, ASU |
-| GitHub | `github_token` | none | CI runs, Apps |
+| GitHub | `github_token` | none | CI runs, Hosting > Services |
 | Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
 | Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
-| RunPod | `runpod_api_key` | none | Compute, Apps |
+| RunPod | `runpod_api_key` | none | Hosting > Services and Member pods |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
 
 The keys are org secrets, encrypted with `SECRETS_KEY`. The API never returns a secret key. It returns the value of a field that is not secret, such as a URL or a model name, so the form can show it. When an org saves its own keys, they replace the deployment default for that org as a whole: Platform never mixes an org URL with a deployment key. An org must set every required field. Discord is set only in `.env`, for every org.
@@ -66,7 +66,7 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 | `.env` | Dashboard |
 | --- | --- |
 | `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY` | Integrations |
-| `COMPUTE_POD_IMAGE` | Compute > Settings |
+| `COMPUTE_POD_IMAGE` | Hosting > Member pods > Settings |
 | `KNOWLEDGE_PUBLISHERS` | Superadmin > Knowledge publishers. Orgs in `.env` stay publishers |
 | `KNOWLEDGE_CHUNK_CHARS`, `KNOWLEDGE_MAX_DISTANCE` | Knowledge > Search settings |
 | `LEETCODE_*` | LeetCode. The `.env` post is the older post for one server |

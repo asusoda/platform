@@ -157,10 +157,10 @@ export function OverviewPage() {
 
         <Card>
           <CardHeader
-            title="Apps"
-            hint="Deploys on RunPod"
+            title="Services"
+            hint="App deploys on RunPod"
             action={
-              <Link to="apps" className={quietLink}>
+              <Link to="hosting" className={quietLink}>
                 Details
               </Link>
             }
@@ -206,8 +206,8 @@ export function OverviewPage() {
             title="Upcoming sessions"
             hint="Pods start before each session"
             action={
-              <Link to="compute" className={quietLink}>
-                Compute
+              <Link to="hosting?tab=pods" className={quietLink}>
+                Member pods
               </Link>
             }
           />
