@@ -5,7 +5,7 @@ An integration is an account or a service outside Platform, such as Notion or Ru
 The page shows the cards in two groups:
 
 - Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion and RunPod.
-- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl and SearXNG.
+- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl, OpenRouter and SearXNG.
 
 The description of a card says what the officer connects, not what each module does with it. The "Used by" links show the modules.
 
@@ -19,6 +19,7 @@ The description of a card says what the officer connects, not what each module d
 | GitHub | `github_token` | none | CI runs, Apps |
 | Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
 | Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
+| OpenRouter | `openrouter_api_key` | `OPENROUTER_API_KEY` | Knowledge, MCP (through Embeddings) |
 | RunPod | `runpod_api_key` | none | Compute, Apps |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
 
@@ -37,6 +38,20 @@ A card has one of three states:
 Test connects with the key the module uses and shows the result. It does not change anything.
 
 If Firecrawl is not connected, knowledge reads pages with a plain GET. If SearXNG is not connected, the ASU web live query returns 503.
+
+## OpenRouter
+
+OpenRouter gives one API key for many hosted models, with an OpenAI-compatible API at `https://openrouter.ai/api/v1`. Embeddings is the only part of Platform that calls a model. To use OpenRouter for embeddings:
+
+1. On the OpenRouter card, set the API key. Or set `OPENROUTER_API_KEY` in `.env` for every org.
+2. On the Embeddings card, set the base URL to `https://openrouter.ai/api/v1`.
+3. Set the model to an OpenRouter embeddings model that returns 1024 numbers, such as `baai/bge-m3`.
+4. Leave the Embeddings API key empty.
+5. Click Test on the Embeddings card. It shows the number of dimensions.
+
+If the Embeddings base URL is https on `openrouter.ai` and the Embeddings API key is empty, Platform sends the OpenRouter key. It uses the org's OpenRouter key, else `OPENROUTER_API_KEY`. The same rule applies to `EMBEDDINGS_URL` and `EMBEDDINGS_API_KEY` in `.env`. An Embeddings API key, when set, always wins. Platform sends the OpenRouter key only to `https://openrouter.ai`.
+
+Test on the OpenRouter card reads the key's name and credit limit from OpenRouter. It does not show the key.
 
 ## Routes
 
@@ -65,7 +80,7 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 
 | `.env` | Dashboard |
 | --- | --- |
-| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY` | Integrations |
+| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY`, `OPENROUTER_API_KEY` | Integrations |
 | `COMPUTE_POD_IMAGE` | Compute > Settings |
 | `KNOWLEDGE_PUBLISHERS` | Superadmin > Knowledge publishers. Orgs in `.env` stay publishers |
 | `KNOWLEDGE_CHUNK_CHARS`, `KNOWLEDGE_MAX_DISTANCE` | Knowledge > Search settings |
