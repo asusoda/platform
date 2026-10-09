@@ -23,8 +23,12 @@ def make_org(config=None):
 def test_unset_branding_is_none():
     from modules.organizations import service
 
-    assert service.branding(make_org()) == {"logo_url": None, "accent_color": None}
-    assert service.branding(make_org({"branding": {"logo_url": ""}})) == {"logo_url": None, "accent_color": None}
+    assert service.branding(make_org()) == {"logo_url": None, "accent_color": None, "website_url": None}
+    assert service.branding(make_org({"branding": {"logo_url": ""}})) == {
+        "logo_url": None,
+        "accent_color": None,
+        "website_url": None,
+    }
 
 
 def test_set_branding_saves_and_normalizes():
@@ -32,15 +36,19 @@ def test_set_branding_saves_and_normalizes():
 
     org, db = make_org({"modules": {"points": False}}), FakeDB()
     saved = service.set_branding(db, org, {"logo_url": "https://cdn.example.org/logo.png", "accent_color": "#1F6FEB"})
-    assert saved == {"logo_url": "https://cdn.example.org/logo.png", "accent_color": "#1f6feb"}
+    assert saved == {"logo_url": "https://cdn.example.org/logo.png", "accent_color": "#1f6feb", "website_url": None}
     assert org.config["modules"] == {"points": False}
     assert db.commits == 1
 
     assert service.set_branding(db, org, {"accent_color": ""}) == {
         "logo_url": "https://cdn.example.org/logo.png",
         "accent_color": None,
+        "website_url": None,
     }
-    assert service.set_branding(db, org, {"logo_url": None})["logo_url"] is None
+    assert service.set_branding(db, org, {"website_url": "https://club.example.org"})["website_url"] == (
+        "https://club.example.org"
+    )
+    assert service.set_branding(db, org, {"logo_url": None, "website_url": ""})["logo_url"] is None
     assert org.config["branding"] == {}
 
 
@@ -64,6 +72,8 @@ def test_set_branding_saves_and_normalizes():
         {"logo_url": "https://example.org/a b.png"},
         {"logo_url": "https://example.org/" + "a" * 500},
         {"logo_url": 5},
+        {"website_url": "http://club.example.org"},
+        {"website_url": "javascript:alert(1)"},
     ],
 )
 def test_set_branding_refuses_bad_values(changes):
@@ -79,7 +89,11 @@ def test_set_branding_refuses_bad_values(changes):
 
 def test_officer_sets_branding_and_overview_shows_it(client, officer_headers, restore_soda_config):
     path = "/api/dashboard/soda/branding"
-    assert client.get(path, headers=officer_headers).get_json() == {"logo_url": None, "accent_color": None}
+    assert client.get(path, headers=officer_headers).get_json() == {
+        "logo_url": None,
+        "accent_color": None,
+        "website_url": None,
+    }
 
     refused = client.put(path, json={"accent_color": "blue"}, headers=officer_headers)
     assert refused.status_code == 400
@@ -89,7 +103,11 @@ def test_officer_sets_branding_and_overview_shows_it(client, officer_headers, re
     body = {"logo_url": "https://example.org/logo.svg", "accent_color": "#AA3300"}
     saved = client.put(path, json=body, headers=officer_headers)
     assert saved.status_code == 200
-    assert saved.get_json() == {"logo_url": "https://example.org/logo.svg", "accent_color": "#aa3300"}
+    assert saved.get_json() == {
+        "logo_url": "https://example.org/logo.svg",
+        "accent_color": "#aa3300",
+        "website_url": None,
+    }
     assert client.get(path, headers=officer_headers).get_json() == saved.get_json()
 
     overview = client.get("/api/dashboard/soda/overview", headers=officer_headers).get_json()
@@ -98,7 +116,7 @@ def test_officer_sets_branding_and_overview_shows_it(client, officer_headers, re
 
 def test_branding_write_is_audited(client, officer_headers, restore_soda_config):
     from core.audit import AuditEntry
-    from shared import db_connect
+    from core.db import db_connect
 
     db = db_connect.SessionLocal()
     start = db.query(AuditEntry.id).order_by(AuditEntry.id.desc()).limit(1).scalar() or 0
@@ -115,8 +133,8 @@ def test_branding_write_is_audited(client, officer_headers, restore_soda_config)
 class TestPermissions:
     @pytest.fixture(autouse=True)
     def enforce(self, app, monkeypatch, restore_soda_config):
+        from core.config import config
         from modules.auth import access
-        from shared import config
 
         access.clear_cache()
         monkeypatch.setattr(app, "discord_directory", ScopedBot())

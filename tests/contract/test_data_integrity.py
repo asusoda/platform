@@ -9,8 +9,8 @@ from tests.contract.conftest import MEMBER_EMAIL
 
 @pytest.fixture
 def enforce(monkeypatch):
+    from core.config import config
     from modules.auth import access
-    from shared import config
 
     access.clear_cache()
     monkeypatch.setattr(config, "ACCESS_ENFORCE", True)

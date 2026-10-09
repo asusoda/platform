@@ -1,24 +1,22 @@
 # superadmin
 
-Routes for the platform's single superadmin (`SUPERADMIN_USER_ID`): add and remove organizations for Discord guilds, set an org's officer role, list a guild's roles, a dashboard, and the audit log across all orgs.
+Routes for the one superadmin of the deployment (`SYS_ADMIN`): add and remove orgs for Discord servers, set an org's officer role, list a server's roles, and read the audit log of all orgs.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
 | `api.py` | `/check`, `/dashboard`, `/guild_roles/<guild_id>`, `/add_org/<guild_id>`, `/remove_org/<org_id>`, `/update_officer_role/<org_id>`, `/audit` |
+| `service.py` | The superadmin check, servers with no org, an officer's orgs, server roles, role checks and new orgs |
 
 ## Surface
 
-- Routes: `/api/superadmin`, no module switch. Every route needs the superadmin.
+- Routes: `/api/superadmin`. Each route needs the superadmin.
 - Jobs: none.
 - Tools: none.
 - Tables: none.
 
-## Depends on
+## Known gaps
 
-`core.audit`, `core.discord_directory`, `core.logging_config`; `modules.auth` (decorators, access), `modules.organizations` (models, config); `shared`.
-
-## More
-
-[docs/05-backend-modules.md](../../docs/05-backend-modules.md)
+- `/add_org` makes the org with `service.new_organization`, not with `organizations.service.create_organization`. A taken prefix is not checked.
+- `/remove_org` deletes the org row with no cascade.

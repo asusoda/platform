@@ -4,8 +4,9 @@ from functools import partial
 
 from flask import Blueprint
 
+from core.http.responses import json_body
 from core.jobs import defer
-from modules.auth.routes import json_body, officer_route
+from modules.auth.routes import officer_route
 
 from . import service
 
@@ -18,9 +19,20 @@ def list_feeds(db, org):
     return {"feeds": service.list_feeds(db, int(org.id))}
 
 
+@_route("/presets", ["GET"])
+def list_presets(db, org):
+    """Feeds that packs offer. Create one with PUT /feeds/<key> and its kind and config."""
+    return {"presets": service.presets(db, int(org.id))}
+
+
 @_route("/feeds/<string:key>", ["GET"])
 def get_feed(db, org, key):
     return {"feed": service.get_feed(db, int(org.id), key)}
+
+
+@_route("/feeds/<string:key>/history", ["GET"])
+def feed_history(db, org, key):
+    return service.history(db, int(org.id), key)
 
 
 @_route("/feeds/<string:key>", ["PUT"])

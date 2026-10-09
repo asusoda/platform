@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compact, deployTone, duration, runTone, timeAgo } from './format';
+import { bytes, compact, deployTone, duration, elapsed, keyPath, localToIso, podTone, runTone, timeAgo, toLocalInput } from './format';
 
 describe('duration', () => {
   it('shows hours and minutes', () => {
@@ -7,6 +7,14 @@ describe('duration', () => {
     expect(duration('2026-10-08T18:00:00', '2026-10-08T19:30:00Z')).toBe('1h 30m');
     expect(duration('2026-10-08T18:00:00Z', '2026-10-08T18:45:00Z')).toBe('45m');
     expect(duration('2026-10-08T18:00:00Z', '2026-10-08T17:00:00Z')).toBe('0m');
+  });
+});
+
+describe('elapsed', () => {
+  it('shows a length in seconds as hours and minutes', () => {
+    expect(elapsed(20)).toBe('0m');
+    expect(elapsed(340)).toBe('6m');
+    expect(elapsed(5400)).toBe('1h 30m');
   });
 });
 
@@ -27,5 +35,30 @@ describe('tones', () => {
     expect(runTone('completed', 'failure')).toBe('bad');
     expect(deployTone('failed')).toBe('bad');
     expect(compact(1250)).toBe('1.3K');
+  });
+});
+
+describe('keyPath', () => {
+  it('encodes each segment and keeps the slashes', () => {
+    expect(keyPath('docs/getting started')).toBe('docs/getting%20started');
+    expect(keyPath('faq:club?')).toBe('faq%3Aclub%3F');
+    expect(podTone('RUNNING')).toBe('ok');
+  });
+});
+
+describe('bytes', () => {
+  it('picks a unit', () => {
+    expect(bytes(512)).toBe('512 B');
+    expect(bytes(1536)).toBe('1.5 KB');
+    expect(bytes(250 * 1024 * 1024)).toBe('250 MB');
+  });
+});
+
+describe('local times', () => {
+  it('adds the browser offset and round-trips', () => {
+    const iso = localToIso('2026-10-08T18:30');
+    expect(iso).toMatch(/^2026-10-08T18:30:00[+-]\d\d:\d\d$/);
+    expect(new Date(iso).getTime()).toBe(new Date('2026-10-08T18:30').getTime());
+    expect(toLocalInput(new Date('2026-10-08T18:30'))).toBe('2026-10-08T18:30');
   });
 });

@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 from croniter import croniter
 
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger("jobs")
 
@@ -108,9 +108,10 @@ def _execute(entry: Job, kwargs: dict) -> None:
     try:
         entry.func(**kwargs)
         logger.info("job finished name=%s seconds=%.2f", entry.name, time.monotonic() - started)
-    except Exception:
+    except Exception as error:
         status = "failed"
         logger.exception("job failed name=%s", entry.name)
+        _send_failure(entry, kwargs, error)
         raise
     finally:
         if entry.audit:
@@ -124,6 +125,21 @@ def _execute(entry: Job, kwargs: dict) -> None:
                 actor_id=entry.name,
                 details={"result": status, "args": _audit_args(kwargs)},
             )
+
+
+def _send_failure(entry: Job, kwargs: dict, error: Exception) -> None:
+    """Send the job.failed webhook event when the job ran for one org."""
+    from core import webhooks
+
+    org = kwargs.get("org_id") or kwargs.get("org_prefix")
+    if isinstance(org, int | str):
+        message = webhooks.Message(
+            title=f"Job {entry.name} failed",
+            text=f"{type(error).__name__}: {error}"[:500],
+            fields=tuple((key, str(value)) for key, value in _audit_args(kwargs).items()),
+            color=webhooks.RED,
+        )
+        webhooks.emit(org, "job.failed", message)
 
 
 def _run(entry: Job, kwargs: dict) -> None:

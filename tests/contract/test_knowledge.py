@@ -5,14 +5,14 @@ import uuid
 import pytest
 
 from modules.knowledge import embedder as embedder_module
-from modules.knowledge import service
+from modules.knowledge import search
 from modules.knowledge.models import DIMENSIONS
 
 
 def _issue(prefix, *scopes):
+    from core.db import db_connect
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -213,5 +213,5 @@ def test_search_tool(client, writer):
 
 
 def test_rrf_prefers_items_ranked_by_both_lists():
-    fused = service.rrf([["a", "b", "c"], ["b", "d"]])
+    fused = search.rrf([["a", "b", "c"], ["b", "d"]])
     assert [item for item, _ in fused][0] == "b"

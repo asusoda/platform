@@ -1,4 +1,3 @@
-# modules/calendar/service.py
 import json
 from datetime import datetime
 from typing import Any, cast
@@ -7,26 +6,26 @@ from cachetools import TTLCache, cached, keys
 from sentry_sdk import start_transaction
 
 from core import secrets
+from core.config import config
+from core.db import db_connect
 from core.errors import ServiceError
+from core.log import get_logger
 from modules.auth import scopes
-
-# Import organization models
+from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
-# Assuming shared resources are correctly set up
-from shared import config, db_connect, logger
-
-# Import custom modules
+from . import sync
 from .clients import GoogleCalendarClient, NotionCalendarClient
-from .models import CalendarEventDTO
-from .utils import operation_span
+from .events import CalendarEventDTO
+from .integrations import GOOGLE_SECRET, NOTION_SECRET
+from .tracing import operation_span
 
-scopes.declare("calendar:read", "Read the org's upcoming events")
-secrets.declare("notion_api_key", "Notion integration token for this org's events database")
-secrets.declare("google_service_account", "Google service account key (JSON) that owns this org's calendar")
+logger = get_logger(__name__)
 
-# Create a global cache for the frontend events with a 5-minute TTL
-_FRONTEND_CACHE = TTLCache(maxsize=100, ttl=300)  # Increased maxsize for multiple orgs
+scopes.declare("calendar:read", "Read the org's upcoming events", uses=("notion",))
+
+# Events per org for the website, kept 5 minutes
+_FRONTEND_CACHE = TTLCache(maxsize=100, ttl=300)
 
 
 class MultiOrgCalendarService:
@@ -40,12 +39,12 @@ class MultiOrgCalendarService:
 
     def notion_for(self, db, org) -> NotionCalendarClient:
         """The org's own Notion integration if it has saved a token, else the instance-wide one."""
-        token = secrets.get_secret(db, org.id, "notion_api_key")
+        token = secrets.get_secret(db, org.id, NOTION_SECRET)
         return NotionCalendarClient(self.logger, token=token) if token else self.notion_client
 
     def gcal_for(self, db, org) -> GoogleCalendarClient:
         """The org's own Google service account if it has saved one, else the instance-wide one."""
-        raw = secrets.get_secret(db, org.id, "google_service_account")
+        raw = secrets.get_secret(db, org.id, GOOGLE_SECRET)
         if not raw:
             return self.gcal_client
         try:
@@ -53,7 +52,7 @@ class MultiOrgCalendarService:
         except ValueError:
             info = None
         if not isinstance(info, dict):
-            # A broken key fails the sync instead of writing with the instance account.
+            # A broken key fails the sync instead of writing with the instance account
             self.logger.error(f"Organization {org.id} google_service_account secret is not a JSON object")
             info = {}
         return GoogleCalendarClient(self.logger, service_account_info=info)
@@ -70,19 +69,16 @@ class MultiOrgCalendarService:
             current_transaction, op="org_calendar", description=op_name, logger=self.logger
         ) as transaction:
             try:
-                # Get organization from database
                 db = next(self.db_connect.get_db())
                 org = db.query(Organization).filter(Organization.id == organization_id).first()
                 if not org:
                     self.logger.error(f"Organization {organization_id} not found")
                     return None
 
-                # If organization already has a calendar, return it
                 if org.google_calendar_id:
                     self.logger.info(f"Organization {organization_id} already has calendar: {org.google_calendar_id}")
                     return org.google_calendar_id
 
-                # Create new calendar for organization
                 calendar_name = f"{organization_name} Events"
                 calendar_description = f"Events for {organization_name} organization"
 
@@ -96,7 +92,6 @@ class MultiOrgCalendarService:
                 if calendar_data:
                     calendar_id = calendar_data["id"]
 
-                    # Update organization with new calendar ID
                     org.google_calendar_id = calendar_id
                     db.commit()
 
@@ -123,7 +118,6 @@ class MultiOrgCalendarService:
 
         with operation_span(current_transaction, op="org_sync", description=op_name, logger=self.logger) as transaction:
             try:
-                # Get organization
                 db = next(self.db_connect.get_db())
                 org = db.query(Organization).filter(Organization.id == organization_id).first()
                 if not org:
@@ -136,7 +130,6 @@ class MultiOrgCalendarService:
                     }
 
                 if not org.google_calendar_id:
-                    # Try to create calendar if it doesn't exist
                     calendar_id = self.ensure_organization_calendar(organization_id, org.name, transaction)
                     if not calendar_id:
                         return {
@@ -145,15 +138,12 @@ class MultiOrgCalendarService:
                         }
                     org.google_calendar_id = calendar_id
 
-                # Fetch events from Notion
                 notion_events = self.notion_for(db, org).fetch_events(org.notion_database_id, transaction)
                 if notion_events is None:
                     return {"status": "error", "message": "Failed to fetch events from Notion"}
 
-                # Parse events
                 parsed_events = self.parse_notion_events(notion_events)
 
-                # Update Google Calendar
                 results = self.update_organization_google_calendar(
                     parsed_events,
                     org.google_calendar_id,
@@ -162,7 +152,6 @@ class MultiOrgCalendarService:
                     gcal=self.gcal_for(db, org),
                 )
 
-                # Update organization sync timestamp
                 org.last_sync_at = datetime.now()
                 db.commit()
 
@@ -190,148 +179,10 @@ class MultiOrgCalendarService:
         parent_transaction=None,
         gcal: GoogleCalendarClient | None = None,
     ) -> list[dict]:
-        """Update Google Calendar for a specific organization."""
-        gcal = gcal or self.gcal_client
-        results = []
-        op_name = "update_organization_google_calendar"
-        self.logger.info(
-            f"Starting {op_name} with {len(parsed_events)} parsed Notion events for calendar {calendar_id}."
+        """Make the Google Calendar match parsed_events. See sync.update_google_calendar."""
+        return sync.update_google_calendar(
+            gcal or self.gcal_client, parsed_events, calendar_id, parent_transaction, self.logger
         )
-
-        # Fetch existing Google Calendar events
-        with operation_span(
-            parent_transaction, op="fetch_gcal", description="fetch_existing_gcal_events", logger=self.logger
-        ) as span:
-            all_gcal_events_raw = gcal.get_all_events(calendar_id, time_min=None, parent_transaction=parent_transaction)
-            if all_gcal_events_raw is None:
-                self.logger.error(f"{op_name}: Failed to fetch existing Google Calendar events. Aborting update.")
-                return []
-
-            # Filter for events managed by this sync
-            managed_gcal_events = [
-                ev
-                for ev in all_gcal_events_raw
-                if ev.get("extendedProperties", {}).get("private", {}).get("notionPageId")
-            ]
-            span.set_data("fetched_total_gcal_event_count", len(all_gcal_events_raw))
-            span.set_data("fetched_managed_gcal_event_count", len(managed_gcal_events))
-            self.logger.info(
-                f"Fetched {len(managed_gcal_events)} managed GCal events (out of {len(all_gcal_events_raw)} total)."
-            )
-
-        # Build lookup dictionaries for GCal events & handle duplicates
-        gcal_events_by_gcal_id: dict[str, dict] = {}
-        gcal_events_by_notion_id: dict[str, dict] = {}
-        duplicates_to_delete: set[str] = set()
-
-        with operation_span(
-            parent_transaction,
-            op="process_gcal",
-            description="build_gcal_lookups_handle_duplicates",
-            logger=self.logger,
-        ) as span:
-            temp_gcal_by_notion_id: dict[str, list[dict]] = {}
-
-            for event in managed_gcal_events:
-                gcal_id = event.get("id")
-                notion_page_id = event.get("extendedProperties", {}).get("private", {}).get("notionPageId")
-
-                if gcal_id:
-                    gcal_events_by_gcal_id[gcal_id] = event
-
-                if notion_page_id:
-                    if notion_page_id not in temp_gcal_by_notion_id:
-                        temp_gcal_by_notion_id[notion_page_id] = []
-                    temp_gcal_by_notion_id[notion_page_id].append(event)
-
-            # Handle duplicates - keep the first one, mark others for deletion
-            for notion_id, events in temp_gcal_by_notion_id.items():
-                if len(events) > 1:
-                    self.logger.warning(f"Found {len(events)} duplicate events for Notion page {notion_id}")
-                    # Keep the first one, mark the rest for deletion
-                    gcal_events_by_notion_id[notion_id] = events[0]
-                    for duplicate_event in events[1:]:
-                        duplicates_to_delete.add(duplicate_event["id"])
-                else:
-                    gcal_events_by_notion_id[notion_id] = events[0]
-
-            span.set_data("duplicates_found", len(duplicates_to_delete))
-
-        # Process each Notion event
-        for event_dto in parsed_events:
-            result = self._process_single_event(
-                event_dto, gcal_events_by_notion_id, calendar_id, parent_transaction, gcal=gcal
-            )
-            if result:
-                results.append(result)
-
-        # Clean up duplicates
-        if duplicates_to_delete:
-            with operation_span(
-                parent_transaction, op="cleanup", description="delete_duplicate_events", logger=self.logger
-            ) as span:
-                deleted_count, failed_count = gcal.batch_delete_events(
-                    calendar_id, list(duplicates_to_delete), "delete_duplicates", parent_transaction
-                )
-                span.set_data("duplicates_deleted", deleted_count)
-                span.set_data("duplicates_failed", failed_count)
-                self.logger.info(f"Cleaned up {deleted_count} duplicate events, {failed_count} failed.")
-
-        # Clean up orphaned events (events in GCal but not in Notion)
-        orphaned_events = set(gcal_events_by_gcal_id.keys()) - set(gcal_events_by_notion_id.keys())
-        if orphaned_events:
-            with operation_span(
-                parent_transaction, op="cleanup", description="delete_orphaned_events", logger=self.logger
-            ) as span:
-                deleted_count, failed_count = gcal.batch_delete_events(
-                    calendar_id, list(orphaned_events), "delete_orphaned", parent_transaction
-                )
-                span.set_data("orphaned_deleted", deleted_count)
-                span.set_data("orphaned_failed", failed_count)
-                self.logger.info(f"Cleaned up {deleted_count} orphaned events, {failed_count} failed.")
-
-        return results
-
-    def _process_single_event(
-        self,
-        event_dto: CalendarEventDTO,
-        gcal_events_by_notion_id: dict[str, dict],
-        calendar_id: str,
-        parent_transaction=None,
-        gcal: GoogleCalendarClient | None = None,
-    ) -> dict | None:
-        """Process a single event DTO."""
-        gcal = gcal or self.gcal_client
-        notion_page_id = event_dto.notion_page_id
-        existing_gcal_event = gcal_events_by_notion_id.get(notion_page_id)
-
-        event_data = event_dto.to_gcal_format()
-
-        if existing_gcal_event:
-            # Update existing event
-            gcal_event_id = existing_gcal_event["id"]
-            result = gcal.update_event(calendar_id, gcal_event_id, event_data, notion_page_id, parent_transaction)
-            if result:
-                return {
-                    "notion_page_id": notion_page_id,
-                    "gcal_event_id": gcal_event_id,
-                    "status": "updated",
-                    "summary": event_dto.summary,
-                }
-        else:
-            # Create new event
-            result = gcal.create_event(calendar_id, event_data, notion_page_id, parent_transaction)
-            if result:
-                gcal_event_id, jump_url = result
-                return {
-                    "notion_page_id": notion_page_id,
-                    "gcal_event_id": gcal_event_id,
-                    "status": "created",
-                    "summary": event_dto.summary,
-                    "jump_url": jump_url,
-                }
-
-        return None
 
     @cached(cache=_FRONTEND_CACHE, key=lambda self, org_id, transaction=None: keys.hashkey(org_id))
     def get_organization_events_for_frontend(self, organization_id: int, parent_transaction=None) -> dict[str, Any]:
@@ -344,7 +195,6 @@ class MultiOrgCalendarService:
             current_transaction, op="org_frontend", description=op_name, logger=self.logger
         ) as transaction:
             try:
-                # Get organization
                 db = next(self.db_connect.get_db())
                 org = db.query(Organization).filter(Organization.id == organization_id).first()
                 if not org:
@@ -356,15 +206,12 @@ class MultiOrgCalendarService:
                         "message": f"Organization {organization_id} has no Notion database configured",
                     }
 
-                # Fetch events from Notion
                 notion_events = self.notion_for(db, org).fetch_events(org.notion_database_id, transaction)
                 if notion_events is None:
                     return {"status": "error", "message": "Failed to fetch events from Notion"}
 
-                # Parse events
                 parsed_events = self.parse_notion_events(notion_events)
 
-                # Convert to frontend format
                 frontend_events = [event.to_frontend_format() for event in parsed_events]
 
                 return {
@@ -410,7 +257,6 @@ class MultiOrgCalendarService:
             current_transaction, op="multi_org_sync", description=op_name, logger=self.logger
         ) as transaction:
             try:
-                # Get all active organizations with calendar sync enabled
                 db = next(self.db_connect.get_db())
                 organizations = (
                     db.query(Organization).filter(Organization.is_active, Organization.calendar_sync_enabled).all()
@@ -441,7 +287,6 @@ class MultiOrgCalendarService:
                                 }
                             )
                             continue
-                        # Ensure calendar exists
                         if not org.google_calendar_id:
                             calendar_id = self.ensure_organization_calendar(
                                 cast(int, org.id), cast(str, org.name), transaction
@@ -458,7 +303,6 @@ class MultiOrgCalendarService:
                                     }
                                 )
                                 continue
-                        # Sync organization
                         self.logger.info(f"Starting sync for organization {org.name} (ID: {org.id})")
                         sync_result = self.sync_organization_notion_to_google(cast(int, org.id), transaction)
                         if sync_result.get("status") == "success":
@@ -489,7 +333,6 @@ class MultiOrgCalendarService:
                                 "message": str(e),
                             }
                         )
-                # Update overall status
                 if results["organizations_failed"] > 0:
                     results["status"] = "partial_success" if results["organizations_processed"] > 0 else "failed"
                 self.logger.info(
@@ -506,32 +349,7 @@ class MultiOrgCalendarService:
                     db.close()
 
 
-# Legacy CalendarService for backward compatibility (deprecated)
-class CalendarService:
-    """Legacy single-organization calendar service (deprecated)."""
-
-    def __init__(self, logger_instance=None):
-        self.logger = logger_instance or logger
-        self.multi_org_service = MultiOrgCalendarService(logger_instance)
-        self.logger.warning("CalendarService is deprecated. Use MultiOrgCalendarService instead.")
-
-    def sync_notion_to_google(self, transaction=None) -> dict[str, Any]:
-        """Legacy method - delegates to multi-org service."""
-        self.logger.warning(
-            "sync_notion_to_google is deprecated. Use MultiOrgCalendarService.sync_all_organizations instead."
-        )
-        return self.multi_org_service.sync_all_organizations(transaction)
-
-    def get_events_for_frontend(self, transaction=None) -> dict[str, Any]:
-        """Legacy method - returns error as this requires organization context."""
-        return {
-            "status": "error",
-            "message": "This method requires organization context. Use MultiOrgCalendarService.get_organization_events_for_frontend instead.",
-        }
-
-
-# Module functions: the calendar's logic for every caller (REST, MCP tools, jobs, the bot).
-# They take a database session and an organization and never read Flask's request or app.
+# The calendar's functions for every caller (REST, MCP tools, jobs). They take a database session and an org.
 
 _service: MultiOrgCalendarService | None = None
 
@@ -550,10 +368,10 @@ class CalendarError(ServiceError):
 
 def find_organization(db, org_prefix: str) -> Organization:
     """The active organization with this prefix. Raises CalendarError (404, or 403 if inactive)."""
-    org = db.query(Organization).filter(Organization.prefix == org_prefix, Organization.is_active).first()
+    org = organizations.find_by_prefix(db, org_prefix, active_only=True)
     if org:
         return org
-    if db.query(Organization).filter(Organization.prefix == org_prefix).first():
+    if organizations.find_by_prefix(db, org_prefix):
         raise CalendarError(f"Organization '{org_prefix}' exists but is inactive", 403)
     raise CalendarError(f"Organization '{org_prefix}' not found", 404)
 

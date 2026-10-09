@@ -1,14 +1,9 @@
-"""Alert feeds an org posts to Discord, and the items each feed has already posted."""
-
-import datetime
+"""Alert feeds an org posts to Discord, the items each feed has already posted, and each run of a feed."""
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 
-from core.base import Base
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+from core.db import Base
+from core.time import utcnow
 
 
 class AlertFeed(Base):
@@ -26,7 +21,7 @@ class AlertFeed(Base):
     seeded_at = Column(DateTime, nullable=True)  # first run, which records items without posting them
     last_run_at = Column(DateTime, nullable=True)
     last_error = Column(String(1000), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "key", name="uq_alert_feed_key"),)
 
@@ -41,6 +36,22 @@ class AlertPost(Base):
     item_key = Column(String(255), nullable=False)
     title = Column(String(300), nullable=False)
     posted = Column(Boolean, nullable=False)  # false when recorded by the first run
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("feed_id", "item_key", name="uq_alert_post_item"),)
+
+
+class AlertRun(Base):
+    """One run of a feed: what the source listed, what was new, what was posted, and the error if it failed."""
+
+    __tablename__ = "alert_runs"
+
+    id = Column(Integer, primary_key=True)
+    feed_id = Column(Integer, ForeignKey("alert_feeds.id", ondelete="CASCADE"), nullable=False, index=True)
+    started_at = Column(DateTime, nullable=False, default=utcnow)
+    duration_ms = Column(Integer, nullable=False, default=0)
+    found = Column(Integer, nullable=True)  # null when the source could not be read
+    new = Column(Integer, nullable=True)
+    posted = Column(Integer, nullable=False, default=0)
+    recorded = Column(Boolean, nullable=False, default=False)  # first run: new items recorded, not posted
+    error = Column(String(1000), nullable=True)

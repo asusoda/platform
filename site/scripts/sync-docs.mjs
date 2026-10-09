@@ -11,41 +11,39 @@ const sections = {
   modules: {
     title: 'Modules',
     pages: [
-      ['compute.md', 'compute'],
-      ['agents.md', 'agents'],
-      ['knowledge.md', 'knowledge'],
-      ['asu.md', 'asu'],
-      ['accounts.md', 'accounts'],
-      ['alerts.md', 'alerts'],
-      ['dashboard.md', 'dashboard'],
-      ['runpod-apps.md', 'runpod-apps'],
-      ['hermes.md', 'hermes'],
-      ['tools-and-mcp.md', 'tools-and-mcp'],
+      ['modules/accounts.md', 'accounts'],
+      ['modules/agents.md', 'agents'],
+      ['modules/alerts.md', 'alerts'],
+      ['modules/calendar.md', 'calendar'],
+      ['modules/compute.md', 'compute'],
+      ['modules/discord-bot.md', 'discord-bot'],
+      ['modules/knowledge.md', 'knowledge'],
+      ['modules/leetcode.md', 'leetcode'],
+      ['modules/packs.md', 'packs'],
+      ['modules/points.md', 'points'],
+      ['modules/runpod-apps.md', 'runpod-apps'],
+      ['modules/storefront.md', 'storefront'],
+      ['modules/uptime.md', 'uptime'],
     ],
   },
   codebase: {
     title: 'Codebase',
     pages: [
-      ['01-getting-started.md', 'getting-started'],
-      ['02-architecture.md', 'architecture'],
-      ['03-data-model.md', 'data-model'],
-      ['04-authentication.md', 'authentication'],
-      ['05-backend-modules.md', 'backend-modules'],
+      ['getting-started.md', 'getting-started'],
+      ['architecture.md', 'architecture'],
+      ['data-model.md', 'data-model'],
+      ['authentication.md', 'authentication'],
+      ['integrations.md', 'integrations'],
       ['writing-a-module.md', 'writing-a-module'],
-      ['06-api-reference.md', 'api-reference'],
-      ['07-discord-bot.md', 'discord-bot'],
-      ['08-frontend.md', 'frontend'],
-      ['09-deployment-and-operations.md', 'deployment-and-operations'],
-      ['10-gotchas-and-known-issues.md', 'gotchas'],
       ['api-contract.md', 'api-contract'],
+      ['operations.md', 'operations'],
+      ['frontends.md', 'frontends'],
+      ['webhooks.md', 'webhooks'],
     ],
   },
   project: {
     title: 'Project',
-    pages: [
-      ['runpod-deploy.md', 'runpod-deploy'],
-      ['roadmap.md', 'roadmap'],
-    ],
+    pages: [['roadmap.md', 'roadmap']],
   },
 };
 
@@ -55,12 +53,15 @@ for (const [section, { pages }] of Object.entries(sections)) {
 }
 routes.set('README.md', '/docs');
 
-function rewriteLink(target) {
+// A link relative to the page's file in docs/: its site route if the target is synced, else its GitHub URL.
+function rewriteLink(target, from) {
   if (/^[a-z]+:/i.test(target) || target.startsWith('#')) return target;
-  const [file, hash] = target.replace(/^\.\//, '').split('#');
+  const [rel, hash] = target.split('#');
+  const file = path.posix.normalize(path.posix.join(path.posix.dirname(from), rel));
   const route = routes.get(file);
   if (route) return hash ? `${route}#${hash}` : route;
-  return `https://github.com/asusoda/platform/blob/main/${path.posix.join('docs', target)}`;
+  const url = `https://github.com/asusoda/platform/blob/main/${path.posix.join('docs', file)}`;
+  return hash ? `${url}#${hash}` : url;
 }
 
 function escapeText(text) {
@@ -71,14 +72,14 @@ function escapeText(text) {
     .replace(/\}/g, '&#125;');
 }
 
-function convertLine(line) {
+function convertLine(line, from) {
   const parts = line.split(/(`+[^`]*`+)/);
   return parts
     .map((part, i) => {
       if (i % 2 === 1) return part;
       const links = [];
       const withTokens = part.replace(/\]\(([^)\s]+)\)/g, (_, target) => {
-        links.push(rewriteLink(target));
+        links.push(rewriteLink(target, from));
         return `](\u0000${links.length - 1}\u0000)`;
       });
       return escapeText(withTokens).replace(/\u0000(\d+)\u0000/g, (_, n) => links[Number(n)]);
@@ -86,7 +87,7 @@ function convertLine(line) {
     .join('');
 }
 
-function toMdx(markdown) {
+function toMdx(markdown, from) {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   let title = '';
   let fence = null;
@@ -107,7 +108,7 @@ function toMdx(markdown) {
       title = line.slice(2).replace(/^\d+\.\s*/, '').trim();
       continue;
     }
-    body.push(line.startsWith('    ') ? line : convertLine(line));
+    body.push(line.startsWith('    ') ? line : convertLine(line, from));
   }
   const front = `---\ntitle: ${JSON.stringify(title)}\n---\n`;
   return `${front}\n${body.join('\n').trim()}\n`;
@@ -121,7 +122,7 @@ for (const [section, { title, pages }] of Object.entries(sections)) {
   await mkdir(dir, { recursive: true });
   for (const [file, slug] of pages) {
     const source = await readFile(path.join(repoDocs, file), 'utf8');
-    await writeFile(path.join(dir, `${slug}.mdx`), toMdx(source));
+    await writeFile(path.join(dir, `${slug}.mdx`), toMdx(source, file));
   }
   await writeFile(
     path.join(dir, 'meta.json'),

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Date, DateTime, Integer, String, UniqueConstraint, func
 
-from core.base import Base
+from core.db import Base
 
 
 class LeetCodeLink(Base):

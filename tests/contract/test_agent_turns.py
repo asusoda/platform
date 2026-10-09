@@ -5,14 +5,14 @@ import uuid
 
 import pytest
 
-from core.discord_directory import DiscordUnavailable
+from core.integrations.discord import DiscordUnavailable
 from tests.contract.conftest import FakeBot
 
 
 def _issue(prefix, *scopes):
+    from core.db import db_connect
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

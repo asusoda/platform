@@ -5,36 +5,40 @@ appears only as counts, never content.
 """
 
 import datetime
+import os
 from typing import cast
 
 from sqlalchemy import func
 
 from core import audit
+from core.integrations import registry as integrations
+from core.time import iso, utcnow
 from modules.accounts.models import AccountGrant
 from modules.agents.models import AgentConversation, AgentMemory, AgentPendingAction
 from modules.alerts.models import AlertFeed, AlertPost
+from modules.auth import scopes
 from modules.auth.models import MachineToken
 from modules.compute.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
+from modules.manifest import CATALOG, CATEGORIES, CORE, Need
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.points.models import Points, UserOrganizationMembership
+from modules.packs import catalog as packs
+from modules.points.models import Points
 from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
+from modules.users.models import UserOrganizationMembership
 
+from . import notices
 
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
-def _iso(value: datetime.datetime | None) -> str | None:
-    return value.isoformat() if value else None
+scopes.declare("activity:read", "Read the org overview, daily trends, notifications and the audit log")
+scopes.declare("integrations:manage", "See which integrations are set, set or clear their keys, and test them")
 
 
 def overview(db, org: Organization) -> dict:
     """Modules, counts, problems and recent activity for one organization."""
     org_id = cast(int, org.id)
-    now = _now()
+    now = utcnow()
     sections = {
         "members": _members(db, org_id),
         "points": _points(db, org_id, now),
@@ -60,11 +64,62 @@ def overview(db, org: Organization) -> dict:
             for name, text in organizations.OPTIONAL_MODULES.items()
         ],
         "sections": sections,
-        "problems": _problems(sections),
+        "problems": notices.unresolved(org, _problems(sections)),
         "activity": [e for e in entries if e.get("source") != "job"][:25],
         "jobs": [e for e in entries if e.get("source") == "job"][:25],
         "generated_at": now.isoformat(),
     }
+
+
+def modules(db, org: Organization) -> dict:
+    """Each module that is not Core, in category order, with its switch, its needs and its packs."""
+    org_id = cast(int, org.id)
+    result = []
+    for category, names in CATEGORIES.items():
+        if category == CORE:
+            continue
+        for name in names:
+            info = CATALOG[name]
+            needs = [_need(db, org_id, need) for need in info.needs]
+            result.append(
+                {
+                    "name": name,
+                    "title": info.title,
+                    "description": info.description,
+                    "category": category,
+                    "switchable": name in organizations.OPTIONAL_MODULES,
+                    "enabled": organizations.module_enabled(org, name),
+                    "ready": all(n["connected"] for n in needs if not n["optional"]),
+                    "needs": needs,
+                    "packs": [
+                        {"name": p.name, "title": p.title, "description": p.description}
+                        for p in map(packs.get, info.packs)
+                        if p is not None
+                    ],
+                }
+            )
+    return {"categories": [c for c in CATEGORIES if c != CORE], "modules": result}
+
+
+def _need(db, org_id: int, need: Need) -> dict:
+    """A need and its state: an integration is connected when the org or the deployment set it, a setting when it is set."""
+    if need.kind == "setting":
+        connected = bool(os.environ.get(need.key, "").strip())
+    else:
+        connected = integrations.connected(db, org_id, need.key)
+    return {"key": need.key, "label": need.label, "kind": need.kind, "optional": need.optional, "connected": connected}
+
+
+def unlocks() -> dict[str, list[str]]:
+    """The titles of the modules that each integration key unlocks, from the needs in the catalog."""
+    found: dict[str, list[str]] = {}
+    for name, info in CATALOG.items():
+        if name in CATEGORIES[CORE]:
+            continue
+        for need in info.needs:
+            if need.kind == "integration":
+                found.setdefault(need.key, []).append(info.title)
+    return {key: sorted(titles) for key, titles in found.items()}
 
 
 def _members(db, org_id: int) -> dict:
@@ -105,7 +160,7 @@ def _compute(db, org_id: int, now: datetime.datetime) -> dict:
     return {
         "pods": [{"pod_id": p.pod_id, "name": p.name, "public": p.is_public} for p in pods],
         "sessions": [
-            {"pod_id": s.pod_id, "title": s.title, "start_at": _iso(s.start_at), "stop_at": _iso(s.stop_at)}
+            {"pod_id": s.pod_id, "title": s.title, "start_at": iso(s.start_at), "stop_at": iso(s.stop_at)}
             for s in upcoming
         ],
     }
@@ -127,7 +182,7 @@ def _alerts(db, org_id: int, now: datetime.datetime) -> dict:
                 "kind": f.kind,
                 "enabled": f.enabled,
                 "every_hours": f.every_hours,
-                "last_run_at": _iso(f.last_run_at),
+                "last_run_at": iso(f.last_run_at),
                 "last_error": f.last_error,
                 "posted_7_days": counts.get(f.id, 0),
             }
@@ -144,10 +199,11 @@ def _apps(db, org_id: int) -> dict:
         result.append(
             {
                 "name": app.name,
+                "provider": app.provider,
                 "repo": app.repo,
                 "tag": app.current_tag,
                 "status": latest.status if latest else None,
-                "deployed_at": _iso(latest.started_at) if latest else None,
+                "deployed_at": iso(latest.started_at) if latest else None,
                 "error": latest.error if latest else None,
             }
         )
@@ -198,7 +254,7 @@ def _tokens(db, org_id: int, now: datetime.datetime) -> dict:
     )
     return {
         "tokens": [
-            {"name": t.name, "kind": t.kind, "scopes": t.scopes, "last_used_at": _iso(t.last_used_at)}
+            {"name": t.name, "kind": t.kind, "scopes": t.scopes, "last_used_at": iso(t.last_used_at)}
             for t in rows
             if t.kind != "cli"
         ],
@@ -207,7 +263,7 @@ def _tokens(db, org_id: int, now: datetime.datetime) -> dict:
 
 
 def _problems(sections: dict) -> list[dict]:
-    """Things an officer should look at, from the sections above."""
+    """Things an officer should look at, from the sections above. The same problems as notices.problems."""
     problems = []
     for feed in sections["alerts"]["feeds"]:
         if feed["enabled"] and feed["last_error"]:

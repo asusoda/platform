@@ -1,5 +1,6 @@
 """The LeetCode daily post and solve checks."""
 
+from core.db import db_connect
 from core.jobs import job
 
 
@@ -7,7 +8,6 @@ from core.jobs import job
 def post_daily() -> None:
     """Post today's question once LEETCODE_DAILY_TIME has passed."""
     from modules.leetcode import daily
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -20,7 +20,6 @@ def post_daily() -> None:
 def verify() -> None:
     """Record today's solves of linked members and announce them under the post."""
     from modules.leetcode import daily
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

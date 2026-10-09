@@ -1,33 +1,29 @@
 # knowledge
 
-Holds an organization's knowledge sources and searches them. Writers send a source as chunks, or the platform crawls a URL on a schedule; search fuses a vector ranking and a text ranking over the org's sources plus public ones.
+Keeps an org's knowledge sources and searches them. Writers send a source as chunks, officers upload documents, or Platform crawls a URL on a schedule. Search merges a vector ranking and a text ranking over the org's sources and the public ones.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Machine routes: sources, search, crawled source registration, crawl runs |
-| `service.py` | Sources, versions, chunks and hybrid search; declares the `knowledge:read` and `knowledge:write` scopes; only orgs in `KNOWLEDGE_PUBLISHERS` write public sources |
-| `crawl.py` | Scheduled crawls: fetch, extract, chunk, embed, index; refuses a run whose text shrank below half of the last version |
-| `fetch.py` | Fetching with robots.txt, per-host pacing and public addresses only; through Firecrawl when `FIRECRAWL_URL` is set |
-| `extract.py` | HTML to text, and text to chunks |
-| `extractors.py` | Named extractors that other modules register for their sources |
-| `embedder.py` | OpenAI-compatible embeddings client, configured by `EMBEDDINGS_URL` |
-| `models.py` | Sources, versions, chunks; pgvector on Postgres, JSON vectors on SQLite |
-| `tools.py` | The `knowledge.search` tool |
-| `jobs.py` | The crawl jobs |
+| `api.py`, `tools.py` | Machine routes for sources, search and crawls; the `knowledge.search` tool |
+| `service.py` | Sources, versions and chunks; declares `knowledge:read` and `knowledge:write`; checks publishers (superadmin flag or `KNOWLEDGE_PUBLISHERS`) |
+| `search.py` | Hybrid search with reciprocal rank fusion |
+| `crawl.py` | Crawls: fetch, extract, chunk, embed, index; `queue` starts the crawl job for one source |
+| `fetch.py` | Fetches with robots.txt, per-host pauses and public addresses only; registers the Firecrawl integration and uses the org's Firecrawl |
+| `extract.py` | HTML to text, text to chunks, and the extractors that other modules register |
+| `documents.py` | Uploaded files (text, Markdown, HTML, PDF, Word) indexed as sources |
+| `settings.py` | Per-org passage size and search settings, kept in the org config |
+| `runs.py` | The log of crawls and uploads |
+| `embedder.py` | The OpenAI-compatible embeddings client; registers the Embeddings integration; `for_org()` picks the org's service or the `.env` default, and the OpenRouter key for an OpenRouter URL with no key |
+| `models.py`, `jobs.py` | Sources, versions, chunks (pgvector on Postgres), runs; the crawl and reindex jobs |
 
 ## Surface
 
-- Routes: `/api/knowledge`, no module switch. Machine tokens only, with `knowledge:read` or `knowledge:write`; the org is the token's.
-- Jobs: `knowledge.crawl_due`, cron `*/10 * * * *`; `knowledge.crawl_source`, on request.
-- Tools: `knowledge.search` (scope `knowledge:read`).
-- Tables: `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`.
+- Routes: `/api/knowledge`. Machine tokens only, with `knowledge:read` or `knowledge:write`. The officer routes for sources, source text, crawls, uploads, settings, runs, packs and reindex are in `modules/dashboard/api.py`.
+- Jobs: `knowledge.crawl_due`, schedule `*/10 * * * *`; `knowledge.crawl_source` and `knowledge.reindex`, on request.
+- Tools: `knowledge.search`, `knowledge.sources`, `knowledge.read_source`, `knowledge.packs`, `knowledge.settings`, `knowledge.runs` (scope `knowledge:read`); `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_pack`, `knowledge.update_settings`, `knowledge.reindex` (confirm) (scope `knowledge:write`). Tools marked confirm run only with `confirm=true`.
+- Webhook events: `knowledge.crawl_failed`, from `runs.record()`. See [docs/webhooks.md](../../docs/webhooks.md).
+- Tables: `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs`.
 
-## Depends on
-
-`core.audit_http`, `core.errors`, `core.jobs`, `core.tools`, `core.logging_config`, `core.base`; `modules.auth` (routes, scopes); `shared`.
-
-## More
-
-[docs/knowledge.md](../../docs/knowledge.md)
+See [docs/modules/knowledge.md](../../docs/modules/knowledge.md).

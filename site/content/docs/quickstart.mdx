@@ -13,8 +13,8 @@ description: Run Platform locally and create an organization.
 ## Run it
 
 ```bash
-git clone https://github.com/asusoda/platform.git
-cd platform
+git clone https://github.com/theaisocietyasu/bedrock.git
+cd bedrock
 uv sync
 cp .env.template .env
 make dev
@@ -22,7 +22,7 @@ make dev
 
 Fill in `.env` before `make dev`. The values you need first are `CLIENT_ID` and `CLIENT_SECRET` from the Discord application, `BOT_TOKEN`, and `SYS_ADMIN` set to your own Discord user id.
 
-The API runs at `http://localhost:8000` and the web app at `http://localhost:5000`.
+The API runs at `http://localhost:8000` and the dashboard at `http://localhost:5001`.
 
 ## Create an organization
 
@@ -37,7 +37,7 @@ flask --app main org create \
   --off points,storefront
 ```
 
-`flask --app main org modules robotics --on points` turns modules on or off later. A module that is off returns 404 for that organization and is hidden in the web app.
+`flask --app main org modules robotics --on points` turns modules on or off later. A module that is off returns 404 for that organization and is hidden in the dashboard.
 
 ## Check the setup
 
@@ -50,5 +50,5 @@ make check
 
 ## Deploy
 
-- [Deployment and operations](/docs/codebase/deployment-and-operations) covers containers, migrations and rollback.
-- [RunPod deploy](/docs/project/runpod-deploy) runs everything on a single RunPod pod without Docker.
+- [Operations](/docs/codebase/operations) covers containers, migrations and rollback.
+- [Getting started](/docs/codebase/getting-started) also runs everything on a single RunPod pod without Docker.

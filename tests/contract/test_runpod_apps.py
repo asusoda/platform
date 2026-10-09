@@ -6,9 +6,9 @@ import uuid
 import pytest
 from cryptography.fernet import Fernet
 
-from core import runpod
+from core.db import db_connect
+from core.integrations import runpod
 from modules.runpod import service
-from shared import db_connect
 
 
 class FakeRunPod:
@@ -35,7 +35,7 @@ class FakeRunPod:
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(service, "client_for", lambda db, org_id: client)
+    monkeypatch.setattr(service, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 
@@ -125,6 +125,18 @@ def test_first_deploy_creates_pod_then_updates_image(client, manager, deployer, 
 
     info = client.get(f"/api/apps/{name}", headers=manager).get_json()
     assert info["current_tag"] == digest and info["pod_id"] == "pod123"
+    assert (info["kind"], info["description"], info["url"], info["host"]) == ("service", None, None, "runpod")
+
+
+def test_kind_and_url_are_kept_out_of_the_pod(client, manager, deployer, fake):
+    name = _name()
+    manifest = {**MANIFEST, "kind": "bot", "description": "Club Discord bot", "url": "https://club.example.org"}
+    assert client.put(f"/api/apps/{name}", json={"manifest": manifest}, headers=manager).status_code in (200, 201)
+    info = client.get(f"/api/apps/{name}", headers=manager).get_json()
+    assert (info["kind"], info["description"], info["url"]) == ("bot", "Club Discord bot", "https://club.example.org")
+    client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer)
+    _, _, body = fake.calls[-1]
+    assert not {"kind", "description", "url"} & set(body)
 
 
 def test_deploy_token_can_only_deploy(client, manager, deployer, fake):
@@ -210,6 +222,9 @@ def test_runpod_failure_is_recorded(client, manager, deployer, fake):
         {**MANIFEST, "image": "ghcr.io/x/y:latest"},
         {**MANIFEST, "ports": ["8080"]},
         {**MANIFEST, "unknown": 1},
+        {**MANIFEST, "kind": "game"},
+        {**MANIFEST, "url": "http://club.example.org"},
+        {**MANIFEST, "description": "x" * 201},
     ],
 )
 def test_rejects_bad_manifests(client, manager, manifest):
@@ -374,3 +389,17 @@ def test_private_repo_uses_the_github_secret_and_rollback_reuses_the_old_manifes
             secrets.delete_secret(db, org_id, service.GITHUB_SECRET)
         finally:
             db.close()
+
+
+def test_deploy_tool_previews_a_dry_run_until_confirmed(client, manager, deployer, fake, healthy):
+    name = _register(client, manager)
+    pending = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1"}, headers=deployer).get_json()
+    assert pending["result"]["confirm_required"] is True
+    assert pending["result"]["preview"]["request"]["body"]["image"].endswith(":v1")
+    assert fake.calls == []
+
+    done = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1", "confirm": True}, headers=deployer)
+    assert done.status_code == 200, done.get_json()
+    assert fake.calls[-1][0] == "POST"
+    app = client.post("/api/tools/apps.get", json={"name": name}, headers=manager).get_json()["result"]
+    assert app["deployments"][0]["tag"] == "v1"

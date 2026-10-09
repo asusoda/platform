@@ -1,53 +1,46 @@
 # Platform
 
-Platform is shared infrastructure for student organizations. Each org is a Discord server. One deployment serves many orgs, and each org turns on only the modules it uses.
+Platform is shared infrastructure for student orgs. One deployment serves many orgs. Each org is a Discord server and turns on only the modules it uses.
 
-It started as the platform the Software Developers Association (SoDA) at ASU runs its club on. AI Society at ASU added the agent and compute modules. Both clubs run on it.
+Each org route checks access. The audit log records each change that an officer or a token makes. Org secrets are encrypted in the database.
 
-## What it does
+## Modules
 
-Club operations, from SoDA's platform:
-
-| Module | What it does |
+| Module | Does |
 | --- | --- |
-| `points` | Members, event attendance points, leaderboards, CSV imports |
-| `storefront` | Merch store paid in points, with server-checked prices |
-| `calendar` | Notion events synced to Google Calendar, per-org credentials |
-| `leetcode`, `games` | Daily LeetCode post and Jeopardy in Discord |
-| `organizations`, `superadmin`, `users` | Orgs, officers, module switches, member records |
-
-Agents and compute:
-
-| Module | What it does |
-| --- | --- |
-| `compute` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates through the godfather CLI. Officers get a file manager and scheduled sessions that start and stop pods around workshops. |
-| `agents` | Conversations, memories and a profile graph for each member, kept for agents that talk to members. Retention is 180 days by default. |
+| `points`, `users` | Members, event points, leaderboards, CSV imports |
+| `storefront` | A merch store paid in points, with prices checked on the server |
+| `calendar` | Notion events synced to Google Calendar, with the credentials of each org |
+| `leetcode`, `games` | The daily LeetCode post and Jeopardy in Discord |
+| `organizations`, `superadmin` | Orgs, officers, module switches, secrets and machine tokens |
+| `compute` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates |
+| `agents` | Conversations, memories and a profile graph for each member, for agents that talk to members |
 | `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
-| `asu` | Example campus source: 226 public ASU pages and 16 live queries (dining, library hours, events), indexed into knowledge |
-| `accounts` | Canvas, Google and Outlook sign-in for a member, bound to their Discord account, so agents can act for them |
-| `alerts` | New job listings and upcoming hackathons posted to Discord webhooks |
-| `runpod` | Deploy an org's apps to RunPod from a manifest in the app's repo, with health checks and rollback |
-| `dashboard` | One page per org with problems, activity, jobs, CI runs and every module's state |
-| `mcp` | An MCP server and `/api/tools` that expose the modules above to agents through scoped machine tokens |
-
-Every org route checks access, every change an officer or token makes is in the audit log, and org secrets are encrypted at rest. Background work runs as jobs on Procrastinate (Postgres) or in threads (SQLite).
+| `packs` | Packs from `packs/`: campus pages and live queries added to knowledge, such as the ASU pack |
+| `accounts` | Canvas, Google and Outlook sign-in for a member, so that agents can act for them |
+| `alerts` | New job listings and hackathons posted to Discord webhooks |
+| `runpod` | Deploys of an org's apps to RunPod from a manifest, with health checks and rollback |
+| `uptime` | Checks of sites and Hosting apps on a schedule, with events when one goes down or up |
+| `dashboard` | One page for each org with problems, activity, jobs, CI runs and module state |
+| `mcp` | An MCP server and `/api/tools` that give agents the module tools through scoped machine tokens |
+| `auth`, `public`, `bot` | Discord sign-in, tokens and access checks; open reads for public pages; the Discord bot |
 
 ## Processes
 
 | Process | Entry point | Port |
 | --- | --- | --- |
 | API | `main.py` (gunicorn) | 8000 |
-| Web app (React) | `web/` | 5000 |
-| Dashboard (Vite) | `dashboard/` | 5173 in dev |
 | Discord bot | `bot_main.py` | |
-| Job worker | `worker_main.py` | |
+| Job worker | `worker_main.py` (Postgres only) | |
 | MCP server | `mcp_main.py` | 8001 |
+| Dashboard and member store | `dashboard/` | 5001 (5173 in dev) |
+| Old officer app, for admin.thesoda.io | `web/` | 5000 |
 
-The database is Postgres in production, or SQLite for small deployments. The schema is managed by Alembic.
+The database is Postgres, or SQLite for a small deployment. Alembic makes the schema.
 
-## Getting started
+## Start
 
-You need Podman with podman-compose (or Docker), Make and uv.
+You need Podman with podman-compose (or Docker), make and uv.
 
 ```bash
 git clone https://github.com/asusoda/platform.git
@@ -58,9 +51,7 @@ cp .env.template .env      # Discord app, bot token, secrets
 make dev
 ```
 
-The API is at http://localhost:8000 and the web app at http://localhost:5000. Create an org with `flask --app main org create`.
-
-To run everything on one RunPod pod without Docker, see [docs/runpod-deploy.md](docs/runpod-deploy.md).
+The API is at http://localhost:8000 and the dashboard at http://localhost:5001. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
 
 ## Commands
 
@@ -68,14 +59,19 @@ To run everything on one RunPod pod without Docker, see [docs/runpod-deploy.md](
 make dev       # start with logs
 make up        # start in the background
 make down      # stop
-make check     # lint, format, typecheck, tests
+make check     # fix lint and format, then type check, tests, migrations
+make ci        # the checks that CI runs, with no changes to files
 make shell     # shell in the API container
-make deploy    # deploy to production
+make deploy    # deploy on the server
 ```
 
 ## Documentation
 
-[docs/](docs/README.md) explains the codebase page by page, with one page per module. [docs/roadmap.md](docs/roadmap.md) is the plan and its status.
+[docs/](docs/README.md) has the guides. Each module folder has a `README.md`. [docs/roadmap.md](docs/roadmap.md) has the plan.
+
+## Deployments
+
+The Software Developers Association (SoDA) at ASU and AI Society at ASU run Platform. Their servers are the examples in these docs.
 
 ## License
 

@@ -1,159 +1,67 @@
-# {CLAUDE,AGENTS}.md
+# AGENTS.md
 
-This file provides guidance to AI agents when working with code in this repository.
+Instructions for AI agents in this repo. `CLAUDE.md` and `AGENTS.md` have the same text; change both.
+
+Platform is shared infrastructure for student orgs: a Flask API, a Discord bot, a job worker and an MCP server on one database. Each org is a Discord server and turns modules on or off. In prose, call the project "Platform" and use the terms in the `technical-writing` skill.
 
 ## Skills
 
-Procedures for agents are in `.agents/skills/` (linked from `.claude/skills/`), listed in `.agents/README.md`. Use `check` before every commit, `new-module` when adding a module, `migration` for model changes, `api-contract` when touching a route thesoda.io or `web/` calls, `technical-writing` for any prose, and `pr-ready` before opening a PR.
+The procedures are in `.agents/skills/` (linked from `.claude/skills/`) and listed in `.agents/README.md`.
 
-## Development Commands
+- `check`: before each commit.
+- `new-module`: to add a module.
+- `migration`: after a model change.
+- `api-contract`: to change a route that thesoda.io or `dashboard/` calls.
+- `technical-writing`: for all prose, comments and messages.
+- `pr-ready`: before you open a PR.
 
-### Primary Development Workflow
+## Commands
+
 ```bash
-# Start development environment (with live logs)
-make dev
-
-# Start services in background 
-make up
-
-# Stop services
-make down
-
-# View logs
-make logs
-
-# Check container status
-make status
-
-# Open shell in API container
-make shell
-
-# Build images
-make build
+uv sync                          # install dependencies
+make dev                         # start the containers with logs and the reloader
+make up | down | logs | status | shell | build
+make check                       # fix lint and format, then ty, pytest, alembic check
+make ci                          # the same checks with no changes to files; CI runs this
+uv run bandit -q -c pyproject.toml -r .
+uv run pytest tests/contract/test_compute.py -v
+uv run alembic upgrade head      # make migrate
+make deploy | health | rollback  # on the server
+flask --app main org|jobs|config ...
 ```
 
-### Testing
-```bash
-# Run all checks (lint, format, typecheck, tests)
-make check
+## Layout
 
-# Run specific test file
-uv run pytest tests/test_filename.py -v
+| Path | Holds |
+| --- | --- |
+| `main.py`, `bot_main.py`, `worker_main.py`, `mcp_main.py` | API, Discord bot, job worker (Postgres only), MCP server on port 8001 |
+| `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, hosting providers (`core/hosting.py`) |
+| `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, only the files it needs |
+| `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; categories, the module catalog, the modules of a new org, and model, job and tool modules |
+| `apps/` | App templates that officers create apps from on the Hosting page. No Platform code |
+| `alembic/` | Migrations. Nothing creates tables at startup |
+| `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
+| `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
+| `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site |
+| `web/` | Old officer app, kept for SoDA at admin.thesoda.io |
+| `docs/` | Guides, indexed in `docs/README.md` |
 
-# Install dependencies for testing
-uv sync
-```
+Modules: accounts, agents, alerts, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, packs, points, public, runpod, storefront, superadmin, uptime, users.
 
-### Code Quality
-```bash
-# Install pre-commit hooks
-uv run pre-commit install
+## Rules
 
-# Run all checks (lint, format, typecheck, tests)
-make check
+- `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
+- A new module is registered in each place that `docs/writing-a-module.md` lists. `tests/test_module_layout.py` checks them.
+- A service takes a database session and plain values and raises a `core.errors.ServiceError` subclass.
+- Use `officer_route`, `machine_route` and `member_view` from `modules/auth/routes.py` for new routes.
+- A model change needs an Alembic migration. `make ci` runs `alembic check`.
+- A route change updates `tests/contract/routes.txt` (`UPDATE_ROUTES=1`). A change to a route that a client uses follows the `api-contract` skill.
+- Use `get_logger(__name__)` from `core/log.py`. Do not use `print()`.
+- Do not add `# noqa`, `# type: ignore` or `# nosec` to get a green run. `# nosec` is only for a false positive, with the reason.
+- Settings come from `.env` through `core/config.py`. A new setting goes in `.env.template`. Never write a secret in code, docs or commits.
+- ruff (line length 120) and ty check the code. Comments are plain ASCII and say what the code does.
+- Commit subjects are imperative and 72 characters or fewer. The body says why.
 
-# Run all pre-commit hooks manually
-uv run pre-commit run --all-files
-```
+## Docs
 
-### Deployment
-```bash
-# Deploy to production
-make deploy
-
-# Health check
-make health-check
-
-# Rollback to previous version
-make rollback
-```
-
-## Architecture Overview
-
-### Core Structure
-- **Flask API Backend**: Main application in `main.py` with modular blueprint architecture
-- **React Frontend**: Located in `web/` directory with separate build process
-- **Discord Bot**: One bot, run as its own process by `bot_main.py`
-- **Job worker and MCP server**: `worker_main.py` (Procrastinate on Postgres) and `mcp_main.py`
-- **Multi-Organization Support**: Organization-scoped data and configurations
-- **Containerized Deployment**: Docker/Podman with docker-compose for orchestration
-
-### Key Components
-
-#### Module System
-All core functionality is organized in `/modules/`, one folder per feature. A module has only the files it needs:
-- `README.md` - what it does, its files, routes, jobs, tools and tables
-- `service.py` - logic; takes a DB session, never imports Flask, raises a `core.errors.ServiceError` subclass
-- `api.py` - Flask blueprint that calls `service.py`; officer and machine-token routes use `officer_route` and `machine_route` from `modules/auth/routes.py`
-- `models.py` - SQLAlchemy models
-- `jobs.py`, `tools.py` - background jobs (`@job`) and agent tools (`@tool`)
-
-Blueprints, jobs and tools are registered in `modules/registry.py`. `docs/writing-a-module.md` lists every place a new module is registered.
-
-Active modules: accounts, agents, alerts, asu, auth, bot, calendar, compute, dashboard, games, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
-
-#### Database Architecture
-- SQLite database (`./data/user.db`) with SQLAlchemy ORM
-- Base model class in `core/base.py`
-- Centralized connection management via `DBConnect` class
-- Schema managed by Alembic migrations (`alembic upgrade head`); no table creation at startup
-
-#### Discord Integration
-- BotFork instance in `modules/bot/`, loading cogs from `modules/games` and `modules/leetcode`
-- Runs in its own process (`bot_main.py`); the API reaches Discord over REST (`core/discord_directory.py`)
-- Bot token managed via environment variable (`BOT_TOKEN`)
-
-#### Background Jobs
-- Declared per module in `jobs.py` with `@job` from `core/jobs.py`, listed in `modules/registry.py`
-- Postgres: Procrastinate queue, run by `worker_main.py`. SQLite: run in threads of the API process
-- Hourly refresh-token cleanup, CSV point imports, calendar sync when `CALENDAR_SYNC_CRON` is set
-
-### Configuration Management
-- Environment variables via `.env` file (not tracked in git)
-- `Config` class in `core/config.py` centralizes configuration
-- Organization-specific configs stored in database
-- Sentry integration for error monitoring
-
-### Frontend Integration  
-- React app in `/web/` directory with separate package.json
-- Built files served from `/web/build/` 
-- Officer dashboard in `/dashboard/` (Vite, React, Tailwind), see `docs/dashboard.md`
-- CORS configured for local development and production domains
-- API communication via axios with organization headers
-
-## Development Best Practices
-
-### Environment Setup
-- Copy `.env.template` to `.env` and configure before running
-- Requires Discord bot token, Google API credentials, Notion API key
-- Database file created automatically in `./data/` directory
-
-### Testing Environment
-- uv manages Python dependencies and virtual environment
-- GitHub Actions runs tests automatically on push/PR
-
-### Container Architecture
-- API container exposes port 8000
-- Web container exposes port 5000  
-- Shared data volume for persistence
-- Health checks configured for both services
-- Buildkit enabled for optimized builds
-
-### Logging
-- Stay away from vanilla `print()` statements. There's a shared logging module. Use that instead.
-
-## Code Quality Tools
-
-### Linting & Formatting
-- **ruff**: Fast Python linter and formatter (configured in pyproject.toml)
-  - Line length: 120
-  - Auto-formats code and checks style
-  
-### Type Checking
-- **ty**: Rust-based type checker for Python
-
-### Pre-commit Hooks
-- Configured via `.pre-commit-config.yaml`
-- Runs `make check` (lint, format, typecheck, tests) automatically on commits
-- Install with `uv run pre-commit install`
-- All checks also run in CI on every push/PR
+When you change what a doc describes, change the doc in the same commit: the module `README.md`, the page in `docs/`, and this file. `site/scripts/sync-docs.mjs` copies `docs/` to the site; a new or renamed page goes there too.

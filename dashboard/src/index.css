@@ -19,6 +19,21 @@
   --color-warn: var(--warn);
   --color-bad: var(--bad);
   --color-info: var(--info);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-in: ui-in 180ms var(--ease-out);
+}
+
+@keyframes ui-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes ui-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 :root {
@@ -77,19 +92,134 @@
   --info: oklch(62.3% 0.214 259.815);
 }
 
-html {
-  scrollbar-gutter: stable;
+/* In the base layer, so a utility class on an element wins over these rules. */
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  input:not([type='checkbox'], [type='radio'], [type='file']):focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--info) 25%, transparent);
+  }
 }
 
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* The shell grid. The sidebar column animates between 248px and the 56px rail. */
+.shell {
+  --sidebar-w: 248px;
 }
 
-:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+@media (min-width: 768px) {
+  .shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    transition: grid-template-columns 200ms var(--ease-out);
+  }
+
+  .shell[data-collapsed] {
+    --sidebar-w: 56px;
+  }
+}
+
+/* The line grid behind the sign-in pages, the same as the hero of site/. */
+.grid-bg {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--line-strong) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--line-strong) 60%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 40%, transparent 100%);
+}
+
+/* Dialogs fade and scale in on open and out on close. */
+dialog.ui-dialog {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+
+dialog.ui-dialog[open] {
+  opacity: 1;
+  transform: none;
+}
+
+dialog.ui-dialog::backdrop {
+  background: rgb(0 0 0 / 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 160ms var(--ease-out),
+    backdrop-filter 160ms var(--ease-out),
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+
+dialog.ui-dialog[open]::backdrop {
+  background: rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+@starting-style {
+  dialog.ui-dialog[open] {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  dialog.ui-dialog[open]::backdrop {
+    background: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
+/* A native select with one chevron that reads on both themes. */
+select.ui-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 15 5 5 5-5M7 9l5-5 5 5'/%3E%3C/svg%3E");
+  background-position: right 0.55rem center;
+  background-repeat: no-repeat;
+  background-size: 14px;
+  padding-right: 1.9rem;
+}
+
+/* A row of a long list: the browser skips the layout and paint of rows out of view. */
+.cv-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
 }

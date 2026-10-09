@@ -1,31 +1,29 @@
 # auth
 
-Signs officers and members in with Discord and decides who may call what: platform tokens, app tokens, machine tokens for apps and agents, and the route decorators every other module uses.
+Signs officers and members in with Discord and decides who can call a route: platform tokens, app tokens, machine tokens, and the decorators that all modules use.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Discord OAuth login and callback, one-time code exchange, refresh, revoke, logout, app tokens, `/machine/whoami` |
-| `decoraters.py` | Route decorators: `auth_required`, `dual_auth_required`, `member_required`, `org_officer_required`, `superadmin_required`, `machine_scope_required`, `error_handler` |
-| `access.py` | The caller behind a credential, officer and superadmin checks; refusals are logged only until `ACCESS_ENFORCE=true` |
-| `machine_tokens.py` | Issue, verify, revoke and list machine tokens; only a hash is stored |
-| `scopes.py` | The registry of scopes that modules declare |
-| `routes.py` | `officer_route` and `machine_route` route helpers, `json_body` and `token_org` |
-| `models.py` | Sessions, refresh tokens, revoked tokens, app tokens, machine tokens |
-| `jobs.py` | The refresh token cleanup job |
+| `api.py` | Discord sign-in and callback, code exchange, refresh, revoke, logout, app tokens, `/machine/whoami` |
+| `decorators.py` | `auth_required`, `dual_auth_required`, `member_required`, `org_officer_required`, `superadmin_required`, `machine_scope_required` |
+| `routes.py` | `officer_route`, `machine_route`, `member_view` and `token_org` |
+| `access.py` | The caller of a request and the officer and superadmin checks; logs refusals until `ACCESS_ENFORCE=true` |
+| `tokens.py` | `TokenManager`: RS256 keys in `./data`, access, refresh and app tokens, revocation |
+| `machine_tokens.py`, `scopes.py` | Machine tokens (stored as a hash); the scopes that modules declare |
+| `clerk.py` | `verify_clerk_token` |
+| `models.py`, `jobs.py` | Token tables; the refresh token cleanup job |
 
 ## Surface
 
-- Routes: `/api/auth`, no module switch. Login, callback, exchange, refresh and logout are public; `/validToken`, `/revoke`, `/name` and the app token routes need a signed-in platform token; `/machine/whoami` takes a machine token.
-- Jobs: `auth.cleanup_tokens`, cron `0 * * * *`.
+- Routes: `/api/auth`. Sign-in, callback, exchange, refresh and logout are open. `/validToken`, `/revoke`, `/name` and the app token routes need a platform token. `/machine/whoami` needs a machine token.
+- Jobs: `auth.cleanup_tokens`, schedule `0 * * * *`.
 - Tools: none.
-- Tables: `sessions`, `refresh_tokens`, `revoked_tokens`, `app_tokens`, `machine_tokens`.
+- Tables: `refresh_tokens`, `revoked_tokens`, `app_tokens`, `machine_tokens`, `sessions` (not used).
 
-## Depends on
+See [docs/authentication.md](../../docs/authentication.md).
 
-`core.clerk_auth`, `core.discord_directory`, `core.errors`, `core.jobs`, `core.logging_config`, `core.base`; `modules.organizations.models`; `shared` (config, `tokenManager` from `core/TokenManager.py`, `db_connect`).
+## Known gaps
 
-## More
-
-[docs/05-backend-modules.md](../../docs/05-backend-modules.md)
+- No `service.py`. The app token routes in `api.py` query and commit `app_tokens` in the view.
