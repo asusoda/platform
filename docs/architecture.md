@@ -78,7 +78,7 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `points.leaderboard` | `points:read` | points |
 | `knowledge.search`, `knowledge.sources`, `knowledge.packs`, `knowledge.settings`, `knowledge.runs` | `knowledge:read` | knowledge |
 | `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_pack`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
-| `asu.query` | `knowledge:read` | asu |
+| `packs.query` | `knowledge:read` | packs |
 | `apps.list`, `apps.get` | `apps:read` | runpod |
 | `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
 | `apps.deploy` (confirm) | `apps:deploy` | runpod |

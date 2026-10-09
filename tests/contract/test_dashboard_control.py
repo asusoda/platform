@@ -74,7 +74,7 @@ def test_officer_manages_crawls(client, officer_headers, queued):
 
 
 def test_officer_syncs_a_source_pack(client, officer_headers, queued):
-    from modules.asu.sources import SOURCES
+    from packs.asu.sources import SOURCES
 
     base = "/api/dashboard/ais/knowledge"
     listed = client.get(f"{base}/packs", headers=officer_headers).get_json()["packs"]

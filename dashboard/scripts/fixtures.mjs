@@ -629,7 +629,7 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: null,
       testable: true,
-      used_by: ['asu', 'knowledge'],
+      used_by: ['knowledge', 'packs'],
     },
     {
       key: 'github',
@@ -679,7 +679,7 @@ export function fixtures(now = Date.now()) {
       key: 'searxng',
       title: 'Web search (SearXNG)',
       description: 'Connect a SearXNG server for live web search.',
-      docs: 'modules/asu',
+      docs: 'modules/packs',
       fields: [
         field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
         field('searxng_engines', 'Engines', 'Comma-separated. Leave empty for google,brave,bing.', null, 'text', { secret: false, optional: true }),
@@ -687,7 +687,7 @@ export function fixtures(now = Date.now()) {
       editable: true,
       source: 'deployment',
       testable: true,
-      used_by: ['asu'],
+      used_by: ['packs'],
     },
   ];
 
@@ -971,8 +971,11 @@ export function fixtures(now = Date.now()) {
         {
           name: 'asu',
           title: 'Arizona State University',
-          description: 'Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
+          description:
+            'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
           key_prefix: 'asu/',
+          pages: 226,
+          queries: ['courses', 'course_catalog', 'scholarships', 'events', 'news', 'dining', 'web'],
           sources: 0,
         },
       ],
