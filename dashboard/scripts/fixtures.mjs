@@ -26,7 +26,11 @@ const SCOPES = {
   'points:read': "Read the org's points leaderboard (names and totals, no emails or student IDs)",
   'apps:read': 'List apps on RunPod, their pods and deployments',
   'apps:deploy': 'Deploy a new image tag of an app',
+  'github:read': "Read the org's GitHub repos, issues, pull requests and Actions runs",
+  'github:write': 'Create and change issues, pull requests, comments and files on GitHub (with confirm)',
 };
+
+const INTEGRATIONS = [{ key: 'github', title: 'GitHub', connected: true, scopes: ['github:read', 'github:write'], limits: ['repos', 'tools'] }];
 
 // All responses, with times relative to now so the dashboard shows "2h ago" and "in 3d".
 // 30 days of made-up daily counts. Weekdays are busier, and a few days have failures.
@@ -65,7 +69,8 @@ export function fixtures(now = Date.now()) {
       id: 11,
       name: 'club-assistant',
       kind: 'agent',
-      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read'],
+      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read', 'github:read'],
+      limits: { github: { repos: ['my-org/*'] } },
       display: 'plat_4hQ2',
       created_by: 'officer',
       created_at: at(-40 * DAY),
@@ -973,7 +978,7 @@ export function fixtures(now = Date.now()) {
         },
       ],
     },
-    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
+    [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },

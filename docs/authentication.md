@@ -44,10 +44,10 @@ A bad or expired token in the session cookie always gets 401.
 
 ## Machine tokens
 
-An officer makes a machine token with `POST /api/organizations/<id>/tokens` (`name`, `kind` of `app`, `agent` or `cli`, `scopes`, optional `expires_days`). The response shows the token once. The database keeps its SHA-256 hash and its first characters. `DELETE .../tokens/<id>` revokes it.
+An officer makes a machine token with `POST /api/organizations/<id>/tokens` (`name`, `kind` of `app`, `agent` or `cli`, `scopes`, optional `expires_days`, optional `limits`). `limits` narrows the tools of a connected service, such as `{"github": {"repos": ["my-org/*"], "tools": ["github.*issue*"]}}` ([integrations](./integrations.md#tools-for-agents)). The response shows the token once. The database keeps its SHA-256 hash and its first characters. `DELETE .../tokens/<id>` revokes it.
 
 - A machine token belongs to one org. A route for a different org refuses it with 403.
-- A module declares its scopes with `scopes.declare(name, description)` from `modules/auth/scopes.py`. `GET .../tokens` lists all scopes.
+- A module declares its scopes with `scopes.declare(name, description, integration=None)` from `modules/auth/scopes.py`. `GET .../tokens` lists all scopes, and under `integrations` the scopes of each connected service, whether the org connected it, and its limits.
 - Officer routes do not accept a machine token. It is not a JWT, so they return 401.
 - `GET /api/auth/machine/whoami` returns the org, name, kind and scopes of a token.
 

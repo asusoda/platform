@@ -29,6 +29,8 @@ const SCREENS = [
       await page.getByPlaceholder('club-agent').fill('events-agent');
       await page.getByLabel('knowledge:read').check();
       await page.getByLabel('calendar:read').check();
+      await page.getByLabel('github:read').check();
+      await page.getByPlaceholder('my-org/website, my-org/*').fill('my-org/*');
     },
   },
   { name: 'settings', path: 'settings' },

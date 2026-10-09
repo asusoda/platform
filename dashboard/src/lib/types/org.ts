@@ -18,11 +18,16 @@ export type ModuleState = { name: string; description: string; enabled: boolean 
 
 export type SecretState = { name: string; description: string; set: boolean };
 
+// A connected service whose tools a token can get, with its scopes and the limits it takes.
+export type TokenIntegration = { key: string; title: string; connected: boolean; scopes: string[]; limits: string[] };
+
 export type MachineToken = {
   id: number;
   name: string;
   kind: string;
   scopes: string[];
+  // Per-integration limits, such as { github: { repos: ['my-org/*'] } }
+  limits: Record<string, Record<string, string[]>>;
   display: string;
   created_by: string | null;
   created_at: string | null;
