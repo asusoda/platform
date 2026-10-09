@@ -5,6 +5,7 @@ import type {
   CiRepo,
   ErrorList,
   IntegrationList,
+  ModuleCatalog,
   ModuleState,
   NotificationList,
   OrganizationDetail,
@@ -103,6 +104,15 @@ export function useModules(id: number | undefined) {
     queryKey: ['modules', id],
     queryFn: () => api<{ modules: ModuleState[] }>(`/api/organizations/${id}/modules`),
     enabled: id !== undefined,
+  });
+}
+
+// The modules an org can add, with their switches, needs and packs.
+export function useModuleCatalog(prefix: string) {
+  return useQuery({
+    queryKey: ['catalog', prefix],
+    queryFn: () => api<ModuleCatalog>(`/api/dashboard/${prefix}/modules`),
+    enabled: Boolean(prefix),
   });
 }
 

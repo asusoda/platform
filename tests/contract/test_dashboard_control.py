@@ -12,7 +12,7 @@ from .test_runpod_apps import MANIFEST, FakeRunPod
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(apps, "client_for", lambda db, org_id: client)
+    monkeypatch.setattr(apps, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 

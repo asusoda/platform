@@ -1,6 +1,6 @@
 # core
 
-Shared code that modules use: config, database, logs, HTTP hooks, Discord and RunPod clients, jobs, tools, audit, the error log, org secrets and outbound webhooks. `core/` imports nothing from `modules/`; the import-linter contract `core imports no module` in `pyproject.toml` checks it.
+Shared code that modules use: config, database, logs, HTTP hooks, Discord and RunPod clients, hosting providers, jobs, tools, audit, the error log, org secrets and outbound webhooks. `core/` imports nothing from `modules/`; the import-linter contract `core imports no module` in `pyproject.toml` checks it.
 
 ## Files
 
@@ -18,7 +18,8 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `log.py` | `get_logger`, JSON log lines and `init_sentry` |
 | `cache.py` | `TTLCache` and the shared `cache`: values by tuple key, each with a time to live, in one process. Concurrent misses on a key compute once |
 | `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log), `cached.py` (`cached_json`: an org read kept in `cache` with an ETag, and the hook that drops the cached org reads after a successful write) |
-| `integrations/` | `discord.py` (`DiscordDirectory`, messages and reactions over Discord's REST API) and `runpod.py` (RunPod REST client) |
+| `integrations/` | `discord.py` (`DiscordDirectory`, messages and reactions over Discord's REST API) and `runpod.py` (RunPod REST client and the `runpod` hosting provider) |
+| `hosting.py` | Hosting providers: the `HostingProvider` and `HostingClient` protocols, the registry (`register()`, `get()`, `listing()`) and `HostingError`. See [docs/modules/compute.md](../docs/modules/compute.md#adding-a-hosting-provider) |
 
 ## Surface
 

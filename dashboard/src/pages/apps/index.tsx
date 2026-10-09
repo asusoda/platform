@@ -1,6 +1,6 @@
 import { IntegrationHint } from '../../components/integration-hint';
 import { useQuery } from '@tanstack/react-query';
-import { Boxes, Plus } from 'lucide-react';
+import { Boxes, LayoutTemplate, Plus } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, Card, CardHeader, Dialog, EmptyState, ErrorNote, Mono, Notice, PageHeader, SkeletonRows } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -8,6 +8,8 @@ import { useCurrentOrg } from '../../lib/org';
 import type { App, AppKind } from '../../lib/types';
 import { AppPanel } from './detail';
 import { RegisterApp } from './register';
+import { TemplatePicker } from './templates';
+import { providerTitle, useProviders } from '../hosting/providers';
 import { AppTable } from './table';
 
 // Apps are grouped by what they are for; the host is a detail of each app.
@@ -22,7 +24,10 @@ const KINDS: { kind: AppKind; title: string; hint: string }[] = [
 export function ServicesTab({ tabs }: { tabs: ReactNode }) {
   const { prefix } = useCurrentOrg();
   const [registering, setRegistering] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  // The tag to put in the deploy form of an app just made from a template
+  const [deployTag, setDeployTag] = useState<string | null>(null);
   const [notice, setNotice] = useState<ReactNode>(null);
   const list = useQuery({
     queryKey: ['apps', prefix],
@@ -31,21 +36,27 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
     refetchInterval: (q) => (q.state.data?.apps.some((a) => a.latest_deployment?.status === 'deploying') ? 10_000 : false),
   });
   const apps = list.data?.apps ?? [];
+  const providers = useProviders(prefix);
   const register = (
-    <Button variant="primary" onClick={() => setRegistering(true)}>
-      <Plus className="size-4" /> Register app
-    </Button>
+    <div className="flex gap-2">
+      <Button onClick={() => setPicking(true)}>
+        <LayoutTemplate className="size-4" /> Templates
+      </Button>
+      <Button variant="primary" onClick={() => setRegistering(true)}>
+        <Plus className="size-4" /> Register app
+      </Button>
+    </div>
   );
   const current = apps.find((a) => a.name === open);
   return (
     <>
       <PageHeader
         title="Hosting"
-        description="The org's bots, agents, sites and services on RunPod. Register a manifest, then deploy image tags here or from CI."
+        description="The org's bots, agents, sites and services on its hosting providers. Register a manifest, then deploy image tags here or from CI."
         action={register}
       />
       {tabs}
-      <IntegrationHint keys={['runpod']} />
+      {providers.data?.some((p) => p.configured) ? null : <IntegrationHint keys={providers.data?.map((p) => p.integration) ?? ['runpod']} />}
       {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
       {list.error ? (
         <div className="mb-4">
@@ -63,7 +74,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
             return (
               <Card key={k.kind}>
                 <CardHeader title={k.title} hint={`${k.hint} · ${group.length} ${group.length === 1 ? 'app' : 'apps'}`} />
-                <AppTable apps={group} onOpen={setOpen} />
+                <AppTable apps={group} providers={providers.data} onOpen={setOpen} />
               </Card>
             );
           })}
@@ -71,7 +82,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
       ) : (
         <Card>
           <EmptyState icon={Boxes} title="No apps" action={register}>
-            Register a bot, agent, site or service with its manifest: what it is, the image, the GPU or CPU, ports, env and a health path.
+            Start from a template, or register a manifest.
           </EmptyState>
         </Card>
       )}
@@ -80,7 +91,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
         open={registering}
         onClose={() => setRegistering(false)}
         title="Register app"
-        description="Deploys use the RunPod account on Integrations. Set any app_ secrets in Settings first."
+        description="Deploys use the provider account on Integrations. Set any app_ secrets in Settings first."
         wide
       >
         <RegisterApp
@@ -92,9 +103,27 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
         />
       </Dialog>
 
+      <Dialog open={picking} onClose={() => setPicking(false)} title="Templates" wide>
+        {picking ? (
+          <TemplatePicker
+            prefix={prefix}
+            onDone={(name, tag) => {
+              setPicking(false);
+              if (name) {
+                setDeployTag(tag ?? '');
+                setOpen(name);
+              }
+            }}
+          />
+        ) : null}
+      </Dialog>
+
       <Dialog
         open={open !== null}
-        onClose={() => setOpen(null)}
+        onClose={() => {
+          setOpen(null);
+          setDeployTag(null);
+        }}
         title={open ?? ''}
         description={current ? (current.repo ? `From ${current.repo}` : 'Inline manifest') : undefined}
         wide
@@ -104,12 +133,13 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
             key={open}
             prefix={prefix}
             name={open}
+            deployTag={deployTag}
             onDeleted={(name, podId) => {
               setOpen(null);
               setNotice(
                 podId ? (
                   <>
-                    Deleted {name}. The pod <Mono className="text-fg">{podId}</Mono> still runs and bills; terminate it in RunPod.
+                    Deleted {name}. The pod <Mono className="text-fg">{podId}</Mono> still runs and bills; terminate it on {providerTitle(providers.data, current?.provider)}.
                   </>
                 ) : (
                   `Deleted ${name}.`

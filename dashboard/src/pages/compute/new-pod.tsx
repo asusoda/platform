@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, cx, Dialog, Field, FormActions, Input, Select, Switch } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { NewPod } from '../../lib/types';
+import { firstConfigured, ProviderField, providerTitle, useProviders } from '../hosting/providers';
 import { UsersEditor } from './members';
 import { computePath, useComputeSettings, useRefreshCompute } from './shared';
 
@@ -92,22 +93,33 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   const [nextKey, setNextKey] = useState(1);
   const refresh = useRefreshCompute(prefix);
   const defaults = useComputeSettings(prefix);
+  const providers = useProviders(prefix);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const provider = chosen ?? firstConfigured(providers.data);
+  const title = providerTitle(providers.data, provider);
+  // The hardware, cloud and volume fields follow the RunPod v2 API, so they show for RunPod only
+  const runpod = provider === 'runpod';
+  const connected = providers.data ? Boolean(providers.data.find((p) => p.name === provider)?.configured) : true;
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
   const problem = envProblem(env);
   const create = useMutation({
     mutationFn: () => {
       const body: NewPod = {
+        provider,
         use_cpu_only: draft.cpu,
-        cloud_type: draft.cloud,
-        volume_in_gb: draft.cpu ? 0 : Number(draft.volume),
         container_disk_in_gb: Number(draft.disk),
         volume_mount_path: draft.mount.trim() || '/workspace',
         env: Object.fromEntries(env.filter((r) => r.name.trim()).map((r) => [r.name.trim(), r.value])),
         is_public: draft.isPublic,
         allowed_users: draft.users,
       };
+      if (runpod) {
+        body.cloud_type = draft.cloud;
+        body.volume_in_gb = draft.cpu ? 0 : Number(draft.volume);
+      }
       if (draft.name.trim()) body.name = draft.name.trim();
       if (draft.image.trim()) body.image_name = draft.image.trim();
+      if (!runpod) return send(`${computePath(prefix)}/pods`, 'POST', body);
       if (draft.cpu) {
         body.cpu_flavor = draft.flavor.trim() || DEFAULT_CPU;
         body.vcpu_count = Number(draft.vcpus);
@@ -121,7 +133,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   });
   const editEnv = (key: number, patch: Partial<EnvRow>) => setEnv(env.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   return (
-    <Dialog open onClose={onClose} wide title="New pod" description="Creates a pod on the org's RunPod account. It starts right away.">
+    <Dialog open onClose={onClose} wide title="New pod" description="Creates a pod on the org's account at the selected hosting provider. It starts right away.">
       <form
         className="space-y-6"
         onSubmit={(e) => {
@@ -129,6 +141,13 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           if (!problem) create.mutate();
         }}
       >
+        <ProviderField
+          prefix={prefix}
+          providers={providers.data}
+          value={provider}
+          onChange={setChosen}
+          hint="The cloud account the pod runs on and bills."
+        />
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Name" hint="Leave empty for a random name">
             <Input value={draft.name} onChange={set('name')} placeholder="workshop" maxLength={100} />
@@ -143,65 +162,69 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           </Field>
         </div>
 
-        <fieldset className="space-y-3">
-          <legend className="mb-1.5 text-sm font-medium">Hardware</legend>
-          <div role="radiogroup" aria-label="Hardware" className="grid gap-2 sm:grid-cols-2">
-            <Choice on={!draft.cpu} onClick={() => setDraft({ ...draft, cpu: false })} icon={Gpu} title="GPU" hint="One GPU, for training and inference" />
-            <Choice on={draft.cpu} onClick={() => setDraft({ ...draft, cpu: true })} icon={Cpu} title="CPU only" hint="Cheaper, for labs that need no GPU" />
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            {draft.cpu ? (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="CPU flavor" hint="A RunPod CPU flavor id">
-                  <Input value={draft.flavor} onChange={set('flavor')} list="cpu-flavors" className="font-mono text-xs" />
+        {runpod ? (
+          <fieldset className="space-y-3">
+            <legend className="mb-1.5 text-sm font-medium">Hardware</legend>
+            <div role="radiogroup" aria-label="Hardware" className="grid gap-2 sm:grid-cols-2">
+              <Choice on={!draft.cpu} onClick={() => setDraft({ ...draft, cpu: false })} icon={Gpu} title="GPU" hint="One GPU, for training and inference" />
+              <Choice on={draft.cpu} onClick={() => setDraft({ ...draft, cpu: true })} icon={Cpu} title="CPU only" hint="Cheaper, for labs that need no GPU" />
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {draft.cpu ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="CPU flavor" hint="A RunPod CPU flavor id">
+                    <Input value={draft.flavor} onChange={set('flavor')} list="cpu-flavors" className="font-mono text-xs" />
+                  </Field>
+                  <Field label="vCPUs">
+                    <Select value={draft.vcpus} onChange={set('vcpus')}>
+                      {['2', '4', '8', '16'].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              ) : (
+                <Field label="GPU type" hint="A RunPod GPU type id">
+                  <Input value={draft.gpu} onChange={set('gpu')} list="gpu-types" />
                 </Field>
-                <Field label="vCPUs">
-                  <Select value={draft.vcpus} onChange={set('vcpus')}>
-                    {['2', '4', '8', '16'].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-            ) : (
-              <Field label="GPU type" hint="A RunPod GPU type id">
-                <Input value={draft.gpu} onChange={set('gpu')} list="gpu-types" />
+              )}
+              <Field label="Cloud" hint="Secure cloud costs more and runs in data centers">
+                <Select value={draft.cloud} onChange={set('cloud')}>
+                  <option value="COMMUNITY">Community cloud</option>
+                  <option value="SECURE">Secure cloud</option>
+                </Select>
               </Field>
-            )}
-            <Field label="Cloud" hint="Secure cloud costs more and runs in data centers">
-              <Select value={draft.cloud} onChange={set('cloud')}>
-                <option value="COMMUNITY">Community cloud</option>
-                <option value="SECURE">Secure cloud</option>
-              </Select>
-            </Field>
-          </div>
-          <datalist id="gpu-types">
-            {GPUS.map((g) => (
-              <option key={g} value={g} />
-            ))}
-          </datalist>
-          <datalist id="cpu-flavors">
-            {CPUS.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-        </fieldset>
+            </div>
+            <datalist id="gpu-types">
+              {GPUS.map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
+            <datalist id="cpu-flavors">
+              {CPUS.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </fieldset>
+        ) : null}
 
         <div className="grid gap-5 sm:grid-cols-3">
-          <Field label="Volume (GB)" hint={draft.cpu ? 'CPU pods have no volume on RunPod.' : 'Kept when the pod stops. 0, or 10 to 2000'}>
-            <Input
-              type="number"
-              min={0}
-              max={2000}
-              step={1}
-              value={draft.cpu ? '0' : draft.volume}
-              onChange={set('volume')}
-              disabled={draft.cpu}
-              required
-            />
-          </Field>
+          {runpod ? (
+            <Field label="Volume (GB)" hint={draft.cpu ? 'CPU pods have no volume on RunPod.' : 'Kept when the pod stops. 0, or 10 to 2000'}>
+              <Input
+                type="number"
+                min={0}
+                max={2000}
+                step={1}
+                value={draft.cpu ? '0' : draft.volume}
+                onChange={set('volume')}
+                disabled={draft.cpu}
+                required
+              />
+            </Field>
+          ) : null}
           <Field label="Container disk (GB)" hint="Lost when the pod stops. 1 to 500">
             <Input type="number" min={1} max={500} step={1} value={draft.disk} onChange={set('disk')} required />
           </Field>
@@ -270,13 +293,13 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
         </div>
 
         <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-xs text-pretty">
-          RunPod bills the org's account by the hour while the pod runs, at the price of the hardware and cloud
+          {title} bills the org's account by the hour while the pod runs, at the price of the hardware and cloud
           you pick. A stopped pod still costs its volume. Stop or terminate pods you do not use, or add sessions so the
           schedule stops them.
         </p>
 
         <FormActions error={create.error}>
-          <Button variant="primary" disabled={create.isPending || Boolean(problem)}>
+          <Button variant="primary" disabled={create.isPending || Boolean(problem) || !connected}>
             {create.isPending ? 'Creating...' : 'Create pod'}
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>

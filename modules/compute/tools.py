@@ -33,3 +33,19 @@ def compute_pods(db, org, caller):
 )
 def compute_pod_action(db, org, caller, pod_id: str, action: str):
     return service.act(db, int(org.id), pod_id, action)
+
+
+@tool(
+    "compute.pod_members",
+    description="Who may connect to a pod, and who got a certificate for it in the last 90 days, newest first.",
+    scope="compute:manage",
+    module="compute",
+    input_schema={
+        "type": "object",
+        "properties": {"pod_id": {"type": "string", "minLength": 1, "maxLength": 64}},
+        "required": ["pod_id"],
+        "additionalProperties": False,
+    },
+)
+def compute_pod_members(db, org, caller, pod_id: str):
+    return service.pod_members(db, int(org.id), pod_id)
