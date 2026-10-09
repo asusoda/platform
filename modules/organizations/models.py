@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from core.base import Base
+from core.db import Base
 
 
 class Organization(Base):
@@ -59,7 +59,7 @@ class Organization(Base):
 
 
 class OrganizationConfig(Base):
-    """Model for organization-specific configurations."""
+    """Table kept for schema compatibility; no code reads it."""
 
     __tablename__ = "organization_configs"
 
@@ -70,7 +70,6 @@ class OrganizationConfig(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Relationship
     organization = relationship("Organization", backref="configurations")
 
     def __repr__(self):
@@ -89,7 +88,7 @@ class OrganizationConfig(Base):
 
 
 class Officer(Base):
-    """Model for organization officers."""
+    """Table kept for schema compatibility; no code reads it."""
 
     __tablename__ = "officers"
 
@@ -99,5 +98,4 @@ class Officer(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
-    # Relationship
     organization = relationship("Organization", backref="officers")

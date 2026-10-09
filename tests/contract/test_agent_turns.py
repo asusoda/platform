@@ -5,19 +5,21 @@ import uuid
 
 import pytest
 
-from core.discord_directory import DiscordUnavailable
+from core.integrations.discord import DiscordUnavailable
 from tests.contract.conftest import FakeBot
 
 
 def _issue(prefix, *scopes):
+    from core.db import db_connect
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
         org_id = db.query(Organization.id).filter_by(prefix=prefix).scalar()
-        value, _ = machine_tokens.issue(db, organization_id=org_id, name="sparky", kind="agent", scopes=list(scopes))
+        value, _ = machine_tokens.issue(
+            db, organization_id=org_id, name="club-agent", kind="agent", scopes=list(scopes)
+        )
         return {"Authorization": f"Bearer {value}"}
     finally:
         db.close()

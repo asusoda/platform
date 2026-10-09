@@ -1,19 +1,42 @@
-"""HTML to text, and text to chunks. Ported from SparkyAI's scraper (ingest/extract.py, ingest/chunk.py)."""
+"""HTML to text, text to chunks, and the named extractors of crawled sources.
+
+A module registers an extractor under a name and sets that name on its sources. Extractors are
+registered when the module is imported; modules/manifest.py lists every job module, so a worker
+has them before any crawl runs.
+"""
 
 import re
+from collections.abc import Callable
 
 from bs4 import BeautifulSoup
+
+from modules.knowledge.fetch import Fetched
 
 _DROP_TAGS = ("script", "style", "noscript", "svg", "nav", "footer", "header", "form", "iframe")
 _BLOCK_TAGS = ("p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "br", "div", "section", "article")
 _WS = re.compile(r"[ \t\r\f\v]+")
 _BLANKS = re.compile(r"\n{3,}")
 
+EXTRACTORS: dict[str, Callable[[Fetched], str]] = {}
 
-def extract_text(html: bytes | str, *, main_only: bool = True) -> str:
-    """Visible text, one block per line, with navigation and boilerplate removed."""
+
+def register(name: str, func: Callable[[Fetched], str]) -> None:
+    EXTRACTORS[name] = func
+
+
+def extractor(name: str | None) -> Callable[[Fetched], str] | None:
+    """The extractor registered under name, or None."""
+    return EXTRACTORS.get(name) if name else None
+
+
+def extract_text(html: bytes | str, *, main_only: bool = True, keep_forms: bool = False) -> str:
+    """Visible text, one block per line, with navigation and boilerplate removed.
+
+    keep_forms keeps form elements, for pages that render their results inside a form.
+    """
     soup = BeautifulSoup(html, "lxml")
-    for tag in soup(_DROP_TAGS):
+    dropped = tuple(t for t in _DROP_TAGS if not (keep_forms and t == "form"))
+    for tag in soup(dropped):
         tag.decompose()
     root = soup
     if main_only:
