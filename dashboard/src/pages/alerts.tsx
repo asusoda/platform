@@ -25,21 +25,44 @@ import {
 import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
-import type { AlertFeed, AlertHistory, AlertRun } from '../lib/types';
+import type { AlertFeed, AlertHistory, AlertPreset, AlertRun } from '../lib/types';
 
 type Draft = { key: string; kind: AlertFeed['kind']; repo: string; label: string; webhook: string; every: string };
 const EMPTY: Draft = { key: '', kind: 'github_jobs', repo: '', label: 'Internship', webhook: '', every: '3' };
 
 function NewFeed({ prefix, onDone }: { prefix: string; onDone: () => void }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [preset, setPreset] = useState<AlertPreset | null>(null);
   const client = useQueryClient();
+  const presets = useQuery({
+    queryKey: ['alerts', prefix, 'presets'],
+    queryFn: () => api<{ presets: AlertPreset[] }>(`/api/alerts/${prefix}/presets`),
+  });
+  const choices = (presets.data?.presets ?? []).filter((p) => !p.added);
+  const pick = (id: string) => {
+    const chosen = choices.find((p) => `${p.pack}/${p.key}` === id) ?? null;
+    setPreset(chosen);
+    if (!chosen) return setDraft({ ...EMPTY, webhook: draft.webhook });
+    setDraft({
+      key: chosen.key,
+      kind: chosen.kind,
+      repo: String(chosen.config.repo ?? ''),
+      label: String(chosen.config.label ?? 'Job'),
+      webhook: draft.webhook,
+      every: String(chosen.every_hours),
+    });
+  };
+  const config = () => {
+    const base = preset && preset.kind === draft.kind ? preset.config : {};
+    return draft.kind === 'github_jobs' ? { ...base, repo: draft.repo, label: draft.label } : base;
+  };
   const create = useMutation({
     mutationFn: () =>
       send(`/api/alerts/${prefix}/feeds/${draft.key}`, 'PUT', {
         kind: draft.kind,
         webhook_url: draft.webhook,
         every_hours: Number(draft.every),
-        config: draft.kind === 'github_jobs' ? { repo: draft.repo, label: draft.label } : {},
+        config: config(),
       }),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ['alerts', prefix] });
@@ -57,6 +80,20 @@ function NewFeed({ prefix, onDone }: { prefix: string; onDone: () => void }) {
           create.mutate();
         }}
       >
+        {choices.length ? (
+          <div className="sm:col-span-2">
+            <Field label="Start from" hint="Feeds that packs offer">
+              <Select value={preset ? `${preset.pack}/${preset.key}` : ''} onChange={(e) => pick(e.target.value)}>
+              <option value="">A blank feed</option>
+              {choices.map((p) => (
+                <option key={`${p.pack}/${p.key}`} value={`${p.pack}/${p.key}`}>
+                  {p.title} ({p.pack_title})
+                </option>
+              ))}
+              </Select>
+            </Field>
+          </div>
+        ) : null}
         <Field label="Key" hint="Lowercase letters, digits and dashes">
           <Input value={draft.key} onChange={set('key')} placeholder="internships" required />
         </Field>

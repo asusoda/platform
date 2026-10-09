@@ -86,9 +86,9 @@ Each org sets these on the Knowledge page (`GET` and `PUT /api/dashboard/<org>/k
 
 A new passage size applies when a source is indexed again. `POST /api/dashboard/<org>/knowledge/reindex` starts the `knowledge.reindex` job, which crawls every crawled source of the org with `force`. Upload a document again to split it again.
 
-## Source packs
+## Packs
 
-A source pack is a named set of crawled sources that a module adds in one step, such as the ASU pages of the `asu` module. A module registers a pack with `modules.knowledge.packs.register`, with a key prefix and a sync function. The pack owns the org's sources whose keys start with that prefix. The Knowledge page of the dashboard lists the packs (`GET /api/dashboard/<org>/knowledge/packs`) and syncs one (`POST /api/dashboard/<org>/knowledge/packs/<name>/sync`), which also starts the crawl job.
+A [pack](./packs.md) is a set of crawled pages and live queries that an org adds in one step, such as the ASU pack. The pack owns the org's sources whose keys start with `<pack>/`. The Knowledge page of the dashboard lists the packs (`GET /api/dashboard/<org>/knowledge/packs`) and syncs one (`POST /api/dashboard/<org>/knowledge/packs/<name>/sync`), which also starts the crawl job.
 
 The dashboard groups sources by domain: the part of the key before the first `/`.
 

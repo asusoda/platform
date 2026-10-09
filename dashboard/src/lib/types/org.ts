@@ -1,12 +1,6 @@
 // Orgs, their settings, secrets, tokens and the audit log.
 
-export type Organization = {
-  id: number;
-  name: string;
-  prefix: string;
-  guild_id: string;
-  icon_url: string | null;
-};
+export type Organization = { id: number; name: string; prefix: string; guild_id: string; icon_url: string | null };
 
 export type OrganizationDetail = Organization & {
   description: string | null;
@@ -18,28 +12,14 @@ export type OrganizationDetail = Organization & {
   updated_at: string | null;
 };
 
-export type Branding = {
-  logo_url: string | null;
-  accent_color: string | null;
-  website_url: string | null;
-};
+export type Branding = { logo_url: string | null; accent_color: string | null; website_url: string | null };
 
-export type ModuleState = {
-  name: string;
-  description: string;
-  enabled: boolean;
-};
+export type ModuleState = { name: string; description: string; enabled: boolean };
 
 export type SecretState = { name: string; description: string; set: boolean };
 
 // A connected service whose tools a token can get, with its scopes and the limits it takes.
-export type TokenIntegration = {
-  key: string;
-  title: string;
-  connected: boolean;
-  scopes: string[];
-  limits: string[];
-};
+export type TokenIntegration = { key: string; title: string; connected: boolean; scopes: string[]; limits: string[] };
 
 export type MachineToken = {
   id: number;

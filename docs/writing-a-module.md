@@ -1,6 +1,6 @@
 # Writing a module
 
-This page lists the files a module can have, the places to register it, and the rules that `make ci` checks. The `new-module` skill in `.agents/skills/` has the full procedure.
+This page lists the files a module can have, the places to register it, and the rules that `make ci` checks. The `new-module` skill in `.agents/skills/` has the full procedure. Content for one campus or topic, such as pages to crawl and live queries, is a pack: see [packs/README.md](../packs/README.md).
 
 ## Files
 

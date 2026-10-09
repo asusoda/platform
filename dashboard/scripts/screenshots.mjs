@@ -2,19 +2,16 @@
 // Run with npm run screenshots. Needs Playwright with Chromium: a global install, or npm i --no-save playwright.
 // PLAYWRIGHT_CHROMIUM sets the Chromium binary when the installed browser does not match the Playwright version.
 
-import { createRequire } from "node:module";
-import { execSync } from "node:child_process";
-import { mkdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { preview } from "vite";
-import { fixtures, ORG } from "./fixtures.mjs";
+import { createRequire } from 'node:module';
+import { execSync } from 'node:child_process';
+import { mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { preview } from 'vite';
+import { fixtures, ORG } from './fixtures.mjs';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const out = resolve(
-  root,
-  process.env.SCREENSHOT_DIR ?? "../site/public/screenshots",
-);
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const out = resolve(root, process.env.SCREENSHOT_DIR ?? '../site/public/screenshots');
 const WIDTH = 1440;
 const HEIGHT = 900;
 const QUALITY = 0.86;
@@ -22,93 +19,81 @@ const SCALE = 2;
 
 // Each screen is a dashboard path and, optionally, a step that runs before the screenshot.
 const SCREENS = [
-  { name: "overview", path: "" },
-  { name: "compute", path: "compute" },
+  { name: 'overview', path: '' },
+  { name: 'compute', path: 'compute' },
   {
-    name: "tokens",
-    path: "tokens",
+    name: 'tokens',
+    path: 'tokens',
     before: async (page) => {
-      await page.getByRole("button", { name: "New token" }).click();
-      await page.getByPlaceholder("club-agent").fill("events-agent");
-      await page.getByLabel("knowledge:read").check();
-      await page.getByLabel("calendar:read").check();
-      await page.getByLabel("github:read").check();
-      await page.getByPlaceholder("my-org/website, my-org/*").fill("my-org/*");
+      await page.getByRole('button', { name: 'New token' }).click();
+      await page.getByPlaceholder('club-agent').fill('events-agent');
+      await page.getByLabel('knowledge:read').check();
+      await page.getByLabel('calendar:read').check();
+      await page.getByLabel('github:read').check();
+      await page.getByPlaceholder('my-org/website, my-org/*').fill('my-org/*');
     },
   },
-  { name: "settings", path: "settings" },
+  { name: 'settings', path: 'settings' },
 ];
 
 async function loadPlaywright() {
   try {
-    return await import("playwright");
+    return await import('playwright');
   } catch {
-    const globalRoot = execSync("npm root -g", { encoding: "utf8" }).trim();
-    return createRequire(join(globalRoot, "noop.js"))("playwright");
+    const globalRoot = execSync('npm root -g', { encoding: 'utf8' }).trim();
+    return createRequire(join(globalRoot, 'noop.js'))('playwright');
   }
 }
 
 async function main() {
   const { chromium } = await loadPlaywright();
-  const server = await preview({
-    root,
-    preview: { port: 4179, strictPort: true },
-    logLevel: "warn",
-  });
-  const base = "http://localhost:4179";
-  const browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
-  });
+  const server = await preview({ root, preview: { port: 4179, strictPort: true }, logLevel: 'warn' });
+  const base = 'http://localhost:4179';
+  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined });
   mkdirSync(out, { recursive: true });
   try {
-    for (const theme of ["light", "dark"]) {
+    for (const theme of ['light', 'dark']) {
       const context = await browser.newContext({
         viewport: { width: WIDTH, height: HEIGHT },
         deviceScaleFactor: SCALE,
         colorScheme: theme,
-        reducedMotion: "reduce",
+        reducedMotion: 'reduce',
       });
       await context.addInitScript((t) => {
-        localStorage.setItem("platform.access_token", "screenshot-placeholder");
-        localStorage.setItem("platform.theme", t);
+        localStorage.setItem('platform.access_token', 'screenshot-placeholder');
+        localStorage.setItem('platform.theme', t);
       }, theme);
       const data = fixtures();
-      await context.route("**/api/**", (route) => {
+      await context.route('**/api/**', (route) => {
         const url = new URL(route.request().url());
         if (url.origin === base) return route.fallback();
         const body = data[url.pathname];
-        if (body === undefined)
-          return route.fulfill({
-            status: 404,
-            json: { error: `No fixture for ${url.pathname}` },
-          });
+        if (body === undefined) return route.fulfill({ status: 404, json: { error: `No fixture for ${url.pathname}` } });
         return route.fulfill({ status: 200, json: body });
       });
       const page = await context.newPage();
       for (const screen of SCREENS) {
-        await page.goto(
-          `${base}/${ORG.prefix}${screen.path ? `/${screen.path}` : ""}`,
-        );
-        await page.waitForLoadState("networkidle");
+        await page.goto(`${base}/${ORG.prefix}${screen.path ? `/${screen.path}` : ''}`);
+        await page.waitForLoadState('networkidle');
         if (screen.before) await screen.before(page);
         await page.evaluate(() => document.fonts.ready);
         await page.mouse.move(0, HEIGHT - 1);
-        const png = await page.screenshot({ type: "png" });
+        const png = await page.screenshot({ type: 'png' });
         const webp = await page.evaluate(
           async ({ b64, quality }) => {
             const image = new Image();
             image.src = `data:image/png;base64,${b64}`;
             await image.decode();
-            const canvas = document.createElement("canvas");
+            const canvas = document.createElement('canvas');
             canvas.width = image.width;
             canvas.height = image.height;
-            canvas.getContext("2d").drawImage(image, 0, 0);
-            return canvas.toDataURL("image/webp", quality).split(",")[1];
+            canvas.getContext('2d').drawImage(image, 0, 0);
+            return canvas.toDataURL('image/webp', quality).split(',')[1];
           },
-          { b64: png.toString("base64"), quality: QUALITY },
+          { b64: png.toString('base64'), quality: QUALITY },
         );
         const file = join(out, `${screen.name}-${theme}.webp`);
-        writeFileSync(file, Buffer.from(webp, "base64"));
+        writeFileSync(file, Buffer.from(webp, 'base64'));
         console.log(`${file} ${Math.round(statSync(file).size / 1024)} KB`);
       }
       await context.close();

@@ -35,7 +35,7 @@ This page lists what is left to build and the known faults. The other pages desc
 | `slack` | Slack as a second chat platform |
 | `sponsors`, `hackathon` | Sponsor records and hackathon logistics |
 
-Campus source modules such as `asu` are examples. Another campus adds its own pages and live queries the same way.
+Campus content is a pack in `packs/`, such as `packs/asu`. Another campus adds its own pack the same way.
 
 ## Cleanup
 

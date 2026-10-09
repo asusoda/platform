@@ -19,6 +19,16 @@ def alerts_list(db, org, caller):
 
 
 @tool(
+    "alerts.presets",
+    description="Feeds that packs offer, with the kind and config to pass to alerts.save.",
+    scope="alerts:manage",
+    module="alerts",
+)
+def alerts_presets(db, org, caller):
+    return {"presets": service.presets(db, int(org.id))}
+
+
+@tool(
     "alerts.history",
     description="A feed's recent runs and the items it posted.",
     scope="alerts:manage",
