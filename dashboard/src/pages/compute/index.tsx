@@ -34,14 +34,14 @@ function MissingKey({ prefix }: { prefix: string }) {
   return (
     <EmptyState
       icon={KeyRound}
-      title="Add the org's RunPod API key"
+      title="Connect a hosting provider"
       action={
         <Link to={`/${prefix}/integrations`} className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg shadow-xs hover:opacity-85">
-          Connect RunPod
+          Open Integrations
         </Link>
       }
     >
-      Pods run on the org's own RunPod account. Connect it on the Integrations page.
+      Pods run on the org's own account at a hosting provider, such as RunPod. Connect it on the Integrations page.
     </EmptyState>
   );
 }
@@ -126,7 +126,7 @@ export function MemberPodsTab({ tabs }: { tabs: ReactNode }) {
     <>
       <PageHeader
         title="Hosting"
-        description="GPU and CPU pods on the org's RunPod account that members connect to with the compute CLI."
+        description="GPU and CPU pods on the org's hosting provider accounts that members connect to with the compute CLI."
         action={
           <div className="flex gap-2">
             <Button onClick={() => setEditing(true)} aria-label="Pod settings">
@@ -151,7 +151,7 @@ export function MemberPodsTab({ tabs }: { tabs: ReactNode }) {
         <Card>
           <CardHeader
             title="Pods"
-            hint={pods.data ? `${list.length} ${list.length === 1 ? 'pod' : 'pods'} · status from RunPod, refreshed every 15 seconds` : undefined}
+            hint={pods.data ? `${list.length} ${list.length === 1 ? 'pod' : 'pods'} · status from the provider, refreshed every 15 seconds` : undefined}
             action={pods.isFetching && pods.data ? <Badge tone="active">Refreshing</Badge> : null}
           />
           {pods.isLoading ? (

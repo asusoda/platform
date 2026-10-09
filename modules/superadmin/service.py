@@ -6,6 +6,7 @@ from typing import Any
 from core.config import config
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
+from modules.organizations import service as organizations
 from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
 
@@ -65,12 +66,12 @@ def prefix_for(name: str, guild_id: object) -> str:
 
 
 def new_organization(guild: dict) -> Organization:
-    """An unsaved org for a guild, with a prefix from the guild name and default settings."""
+    """An unsaved org for a guild, with a prefix from the guild name, default settings and new-org module switches."""
     return Organization(
         name=guild["name"],
         guild_id=guild["id"],
         prefix=prefix_for(guild["name"], guild["id"]),
         description=f"Discord server: {guild['name']}",
         icon_url=guild["icon_url"],
-        config=OrganizationSettings().to_dict(),
+        config={**OrganizationSettings().to_dict(), "modules": organizations.new_org_switches()},
     )

@@ -1,6 +1,6 @@
 # compute
 
-Runs GPU and CPU pods on an org's own RunPod account that members connect to over SSH. Officers create, share, start, stop and schedule pods and manage their files. Members get a short-lived SSH certificate from the compute CLI.
+Runs GPU and CPU pods on an org's own hosting provider account that members connect to over SSH. Each pod keeps its `provider`, and calls go through `core/hosting.py`. RunPod is the only provider. Officers create, share, start, stop and schedule pods and manage their files. Members get a short-lived SSH certificate from the compute CLI.
 
 Terminate also forgets a pod that was already deleted on RunPod, such as one deleted in the RunPod console.
 
@@ -10,7 +10,7 @@ Terminate also forgets a pod that was already deleted on RunPod, such as one del
 | --- | --- |
 | `api.py` | Officer routes under `/<org_prefix>/pods` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me`, and the CLI sign-in through Discord |
 | `tools.py` | The `compute.*` tools for agents |
-| `service.py` | Pods on RunPod, sharing and member connect; reads the org secret `runpod_api_key` |
+| `service.py` | Pods on their provider, sharing and member connect |
 | `ssh.py` | The org's SSH keys and short-lived certificates |
 | `files.py` | File operations on a pod over SFTP, as root with the org's backend key |
 | `presence.py` | Live SSH sessions on a pod, read with `ps` over the same root connection |

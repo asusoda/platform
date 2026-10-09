@@ -8,14 +8,58 @@ export const ORG = { id: 1, name: 'Robotics Club', prefix: 'robotics', guild_id:
 
 export const BRANDING = { logo_url: null, accent_color: '#2563eb', website_url: 'https://robotics.example.org' };
 
-const MODULES = [
+export const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
   { name: 'storefront', description: 'Merch store paid with points', enabled: true },
   { name: 'calendar', description: 'Notion to Google Calendar sync and the public events feed', enabled: true },
   { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: true },
   { name: 'compute', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
   { name: 'alerts', description: 'Job and hackathon listings posted to Discord webhooks', enabled: true },
+  { name: 'uptime', description: 'Checks of sites and Hosting apps, with an event when one goes down or up', enabled: true },
 ];
+
+// The modules on the Modules page, as GET /api/dashboard/<org>/modules returns them. enabled comes from MODULES.
+const need = (key, label, connected, extra = {}) => ({ key, label, kind: 'integration', optional: false, connected, ...extra });
+const CATALOG = [
+  { name: 'games', title: 'Games', description: "Jeopardy games in the org's Discord server.", category: 'Bots', switchable: false, needs: [need('discord', 'Discord bot', true)], packs: [] },
+  { name: 'leetcode', title: 'LeetCode', description: "Posts the daily LeetCode question in a Discord channel and checks who solved it.", category: 'Bots', switchable: true, needs: [need('discord', 'Discord bot', true)], packs: [] },
+  { name: 'agents', title: 'Agents', description: "Conversations, memories and pending actions of the org's agents.", category: 'AI and agents', switchable: false, needs: [need('openrouter', 'OpenRouter', false, { optional: true })], packs: [] },
+  { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI and agents', switchable: false, needs: [], packs: [] },
+  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'AI and agents', switchable: false, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], packs: ['asu'] },
+  { name: 'mcp', title: 'MCP', description: "The MCP server that gives agents and apps the tools of each module.", category: 'AI and agents', switchable: false, needs: [], packs: [] },
+  { name: 'packs', title: 'Packs', description: "Loads content packs: campus pages and live queries for knowledge, and feeds for alerts.", category: 'AI and agents', switchable: false, needs: [need('searxng', 'Web search (SearXNG)', true, { optional: true })], packs: ['asu', 'careers'] },
+  { name: 'accounts', title: 'Member accounts', description: "Members connect Canvas, Google and Outlook, and agents read them for the member.", category: 'Members', switchable: false, needs: [need('ACCOUNTS_BASE_URL', 'ACCOUNTS_BASE_URL setting', true, { kind: 'setting' })], packs: [] },
+  { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Members', switchable: true, needs: [], packs: [] },
+  { name: 'storefront', title: 'Store', description: "A merch store that members pay for with points.", category: 'Members', switchable: true, needs: [], packs: [] },
+  { name: 'alerts', title: 'Alerts', description: "Job and hackathon listings posted to Discord webhooks.", category: 'Automations', switchable: true, needs: [], packs: ['careers'] },
+  { name: 'calendar', title: 'Calendar sync', description: "Syncs a Notion events database to Google Calendar and serves the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], packs: [] },
+  { name: 'compute', title: 'Member pods', description: "GPU and CPU pods on the org's RunPod account that members SSH into.", category: 'Infrastructure', switchable: true, needs: [need('runpod', 'RunPod', true)], packs: [] },
+  { name: 'runpod', title: 'Hosting', description: "Deploys the org's own apps to a hosting provider, checks their health and rolls them back.", category: 'Infrastructure', switchable: false, needs: [need('runpod', 'RunPod', true), need('github', 'GitHub', true, { optional: true })], packs: [] },
+  { name: 'uptime', title: 'Uptime', description: "Checks the org's sites and Hosting apps on a schedule and sends an event when one goes down or up.", category: 'Infrastructure', switchable: true, needs: [], packs: [] },
+];
+const CATEGORIES = ['Bots', 'AI and agents', 'Members', 'Automations', 'Infrastructure'];
+const PACKS = {
+  asu: { name: 'asu', title: 'Arizona State University', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.' },
+  careers: { name: 'careers', title: 'Internships and hackathons', description: 'Alert feeds for software internships, new grad roles and upcoming hackathons.' },
+};
+
+// The body of GET /api/dashboard/<org>/modules for the given switch states.
+export function moduleCatalog(states = MODULES) {
+  const enabled = Object.fromEntries(states.map((m) => [m.name, m.enabled]));
+  return {
+    categories: CATEGORIES,
+    modules: CATALOG.map((m) => ({
+      ...m,
+      enabled: enabled[m.name] ?? true,
+      ready: m.needs.every((n) => n.connected || n.optional),
+      packs: m.packs.map((p) => PACKS[p]),
+    })),
+  };
+}
+
+// The titles of the modules that need each integration.
+const UNLOCKS = CATALOG.flatMap((m) => m.needs.filter((n) => n.kind === 'integration').map((n) => [n.key, m.title]));
+const unlocks = (key) => UNLOCKS.filter(([k]) => k === key).map(([, title]) => title).sort();
 
 const SCOPES = {
   'knowledge:read': "Search the organization's knowledge and public sources",
@@ -256,6 +300,7 @@ export function fixtures(now = Date.now()) {
   const livePods = [
     {
       id: '7kq2x9ab',
+      provider: 'runpod',
       name: 'Workshop GPU (A40)',
       status: 'RUNNING',
       is_public: true,
@@ -267,6 +312,7 @@ export function fixtures(now = Date.now()) {
     },
     {
       id: 'm3v8c1tz',
+      provider: 'runpod',
       name: 'Rover vision training',
       status: 'RUNNING',
       is_public: false,
@@ -278,6 +324,7 @@ export function fixtures(now = Date.now()) {
     },
     {
       id: 'q9w4e2rd',
+      provider: 'runpod',
       name: 'Simulation (CPU)',
       status: 'EXITED',
       is_public: false,
@@ -426,6 +473,7 @@ export function fixtures(now = Date.now()) {
       description: 'Scouting site for match days',
       url: 'https://scout.robotics.example.org',
       host: 'runpod',
+      provider: 'runpod',
       manifest: { cpu: { id: 'cpu5c', vcpuCount: 4 }, health: { path: '/healthz', port: 3000 }, image: 'ghcr.io/robotics-club/match-scout', ports: ['3000/http'] },
       repo: 'robotics-club/match-scout',
       manifest_path: 'deploy/platform.app.yaml',
@@ -440,6 +488,7 @@ export function fixtures(now = Date.now()) {
       description: null,
       url: null,
       host: 'runpod',
+      provider: 'runpod',
       manifest: { cpu: { id: 'cpu3c', vcpuCount: 2 }, health: { path: '/health', port: 8000 }, image: 'ghcr.io/robotics-club/parts-inventory', ports: ['8000/http'] },
       repo: null,
       manifest_path: null,
@@ -454,6 +503,7 @@ export function fixtures(now = Date.now()) {
       description: 'Reads rover telemetry and answers questions in Discord',
       url: null,
       host: 'runpod',
+      provider: 'runpod',
       manifest: telemetryManifest,
       repo: 'robotics-club/rover-telemetry',
       manifest_path: 'platform.app.yaml',
@@ -643,9 +693,9 @@ export function fixtures(now = Date.now()) {
       },
       apps: {
         apps: [
-          { name: 'rover-telemetry', repo: 'robotics-club/rover-telemetry', tag: 'v1.8.2', status: 'healthy', deployed_at: at(-2 * HOUR), error: null },
-          { name: 'parts-inventory', repo: 'robotics-club/parts-inventory', tag: 'v0.4.0', status: 'healthy', deployed_at: at(-6 * DAY), error: null },
-          { name: 'match-scout', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
+          { name: 'rover-telemetry', provider: 'runpod', repo: 'robotics-club/rover-telemetry', tag: 'v1.8.2', status: 'healthy', deployed_at: at(-2 * HOUR), error: null },
+          { name: 'parts-inventory', provider: 'runpod', repo: 'robotics-club/parts-inventory', tag: 'v0.4.0', status: 'healthy', deployed_at: at(-6 * DAY), error: null },
+          { name: 'match-scout', provider: 'runpod', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
         ],
       },
       knowledge: {
@@ -873,6 +923,8 @@ export function fixtures(now = Date.now()) {
     ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
     ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
     ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+    ['monitor.down', 'Monitors down', 'An uptime monitor finds its address down.', 'uptime'],
+    ['monitor.up', 'Monitors up', 'An uptime monitor that was down finds its address up again.', 'uptime'],
     ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
   ].map(([key, label, description, module]) => ({ key, label, description, module }));
   const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
@@ -892,6 +944,45 @@ export function fixtures(now = Date.now()) {
     webhook(2, 'Infra', '9027', ['pod.started', 'pod.stopped', 'app.deployed'], true, -2 * HOUR, null, -21 * DAY, 'daniel'),
     webhook(3, 'Store desk', '3315', ['order.created', 'member.joined'], true, -5 * DAY, 'Discord refused the message with status 404', -60 * DAY, 'maya'),
     webhook(4, 'Old ops channel', '7781', ['errors'], false, -45 * DAY, null, -120 * DAY, 'ava'),
+  ];
+
+  // Uptime monitors. down lists the bar slots (0 is the oldest of 30) whose check was down.
+  const monitor = (id, name, kind, target, every, enabled, latency, day, week, down = [], error = null) => {
+    const recent = Array.from({ length: 30 }, (_, i) => {
+      const up = !down.includes(i);
+      return {
+        checked_at: at(-(29 - i) * every * MINUTE - 20_000),
+        up,
+        status_code: up ? 200 : error ? 503 : null,
+        latency_ms: up ? latency + ((i * 37) % 23) - 11 : null,
+        error: up ? null : (error ?? 'No answer in 10 seconds'),
+      };
+    });
+    const last = recent[29];
+    return {
+      id,
+      name,
+      target_kind: kind,
+      target,
+      expected_status: '2xx',
+      timeout_seconds: 10,
+      interval_minutes: every,
+      enabled,
+      state: last.up ? 'up' : 'down',
+      state_since: at(-(last.up ? 3 * DAY : 4 * every * MINUTE)),
+      last_checked_at: last.checked_at,
+      last_check: last,
+      uptime_24h: day,
+      uptime_7d: week,
+      recent,
+    };
+  };
+  const monitors = [
+    monitor(3, 'Docs site', 'url', 'https://docs.robotics.example.org', 10, false, 98, 100, 100),
+    monitor(2, 'Match scout', 'app', 'match-scout', 5, true, 241, 99.31, 99.72, [11, 12]),
+    monitor(4, 'Parts inventory API', 'app', 'parts-inventory', 5, true, 310, 97.22, 99.1, [26, 27, 28, 29], 'Status 503, expected 2xx'),
+    monitor(5, 'Rover telemetry', 'app', 'rover-telemetry', 1, true, 187, 100, 99.98),
+    monitor(1, 'Website', 'url', 'https://robotics.example.org', 5, true, 122, 100, 99.95, [3]),
   ];
 
   const orgErrors = [
@@ -1130,8 +1221,9 @@ export function fixtures(now = Date.now()) {
     '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
+    [`/api/dashboard/${ORG.prefix}/modules`]: moduleCatalog(),
     [`/api/dashboard/${ORG.prefix}/integrations`]: {
-      integrations,
+      integrations: integrations.map((i) => ({ ...i, unlocks: unlocks(i.key) })),
       oauth: {
         notion: { title: 'Notion', connected: true, connected_by: 'ash', connected_at: at(-2 * DAY), blocked: null },
         google: { title: 'Google', connected: false, connected_by: null, connected_at: null, blocked: null },
@@ -1145,6 +1237,8 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
     '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
+    [`/api/uptime/${ORG.prefix}/monitors`]: { monitors },
+    [`/api/uptime/${ORG.prefix}/targets`]: { apps: appList.map((a) => ({ name: a.name, url: a.url })) },
     [`/api/dashboard/${ORG.prefix}/webhooks`]: {
       webhooks,
       events: webhookEvents,
@@ -1174,6 +1268,7 @@ export function fixtures(now = Date.now()) {
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS, uses: SCOPE_USES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
+    [`/api/dashboard/${ORG.prefix}/hosting/providers`]: { providers: [{ name: 'runpod', title: 'RunPod', integration: 'runpod', configured: true }] },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry`]: { ...appList[2], deployments: telemetryDeployments },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/pod`]: { pod: telemetryPod },

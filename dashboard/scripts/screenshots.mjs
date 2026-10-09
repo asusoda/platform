@@ -80,6 +80,14 @@ const SCREENS = [
   { name: 'notifications', path: 'notifications' },
   { name: 'settings', path: 'settings' },
   { name: 'webhooks', path: 'webhooks' },
+  { name: 'uptime', path: 'uptime' },
+  {
+    name: 'uptime-edit',
+    path: 'uptime',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'Edit Parts inventory API' }).click();
+    },
+  },
   {
     name: 'knowledge-search',
     path: 'knowledge',

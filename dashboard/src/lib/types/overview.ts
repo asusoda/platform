@@ -16,6 +16,7 @@ export type AlertFeedSummary = {
 
 export type AppSummary = {
   name: string;
+  provider: string;
   repo: string | null;
   tag: string | null;
   status: string | null;

@@ -1,6 +1,6 @@
 """Command-line tools: `flask --app main <group> <command>`.
 
-org create     create an organization, optionally with modules turned off
+org create     create an organization with the modules of a new org, optionally with more turned on or off
 org list       list organizations and their module switches
 org modules    turn modules on or off for an organization
 jobs list      list registered jobs
@@ -32,9 +32,10 @@ def _csv(value: str | None) -> tuple[str, ...]:
 @click.option("--guild-id", required=True, help="Discord server id")
 @click.option("--officer-role-id", default=None, help="Discord role id that marks officers")
 @click.option("--description", default=None)
+@click.option("--on", "modules_on", default="", help="Optional modules to turn on, comma-separated")
 @click.option("--off", "modules_off", default="", help="Optional modules to turn off, comma-separated")
-def org_create(name, prefix, guild_id, officer_role_id, description, modules_off):
-    """Create an organization."""
+def org_create(name, prefix, guild_id, officer_role_id, description, modules_on, modules_off):
+    """Create an organization. Optional modules start off, except those in NEW_ORG_MODULES."""
     from modules.organizations import service
 
     db = db_connect.SessionLocal()
@@ -46,6 +47,7 @@ def org_create(name, prefix, guild_id, officer_role_id, description, modules_off
             guild_id=guild_id,
             officer_role_id=officer_role_id,
             description=description,
+            modules_on=_csv(modules_on),
             modules_off=_csv(modules_off),
         )
         click.echo(f"Created {org.name} (id {org.id}, prefix {org.prefix})")

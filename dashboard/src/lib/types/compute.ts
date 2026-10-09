@@ -1,9 +1,10 @@
 // Compute pods, sessions and files.
 
-// A pod with its live RunPod status. machine is RunPod's machine object, passed through as is.
+// A pod with its live status from its hosting provider. machine is the provider's machine object, passed through as is.
 export type Pod = {
   id: string;
   name: string;
+  provider: string;
   status: string | null;
   is_public: boolean;
   allowed_users: string[];
@@ -13,15 +14,17 @@ export type Pod = {
   cost_per_hour: number | string | null;
 };
 
+// The create body. The hardware fields follow the RunPod v2 API.
 export type NewPod = {
+  provider: string;
   name?: string;
   image_name?: string;
   use_cpu_only: boolean;
   gpu_type_id?: string;
   cpu_flavor?: string;
   vcpu_count?: number;
-  cloud_type: 'COMMUNITY' | 'SECURE';
-  volume_in_gb: number;
+  cloud_type?: 'COMMUNITY' | 'SECURE';
+  volume_in_gb?: number;
   container_disk_in_gb: number;
   volume_mount_path: string;
   env: Record<string, string>;

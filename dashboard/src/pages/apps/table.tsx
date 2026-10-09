@@ -1,18 +1,17 @@
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import { Badge, cx, Dot, Mono, Table, Td, Th, Tr } from '../../components/ui';
 import { deployTone, timeAgo } from '../../lib/format';
-import type { App } from '../../lib/types';
+import type { App, HostingProvider } from '../../lib/types';
+import { providerTitle } from '../hosting/providers';
 import { actorLabel, DEFAULT_MANIFEST_PATH } from './shared';
 
-const HOSTS: Record<App['host'], string> = { runpod: 'RunPod' };
-
-export function AppTable({ apps, onOpen }: { apps: App[]; onOpen: (name: string) => void }) {
+export function AppTable({ apps, providers, onOpen }: { apps: App[]; providers?: HostingProvider[]; onOpen: (name: string) => void }) {
   return (
     <Table>
       <thead>
         <tr>
           <Th>App</Th>
-          <Th className="hidden lg:table-cell">Host</Th>
+          <Th className="hidden lg:table-cell">Provider</Th>
           <Th className="hidden sm:table-cell">Tag</Th>
           <Th>Status</Th>
           <Th className="hidden md:table-cell">Last deploy</Th>
@@ -66,7 +65,7 @@ export function AppTable({ apps, onOpen }: { apps: App[]; onOpen: (name: string)
                 </div>
               </Td>
               <Td className="hidden lg:table-cell">
-                <Badge>{HOSTS[app.host] ?? app.host}</Badge>
+                <Badge>{providerTitle(providers, app.provider ?? app.host)}</Badge>
               </Td>
               <Td className="hidden max-w-40 sm:table-cell">
                 <Mono className="block truncate text-fg">{app.current_tag ?? '-'}</Mono>

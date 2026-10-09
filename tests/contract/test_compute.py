@@ -55,7 +55,7 @@ def runpod(app, monkeypatch):
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     fake = FakeRunPod()
-    monkeypatch.setattr(service, "_client", lambda db, org_id: fake)
+    monkeypatch.setattr(service, "_client", lambda db, org_id, provider="runpod": fake)
     yield fake
     db = db_connect.SessionLocal()
     db.query(ComputeSession).delete()
@@ -382,7 +382,7 @@ def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
     assert len(client.get(base, headers=officer_headers).get_json()["sessions"]) == 2
 
     db = db_connect.SessionLocal()
-    run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id: runpod)  # noqa: E731
+    run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id, provider: runpod)  # noqa: E731
     assert run(-30) == {"started": [], "stopped": [], "failed": []}
     assert run(-5)["started"] == ["pod1"]
     assert runpod.pods["pod1"]["status"] == "RUNNING"
@@ -407,7 +407,7 @@ def test_a_running_pod_is_stopped_after_its_session_and_others_are_left_alone(cl
     client.post("/api/compute/soda/pods/pod1/sessions", json=body, headers=officer_headers)
     db = db_connect.SessionLocal()
     now = datetime.datetime(2099, 10, 9, 0, 0)
-    run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id: runpod)  # noqa: E731
+    run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id, provider: runpod)  # noqa: E731
     assert run(now)["started"] == []
     assert run(now + datetime.timedelta(hours=2))["stopped"] == ["pod1"]
     assert runpod.pods["pod2"]["status"] == "RUNNING"

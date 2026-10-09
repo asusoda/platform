@@ -23,6 +23,8 @@ export type Integration = {
   source: 'org' | 'deployment' | null;
   testable: boolean;
   used_by: string[];
+  // The titles of the modules on the Modules page that need the integration
+  unlocks?: string[];
 };
 
 // An OAuth sign-in that gives agents the tools of the service's own MCP server.
