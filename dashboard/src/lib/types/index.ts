@@ -14,3 +14,4 @@ export type * from './store';
 export type * from './notifications';
 export type * from './integrations';
 export type * from './webhooks';
+export type * from './uptime';

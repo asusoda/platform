@@ -40,6 +40,7 @@ The dashboard has one React Query client, made in `dashboard/src/lib/query-clien
 | Hosting | What the org runs on its hosting providers, in two tabs. RunPod is the only provider. Each tab shows only when its module is on. Services (`?tab=services`, `runpod` module): the org's bots, agents, sites and services, grouped by kind, with the provider of each. Register app has a Provider select. Register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete. Member pods (`?tab=pods`, `compute` module): the pods that members connect to, with their provider and live status. New pod has a Provider select, and the RunPod hardware fields show when RunPod is selected. Create, start, stop, restart, terminate, change who can connect, sessions, files and pod settings |
 | Knowledge | Packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
 | MCP | How to connect an agent to the MCP server, agent tokens, linked accounts, and conversation, memory and member counts. It shows no conversation text |
+| Uptime | Monitors with state, uptime over 24 hours and 7 days, last latency and the last 30 checks. Add, edit, pause, check now and delete. `uptime` module |
 | Tokens | Machine tokens: create and revoke |
 | Activity | Four tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists; Errors, the org's errors from the error log with Resolve, Reopen and the stack trace. Activity only shows data: webhooks are on the Webhooks page |
 | Settings | General, branding, a link to Modules and org secrets |
@@ -60,7 +61,7 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `/api/dashboard/<org>/apps/...` | List, register, delete, deploy and roll back apps, and read the pod. The same operations as `/api/apps` in [runpod-apps](modules/runpod-apps.md), for officers |
 | `/api/dashboard/<org>/knowledge/...` | List and delete sources, upload documents, add and run crawls, read and set the search settings, start a reindex, read the run log, and search. The same operations as `/api/knowledge` in [knowledge](modules/knowledge.md), for officers. The sources list also says if the org may publish public sources |
 
-The other pages use the routes of their modules: `/api/points`, `/api/storefront`, `/api/calendar`, `/api/compute`, `/api/alerts`, `/api/organizations` and `/api/superadmin`.
+The other pages use the routes of their modules: `/api/points`, `/api/storefront`, `/api/calendar`, `/api/compute`, `/api/alerts`, `/api/uptime`, `/api/organizations` and `/api/superadmin`.
 
 For private repos, connect GitHub on the Integrations page with a read-only token that can read Actions.
 

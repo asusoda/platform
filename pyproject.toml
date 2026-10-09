@@ -204,6 +204,7 @@ source_modules = [
     "modules.packs.types",
     "modules.packs.web",
     "modules.points.csv_import",
+    "modules.uptime.probe",
     "packs",
 ]
 forbidden_modules = ["flask"]

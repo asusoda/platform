@@ -45,7 +45,7 @@ flask --app main org|jobs|config ...
 | `web/` | Old officer app, kept for SoDA at admin.thesoda.io |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
-Modules: accounts, agents, alerts, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, packs, points, public, runpod, storefront, superadmin, users.
+Modules: accounts, agents, alerts, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, packs, points, public, runpod, storefront, superadmin, uptime, users.
 
 ## Rules
 
