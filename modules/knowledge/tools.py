@@ -57,6 +57,31 @@ def knowledge_sources(db, org, caller, category: str | None = None):
 
 
 @tool(
+    "knowledge.read_source",
+    description=(
+        "Read the full text of one source of the org or a public source, a page at a time. Give next_offset as "
+        "offset to read the next page."
+    ),
+    scope="knowledge:read",
+    input_schema={
+        "type": "object",
+        "properties": {"key": KEY, "offset": {"type": "integer", "minimum": 0}},
+        "required": ["key"],
+        "additionalProperties": False,
+    },
+)
+def knowledge_read_source(db, org, caller, key: str, offset: int | None = None):
+    page = service.read_source(db, int(org.id), key, offset=offset)
+    return {
+        "source": page["source"],
+        "text": "\n".join(p["text"] for p in page["passages"]),
+        "offset": page["offset"],
+        "next_offset": page["next_offset"],
+        "total": page["total"],
+    }
+
+
+@tool(
     "knowledge.add_document",
     description=(
         "Add or replace a text document as a source. name ends in .md, .txt, .csv or .html; the key is "

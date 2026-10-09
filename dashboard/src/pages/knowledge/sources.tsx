@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { Badge, cx, Dot, Table, Td, Th, Tr } from '../../components/ui';
 import { type Tone, timeAgo } from '../../lib/format';
 import type { KnowledgeSource } from '../../lib/types';
+import { sourcePath } from './shared';
 
 function sourceTone(s: KnowledgeSource): Tone {
   if (!s.crawl) return s.chunk_count ? 'ok' : 'muted';
@@ -60,11 +62,14 @@ export function DomainFilter({
   );
 }
 
-// The sources table. actions gives the row buttons; on a small screen they show under the source.
+// The sources table. actions gives the row buttons; on a small screen they show under the source. The key and title
+// open the full text of the source.
 export function SourceTable({
+  prefix,
   sources,
   actions,
 }: {
+  prefix: string;
   sources: KnowledgeSource[];
   actions: (s: KnowledgeSource, className?: string) => ReactNode;
 }) {
@@ -92,9 +97,13 @@ export function SourceTable({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-mono text-xs font-medium" title={s.key}>
+                    <Link
+                      to={sourcePath(prefix, s.key)}
+                      className="truncate rounded-sm font-mono text-xs font-medium underline-offset-2 hover:underline"
+                      title={`Read ${s.key}`}
+                    >
                       {s.key}
-                    </span>
+                    </Link>
                     {s.public ? <Badge tone="active">public</Badge> : null}
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted" title={s.url ?? undefined}>
