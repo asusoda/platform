@@ -40,13 +40,13 @@ docker-compose*.yml
 Dockerfile*
 .dockerignore
 
-# Node/React (for web service)
-web/node_modules/
+# Node: the web and dashboard images build web/ and dashboard/; the site deploys on its own
+**/node_modules/
+dashboard/dist/
 web/build/
-web/dist/
 web/.env
 web/.env.*
-web/npm-debug.log*
+site/
 
 # Documentation
 *.md

@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.12-slim AS builder
+FROM mirror.gcr.io/library/python:3.12-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -22,7 +22,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
 # Runtime stage
-FROM python:3.12-slim
+FROM mirror.gcr.io/library/python:3.12-slim
 
 # Accept build argument for commit hash
 ARG COMMIT_HASH=unknown
@@ -46,6 +46,9 @@ ENV GIT_COMMIT_HASH=${COMMIT_HASH}
 
 # Copy application code
 COPY --chown=appuser:appuser modules ./modules
+COPY --chown=appuser:appuser core ./core
+COPY --chown=appuser:appuser packs ./packs
+COPY --chown=appuser:appuser apps ./apps
 COPY --chown=appuser:appuser alembic ./alembic
 COPY --chown=appuser:appuser alembic.ini ./
 COPY --chown=appuser:appuser *.py ./

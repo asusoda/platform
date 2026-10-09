@@ -1,0 +1,358 @@
+"""Alert feeds: read a source on a schedule and post new items to a Discord webhook. No Flask here.
+
+A feed's first run records every current item without posting, so turning a feed on does not
+flood the channel. Later runs post items not seen before. The webhook URL is an org secret
+named alert_webhook_<key>, encrypted with SECRETS_KEY and never returned by a route.
+"""
+
+import datetime
+import re
+import time
+from typing import cast
+
+import requests
+
+from core import secrets
+from core.errors import ServiceError
+from core.log import get_logger
+from core.time import utcnow
+from modules.auth import scopes
+from modules.organizations import service as organizations
+from modules.organizations.models import Organization
+
+from . import hackathons, jobs_table
+from .models import AlertFeed, AlertPost, AlertRun
+from .types import Item, SourceError
+
+logger = get_logger("alerts")
+
+scopes.declare("alerts:manage", "List, create, change, run and delete alert feeds")
+
+KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+WEBHOOK_PATTERN = re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$")
+SECRET_PREFIX = "alert_webhook_"  # nosec B105 - a secret name prefix, not a value
+KINDS = {"github_jobs": jobs_table, "hackathons": hackathons}
+MAX_POSTS_PER_RUN = 25
+POST_GAP_SECONDS = 0.5
+RUNS_KEPT = 50  # runs kept per feed; older ones are deleted
+HISTORY_ITEMS = 50
+COLORS = {"github_jobs": 0x3447EB, "hackathons": 0x9B59B6}
+USER_AGENT = "PlatformAlerts/1.0"
+
+secrets.declare_prefix(SECRET_PREFIX, "Discord webhook URL an alert feed posts to")
+
+
+class AlertError(ServiceError, ValueError):
+    pass
+
+
+def http_get(url: str) -> str:
+    """GET a source URL and return its text. Raises SourceError on any failure."""
+    try:
+        response = requests.get(url, timeout=15, headers={"User-Agent": USER_AGENT})
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise SourceError(f"{url}: {e}") from e
+    return response.text
+
+
+def post_webhook(url: str, payload: dict) -> None:
+    """POST one message to a Discord webhook, waiting once when Discord asks to slow down."""
+    for _ in range(2):
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 429:
+            time.sleep(min(float(response.json().get("retry_after", 1)), 10))
+            continue
+        response.raise_for_status()
+        return
+    raise requests.HTTPError("Discord kept rate limiting the webhook")
+
+
+def embed(item: Item, kind: str) -> dict:
+    """The Discord embed for an item."""
+    body: dict = {
+        "title": item.title[:256],
+        "color": COLORS.get(kind, 0),
+        "fields": [
+            {"name": name, "value": value[:1024] or "-", "inline": len(value) < 40} for name, value in item.fields
+        ],
+        "timestamp": utcnow().isoformat() + "Z",
+    }
+    if item.url:
+        body["url"] = item.url
+    if item.footer:
+        body["footer"] = {"text": item.footer[:2048]}
+    return body
+
+
+def _secret_name(key: str) -> str:
+    return SECRET_PREFIX + key
+
+
+def _webhook(db, feed: AlertFeed) -> str | None:
+    return secrets.get_secret(db, cast(int, feed.organization_id), _secret_name(cast(str, feed.key)))
+
+
+def _find(db, org_id: int, key: str) -> AlertFeed:
+    feed = db.query(AlertFeed).filter_by(organization_id=org_id, key=key).first()
+    if feed is None:
+        raise AlertError("No alert feed with that key", 404)
+    return feed
+
+
+def describe(db, feed: AlertFeed) -> dict:
+    posted = db.query(AlertPost).filter_by(feed_id=feed.id, posted=True).count()
+    return {
+        "key": feed.key,
+        "kind": feed.kind,
+        "config": feed.config,
+        "every_hours": feed.every_hours,
+        "enabled": feed.enabled,
+        "webhook_set": _webhook(db, feed) is not None,
+        "seeded_at": feed.seeded_at.isoformat() if feed.seeded_at else None,
+        "last_run_at": feed.last_run_at.isoformat() if feed.last_run_at else None,
+        "last_error": feed.last_error,
+        "posted": posted,
+    }
+
+
+def list_feeds(db, org_id: int) -> list[dict]:
+    feeds = db.query(AlertFeed).filter_by(organization_id=org_id).order_by(AlertFeed.key).all()
+    return [describe(db, f) for f in feeds]
+
+
+def presets(db, org_id: int) -> list[dict]:
+    """The feeds that packs offer, with the kind and config to create each, and whether the org has the key."""
+    from modules.packs import catalog
+
+    have = {key for (key,) in db.query(AlertFeed.key).filter_by(organization_id=org_id)}
+    return [
+        {
+            "pack": pack.name,
+            "pack_title": pack.title,
+            "key": feed.key,
+            "title": feed.title,
+            "description": feed.description,
+            "kind": feed.kind,
+            "config": KINDS[feed.kind].validate(dict(feed.config)),
+            "every_hours": feed.every_hours,
+            "added": feed.key in have,
+        }
+        for pack in catalog.PACKS.values()
+        for feed in pack.feeds
+        if feed.kind in KINDS
+    ]
+
+
+def get_feed(db, org_id: int, key: str) -> dict:
+    return describe(db, _find(db, org_id, key))
+
+
+def put_feed(db, org_id: int, key: str, body: dict, actor: str | None = None) -> tuple[dict, bool]:
+    """Create or update a feed. Returns (feed, created). Commits."""
+    if not KEY_PATTERN.match(key):
+        raise AlertError("key must be lowercase letters, digits and dashes, up to 40 characters")
+    feed = db.query(AlertFeed).filter_by(organization_id=org_id, key=key).first()
+    created = feed is None
+    kind = body.get("kind", feed.kind if feed else None)
+    if kind not in KINDS:
+        raise AlertError(f"kind must be one of {', '.join(KINDS)}")
+    if feed is not None and kind != feed.kind:
+        raise AlertError("A feed's kind cannot change; delete it and create a new one", 409)
+    try:
+        config = KINDS[kind].validate(body.get("config", feed.config if feed else {}) or {})
+    except ValueError as e:
+        raise AlertError(str(e)) from e
+    every_hours = body.get("every_hours", feed.every_hours if feed else 3)
+    if not isinstance(every_hours, int) or not 1 <= every_hours <= 168:
+        raise AlertError("every_hours must be an integer from 1 to 168")
+    enabled = body.get("enabled", feed.enabled if feed else True)
+    if not isinstance(enabled, bool):
+        raise AlertError("enabled must be true or false")
+    webhook = body.get("webhook_url")
+    if webhook is not None and not WEBHOOK_PATTERN.match(str(webhook)):
+        raise AlertError("webhook_url must be a Discord webhook URL")
+    if created and webhook is None:
+        raise AlertError("webhook_url is required for a new feed")
+    if webhook is not None:
+        try:
+            secrets.set_secret(db, org_id, _secret_name(key), webhook, updated_by=actor)
+        except secrets.SecretsError as e:
+            raise AlertError(str(e), 503) from e
+    if feed is None:
+        feed = AlertFeed(organization_id=org_id, key=key, kind=kind)
+        db.add(feed)
+    feed.config = config
+    feed.every_hours = every_hours
+    feed.enabled = enabled
+    db.commit()
+    return describe(db, feed), created
+
+
+def delete_feed(db, org_id: int, key: str) -> None:
+    """Delete a feed, its posted items and its webhook secret. Commits."""
+    feed = _find(db, org_id, key)
+    db.query(AlertPost).filter_by(feed_id=feed.id).delete()
+    db.query(AlertRun).filter_by(feed_id=feed.id).delete()
+    db.delete(feed)
+    db.commit()
+    secrets.delete_secret(db, org_id, _secret_name(key))
+
+
+def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
+    """Read the feed's source and post new items. Commits.
+
+    On the first run, items are recorded without posting unless post_existing is true.
+    """
+    started = time.monotonic()
+    feed.last_run_at = utcnow()
+    webhook = _webhook(db, feed)
+    if webhook is None:
+        return _fail(db, feed, "The webhook URL is not set, or SECRETS_KEY is missing", started)
+    try:
+        items = _read(feed)
+    except SourceError as e:
+        return _fail(db, feed, str(e), started)
+    seen = {
+        k
+        for (k,) in db.query(AlertPost.item_key).filter(
+            AlertPost.feed_id == feed.id, AlertPost.item_key.in_([i.key for i in items])
+        )
+    }
+    new = list({i.key: i for i in items if i.key not in seen}.values())
+    seeding = feed.seeded_at is None and not post_existing
+    posted = 0
+    error = None
+    for item in new:
+        if not seeding:
+            if posted >= MAX_POSTS_PER_RUN:
+                break
+            try:
+                post_webhook(webhook, {"embeds": [embed(item, str(feed.kind))]})
+            except requests.RequestException as e:
+                # Unposted items stay new and go out on the next run
+                error = f"Discord webhook failed: {e}"
+                break
+            posted += 1
+            time.sleep(POST_GAP_SECONDS)
+        db.add(AlertPost(feed_id=feed.id, item_key=item.key, title=item.title[:300], posted=not seeding))
+        db.commit()
+    if feed.seeded_at is None:
+        feed.seeded_at = utcnow()
+    feed.last_error = error
+    _record(db, feed, started, found=len(items), new=len(new), posted=posted, recorded=seeding, error=error)
+    db.commit()
+    result = {"key": feed.key, "found": len(items), "new": len(new), "posted": posted, "recorded": seeding}
+    if error:
+        result["error"] = error
+    logger.info("alert feed run org=%s %s", feed.organization_id, result)
+    return result
+
+
+def _read(feed: AlertFeed) -> list[Item]:
+    config = cast(dict, feed.config) or {}
+    if feed.kind == "github_jobs":
+        return jobs_table.fetch(config, http_get, utcnow().date())
+    if feed.kind == "hackathons":
+        return hackathons.fetch(config, http_get, utcnow())
+    raise SourceError(f"Unknown feed kind {feed.kind}")
+
+
+def _fail(db, feed: AlertFeed, message: str, started: float) -> dict:
+    feed.last_error = message[:1000]
+    _record(db, feed, started, error=message)
+    db.commit()
+    logger.warning("alert feed failed org=%s key=%s: %s", feed.organization_id, feed.key, message)
+    return {"key": feed.key, "error": message}
+
+
+def _record(db, feed: AlertFeed, started: float, error: str | None = None, **counts) -> None:
+    """Add a run row for the feed and delete its runs beyond RUNS_KEPT. The caller commits."""
+    db.add(
+        AlertRun(
+            feed_id=feed.id,
+            started_at=feed.last_run_at,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            error=error[:1000] if error else None,
+            **counts,
+        )
+    )
+    db.flush()
+    old = (
+        db.query(AlertRun.id)
+        .filter(AlertRun.feed_id == feed.id)
+        .order_by(AlertRun.started_at.desc(), AlertRun.id.desc())
+        .offset(RUNS_KEPT)
+        .all()
+    )
+    if old:
+        db.query(AlertRun).filter(AlertRun.id.in_([i for (i,) in old])).delete(synchronize_session=False)
+
+
+def history(db, org_id: int, key: str) -> dict:
+    """The feed's recent runs and the items it posted or recorded, newest first."""
+    feed = _find(db, org_id, key)
+    runs = (
+        db.query(AlertRun)
+        .filter_by(feed_id=feed.id)
+        .order_by(AlertRun.started_at.desc(), AlertRun.id.desc())
+        .limit(RUNS_KEPT)
+        .all()
+    )
+    items = (
+        db.query(AlertPost)
+        .filter_by(feed_id=feed.id)
+        .order_by(AlertPost.created_at.desc(), AlertPost.id.desc())
+        .limit(HISTORY_ITEMS)
+        .all()
+    )
+    return {
+        "runs": [
+            {
+                "started_at": r.started_at.isoformat(),
+                "duration_ms": r.duration_ms,
+                "found": r.found,
+                "new": r.new,
+                "posted": r.posted,
+                "recorded": r.recorded,
+                "error": r.error,
+            }
+            for r in runs
+        ],
+        "items": [{"title": i.title, "posted": i.posted, "created_at": i.created_at.isoformat()} for i in items],
+    }
+
+
+def run_now(db, org_id: int, key: str, post_existing: bool = False) -> dict:
+    return run(db, _find(db, org_id, key), post_existing=post_existing)
+
+
+def due(db, now: datetime.datetime | None = None) -> list[AlertFeed]:
+    """Enabled feeds whose every_hours has passed, in orgs that have the alerts module on."""
+    now = now or utcnow()
+    feeds = []
+    rows = (
+        db.query(AlertFeed, Organization)
+        .join(Organization, Organization.id == AlertFeed.organization_id)
+        .filter(AlertFeed.enabled.is_(True), Organization.is_active.is_(True))
+        .all()
+    )
+    for feed, org in rows:
+        if not organizations.module_enabled(org, "alerts"):
+            continue
+        if feed.last_run_at is None or feed.last_run_at <= now - datetime.timedelta(hours=int(feed.every_hours)):
+            feeds.append(feed)
+    return feeds
+
+
+def run_due(db, now: datetime.datetime | None = None) -> dict:
+    """Run every due feed. One failing feed does not stop the others. Commits."""
+    results = []
+    for feed in due(db, now):
+        try:
+            results.append(run(db, feed))
+        except Exception:
+            db.rollback()
+            logger.exception("alert feed crashed key=%s", feed.key)
+            results.append({"key": feed.key, "error": "crashed"})
+    return {"ran": len(results), "failed": sum(1 for r in results if r.get("error"))}

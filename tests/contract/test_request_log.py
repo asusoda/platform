@@ -19,9 +19,9 @@ def test_logs_access_token_with_org(client, officer_headers, caplog):
 
 
 def test_logs_app_token_as_app(client, caplog):
-    from shared import tokenManager
+    from modules.auth.tokens import token_manager
 
-    token = tokenManager.generate_app_token("ci", "website")
+    token = token_manager.generate_app_token("ci", "website")
     with caplog.at_level(logging.INFO, logger="request_log"):
         client.get("/api/points/soda/users", headers={"Authorization": f"Bearer {token}"})
     (line,) = _lines(caplog)

@@ -20,17 +20,21 @@ sys.path.insert(0, str(REPO_ROOT))
 os.chdir(TEST_HOME)
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{TEST_HOME / 'data' / 'user.db'}"
 os.environ.setdefault("IS_PROD", "false")
+os.environ.setdefault("JOBS_BACKEND", "inline")
 
 
 def create_schema():
     """Create every table on a fresh test database. Production uses Alembic migrations instead."""
     from sqlalchemy import text
 
-    from modules.utils.base import Base
-    from shared import db_connect
+    from core.db import Base, db_connect
+    from modules.manifest import load_models
+
+    load_models()
 
     if db_connect.engine.dialect.name == "postgresql":
         with db_connect.engine.begin() as conn:
             conn.execute(text("DROP SCHEMA public CASCADE"))
             conn.execute(text("CREATE SCHEMA public"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=db_connect.engine)
