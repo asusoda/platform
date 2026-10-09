@@ -1,4 +1,4 @@
-"""Apps deployed to RunPod pods, and their deployments."""
+"""Apps deployed to pods on a hosting provider, and their deployments."""
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
@@ -12,6 +12,8 @@ class App(Base):
     id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     name = Column(String(63), nullable=False)
+    # The hosting provider the app runs on, a name in core.hosting.PROVIDERS
+    provider = Column(String(32), nullable=False, default="runpod", server_default="runpod")
     manifest = Column(Text, nullable=False)  # JSON, validated by service.MANIFEST_SCHEMA
     repo = Column(String(201), nullable=True)  # owner/name whose manifest file is read on each deploy
     manifest_path = Column(String(200), nullable=True)

@@ -1,0 +1,23 @@
+# Vaultwarden on a CPU pod. The template block is for the template catalog and is removed on create.
+template:
+  title: Vaultwarden
+  summary: Password manager for the org. Works with the Bitwarden apps.
+  tag: "1.37.4"
+  inputs:
+    - {kind: secret, key: ADMIN_TOKEN, label: Admin token}
+    - {kind: volume, label: Network volume ID}
+    - {kind: data_center, label: Data center of the volume}
+    - {kind: env, key: DOMAIN, label: Public URL, required: false}
+kind: site
+description: Vaultwarden password manager
+image: ghcr.io/dani-garcia/vaultwarden
+cpu: {id: cpu3c, vcpuCount: 2}
+cloud: SECURE
+disk: 10
+ports: ["80/http"]
+mounts:
+  network:
+    - {path: /data}
+env:
+  SIGNUPS_ALLOWED: "false"
+health: {port: 80, path: /alive}

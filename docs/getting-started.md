@@ -28,6 +28,8 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
    flask --app main org create --name "Robotics Club" --prefix robotics --guild-id <server id> --officer-role-id <role id>
    ```
 
+   The optional modules of a new org start off. Add them on the dashboard Modules page, or with `--on points,storefront`.
+
 `make dev` adds `docker-compose.dev.yml`. It runs `python3 main.py` with the Flask reloader and mounts the source, so a Python change does not need a rebuild. The bot runs in the `bot` container.
 
 To run the API with no container, run `uv run alembic upgrade head`, then `uv run python main.py`. In this mode the API also starts the bot in a thread. Set `RUN_BOT_IN_API=false` to stop that.
