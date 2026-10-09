@@ -16,7 +16,7 @@ Each org route checks access. The audit log records each change that an officer 
 | `compute` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates |
 | `agents` | Conversations, memories and a profile graph for each member, for agents that talk to members |
 | `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
-| `asu` | An example campus source: public ASU pages and live queries, added to knowledge |
+| `packs` | Packs from `packs/`: campus pages and live queries added to knowledge, such as the ASU pack |
 | `accounts` | Canvas, Google and Outlook sign-in for a member, so that agents can act for them |
 | `alerts` | New job listings and hackathons posted to Discord webhooks |
 | `runpod` | Deploys of an org's apps to RunPod from a manifest, with health checks and rollback |

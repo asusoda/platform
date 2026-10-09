@@ -39,7 +39,6 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
 // The module names the API sends, with their label and dashboard page.
 const MODULES: Record<string, { label: string; path?: string }> = {
   agents: { label: 'MCP', path: 'mcp' },
-  asu: { label: 'ASU pack', path: 'knowledge' },
   auth: { label: 'Sign-in' },
   calendar: { label: 'Calendar sync', path: 'calendar' },
   compute: { label: 'Member pods', path: 'hosting?tab=pods' },
@@ -47,6 +46,7 @@ const MODULES: Record<string, { label: string; path?: string }> = {
   games: { label: 'Games' },
   knowledge: { label: 'Knowledge', path: 'knowledge' },
   leetcode: { label: 'LeetCode', path: 'leetcode' },
+  packs: { label: 'Packs', path: 'knowledge' },
   runpod: { label: 'Services', path: 'hosting' },
 };
 

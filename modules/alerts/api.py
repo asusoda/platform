@@ -19,6 +19,12 @@ def list_feeds(db, org):
     return {"feeds": service.list_feeds(db, int(org.id))}
 
 
+@_route("/presets", ["GET"])
+def list_presets(db, org):
+    """Feeds that packs offer. Create one with PUT /feeds/<key> and its kind and config."""
+    return {"presets": service.presets(db, int(org.id))}
+
+
 @_route("/feeds/<string:key>", ["GET"])
 def get_feed(db, org, key):
     return {"feed": service.get_feed(db, int(org.id), key)}
