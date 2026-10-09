@@ -1,6 +1,6 @@
 # Frontends
 
-Platform has one frontend, `dashboard/`. Officers use it to see and control what each org runs. Members use its store pages, `/store/<org>`.
+Platform has two officer frontends. `dashboard/` is the new one. Officers use it to see and control what each org runs. Members use its store pages, `/store/<org>`. `web/` is the old officer app, kept for SoDA at admin.thesoda.io.
 
 ## Officer dashboard
 
@@ -144,4 +144,8 @@ The member store is two open pages of `dashboard/`, outside the officer pages:
 
 These pages use the API session cookie, not the officer token. The order routes (`/api/storefront/<org>/members/...`) need a Discord session on the API. The browser sends the cookie only when the dashboard and the API are on the same site.
 
-The older `web/` app is removed. Its pages are in the dashboard: member details are on Points (Add member, and Edit details in a member's history), and the store, calendar, compute and superadmin pages have dashboard pages. Its Jeopardy and bot pages called paths that the API does not have, so they are not in the dashboard.
+## Old officer app
+
+`web/` is the old officer app (Create React App). SoDA serves it at admin.thesoda.io from the `web` compose service on port 5000. The dashboard runs beside it on port 5001. `web/` signs in with `POST /api/auth/exchange`. Its build reads `REACT_APP_API_URL`.
+
+The dashboard has the pages of `web/`: member details are on Points (Add member, and Edit details in a member's history), and the store, calendar, compute and superadmin pages have dashboard pages. The Jeopardy and bot pages of `web/` call paths that the API does not have, so they are not in the dashboard.

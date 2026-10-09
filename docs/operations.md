@@ -10,7 +10,8 @@ This page tells you how to deploy Platform, roll it back, move it to Postgres, a
 | --- | --- | --- |
 | `api` | `alembic upgrade head`, then gunicorn with 1 worker and 8 threads on port 8000 | default |
 | `bot` | `python3 bot_main.py`. Run exactly one, or each scheduled post goes out more than once | default |
-| `dashboard` | The dashboard build (`Dockerfile.dashboard`) on port 5000 | default |
+| `dashboard` | The dashboard build (`Dockerfile.dashboard`) on port 5001 | default |
+| `web` | The old officer app (`Dockerfile.web`) on port 5000, for admin.thesoda.io | default |
 | `postgres` | Postgres 16 with pgvector | `postgres` |
 | `worker` | `python3 worker_main.py` | `postgres` |
 | `mcp` | `python3 mcp_main.py` on port 8001 | `mcp` |
@@ -26,7 +27,7 @@ The API uses one gunicorn worker because the one-time sign-in codes are in proce
 | Workflow | Does |
 | --- | --- |
 | `check.yml` | On each push and PR: `make ci` and bandit; migrations and tests on Postgres 16; the dashboard tests and build |
-| `images.yml` | Builds the API and dashboard images on each PR. On `main` it pushes them to GHCR as `ghcr.io/<owner>/<repo>-api` and `-dashboard` |
+| `images.yml` | Builds the API, web and dashboard images on each PR. On `main` it pushes them to GHCR as `ghcr.io/<owner>/<repo>-api`, `-web` and `-dashboard` |
 | `cd.yml` | Deploys the example SoDA server after `check.yml` passes on `main`. It runs only in `asusoda/platform` |
 
 `Dockerfile.api` uses `uv sync --frozen`. If `uv.lock` does not agree with `pyproject.toml`, the build fails. Commit the two files together. The dashboard image gets `VITE_API_URL` and `VITE_SITE_URL` at build time (repository variables in CI), so a change to them needs a new build.
@@ -48,13 +49,13 @@ make health
 `make deploy` does these steps:
 
 1. Get `origin/main` and find the files changed since `DEPLOY_FROM`. If `DEPLOY_FROM` is empty, it uses the commit that was checked out before the fetch.
-2. Select the images to build. A change in `dashboard/` or `Dockerfile.dashboard` builds `dashboard`. A change in a compose file or the `Makefile` builds both. A change in `.github/` or a `.md` file builds nothing. All other changes build `api`.
+2. Select the images to build. A change in `web/` or `Dockerfile.web` builds `web`. A change in `dashboard/` or `Dockerfile.dashboard` builds `dashboard`. A change in a compose file or the `Makefile` builds all three. A change in `.github/` or a `.md` file builds nothing. All other changes build `api`.
 3. Tag the current images as `:previous`.
 4. Build the changed images. The old containers keep running during the build.
 5. Run `uv run alembic upgrade head` on the host. If it fails, the deploy stops and the old containers keep running.
 6. Start the changed services with `up -d --remove-orphans`, then wait up to 60 seconds for each to be healthy. When it builds `api`, it also starts `bot` again, because the bot uses the same image. `--remove-orphans` removes containers of services that are no longer in `docker-compose.yml`, so an old container does not keep a port.
 
-Caution: set `VITE_API_URL` in `.env` before you build the dashboard. If it is empty, `Dockerfile.dashboard` stops the build.
+Caution: set `VITE_API_URL` in `.env` before you build the dashboard. If it is empty, `Dockerfile.dashboard` stops the build and the deploy fails.
 
 ## Upgrade an existing deployment
 
@@ -63,11 +64,12 @@ Do the first deploy after a large upgrade by hand. For an upgrade from `asusoda/
 1. Pause CD, or do the deploy before the next push to `main`.
 2. Run `make backup`. If the old `Makefile` has no `backup` target, copy `data/user.db` to `data/user.db.pre-upgrade`. Keep `data/jwt_*.pem`.
 3. Run `uv run alembic current`. The result must be `a1b2c3d4e5f6`, the last SoDA migration.
-4. If the database has no `alembic_version` table (`create_all` made it), run `uv run alembic stamp a1b2c3d4e5f6`. If you do not, `alembic upgrade head` stops with "table already exists".
-5. Keep the current commit for a rollback: `OLD=$(git rev-parse HEAD)`.
-6. Run `git fetch origin main`, then `git reset --hard origin/main`.
-7. Run `make deploy DEPLOY_FROM="$OLD"`. If `DEPLOY_FROM` is not set, `make deploy` finds no changed files and builds nothing.
-8. Run `flask --app main config check` in the API container. It must show `migrations at head` and no `FAIL`.
+4. Add `VITE_API_URL` to `.env`, for example `https://api.thesoda.io`. Keep `REACT_APP_API_URL` for `web/`.
+5. If the database has no `alembic_version` table (`create_all` made it), run `uv run alembic stamp a1b2c3d4e5f6`. If you do not, `alembic upgrade head` stops with "table already exists".
+6. Keep the current commit for a rollback: `OLD=$(git rev-parse HEAD)`.
+7. Run `git fetch origin main`, then `git reset --hard origin/main`.
+8. Run `make deploy DEPLOY_FROM="$OLD"`. If `DEPLOY_FROM` is not set, `make deploy` finds no changed files and builds nothing.
+9. Run `flask --app main config check` in the API container. It must show `migrations at head` and no `FAIL`.
 
 LeetCode: the API now posts the daily question as a job and keeps the "posted today" record in the `leetcode_daily` table. If you deploy after `LEETCODE_DAILY_TIME` on a day that already had a post, the channel gets a second post. Deploy before that time to prevent it.
 

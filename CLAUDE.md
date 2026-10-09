@@ -42,6 +42,7 @@ flask --app main org|jobs|config ...
 | `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
 | `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
 | `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site |
+| `web/` | Old officer app, kept for SoDA at admin.thesoda.io |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
 Modules: accounts, agents, alerts, auth, bot, calendar, compute, dashboard, games, integrations, knowledge, leetcode, mcp, organizations, packs, points, public, runpod, storefront, superadmin, users.

@@ -8,8 +8,8 @@ export const docsContentRoute = '/llms.mdx/docs';
 
 /** The repo that holds the docs pages, for the source link of each page. */
 export const gitConfig = {
-  user: 'theaisocietyasu',
-  repo: 'bedrock',
+  user: 'asusoda',
+  repo: 'platform',
   branch: 'main',
 };
 
