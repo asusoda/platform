@@ -35,6 +35,34 @@ export type OAuthState = {
   blocked: string | null;
 };
 
-export type IntegrationList = { integrations: Integration[]; oauth?: Record<string, OAuthState>; secrets_key: boolean };
+export type IntegrationList = {
+  integrations: Integration[];
+  oauth?: Record<string, OAuthState>;
+  asu?: AsuState;
+  secrets_key: boolean;
+};
 
 export type IntegrationTest = { ok: boolean; message: string };
+
+// One ASU sign-in attempt. state: running, duo_code (code is the number to enter in Duo), done or failed (reason says why).
+export type AsuAttempt = {
+  state: 'running' | 'duo_code' | 'done' | 'failed';
+  message: string;
+  code: string | null;
+  reason: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
+// The org's ASU sign-in. The API keeps only the browser cookies, never the NetID or the password.
+export type AsuState = {
+  title: string;
+  signed_in: boolean;
+  signed_in_by: string | null;
+  signed_in_at: string | null;
+  // When a tool found the session expired, or null
+  expired_at: string | null;
+  // Why the sign-in cannot start on this server, or null
+  blocked: string | null;
+  attempt: AsuAttempt | null;
+};

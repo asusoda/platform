@@ -9,7 +9,7 @@ import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
-import { fixtures, ORG } from './fixtures.mjs';
+import { asuDuoFixtures, fixtures, ORG } from './fixtures.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = resolve(root, process.env.SCREENSHOT_DIR ?? '../site/public/screenshots');
@@ -18,7 +18,7 @@ const HEIGHT = 900;
 const QUALITY = 0.86;
 const SCALE = 2;
 
-// Each screen is a dashboard path and, optionally, a step that runs before the screenshot.
+// Each screen is a dashboard path and, optionally, a step that runs before the screenshot and its own fixtures.
 const SCREENS = [
   { name: 'overview', path: '' },
   { name: 'hosting', path: 'hosting?tab=pods' },
@@ -58,6 +58,23 @@ const SCREENS = [
     before: async (page) => {
       await page.getByRole('button', { name: 'Sign in with Google' }).scrollIntoViewIfNeeded();
       await page.mouse.wheel(0, -200);
+    },
+  },
+  {
+    name: 'asu-signed-out',
+    path: 'integrations',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'Sign in to ASU' }).scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 200);
+    },
+  },
+  {
+    name: 'asu-duo',
+    path: 'integrations',
+    fixtures: asuDuoFixtures,
+    before: async (page) => {
+      await page.getByLabel('Duo code').scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 200);
     },
   },
   { name: 'notifications', path: 'notifications' },
@@ -104,7 +121,7 @@ async function main() {
         localStorage.setItem('platform.access_token', 'screenshot-placeholder');
         localStorage.setItem('platform.theme', t);
       }, theme);
-      const data = fixtures();
+      let data = fixtures();
       await context.route('**/api/**', (route) => {
         const url = new URL(route.request().url());
         if (url.origin === base) return route.fallback();
@@ -114,6 +131,7 @@ async function main() {
       });
       const page = await context.newPage();
       for (const screen of SCREENS.filter((s) => !only?.length || only.includes(s.name))) {
+        data = (screen.fixtures ?? fixtures)();
         await page.goto(`${base}/${ORG.prefix}${screen.path ? `/${screen.path}` : ''}`);
         await page.waitForLoadState('networkidle');
         if (screen.before) await screen.before(page);

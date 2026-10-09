@@ -99,6 +99,7 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `notion.search`, `notion.read_page`, `notion.query_database` | `notion:read` | integrations |
 | `notion.create_page` (confirm) | `notion:write` | integrations |
 | `web.search` | `web:read` | integrations |
+| `asu.clubs`, `asu.events`, after an officer signs in to ASU | `asu:read` | `packs/asu/signin` |
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 

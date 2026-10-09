@@ -34,6 +34,7 @@ EVENT_LINKS = {
     "app.deployed": "hosting?tab=services",
     "order.created": "store",
     "member.joined": "points",
+    "asu.session_expired": "integrations",
 }
 # The module label of each event in the dashboard
 EVENT_MODULES = {"errors": "errors", "job.failed": "jobs", "pod.started": "compute", "pod.stopped": "compute"}
