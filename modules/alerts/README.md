@@ -16,9 +16,9 @@ Posts new job listings and upcoming hackathons to an org's Discord channels thro
 
 ## Surface
 
-- Routes: `/api/alerts/<org>/feeds`, behind the `alerts` switch. Officers of the org only. `GET /feeds/<key>/history` returns the runs and items of a feed.
+- Routes: `/api/alerts/<org>/feeds` and `/api/alerts/<org>/presets`, behind the `alerts` switch. Officers of the org only. `GET /feeds/<key>/history` returns the runs and items of a feed. `GET /presets` returns the feeds that packs offer.
 - Jobs: `alerts.run_due`, schedule `*/15 * * * *`; `alerts.run_feed`, started by the run route.
-- Tools: `alerts.list`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm), all with scope `alerts:manage`. Tools marked confirm run only with `confirm=true`.
+- Tools: `alerts.list`, `alerts.presets`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm), all with scope `alerts:manage`. Tools marked confirm run only with `confirm=true`.
 - Tables: `alert_feeds`, `alert_posts`, `alert_runs`. Secrets: `alert_webhook_<feed key>`.
 
 See [docs/modules/alerts.md](../../docs/modules/alerts.md).

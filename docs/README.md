@@ -27,7 +27,7 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 | [Accounts](./modules/accounts.md) | Canvas, Google and Outlook sign-in for a member |
 | [Agents](./modules/agents.md) | Conversations, memories, profile graph and turns for agents |
 | [Alerts](./modules/alerts.md) | Job and hackathon listings posted to Discord webhooks |
-| [ASU](./modules/asu.md) | Example campus source: ASU pages and live queries |
+| [Packs](./modules/packs.md) | Campus pages and live queries that an org adds to knowledge, such as the ASU pack |
 | [Calendar](./modules/calendar.md) | Notion events synced to Google Calendar |
 | [Compute](./modules/compute.md) | RunPod pods, SSH certificates, file manager, sessions |
 | [Discord bot](./modules/discord-bot.md) | The bot process, its setup and its commands |

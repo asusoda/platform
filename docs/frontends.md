@@ -35,7 +35,7 @@ Lists that can be long (knowledge sources, points members and events, knowledge 
 | Webhooks | The org's outbound webhooks: add, edit, turn on or off, send test, delete. Each has a name, a destination (Discord), the events it sends and the result of its last message. The alert feeds show below with a link to Alerts. See [webhooks.md](./webhooks.md) |
 | Alerts | Feeds: create, pause, run now, delete, and the history of each feed: its last 50 runs with counts and errors, and its last 50 items |
 | Apps | The org's bots, agents, sites and services, grouped by kind, with the host of each: register a manifest or repo, see the pod and deployments, deploy a tag with a dry-run preview, roll back, delete |
-| Knowledge | Source packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
+| Knowledge | Packs to add or sync, sources filtered by domain: upload documents one at a time or in a batch, add, edit, pause and run crawls, delete sources, change the passage size and search settings, and test a search |
 | MCP | How to connect an agent to the MCP server, agent tokens, linked accounts, and conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
 | Activity | Four tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists; Errors, the org's errors from the error log with Resolve, Reopen and the stack trace. Activity only shows data: webhooks are on the Webhooks page |

@@ -127,8 +127,8 @@ def test_org_embeddings_replace_the_deployment_default(client, officer_headers, 
 
 def test_org_firecrawl_and_searxng(client, officer_headers, cleared, public_dns, monkeypatch):
     from core.db import db_connect
-    from modules.asu import settings
     from modules.knowledge import fetch
+    from modules.packs import search as settings
 
     monkeypatch.delenv("FIRECRAWL_URL", raising=False)
     monkeypatch.setenv("SEARXNG_URL", "http://searxng:8080")

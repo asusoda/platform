@@ -10,7 +10,7 @@ import importlib
 CATEGORIES = {
     "Members": ["accounts", "games", "points", "storefront", "users"],
     "Automations": ["alerts", "calendar", "leetcode"],
-    "Knowledge and agents": ["agents", "asu", "knowledge", "mcp"],
+    "Knowledge and agents": ["agents", "knowledge", "mcp", "packs"],
     "Infrastructure": ["compute", "runpod"],
     "Platform": ["auth", "bot", "dashboard", "organizations", "public", "superadmin"],
 }
@@ -48,7 +48,7 @@ JOB_MODULES = [
     "modules.accounts.jobs",
     "modules.runpod.jobs",
     "modules.knowledge.jobs",
-    "modules.asu.jobs",
+    "modules.packs.jobs",
     "modules.leetcode.jobs",
     "modules.compute.jobs",
     "modules.alerts.jobs",
@@ -61,7 +61,7 @@ TOOL_MODULES = [
     "modules.points.tools",
     "modules.knowledge.tools",
     "modules.runpod.tools",
-    "modules.asu.tools",
+    "modules.packs.tools",
     "modules.dashboard.tools",
     "modules.alerts.tools",
     "modules.compute.tools",
