@@ -603,15 +603,15 @@ export function fixtures(now = Date.now()) {
       description: 'Connect an OpenAI-compatible embeddings service for meaning search.',
       docs: 'modules/knowledge',
       fields: [
-        field('embeddings_url', 'Base URL', 'For example https://api.example.com/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
+        field('embeddings_url', 'Base URL', 'For example https://openrouter.ai/api/v1, on a public address. Platform adds /embeddings.', -4 * DAY, 'url', {
           secret: false,
           value: 'https://embed.example.org/v1',
         }),
-        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B.', -4 * DAY, 'text', {
+        field('embeddings_model', 'Model', 'A model that returns 1024 numbers, such as Qwen3-Embedding-0.6B, or baai/bge-m3 on OpenRouter.', -4 * DAY, 'text', {
           secret: false,
           value: 'Qwen3-Embedding-0.6B',
         }),
-        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key.', -4 * DAY, 'text', { optional: true }),
+        field('embeddings_api_key', 'API key', 'Leave empty when the service needs no key. For OpenRouter, empty uses the OpenRouter key.', -4 * DAY, 'text', { optional: true }),
         field('embeddings_query_prefix', 'Query prefix', 'Text put before each search query. Qwen3-Embedding takes an instruction here.', null, 'text', {
           secret: false,
           optional: true,
@@ -668,6 +668,17 @@ export function fixtures(now = Date.now()) {
       source: null,
       testable: true,
       used_by: ['calendar'],
+    },
+    {
+      key: 'openrouter',
+      title: 'OpenRouter',
+      description: 'Connect an OpenRouter account for hosted models.',
+      docs: 'integrations',
+      fields: [field('openrouter_api_key', 'API key', 'OpenRouter > Settings > API Keys. Embeddings uses this key when its base URL is OpenRouter.', null)],
+      editable: true,
+      source: null,
+      testable: true,
+      used_by: ['agents', 'knowledge'],
     },
     {
       key: 'runpod',

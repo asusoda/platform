@@ -5,7 +5,7 @@ An integration is an account or a service outside Platform, such as Notion or Ru
 The page shows the cards in two groups:
 
 - Accounts: the org's accounts at other services. Discord, GitHub, Google, Notion and RunPod.
-- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl and SearXNG.
+- Services: servers that Platform calls for search and page reads. Embeddings, Firecrawl, OpenRouter and SearXNG.
 
 The description of a card says what the officer connects, not what each module does with it. The "Used by" links show the modules.
 
@@ -19,6 +19,7 @@ The description of a card says what the officer connects, not what each module d
 | GitHub | `github_token` | none | CI runs, Apps, `github.*` agent tools |
 | Google | `google_service_account` (JSON key) | `google-secret.json` | Calendar sync |
 | Notion | `notion_api_key` | `NOTION_API_KEY` | Calendar sync |
+| OpenRouter | `openrouter_api_key` | `OPENROUTER_API_KEY` | Knowledge, MCP (through Embeddings) |
 | RunPod | `runpod_api_key` | none | Compute, Apps |
 | Web search (SearXNG) | `searxng_url`, [`searxng_engines`] | `SEARXNG_URL`, `SEARXNG_ENGINES` | ASU |
 
@@ -81,7 +82,7 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 
 | `.env` | Dashboard |
 | --- | --- |
-| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY` | Integrations |
+| `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY`, `OPENROUTER_API_KEY` | Integrations |
 | `COMPUTE_POD_IMAGE` | Compute > Settings |
 | `KNOWLEDGE_PUBLISHERS` | Superadmin > Knowledge publishers. Orgs in `.env` stay publishers |
 | `KNOWLEDGE_CHUNK_CHARS`, `KNOWLEDGE_MAX_DISTANCE` | Knowledge > Search settings |
