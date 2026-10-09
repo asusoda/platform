@@ -4,7 +4,7 @@ A pack is content for one campus or topic: public pages that Platform crawls int
 
 | Pack | Content |
 | --- | --- |
-| [asu](../../packs/asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU Canvas URL |
+| [asu](../../packs/asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU Canvas URL; the ASU sign-in for Sun Devil Central ([Sign in to ASU](../integrations.md#sign-in-to-asu)) |
 | [careers](../../packs/careers/__init__.py) | Alert feeds for software internships, new grad roles and hackathons |
 
 ## Add a pack to an org

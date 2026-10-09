@@ -80,7 +80,9 @@ class Config:
 
             # Compute (modules/compute): the CLI name members see in messages, and the default pod image
             self.COMPUTE_CLI_NAME = os.environ.get("COMPUTE_CLI_NAME", "the compute CLI")
-            self.COMPUTE_POD_IMAGE = os.environ.get("COMPUTE_POD_IMAGE", "theaisocietyasu/godfather-base:latest")
+            self.COMPUTE_POD_IMAGE = os.environ.get(
+                "COMPUTE_POD_IMAGE", "ghcr.io/theaisocietyasu/godfather-base:latest"
+            )
 
             # LeetCode Daily Bot
             self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")

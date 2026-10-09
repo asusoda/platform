@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { Check, Plus, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { Button, cx, Input, Select } from '../../components/ui';
@@ -73,6 +73,7 @@ export function UsersEditor({
     enabled: Boolean(prefix),
     staleTime: 60_000,
     retry: false,
+    placeholderData: keepPreviousData,
   });
   const unnamed = users.filter((user) => !picked[user]);
   const names = useQuery({

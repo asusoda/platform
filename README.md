@@ -20,6 +20,7 @@ Each org route checks access. The audit log records each change that an officer 
 | `accounts` | Canvas, Google and Outlook sign-in for a member, so that agents can act for them |
 | `alerts` | New job listings and hackathons posted to Discord webhooks |
 | `runpod` | Deploys of an org's apps to RunPod from a manifest, with health checks and rollback |
+| `uptime` | Checks of sites and Hosting apps on a schedule, with events when one goes down or up |
 | `dashboard` | One page for each org with problems, activity, jobs, CI runs and module state |
 | `mcp` | An MCP server and `/api/tools` that give agents the module tools through scoped machine tokens |
 | `auth`, `public`, `bot` | Discord sign-in, tokens and access checks; open reads for public pages; the Discord bot |
@@ -32,7 +33,8 @@ Each org route checks access. The audit log records each change that an officer 
 | Discord bot | `bot_main.py` | |
 | Job worker | `worker_main.py` (Postgres only) | |
 | MCP server | `mcp_main.py` | 8001 |
-| Dashboard and member store | `dashboard/` | 5000 (5173 in dev) |
+| Dashboard and member store | `dashboard/` | 5001 (5173 in dev) |
+| Old officer app, for admin.thesoda.io | `web/` | 5000 |
 
 The database is Postgres, or SQLite for a small deployment. Alembic makes the schema.
 
@@ -49,7 +51,7 @@ cp .env.template .env      # Discord app, bot token, secrets
 make dev
 ```
 
-The API is at http://localhost:8000 and the dashboard at http://localhost:5000. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
+The API is at http://localhost:8000 and the dashboard at http://localhost:5001. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
 
 ## Commands
 

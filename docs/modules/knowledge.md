@@ -66,6 +66,17 @@ A page that starts to fail keeps its last chunks; the error shows on the source.
 
 A PDF must have a text layer. Platform does not read scanned pages.
 
+## Read a source
+
+`GET /api/dashboard/<org>/knowledge/sources/<key>` gives the full text of one source, one page at a time. An org reads its own sources and public sources. It cannot read the private sources of another org. If the org has no source with the key, the oldest public source with that key is used.
+
+- `chunk`: a `chunk_id` from a search result. The source that holds this chunk is used. `focus` lists the page text rows the chunk covers, and the page starts near them.
+- `offset`: the first page text row of the page. Give `next_offset` to read the next page.
+
+The response has `source` (the fields of the sources list, plus `own` and `text_chars`), `passages` (`id`, `ordinal`, `text`, in order), `focus`, `offset`, `next_offset` (`null` at the end) and `total`. A page holds up to 500 rows or 200,000 characters. Summary rows are not in the text. The text that a row repeats from the end of the row before (`chunk_overlap`) is removed. The `knowledge.read_source` tool gives the same pages as one `text`.
+
+On the Knowledge page, select a source or a search result to open its text at `/<org>/knowledge/sources/<key>`. A search result opens with its passage marked.
+
 ## Run log
 
 Each crawl and upload adds a row to `knowledge_runs`: the source key, `crawl` or `upload`, the time, the duration, if the index changed, the passage count and the error. Platform keeps the last 500 rows of each org. `GET /api/dashboard/<org>/knowledge/runs?limit=&failed=1` reads them; the Activity page of the dashboard shows them in the Knowledge runs tab.

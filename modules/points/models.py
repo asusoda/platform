@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from core.db import Base
@@ -23,6 +23,11 @@ class Points(Base):
     last_updated = Column(DateTime, default=lambda: datetime.now(UTC))
     user = relationship("User", back_populates="points")
     organization = relationship("Organization", backref="points")
+
+    __table_args__ = (
+        Index("ix_points_organization_id_user_id", "organization_id", "user_id"),
+        Index("ix_points_user_id", "user_id"),
+    )
 
     def __repr__(self):
         return f"<Points(id={self.id}, user_id={self.user_id}, organization_id={self.organization_id}, points={self.points}, event={self.event}, timestamp={self.timestamp})>"

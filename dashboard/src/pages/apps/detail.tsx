@@ -5,11 +5,13 @@ import { Badge, Button, Card, Dot, EmptyState, ErrorNote, Mono, SkeletonRows, Ta
 import { api } from '../../lib/api';
 import { deployTone, duration, podTone, timeAgo } from '../../lib/format';
 import type { App, AppDetail, RunPodPod } from '../../lib/types';
+import { providerTitle, useProviders } from '../hosting/providers';
 import { DeletePanel, DeployPanel, RollbackPanel } from './actions';
 import { ManifestSection } from './manifest';
 import { actorLabel, Fact, Label } from './shared';
 
 function PodStatus({ prefix, app }: { prefix: string; app: App }) {
+  const host = providerTitle(useProviders(prefix).data, app.provider);
   const pod = useQuery({
     queryKey: ['app-pod', prefix, app.name],
     queryFn: () => api<{ pod: RunPodPod | null }>(`/api/dashboard/${prefix}/apps/${app.name}/pod`),
@@ -26,7 +28,7 @@ function PodStatus({ prefix, app }: { prefix: string; app: App }) {
   if (!p) {
     return (
       <p className="text-sm text-muted">
-        RunPod has no pod <Mono>{app.pod_id}</Mono>. It was terminated; the next deploy creates a new one.
+        {host} has no pod <Mono>{app.pod_id}</Mono>. It was terminated; the next deploy creates a new one.
       </p>
     );
   }
@@ -128,8 +130,19 @@ function Deployments({ app }: { app: AppDetail }) {
 
 type Panel = 'deploy' | 'rollback' | 'delete' | null;
 
-export function AppPanel({ prefix, name, onDeleted }: { prefix: string; name: string; onDeleted: (name: string, podId: string | null) => void }) {
-  const [panel, setPanel] = useState<Panel>(null);
+// deployTag, when set, opens the deploy form with that tag.
+export function AppPanel({
+  prefix,
+  name,
+  deployTag = null,
+  onDeleted,
+}: {
+  prefix: string;
+  name: string;
+  deployTag?: string | null;
+  onDeleted: (name: string, podId: string | null) => void;
+}) {
+  const [panel, setPanel] = useState<Panel>(deployTag === null ? null : 'deploy');
   const detail = useQuery({
     queryKey: ['app', prefix, name],
     queryFn: () => api<AppDetail>(`/api/dashboard/${prefix}/apps/${name}`),
@@ -175,7 +188,7 @@ export function AppPanel({ prefix, name, onDeleted }: { prefix: string; name: st
           <Trash2 className="size-4" /> Delete
         </Button>
       </div>
-      {panel === 'deploy' ? <DeployPanel prefix={prefix} app={app} onDone={close} /> : null}
+      {panel === 'deploy' ? <DeployPanel prefix={prefix} app={app} initialTag={deployTag ?? ''} onDone={close} /> : null}
       {panel === 'rollback' ? <RollbackPanel prefix={prefix} app={app} onDone={close} /> : null}
       {panel === 'delete' ? <DeletePanel prefix={prefix} app={app} onDone={close} onDeleted={onDeleted} /> : null}
 

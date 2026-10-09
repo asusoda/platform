@@ -208,7 +208,7 @@ export function KnowledgePage() {
           <SkeletonRows />
         ) : shown.length ? (
           <>
-            <SourceTable sources={page.shown} actions={actions} />
+            <SourceTable prefix={prefix} sources={page.shown} actions={actions} />
             <ShowMore list={page} noun="sources" />
           </>
         ) : sources.length ? (

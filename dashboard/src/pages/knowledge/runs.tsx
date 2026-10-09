@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -37,6 +37,7 @@ export function KnowledgeRuns() {
     queryFn: () => api<{ runs: KnowledgeRun[] }>(`/api/dashboard/${prefix}/knowledge/runs?limit=200${failed ? '&failed=1' : ''}`),
     enabled: Boolean(prefix),
     refetchInterval: 15_000,
+    placeholderData: keepPreviousData,
   });
   const list = runs.data?.runs ?? [];
   const page = useShowMore(list, failed, 50);

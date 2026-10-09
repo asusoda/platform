@@ -10,7 +10,7 @@ const TABS = [
   { id: 'pods', label: 'Member pods', module: 'compute' },
 ] as const;
 
-// What the org runs on RunPod: services that the org deploys, and pods that members connect to.
+// What the org runs on its hosting providers: services that the org deploys, and pods that members connect to.
 export function HostingPage() {
   const runpod = useModuleOn('runpod');
   const compute = useModuleOn('compute');

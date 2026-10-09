@@ -23,8 +23,12 @@ MEMORY_KINDS = ("episodic", "semantic", "profile", "task")
 SENSITIVITIES = ("normal", "sensitive")
 MAX_LIMIT = 500
 
-scopes.declare("agents:read", "Read conversations, memories and profiles of members the agent talks to")
-scopes.declare("agents:write", "Write conversations, memories, profiles and pending actions for members")
+scopes.declare(
+    "agents:read", "Read conversations, memories and profiles of members the agent talks to", uses=("embeddings",)
+)
+scopes.declare(
+    "agents:write", "Write conversations, memories, profiles and pending actions for members", uses=("embeddings",)
+)
 
 
 class AgentError(ServiceError, ValueError):

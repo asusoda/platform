@@ -36,6 +36,7 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 | [Points](./modules/points.md) | Members, points from events and the leaderboard |
 | [RunPod apps](./modules/runpod-apps.md) | App manifests, deploys, health checks and rollback |
 | [Store](./modules/storefront.md) | Merch store paid with points |
+| [Uptime](./modules/uptime.md) | Checks of sites and Hosting apps, with events when one goes down or up |
 
 ## Notes
 

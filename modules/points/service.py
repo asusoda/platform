@@ -16,6 +16,17 @@ def total_points(db, user_id, organization_id):
     return db.query(func.sum(Points.points)).filter_by(user_id=user_id, organization_id=organization_id).scalar()
 
 
+def totals_by_user(db, organization_id) -> dict[int, float]:
+    """The sum of each user's points in the org, by user id. Users with no entries are not in it. One query."""
+    rows = (
+        db.query(Points.user_id, func.sum(Points.points))
+        .filter(Points.organization_id == organization_id)
+        .group_by(Points.user_id)
+        .tuples()
+    )
+    return dict(rows)
+
+
 def point_json(point: Points) -> dict:
     """A point entry as the officer routes return it."""
     return {
@@ -182,22 +193,19 @@ def global_leaderboard(db) -> list[dict]:
         .all()
     )
 
-    user_details = {}
-    for user in db.query(User).all():
-        points_details = (
-            db.query(Points.event, Points.points, Points.timestamp, Points.awarded_by_officer)
-            .filter(Points.user_id == user.id)
-            .all()
-        )
-        user_details[user.uuid] = [
+    details_by_user: dict[int, list[dict]] = {}
+    for detail in db.query(
+        Points.user_id, Points.event, Points.points, Points.timestamp, Points.awarded_by_officer
+    ).order_by(Points.id):
+        details_by_user.setdefault(detail.user_id, []).append(
             {
                 "event": detail.event,
                 "points": detail.points,
                 "timestamp": detail.timestamp.isoformat() if detail.timestamp else None,
                 "awarded_by": detail.awarded_by_officer,
             }
-            for detail in points_details
-        ]
+        )
+    user_details = {uuid: details_by_user.get(user_id, []) for user_id, uuid in db.query(User.id, User.uuid)}
 
     return [
         {
