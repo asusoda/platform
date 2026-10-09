@@ -44,8 +44,8 @@ def test_lists_every_integration(client, officer_headers):
     body = client.get(BASE, headers=officer_headers).get_json()
     found = _by_key(body)
     assert {"discord", "embeddings", "github", "google", "notion", "runpod"} <= set(found)
-    assert found["notion"]["used_by"] == ["calendar"]
-    assert set(found["runpod"]["used_by"]) == {"compute", "runpod"}
+    assert found["notion"]["used_by"] == ["calendar", "integrations"]
+    assert set(found["runpod"]["used_by"]) == {"compute", "integrations", "runpod"}
     assert found["discord"]["editable"] is False and found["discord"]["fields"] == []
     assert found["embeddings"]["source"] is None
 

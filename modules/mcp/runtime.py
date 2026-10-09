@@ -28,16 +28,18 @@ def _org(db, caller: MachineCaller) -> Organization:
     return org
 
 
-def _usable(spec: ToolSpec, org: Organization, caller: MachineCaller) -> bool:
+def _usable(db, spec: ToolSpec, org: Organization, caller: MachineCaller) -> bool:
     if not caller.allows(spec.scope):
         return False
-    return spec.module is None or organizations.module_enabled(org, spec.module)
+    if spec.module is not None and not organizations.module_enabled(org, spec.module):
+        return False
+    return spec.available is None or spec.available(db, caller.organization_id)
 
 
 def available(db, caller: MachineCaller) -> list[ToolSpec]:
-    """Tools this token may call: its scopes allow them and its org has their module on."""
+    """Tools this token may call: its scopes allow them, its org has their module on and their service connected."""
     org = _org(db, caller)
-    local = [spec for spec in TOOLS.values() if _usable(spec, org, caller)]
+    local = [spec for spec in TOOLS.values() if _usable(db, spec, org, caller)]
     return sorted(local + remote.tools_for(db, caller.organization_id, caller), key=lambda s: s.name)
 
 
@@ -49,7 +51,7 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
     try:
         org = _org(db, caller)
         spec = TOOLS.get(name)
-        if spec is not None and not _usable(spec, org, caller):
+        if spec is not None and not _usable(db, spec, org, caller):
             spec = None
         if spec is None and name not in TOOLS:
             spec = remote.find(db, caller.organization_id, caller, name)

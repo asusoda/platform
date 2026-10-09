@@ -45,7 +45,7 @@ jobs:
     services:
       postgres:
         # pgvector for the knowledge module
-        image: pgvector/pgvector:pg16
+        image: mirror.gcr.io/pgvector/pgvector:pg16
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: platform_test

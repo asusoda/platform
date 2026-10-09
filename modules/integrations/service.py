@@ -23,8 +23,8 @@ logger = get_logger(__name__)
 CACHE_SECONDS = 600
 MAX_RESULT_CHARS = 100_000
 
-for _key in SERVERS:
-    registry.use(_key, "integrations")
+for _server in SERVERS.values():
+    registry.use(_server.integration, "integrations")
 
 _cache: dict[tuple[str, int], tuple[float, list[dict]]] = {}
 
@@ -81,6 +81,7 @@ def _spec(server: RemoteServer, tool: dict, write: bool) -> ToolSpec:
         func=partial(_call, server, str(tool["name"])),
         input_schema=schema,
         confirm=write,
+        integration=server.integration,
     )
 
 
@@ -92,7 +93,7 @@ def tools_for(db, org_id: int, caller: MachineCaller) -> list[ToolSpec]:
         if not (can_read or can_write):
             continue
         name_limits = caller.limit(server.key, "tools")
-        target_limits = caller.limit(server.key, server.target_limit)
+        target_limits = caller.limit(server.key, server.target_limit) if server.target_limit else None
         for tool in _remote_tools(db, server, org_id):
             write = not _read_only(tool)
             if (write and not can_write) or (not write and not can_read):
@@ -118,7 +119,7 @@ def _text(result: dict) -> str:
 
 
 def _call(server: RemoteServer, tool_name: str, db, org, caller: MachineCaller, **arguments: Any) -> Any:
-    target_limits = caller.limit(server.key, server.target_limit)
+    target_limits = caller.limit(server.key, server.target_limit) if server.target_limit else None
     if target_limits is not None:
         target = server.target(arguments)
         if target is None or not _allowed_target(target_limits, target):

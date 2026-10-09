@@ -70,6 +70,7 @@ function ScopeBox({
   uses = [],
   integrations = [],
   disabled = false,
+  tools,
 }: {
   scope: string;
   description: string;
@@ -78,6 +79,8 @@ function ScopeBox({
   uses?: string[];
   integrations?: TokenIntegration[];
   disabled?: boolean;
+  // The tools the scope gives, shown under the description
+  tools?: string;
 }) {
   return (
     <label
@@ -97,6 +100,7 @@ function ScopeBox({
       <span className="min-w-0 flex-1">
         <span className="block font-mono text-xs">{scope}</span>
         <span className="mt-0.5 block text-xs text-muted">{description}</span>
+        {tools ? <span className="mt-1.5 block font-mono text-[11px] leading-relaxed text-muted">{tools}</span> : null}
       </span>
       {uses.length ? (
         <Tooltip label={`Uses ${titles(uses, integrations)} with the org's keys`} side="top">
@@ -111,22 +115,16 @@ function ScopeBox({
   );
 }
 
-// A small toggle for a Platform scope shown under an integration it calls.
-function ScopeChip({ scope, on, onChange }: { scope: string; on: boolean; onChange: (on: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={() => onChange(!on)}
-      className={cx(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-        on ? 'border-fg/40 bg-panel-2' : 'border-line text-muted hover:bg-panel-2/50',
-      )}
-    >
-      {on ? <Check className="size-3" /> : null}
-      {scope}
-    </button>
-  );
+// The tools a scope of an integration gives, as one line.
+function toolLine(integration: TokenIntegration, scope: string): string | undefined {
+  const names = integration.tools?.[scope] ?? [];
+  if (names.length) return names.map((name) => name.split('.').slice(1).join('.')).join(' · ');
+  if (integration.remote) {
+    return scope.endsWith(':read')
+      ? `The read-only tools of ${integration.title}'s MCP server`
+      : `The other tools of ${integration.title}'s MCP server`;
+  }
+  return undefined;
 }
 
 function NewToken({
@@ -238,12 +236,13 @@ function NewToken({
         <div>
           <h3 className="text-sm font-medium">Integrations</h3>
           <p className="mt-0.5 text-xs text-muted">
-            What a token can reach in each service: its own tools, or Platform scopes that call it.
+            Each connected service gives agents its own tools. Agents call them with the org's keys, which they never see.
+            Tools that change something run only with confirm=true.
           </p>
         </div>
         {integrations.map((integration) => {
           const picked = integration.scopes.some((scope) => chosen.includes(scope));
-          const through = integration.through ?? [];
+          const usedBy = (integration.used_by ?? []).filter((name) => name !== 'integrations');
           return (
             <fieldset key={integration.key} className="rounded-lg border border-line p-3">
               <legend className="flex items-center gap-2 px-1 text-sm font-medium">
@@ -253,11 +252,11 @@ function NewToken({
               </legend>
               {integration.scopes.length ? (
                 <>
-                  <p className="mb-2 text-xs text-muted">
-                    {integration.connected
-                      ? `Tools: agents call ${integration.title} with the org's key, which they never see. Tools that change something run only with confirm=true.`
-                      : `Connect ${integration.title} on the Integrations page to give a token its tools.`}
-                  </p>
+                  {integration.connected ? null : (
+                    <p className="mb-2 text-xs text-muted">
+                      Connect {integration.title} on the Integrations page to give a token its tools.
+                    </p>
+                  )}
                   <div className="grid gap-2 sm:grid-cols-2">
                     {integration.scopes.map((scope) => (
                       <ScopeBox
@@ -267,6 +266,7 @@ function NewToken({
                         on={chosen.includes(scope)}
                         onChange={toggle(scope)}
                         disabled={!integration.connected}
+                        tools={toolLine(integration, scope)}
                       />
                     ))}
                   </div>
@@ -293,16 +293,10 @@ function NewToken({
                   })}
                 </div>
               ) : null}
-              {through.length ? (
-                <div className={cx('flex flex-wrap items-center gap-1.5', integration.scopes.length > 0 && 'mt-3')}>
-                  <span className="mr-1 text-xs text-muted">Through Platform scopes</span>
-                  {through.map((scope) => (
-                    <ScopeChip key={scope} scope={scope} on={chosen.includes(scope)} onChange={toggle(scope)} />
-                  ))}
-                </div>
-              ) : null}
-              {!integration.scopes.length && !through.length ? (
-                <p className="text-xs text-muted">No scope gives a token access to {integration.title}.</p>
+              {!integration.scopes.length ? (
+                <p className="text-xs text-muted">
+                  No agent tools.{usedBy.length ? ` Platform uses it for ${usedBy.join(', ')}.` : ''}
+                </p>
               ) : null}
             </fieldset>
           );

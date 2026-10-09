@@ -1,6 +1,6 @@
 # Compute
 
-GPU and CPU pods on an org's own RunPod account that members connect to over SSH with a compute CLI. The reference CLI is `godfather` (`pip install godfather-cli`). Officers create pods and select who can use them. A member gets a certificate for their own SSH key that works on one pod for 12 hours.
+GPU and CPU pods on an org's own hosting provider account that members connect to over SSH with a compute CLI. RunPod is the only provider. The reference CLI is `godfather` (`pip install godfather-cli`). Officers create pods and select who can use them. A member gets a certificate for their own SSH key that works on one pod for 12 hours.
 
 ## Setup
 
@@ -8,7 +8,7 @@ GPU and CPU pods on an org's own RunPod account that members connect to over SSH
 2. Keep the `compute` module on for the org. It is on by default.
 3. Optional: set these in the server's `.env`.
    - `COMPUTE_CLI_NAME`: the CLI name in sign-in pages and errors. Default `the compute CLI`. The example AIS server sets `godfather`.
-   - `COMPUTE_POD_IMAGE`: the deployment default pod image. Default `theaisocietyasu/godfather-base:latest`.
+   - `COMPUTE_POD_IMAGE`: the deployment default pod image. Default `ghcr.io/theaisocietyasu/godfather-base:latest`.
 4. Optional: set the org's own default pod image under Compute > Settings on the dashboard (`PUT /api/compute/<org>/settings` with `{"pod_image": "..."}`, null to clear). A pod gets the image of its create body, else the org default, else `COMPUTE_POD_IMAGE`.
 
 The first pod makes two ed25519 key pairs for the org in `compute_keys`. `SECRETS_KEY` encrypts the private keys.
@@ -24,7 +24,7 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 
 | Route | Does |
 | --- | --- |
-| `GET /pods` | Pods made here, with the live status from RunPod |
+| `GET /pods` | Pods made here, with `provider` and the live status from the provider |
 | `POST /pods` | Creates a pod. Body below. 201 |
 | `GET /pods/<pod_id>` | One pod |
 | `PUT /pods/<pod_id>` | `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}`, or both |
@@ -33,12 +33,13 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 | `GET /members?ids=<id>,<id>` | The display names of up to 50 ids. 503 when Discord does not answer |
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate"}`. `terminate` deletes the pod and its record |
 
-All fields of the create body are optional. Platform sends them to the RunPod v2 API. A GPU pod gets a volume when `volume_in_gb` is 10 or more. A CPU pod has no volume, and `vcpu_count` is a power of two. When RunPod refuses the request, the route answers 400 with RunPod's reason. When RunPod fails, it answers 424.
+All fields of the create body are optional. `provider` names the hosting provider, default `runpod`. An unknown name answers 400. Platform sends the other fields to the RunPod v2 API. A GPU pod gets a volume when `volume_in_gb` is 10 or more. A CPU pod has no volume, and `vcpu_count` is a power of two. When RunPod refuses the request, the route answers 400 with RunPod's reason. When RunPod fails, it answers 424.
 
 ```json
 {
+  "provider": "runpod",
   "name": "workshop",
-  "image_name": "theaisocietyasu/godfather-base:latest",
+  "image_name": "ghcr.io/theaisocietyasu/godfather-base:latest",
   "gpu_type_id": "NVIDIA RTX A4000",
   "use_cpu_only": false,
   "cpu_flavor": "cpu3c",
@@ -62,7 +63,20 @@ These routes need a Discord session, or the CLI token as `Authorization: Bearer 
 | `GET /api/compute/<org>/me/pods` | Running pods that are public or that list the member in `allowed_users` |
 | `POST /api/compute/<org>/me/pods/<pod_id>/connect` | `{"public_key": "ssh-ed25519 ..."}`. Returns host, port, `user_folder` and a certificate |
 
-A member certificate has the principal `gf-<pod_id>` and forces `/usr/local/bin/godfather-login <username>`, which puts the member in their own account and folder. An officer of the org gets a root certificate with no forced command. A certificate is valid from 5 minutes ago to 12 hours from now. The audit log records each connect.
+A member certificate has the principal `gf-<pod_id>` and forces `/usr/local/bin/godfather-login <username>`, which puts the member in their own account and folder. An officer of the org gets a root certificate with no forced command. A certificate is valid from 5 minutes ago to 12 hours from now. The audit log records each connect, and the `compute_connections` table keeps it for the pod's member list.
+
+## Who is on a pod
+
+Officers see who can connect to a pod, who connected and who is connected now. On the dashboard, open a pod's Members from its row on the Member pods tab.
+
+| Route | Does |
+| --- | --- |
+| `GET .../pods/<pod_id>/members` | `access`: `is_public` and the `allowed` members (`discord_id`, `name`). `recent`: the last 100 certificates for the pod, newest first (`discord_id`, `name`, `username`, `is_admin`, `created_at`) |
+| `GET .../pods/<pod_id>/members/connected` | The live SSH sessions on the pod: `state` (`known` or `unknown`), `reason`, and `sessions` (`username`, `is_admin`, `seconds`, `discord_id`, `name`) |
+
+Names come from the org's Discord server, for at most 50 members in each request. Other names are null. `connect` writes one `compute_connections` row for each certificate. A new row deletes the org's rows older than 90 days. Terminate deletes the pod's rows.
+
+The connected route opens SSH to the pod as root with the `backend` key, with a 5 second limit. It runs `ps` and finds the `su - godfather_<username>` process of each member session and the `/etc/godfather/admin.bashrc` shell of each officer session, which has `GODFATHER_USER` in its environment. It maps a username to the member who last got a certificate with it for the pod. The answer is always 200. The state is `unknown`, with a reason, when the pod is stopped, SSH fails, or the pod has no `/usr/local/bin/godfather-login`. A root SSH login that does not go through `godfather-login` is not shown.
 
 ## CLI sign-in
 
@@ -102,6 +116,19 @@ These officer routes work on the files of a running pod over SFTP, as root with 
 A stopped pod returns 409. A failed SSH connection returns 502. Platform does not check pod host keys, because RunPod does not publish them.
 
 Officers manage pods on the Member pods tab of the dashboard Hosting page, `/<org>/hosting?tab=pods`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
+
+## Adding a hosting provider
+
+A hosting provider is the cloud that compute pods and apps run on. `core/hosting.py` has the interface and the registry. RunPod (`core/integrations/runpod.py`) is the only provider. `GET /api/dashboard/<org>/hosting/providers` lists the providers with `configured` for the org, and the dashboard shows them in its Provider selects.
+
+1. Write a client with the `HostingClient` calls: `list_pods`, `get_pod`, `create_pod`, `update_pod`, `start_pod`, `stop_pod` and `delete_pod`. Raise a `HostingError` subclass with the provider's HTTP status when a call fails. A missing pod gives `None` from `get_pod`.
+2. Write a provider class with `name`, `title` and `integration`, and the methods `configured`, `client`, `status`, `machine`, `ssh_address` and `proxy_url`. `status` returns `RUNNING` for a running pod and `GONE` for `None`.
+3. Register an integration for the provider's keys in `core/integrations/registry.py`, so officers connect it on Integrations.
+4. Call `hosting.register()` in the module, and add the module to `PROVIDER_MODULES` in `core/hosting.py`.
+5. The create bodies of compute (`pod_request` in `modules/compute/service.py`) and of app manifests follow the RunPod v2 API. Map them to the new provider's API in its client, or give the provider its own request builder.
+6. Show the provider's own fields in `dashboard/src/pages/compute/new-pod.tsx` when it is selected, as the RunPod hardware fields are.
+
+The `provider` column of `compute_pods` and `runpod_apps` keeps the name, so a rename breaks existing rows. The module names `runpod` and `compute` stay. A later change can rename `modules/runpod` to `modules/hosting`.
 
 ## Limits
 

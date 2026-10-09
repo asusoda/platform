@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, PlugZap } from 'lucide-react';
+import { BookOpen, LogIn, PlugZap } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { AsuCard } from '../components/asu-card';
 import { IntegrationIcon } from '../components/integration-icons';
 import {
   Badge,
@@ -23,7 +24,7 @@ import { timeAgo } from '../lib/format';
 import { docsPage } from '../lib/links';
 import { useCurrentOrg } from '../lib/org';
 import { useIntegrations } from '../lib/queries';
-import type { Integration, IntegrationList, IntegrationTest } from '../lib/types';
+import type { Integration, IntegrationList, IntegrationTest, OAuthState } from '../lib/types';
 
 // The module names the API sends, with their label and dashboard page.
 const MODULES: Record<string, { label: string; path?: string }> = {
@@ -142,7 +143,50 @@ function KeysForm({ prefix, i, onDone }: { prefix: string; i: Integration; onDon
   );
 }
 
-function IntegrationCard({ prefix, i, canSave }: { prefix: string; i: Integration; canSave: boolean }) {
+function signedIn(state: OAuthState): string {
+  const who = state.connected_by ? ` (${state.connected_by})` : '';
+  const when = state.connected_at ? `, ${timeAgo(state.connected_at)}` : '';
+  return `Agents use ${state.title}'s own MCP tools as the person who signed in${who}${when}.`;
+}
+
+// The sign-in that lets agents use the service's own MCP server as the person who signs in.
+function OAuthRow({ prefix, k, state }: { prefix: string; k: string; state: OAuthState }) {
+  const client = useQueryClient();
+  const start = useMutation({
+    mutationFn: () => send<{ url: string }>(`/api/dashboard/${prefix}/integrations/${k}/oauth`, 'POST'),
+    onSuccess: (body) => window.location.assign(body.url),
+  });
+  const stop = useMutation({
+    mutationFn: () => send<IntegrationList>(`/api/dashboard/${prefix}/integrations/${k}/oauth`, 'DELETE'),
+    onSuccess: (list) => client.setQueryData(['integrations', prefix], list),
+  });
+  return (
+    <div className="mx-4 mb-3 rounded-md border border-line px-3 py-2.5 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-fg">Agent sign-in</span>
+        {state.connected ? <Badge tone="ok">Signed in</Badge> : null}
+        <span className="ml-auto flex gap-2">
+          {state.connected ? (
+            <Button variant="ghost" disabled={stop.isPending} onClick={() => stop.mutate()}>
+              Sign out
+            </Button>
+          ) : (
+            <Button variant="secondary" disabled={Boolean(state.blocked) || start.isPending} onClick={() => start.mutate()}>
+              {start.isPending ? <Spinner className="size-3.5" /> : <LogIn className="size-3.5" />} Sign in with {state.title}
+            </Button>
+          )}
+        </span>
+      </div>
+      <p className="mt-1 text-muted">
+        {state.connected ? signedIn(state) : (state.blocked ?? `Sign in to give agents the tools of ${state.title}'s own MCP server, acting as you.`)}
+      </p>
+      {start.error ? <ErrorNote error={start.error} /> : null}
+      {stop.error ? <ErrorNote error={stop.error} /> : null}
+    </div>
+  );
+}
+
+function IntegrationCard({ prefix, i, canSave, oauth }: { prefix: string; i: Integration; canSave: boolean; oauth?: OAuthState }) {
   const [editing, setEditing] = useState(false);
   const test = useMutation({
     mutationFn: () => send<IntegrationTest>(`/api/dashboard/${prefix}/integrations/${i.key}/test`, 'POST'),
@@ -187,6 +231,21 @@ function IntegrationCard({ prefix, i, canSave }: { prefix: string; i: Integratio
           })}
         </div>
       ) : null}
+      {i.unlocks?.length ? (
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 text-xs text-muted">
+          Unlocks
+          {i.unlocks.map((title) => (
+            <Link
+              key={title}
+              to={`/${prefix}/modules`}
+              className="rounded-md border border-line px-1.5 py-0.5 text-fg transition-colors hover:bg-panel-2"
+            >
+              {title}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      {oauth ? <OAuthRow prefix={prefix} k={i.key} state={oauth} /> : null}
       {test.data ? (
         <div
           className={cx('mx-4 mb-3 animate-in rounded-md px-3 py-2 text-xs', test.data.ok ? 'bg-ok/10 text-ok' : 'bg-bad/10 text-bad')}
@@ -264,8 +323,9 @@ export function IntegrationsPage() {
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {items.map((i) => (
-                  <IntegrationCard key={i.key} prefix={prefix} i={i} canSave={data.secrets_key} />
+                  <IntegrationCard key={i.key} prefix={prefix} i={i} canSave={data.secrets_key} oauth={data.oauth?.[i.key]} />
                 ))}
+                {n === 0 && data.asu ? <AsuCard prefix={prefix} initial={data.asu} /> : null}
               </div>
             </section>
           ) : null;

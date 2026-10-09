@@ -13,6 +13,7 @@ from core.integrations.registry import Field, Integration, IntegrationError, reg
 
 NOTION_SECRET = "notion_api_key"  # nosec B105 - the name of an org secret, not its value
 GOOGLE_SECRET = "google_service_account"  # nosec B105 - the name of an org secret, not its value
+GOOGLE_SUBJECT = "google_subject"
 TIMEOUT_SECONDS = 10
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar"
 
@@ -45,11 +46,18 @@ def _google_test(db, org_id: int) -> str:
         raise IntegrationError("The service account key is not JSON") from e
     if not isinstance(info, dict) or not info.get("client_email"):
         raise IntegrationError("Set a Google service account key first")
+    subject = secrets.get_secret(db, org_id, GOOGLE_SUBJECT) if raw else None
     try:
         credentials = service_account.Credentials.from_service_account_info(info, scopes=[CALENDAR_SCOPE])
+        if subject:
+            credentials = credentials.with_subject(subject)
         credentials.refresh(Request())
     except (GoogleAuthError, ValueError) as e:
+        if subject:
+            raise IntegrationError(f"Google refused to let the service account act as {subject}") from e
         raise IntegrationError("Google refused the service account key") from e
+    if subject:
+        return f"Connected as {info['client_email']}, acting as {subject}."
     return f"Connected as {info['client_email']}."
 
 
@@ -74,13 +82,21 @@ register(
     Integration(
         key="google",
         title="Google",
-        description="Connect a Google Cloud service account for the org.",
+        description="Connect a Google Cloud service account for the org: Calendar sync and Google tools for agents.",
         fields=(
             Field(
                 GOOGLE_SECRET,
                 "Service account key",
-                "The JSON key of a Google Cloud service account with the Calendar API on.",
+                "The JSON key of a Google Cloud service account with the Calendar, Drive, Sheets and Gmail APIs on.",
                 kind="json",
+            ),
+            Field(
+                GOOGLE_SUBJECT,
+                "Act as Workspace user",
+                "Optional. A user email in your Google Workspace. The service account then acts as this user "
+                "through domain-wide delegation. Gmail tools need it.",
+                secret=False,
+                optional=True,
             ),
         ),
         docs="modules/calendar",

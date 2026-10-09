@@ -121,6 +121,37 @@ def pod_action(db, org, pod_id):
     return service.act(db, _org_id(org), pod_id, data.get("action") if isinstance(data, dict) else None)
 
 
+def _name_lookup(org):
+    """A function from a Discord id to the member's display name in the org's server, or None."""
+    directory = access.discord_directory()
+    if directory is None or not directory.is_ready():
+        return None
+
+    failed: list[bool] = []
+
+    def name_of(discord_id: str) -> str | None:
+        if failed:
+            return None
+        try:
+            return directory.get_display_name(org.guild_id, discord_id)
+        except DiscordUnavailable:
+            # Stop after the first failure so one request does not wait on Discord many times
+            failed.append(True)
+            return None
+
+    return name_of
+
+
+@_officer_route("/pods/<string:pod_id>/members", ["GET"])
+def pod_members(db, org, pod_id):
+    return service.pod_members(db, _org_id(org), pod_id, _name_lookup(org))
+
+
+@_officer_route("/pods/<string:pod_id>/members/connected", ["GET"])
+def pod_connected(db, org, pod_id):
+    return service.connected_now(db, _org_id(org), pod_id, _name_lookup(org))
+
+
 @_officer_route("/members", ["GET"])
 def find_members(db, org):
     """Server members for the allowed members field.

@@ -21,7 +21,7 @@ The API does not need the bot. It reads Discord servers, roles and members over 
 
 ```
 main.py, bot_main.py, worker_main.py, mcp_main.py   the four entry points
-core/          shared code: config, database, jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients
+core/          shared code: config, database, jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients, hosting providers
 modules/       one folder per module, not nested; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
@@ -48,7 +48,18 @@ Views get a database session from `officer_route`, `machine_route` or `member_vi
 
 A module is a folder in `modules/` with only the files it needs: `service.py` for the logic, `api.py` for the routes, `models.py`, `jobs.py` and `tools.py`. The REST routes, jobs, tools and the bot call the same `service.py` functions. [Writing a module](./writing-a-module.md) gives the rules and the places to register a module.
 
-Orgs can turn off the optional modules: `points`, `storefront`, `calendar`, `leetcode`, `compute` and `alerts`. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`. The switches are in `Organization.config["modules"]`. A module with no entry is on. Officers set the switches on the dashboard Settings page or with `flask --app main org modules <prefix> --on x --off y`.
+Orgs can turn off the optional modules: `points`, `storefront`, `calendar`, `leetcode`, `compute` and `alerts`. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`. The switches are in `Organization.config["modules"]`. A module with no entry is on, so an org made before the switch existed keeps the module. A new org gets an entry for each optional module: on for the modules in `NEW_ORG_MODULES` in `modules/manifest.py`, off for the others. Officers add and remove modules on the dashboard Modules page, or with `flask --app main org modules <prefix> --on x --off y`.
+
+### Modules and packs
+
+| | Module | Pack |
+| --- | --- | --- |
+| Is | A feature with code, in `modules/<name>/` | Content or presets with no code of their own, in `packs/<name>/` |
+| Examples | `knowledge`, `alerts`, `compute` | `packs/asu` (campus pages and live queries), `packs/careers` (alert feeds) |
+| Per org | Optional modules are switched on or off for each org | An org adds a pack's sources or feeds in the module that uses it |
+| On the dashboard | A card on the Modules page | Shown on the card of the module that uses it, and on that module's page |
+
+`CATALOG` in `modules/manifest.py` gives each module a title, a description, what it needs (integration keys or settings) and the packs it reads. `CATEGORIES` puts each module in one category. The Core category (organizations, auth, dashboard, users, public, superadmin, bot) is always on and is not on the Modules page. `GET /api/dashboard/<org>/modules` returns the catalog with the org's switches and whether each need is connected.
 
 ## Jobs
 
@@ -84,9 +95,24 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
 | `apps.deploy` (confirm) | `apps:deploy` | runpod |
 | `alerts.list`, `alerts.presets`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
-| `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
+| `compute.pods`, `compute.pod_members`, `compute.pod_action` (confirm) | `compute:manage` | compute |
+| `uptime.list` | `uptime:read` | uptime |
 | `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
 | `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
+| `runpod.*`: the read-only tools of RunPod's MCP server | `runpod:read` | integrations |
+| `runpod.*`: the other tools of RunPod's MCP server (confirm) | `runpod:write` | integrations |
+| `notion.*`: the tools of Notion's MCP server, after an officer signs in | `notion:read`, `notion:write` | integrations |
+| `gmail.*`: the tools of Google's Gmail MCP server, after an officer signs in | `gmail:read`, `gmail:send` | integrations |
+| `drive.*`, `calendar.*`: the tools of Google's Drive and Calendar MCP servers, after an officer signs in | `google:read`, `google:write` | integrations |
+| `google.calendar_list`, `google.calendar_events`, `google.drive_search`, `google.drive_read`, `google.sheets_read` | `google:read` | integrations |
+| `google.calendar_create_event` (confirm), `google.sheets_append` (confirm) | `google:write` | integrations |
+| `google.gmail_search`, `google.gmail_read` | `gmail:read` | integrations |
+| `google.gmail_send` (confirm) | `gmail:send` | integrations |
+| `notion.search`, `notion.read_page`, `notion.query_database` | `notion:read` | integrations |
+| `notion.create_page` (confirm) | `notion:write` | integrations |
+| `web.search` | `web:read` | integrations |
+| `asu.clubs`, `asu.events`, after an officer signs in to ASU | `asu:read` | `packs/asu/signin` |
+| `canvas.courses`, `canvas.assignments`, `canvas.grades`, `canvas.announcements`, `canvas.calendar`, `canvas.assignment_grades`: one member's own Canvas, after the member connects it | `canvas:read` | accounts |
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 
@@ -101,7 +127,7 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Discord | Sign-in, role and member checks, the bot | `core/integrations/discord.py`, `modules/auth`, `modules/bot` |
 | Clerk | Member sign-in on the public website storefront | `modules/auth/clerk.py` |
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
-| RunPod | Compute pods and app deploys | `core/integrations/runpod.py` |
+| RunPod | Compute pods and app deploys, through the hosting provider registry in `core/hosting.py` | `core/integrations/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
 | Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
 | Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to Discord webhooks | `core/webhooks.py`, `modules/dashboard/webhooks.py` |

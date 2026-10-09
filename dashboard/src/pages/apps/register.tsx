@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, cx, Field, FormActions, Input, Spinner } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { App } from '../../lib/types';
+import { firstConfigured, ProviderField, useProviders } from '../hosting/providers';
 import { ManifestInput, readManifest } from './manifest';
 import { DEFAULT_MANIFEST_PATH, NAME_PATTERN, REPO_PATTERN, useInvalidate } from './shared';
 
@@ -50,6 +51,9 @@ export function RegisterApp({ prefix, onDone }: { prefix: string; onDone: (name:
   const [repo, setRepo] = useState('');
   const [path, setPath] = useState(DEFAULT_MANIFEST_PATH);
   const [text, setText] = useState('');
+  const providers = useProviders(prefix);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const provider = chosen ?? firstConfigured(providers.data);
   const nameOk = !name || NAME_PATTERN.test(name);
   const repoOk = !repo || REPO_PATTERN.test(repo);
   const parsed = readManifest(text);
@@ -59,7 +63,9 @@ export function RegisterApp({ prefix, onDone }: { prefix: string; onDone: (name:
       send<App>(
         `/api/dashboard/${prefix}/apps/${name}`,
         'PUT',
-        source === 'repo' ? { repo, manifest_path: path.trim() || DEFAULT_MANIFEST_PATH } : { manifest: parsed.manifest },
+        source === 'repo'
+          ? { provider, repo, manifest_path: path.trim() || DEFAULT_MANIFEST_PATH }
+          : { provider, manifest: parsed.manifest },
       ),
     onSuccess: () => {
       invalidate(name);
@@ -81,6 +87,13 @@ export function RegisterApp({ prefix, onDone }: { prefix: string; onDone: (name:
         }>
         <Input value={name} onChange={(e) => setName(e.target.value.trim())} placeholder="club-bot" aria-invalid={!nameOk} required autoFocus />
       </Field>
+      <ProviderField
+        prefix={prefix}
+        providers={providers.data}
+        value={provider}
+        onChange={setChosen}
+        hint="The cloud account the app's pod runs on. The manifest follows the RunPod pod API."
+      />
       <SourceChoice value={source} onChange={setSource} />
       {source === 'repo' ? (
         <div className="grid gap-5 sm:grid-cols-2">
