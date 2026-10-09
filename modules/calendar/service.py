@@ -22,7 +22,7 @@ from .tracing import operation_span
 
 logger = get_logger(__name__)
 
-scopes.declare("calendar:read", "Read the org's upcoming events")
+scopes.declare("calendar:read", "Read the org's upcoming events", uses=("notion",))
 
 # Events per org for the website, kept 5 minutes
 _FRONTEND_CACHE = TTLCache(maxsize=100, ttl=300)

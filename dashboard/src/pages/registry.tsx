@@ -1,12 +1,14 @@
 import {
   Activity,
   Bell,
+  Blocks,
   BellRing,
   Cable,
   CalendarDays,
   CodeXml,
   Coins,
   Database,
+  HeartPulse,
   KeyRound,
   LayoutDashboard,
   Plug,
@@ -16,8 +18,10 @@ import {
   ShoppingBag,
   Webhook,
 } from 'lucide-react';
+import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType, ReactNode } from 'react';
 import { ModuleGate } from '../components/module-gate';
+import { overviewQuery } from '../lib/queries';
 import { ActivityPage } from './activity';
 import { AdminPage } from './admin';
 import { AlertsPage } from './alerts';
@@ -25,14 +29,19 @@ import { CalendarPage } from './calendar';
 import { HostingPage } from './hosting';
 import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
+import { KnowledgeSourcePage } from './knowledge/source';
 import { LeetCodePage } from './leetcode';
 import { McpPage } from './mcp';
+import { ModulesPage } from './modules';
 import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
+import { prefetchPoints } from './points/shared';
 import { SettingsPage } from './settings';
 import { StorePage } from './store';
+import { prefetchStore } from './store/shared';
 import { TokensPage } from './tokens';
+import { UptimePage } from './uptime';
 import { WebhooksPage } from './webhooks';
 
 // The sidebar sections, in order. A section with no title has no header.
@@ -73,24 +82,34 @@ export type PageEntry = {
   gate?: boolean;
   // Only the superadmin sees the page in the sidebar.
   superadmin?: boolean;
+  // The page has no sidebar item. Links on another page open it. The first part of path selects the sidebar item.
+  hidden?: boolean;
   page: ComponentType;
+  // Starts the main requests of the page: on a sidebar hover or focus, and when the page opens, before its module
+  // check answers.
+  prefetch?: (client: QueryClient, prefix: string) => void;
 };
+
+const prefetchOverview = (client: QueryClient, prefix: string) => void client.prefetchQuery(overviewQuery(prefix));
 
 // Every org page, in sidebar order. To add a page, write the page file and add one entry here.
 export const PAGES: PageEntry[] = [
-  { path: '', label: 'Overview', icon: LayoutDashboard, section: 'top', page: OverviewPage },
+  { path: '', label: 'Overview', icon: LayoutDashboard, section: 'top', page: OverviewPage, prefetch: prefetchOverview },
   { path: 'notifications', label: 'Notifications', icon: Bell, section: 'top', page: NotificationsPage },
-  { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage },
-  { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage },
+  { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage, prefetch: prefetchPoints },
+  { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage, prefetch: prefetchStore },
   { path: 'webhooks', label: 'Webhooks', icon: Webhook, section: 'automations', group: 'webhooks', page: WebhooksPage },
   { path: 'alerts', label: 'Alerts', icon: BellRing, section: 'automations', group: 'webhooks', module: 'alerts', gate: true, page: AlertsPage },
   { path: 'calendar', label: 'Calendar sync', icon: CalendarDays, section: 'automations', group: 'scheduled', module: 'calendar', gate: true, page: CalendarPage },
   { path: 'leetcode', label: 'LeetCode', icon: CodeXml, section: 'automations', group: 'bots', module: 'leetcode', gate: true, page: LeetCodePage },
   { path: 'knowledge', label: 'Knowledge', icon: Database, section: 'knowledge', page: KnowledgePage },
+  { path: 'knowledge/sources/*', label: 'Knowledge source', icon: Database, section: 'knowledge', hidden: true, page: KnowledgeSourcePage },
   { path: 'mcp', label: 'MCP', icon: Cable, section: 'knowledge', page: McpPage },
   { path: 'hosting', label: 'Hosting', icon: Server, section: 'infrastructure', module: ['runpod', 'compute'], page: HostingPage },
+  { path: 'uptime', label: 'Uptime', icon: HeartPulse, section: 'infrastructure', module: 'uptime', gate: true, page: UptimePage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
+  { path: 'modules', label: 'Modules', icon: Blocks, section: 'bottom', page: ModulesPage },
   { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },

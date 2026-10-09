@@ -5,22 +5,29 @@ officers who sign in to the dashboard.
 """
 
 from functools import partial
+from html import escape
 from typing import cast
 
-from flask import Blueprint, request
+from flask import Blueprint, redirect, request
 
-from core import secrets
+from core import hosting, secrets
+from core.config import config
+from core.db import db_connect
 from core.http import audit_hook
 from core.http.responses import json_body
 from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
+from modules.integrations import oauth
 from modules.knowledge import crawl, documents, embedder, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
+from modules.organizations.models import Organization
 from modules.packs import service as packs
 from modules.runpod import service as apps
+from modules.runpod import templates as app_templates
+from packs.asu.signin import service as asu
 
 from . import ci, errors, notices, service, webhooks
 from . import trends as trends_service
@@ -71,9 +78,72 @@ def reopen_notifications(db, org):
     return notices.reopen(db, org, json_body().get("ids"))
 
 
+@_route("/modules", ["GET"])
+def list_modules(db, org):
+    return service.modules(db, org)
+
+
 @_route("/integrations", ["GET"])
 def list_integrations(db, org):
-    return {"integrations": integrations.status(db, _org_id(org)), "secrets_key": secrets.configured()}
+    unlocks = service.unlocks()
+    return {
+        "integrations": [i | {"unlocks": unlocks.get(i["key"], [])} for i in integrations.status(db, _org_id(org))],
+        "oauth": oauth.status(db, _org_id(org)),
+        "asu": asu.status(db, _org_id(org)),
+        "secrets_key": secrets.configured(),
+    }
+
+
+@_route("/integrations/asu/signin", ["GET"])
+def asu_signin(db, org):
+    return asu.status(db, _org_id(org))
+
+
+@_route("/integrations/asu/signin", ["POST"])
+def start_asu_signin(db, org):
+    body = json_body()
+    return asu.start(db, _org_id(org), body.get("netid"), body.get("password"), _actor()), 202
+
+
+@_route("/integrations/asu/signin", ["DELETE"])
+def stop_asu_signin(db, org):
+    return asu.sign_out(db, _org_id(org))
+
+
+@_route("/integrations/<string:key>/oauth", ["POST"])
+def start_oauth(db, org, key):
+    return {"url": oauth.start(db, _org_id(org), key, _actor())}
+
+
+@_route("/integrations/<string:key>/oauth", ["DELETE"])
+def stop_oauth(db, org, key):
+    oauth.disconnect(db, _org_id(org), key)
+    return list_integrations(db, org)
+
+
+@dashboard_blueprint.route("/integrations/oauth/callback", methods=["GET"])
+def oauth_callback():
+    """Where a service sends the officer back after the sign-in. The state proves the sign-in started here."""
+    state, code = request.args.get("state", ""), request.args.get("code", "")
+    if not state or not code:
+        return _oauth_page("The sign-in was cancelled. Start it again on the Integrations page.", 400)
+    db = db_connect.SessionLocal()
+    try:
+        org_id, key = oauth.finish(db, state, code)
+        org = db.query(Organization).filter_by(id=org_id).first()
+        prefix = str(org.prefix) if org else ""
+    except oauth.OAuthError as e:
+        return _oauth_page(e.message, e.status)
+    finally:
+        db.close()
+    if config.DASHBOARD_URL and prefix:
+        return redirect(f"{config.DASHBOARD_URL}/{prefix}/integrations?connected={key}")
+    return _oauth_page(f"{oauth.SERVICES[key].title} is connected. You can close this page.", 200)
+
+
+def _oauth_page(message: str, status: int):
+    body = f"<!doctype html><meta charset=utf-8><title>Platform</title><p style='font-family:sans-serif'>{escape(message)}</p>"
+    return body, status, {"Content-Type": "text/html; charset=utf-8"}
 
 
 @_route("/integrations/<string:key>", ["PUT"])
@@ -160,12 +230,38 @@ def set_ci_repos(db, org):
     return {"repos": ci.set_repos(db, org, json_body().get("repos"))}
 
 
-# Apps on RunPod
+# Hosting providers and the apps that run on them
+
+
+@_route("/hosting/providers", ["GET"])
+def hosting_providers(db, org):
+    return {"providers": hosting.listing(db, _org_id(org))}
 
 
 @_route("/apps", ["GET"])
 def list_apps(db, org):
     return {"apps": apps.list_apps(db, _org_id(org))}
+
+
+@_route("/apps/templates", ["GET"])
+def list_app_templates(db, org):
+    return {"templates": app_templates.list_templates()}
+
+
+@_route("/apps/templates/<string:template>", ["POST"])
+def create_app_from_template(db, org, template):
+    data = json_body()
+    app = app_templates.create(
+        db,
+        _org_id(org),
+        template,
+        data.get("name"),
+        data.get("values"),
+        data.get("secrets"),
+        data.get("provider"),
+        _actor(),
+    )
+    return app, 201
 
 
 @_route("/apps/<string:name>", ["GET"])
@@ -176,7 +272,9 @@ def get_app(db, org, name):
 @_route("/apps/<string:name>", ["PUT"])
 def put_app(db, org, name):
     data = json_body()
-    return apps.put_app(db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"))
+    return apps.put_app(
+        db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"), data.get("provider")
+    )
 
 
 @_route("/apps/<string:name>", ["DELETE"])
@@ -213,6 +311,19 @@ def rollback_app(db, org, name):
 def list_sources(db, org):
     sources = knowledge.list_sources(db, _org_id(org), request.args.get("category"))
     return {"sources": sources, "can_publish": knowledge.can_publish(db, str(org.prefix))}
+
+
+@_route("/knowledge/sources/<path:key>", ["GET"])
+def read_source(db, org, key):
+    """One page of a source's full text. Query: chunk (a search result's chunk_id), offset."""
+    offset = request.args.get("offset")
+    return knowledge.read_source(
+        db,
+        _org_id(org),
+        key,
+        chunk_id=request.args.get("chunk") or None,
+        offset=int(offset) if offset is not None and offset.isdigit() else offset,
+    )
 
 
 @_route("/knowledge/sources/<path:key>", ["DELETE"])

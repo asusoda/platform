@@ -11,7 +11,17 @@ export class ApiError extends Error {
   }
 }
 
-async function refresh(): Promise<boolean> {
+// One refresh at a time: requests that fail together wait for the same new access token.
+let refreshing: Promise<boolean> | null = null;
+
+function refresh(): Promise<boolean> {
+  refreshing ??= refreshOnce().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+async function refreshOnce(): Promise<boolean> {
   const refreshToken = tokens.refresh();
   if (!refreshToken) return false;
   const response = await fetch(`${API_URL}/api/auth/refresh`, {
@@ -37,7 +47,16 @@ function parse(text: string): { error?: string; message?: string } | null {
   }
 }
 
-// Sends a request with the access token, refreshing it once on a 401.
+// Officer routes answer an expired access token with 403 and this message, other routes with 401.
+const EXPIRED_MESSAGE = 'Token is expired!';
+
+async function expiredAccess(response: Response): Promise<boolean> {
+  if (response.status === 401) return true;
+  if (response.status !== 403 || !tokens.refresh()) return false;
+  return parse(await response.clone().text())?.message === EXPIRED_MESSAGE;
+}
+
+// Sends a request with the access token, refreshing it once when the API says the token is expired.
 async function request(path: string, init: RequestInit, retried = false): Promise<Response> {
   const headers = new Headers(init.headers);
   const access = tokens.access();
@@ -52,7 +71,7 @@ async function request(path: string, init: RequestInit, retried = false): Promis
     // fetch rejects only when no response arrived: the API is down, restarting, or the connection dropped.
     throw new ApiError(UNREACHABLE, 0);
   }
-  if (response.status === 401 && !retried && (await refresh())) return request(path, init, true);
+  if (!retried && (await expiredAccess(response)) && (await refresh())) return request(path, init, true);
   return response;
 }
 

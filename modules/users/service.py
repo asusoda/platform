@@ -76,6 +76,17 @@ def find_by_identifier(db, identifier) -> User | None:
     return user
 
 
+def active_members(db, organization_id) -> list[tuple[UserOrganizationMembership, User]]:
+    """The org's active memberships with their users, in membership order. One query."""
+    return (
+        db.query(UserOrganizationMembership, User)
+        .join(User, User.id == UserOrganizationMembership.user_id)
+        .filter(UserOrganizationMembership.organization_id == organization_id, UserOrganizationMembership.is_active)
+        .order_by(UserOrganizationMembership.id)
+        .all()
+    )
+
+
 def active_membership(db, user_id, organization_id) -> UserOrganizationMembership | None:
     """The user's active membership in the org, or None."""
     return (

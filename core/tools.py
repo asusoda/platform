@@ -6,6 +6,10 @@ The runtime that checks tokens, scopes and module switches is modules/mcp/runtim
 
 A tool made with confirm=True changes or deletes something that is hard to undo. It takes a boolean argument
 confirm. Without confirm=true the runtime does not run it and returns what the call would do.
+
+A tool made with integration calls that connected service. The Tokens page lists it under the integration.
+A tool made with available is shown only to orgs for which available(db, org_id) is true, such as orgs that
+saved their own keys for the service.
 """
 
 from collections.abc import Callable
@@ -29,6 +33,8 @@ class ToolSpec:
     input_schema: dict = field(default_factory=lambda: {"type": "object", "properties": {}})
     confirm: bool = False  # the call runs only with confirm=true
     preview: Callable[..., Any] | None = None  # called like func when confirm is missing; it must change nothing
+    integration: str | None = None  # the connected service the tool calls
+    available: Callable[[Any, int], bool] | None = None  # the org can use the tool now
 
     @property
     def read_only(self) -> bool:
@@ -51,6 +57,8 @@ def tool(
     input_schema: dict | None = None,
     confirm: bool = False,
     preview: Callable[..., Any] | None = None,
+    integration: str | None = None,
+    available: Callable[[Any, int], bool] | None = None,
 ):
     """Register a tool. The function is called as func(db, org, caller, **arguments), without confirm."""
 
@@ -63,7 +71,7 @@ def tool(
             properties["confirm"] = {"type": "boolean"}
             schema = {**schema, "properties": properties}
             text += CONFIRM_NOTE
-        TOOLS[name] = ToolSpec(name, text, scope, func, module, schema, confirm, preview)
+        TOOLS[name] = ToolSpec(name, text, scope, func, module, schema, confirm, preview, integration, available)
         return func
 
     return register

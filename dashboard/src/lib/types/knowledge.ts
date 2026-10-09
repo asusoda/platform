@@ -24,6 +24,18 @@ export type KnowledgeSource = {
   crawl: KnowledgeCrawl | null;
 };
 
+// One page of a source's full text, from GET /knowledge/sources/<key>.
+export type KnowledgePassage = { id: string; ordinal: number; text: string };
+
+export type KnowledgeSourceText = {
+  source: KnowledgeSource & { own: boolean; text_chars: number | null };
+  passages: KnowledgePassage[];
+  focus: string[];
+  offset: number;
+  next_offset: number | null;
+  total: number;
+};
+
 export type SearchResult = {
   chunk_id: string;
   source_key: string;

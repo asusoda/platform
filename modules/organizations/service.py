@@ -9,14 +9,15 @@ from sqlalchemy.orm.attributes import flag_modified
 from core import secrets
 from core.errors import ServiceError
 from modules.auth import machine_tokens, scopes
+from modules.manifest import NEW_ORG_MODULES
 from modules.organizations.models import Organization
 
 scopes.declare("org:read", "Read the org's name, description and enabled modules")
 scopes.declare("settings:write", "Turn modules on or off, change branding, and resolve notifications")
 
-# Modules an organization can turn off. Everything else (auth, users, organizations,
-# superadmin, public pages) is always on. A module missing from an org's config is on,
-# so existing orgs keep every feature until an officer turns one off.
+# Modules an organization can turn off. Every other module is always on. A module missing from an org's config is
+# on, so existing orgs keep every feature until an officer turns one off. A new org starts with the modules in
+# NEW_ORG_MODULES of modules/manifest.py on and the rest of these off.
 OPTIONAL_MODULES = {
     "points": "Points, leaderboards and event check-ins",
     "storefront": "Merch store paid with points",
@@ -24,6 +25,7 @@ OPTIONAL_MODULES = {
     "leetcode": "Daily LeetCode post in the org's channel, with solve checks",
     "compute": "GPU and CPU pods on the org's RunPod account that members SSH into",
     "alerts": "Job and hackathon listings posted to Discord webhooks",
+    "uptime": "Checks of sites and Hosting apps, with an event when one goes down or up",
 }
 
 
@@ -73,6 +75,11 @@ def module_states(org: Organization) -> list[dict]:
     ]
 
 
+def new_org_switches() -> dict[str, bool]:
+    """The module switches of a new org: on for the modules in NEW_ORG_MODULES, off for the others."""
+    return {name: name in NEW_ORG_MODULES for name in OPTIONAL_MODULES}
+
+
 def set_modules(db, org: Organization, changes: object) -> list[dict]:
     """Turn modules on or off. `changes` maps module name to a bool. Commits."""
     if not isinstance(changes, dict) or not changes:
@@ -98,9 +105,10 @@ def create_organization(
     guild_id: str,
     officer_role_id: str | None = None,
     description: str | None = None,
+    modules_on: tuple[str, ...] = (),
     modules_off: tuple[str, ...] = (),
 ) -> Organization:
-    """Create an org with default settings and the given optional modules turned off. Commits."""
+    """Create an org with default settings and the module switches of a new org, then the given changes. Commits."""
     from modules.organizations.config import OrganizationSettings
 
     if not PREFIX_PATTERN.match(prefix):
@@ -111,12 +119,11 @@ def create_organization(
         raise OrganizationError(f"Prefix {prefix} is taken")
     if db.query(Organization).filter_by(guild_id=str(guild_id)).first():
         raise OrganizationError(f"Guild {guild_id} already has an organization")
-    unknown = [m for m in modules_off if m not in OPTIONAL_MODULES]
+    unknown = [m for m in (*modules_on, *modules_off) if m not in OPTIONAL_MODULES]
     if unknown:
         raise OrganizationError(f"Unknown or required module: {', '.join(unknown)}")
     config = OrganizationSettings().to_dict()
-    if modules_off:
-        config["modules"] = dict.fromkeys(modules_off, False)
+    config["modules"] = new_org_switches() | dict.fromkeys(modules_on, True) | dict.fromkeys(modules_off, False)
     org = Organization(
         name=name,
         prefix=prefix,
@@ -203,23 +210,51 @@ def delete_secret(db, org_id: int, name: str) -> bool:
 
 
 def token_list(db, org_id: int) -> dict:
-    """The org's active machine tokens, the scopes a token can hold, and the integrations whose tools a scope gives."""
-    from core.integrations import registry
+    """The org's active machine tokens, the scopes a token can hold, and each integration with the scopes that reach it.
 
-    groups: dict[str, list[str]] = {}
+    An integration's scopes give its own tools: tools names the Platform tools under each scope, and remote is true
+    when the tools come from the service's own MCP server. Its through scopes are Platform scopes that call it for
+    the agent, and used_by names the modules that use it.
+    """
+    from core.integrations import registry
+    from core.tools import TOOLS
+    from modules.integrations.servers import SERVERS
+
+    tools: dict[str, dict[str, list[str]]] = {}
+    for spec in sorted(TOOLS.values(), key=lambda t: t.name):
+        if spec.integration is not None:
+            tools.setdefault(spec.integration, {}).setdefault(spec.scope, []).append(spec.name)
+
+    direct: dict[str, list[str]] = {}
     for scope, integration in scopes.INTEGRATION_SCOPES.items():
-        groups.setdefault(integration, []).append(scope)
+        direct.setdefault(integration, []).append(scope)
+    through: dict[str, list[str]] = {}
+    for scope, keys in scopes.SCOPE_USES.items():
+        for key in keys:
+            through.setdefault(key, []).append(scope)
+    titles = {key: i.title for key, i in registry.INTEGRATIONS.items()}
+    keys = sorted(set(titles) | set(direct), key=lambda k: titles.get(k, k).lower())
     integrations = [
         {
             "key": key,
-            "title": registry.INTEGRATIONS[key].title if key in registry.INTEGRATIONS else key,
+            "title": titles.get(key, key),
             "connected": registry.connected(db, org_id, key),
-            "scopes": sorted(names),
+            "scopes": sorted(direct.get(key, [])),
+            "through": sorted(through.get(key, [])),
             "limits": sorted(machine_tokens.LIMIT_NAMES.get(key, ())),
+            "tools": tools.get(key, {}),
+            "remote": any(server.integration == key for server in SERVERS.values()),
+            "used_by": sorted(registry.INTEGRATIONS[key].used_by) if key in registry.INTEGRATIONS else [],
         }
-        for key, names in sorted(groups.items())
+        for key in keys
     ]
-    return {"tokens": machine_tokens.list_active(db, org_id), "scopes": scopes.SCOPES, "integrations": integrations}
+    uses = {scope: [k for k in found if k in titles] for scope, found in scopes.SCOPE_USES.items()}
+    return {
+        "tokens": machine_tokens.list_active(db, org_id),
+        "scopes": scopes.SCOPES,
+        "integrations": integrations,
+        "uses": uses,
+    }
 
 
 def issue_token(db, org_id: int, data: dict, created_by: str | None) -> dict:

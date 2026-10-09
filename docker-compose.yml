@@ -188,7 +188,7 @@ services:
   # See docs/operations.md, "Move to Postgres".
   postgres:
     # Postgres 16 with pgvector, for knowledge search
-    image: pgvector/pgvector:pg16
+    image: mirror.gcr.io/pgvector/pgvector:pg16
     container_name: soda-postgres
     restart: unless-stopped
     profiles: ["postgres"]

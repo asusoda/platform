@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { ExternalLink, Search } from 'lucide-react';
+import { ExternalLink, FileText, Search } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Badge, Button, Card, CardHeader, Code, EmptyState, ErrorNote, Input, Mono, Select, Spinner } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { SearchResponse } from '../../lib/types';
+import { sourcePath } from './shared';
 
 export function TestSearch({ prefix, categories }: { prefix: string; categories: string[] }) {
   const [query, setQuery] = useState('');
@@ -62,8 +64,14 @@ export function TestSearch({ prefix, categories }: { prefix: string; categories:
                 <li key={r.chunk_id} className="border-b border-line px-4 py-3 last:border-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="w-5 text-xs text-muted tabular-nums">{i + 1}.</span>
-                    <Code>{r.source_key}</Code>
-                    {r.title ? <span className="min-w-0 truncate text-sm font-medium">{r.title}</span> : null}
+                    <Link
+                      to={sourcePath(prefix, r.source_key, r.chunk_id)}
+                      className="flex min-w-0 items-center gap-2"
+                      title={`Read ${r.source_key}`}
+                    >
+                      <Code className="hover:border-line-strong">{r.source_key}</Code>
+                      {r.title ? <span className="min-w-0 truncate text-sm font-medium hover:underline">{r.title}</span> : null}
+                    </Link>
                     <Badge>{r.category}</Badge>
                     {r.public ? <Badge tone="active">public</Badge> : null}
                     <Mono className="ml-auto tabular-nums" title="Reciprocal rank fusion score">
@@ -71,17 +79,20 @@ export function TestSearch({ prefix, categories }: { prefix: string; categories:
                     </Mono>
                   </div>
                   <p className="mt-1.5 line-clamp-4 pl-7 text-sm whitespace-pre-line text-pretty text-muted">{r.content}</p>
-                  {r.url ? (
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 ml-7 inline-flex max-w-[calc(100%-1.75rem)] items-center gap-1 text-xs text-muted hover:text-fg"
+                  <div className="mt-1 flex min-w-0 items-center gap-3 pl-7 text-xs text-muted">
+                    <Link
+                      to={sourcePath(prefix, r.source_key, r.chunk_id)}
+                      className="inline-flex shrink-0 items-center gap-1 hover:text-fg"
                     >
-                      <span className="truncate">{r.url}</span>
-                      <ExternalLink className="size-3 shrink-0" />
-                    </a>
-                  ) : null}
+                      <FileText className="size-3" /> Full text
+                    </Link>
+                    {r.url ? (
+                      <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 hover:text-fg">
+                        <span className="truncate">{r.url}</span>
+                        <ExternalLink className="size-3 shrink-0" />
+                      </a>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ol>

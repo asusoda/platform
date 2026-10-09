@@ -19,7 +19,8 @@ If `service.py` has more than one concern, split it into more Flask-free files. 
 
 | What | Where |
 | --- | --- |
-| Category | `CATEGORIES` in `modules/manifest.py`. Put the module in the category of its dashboard section |
+| Category | `CATEGORIES` in `modules/manifest.py`. Put the module in one category. Core modules are always on and are not on the Modules page |
+| Catalog entry | `CATALOG` in `modules/manifest.py`: the title and one-line description that the Modules page shows, each integration key or setting the module needs (`Need`), and the packs it reads |
 | Blueprint and URL prefix | `MOUNTS` in `modules/registry.py`, and the import at the top of that file |
 | Tables | `MODEL_MODULES` in `modules/manifest.py`, then `uv run alembic revision --autogenerate -m "..."` |
 | Jobs | `JOB_MODULES` in `modules/manifest.py` |
@@ -33,7 +34,7 @@ If `service.py` has more than one concern, split it into more Flask-free files. 
 
 If the module needs more than its README, add `docs/modules/<name>.md`, a row in `docs/README.md`, and the page in `site/scripts/sync-docs.mjs`.
 
-`tests/test_module_layout.py` checks the categories, the manifest lists, `MOUNTS`, the Flask-free contract, the module switches, the docs rows, and that each README and `docs/data-model.md` name the module's jobs, tools and tables. If you forget a place, the test names the file to change.
+`tests/test_module_layout.py` checks the categories, the catalog entries, the manifest lists, `MOUNTS`, the Flask-free contract, the module switches, the docs rows, and that each README and `docs/data-model.md` name the module's jobs, tools and tables. If you forget a place, the test names the file to change.
 
 ### Org switch
 
@@ -44,6 +45,7 @@ If orgs can turn the module off:
 3. Set `module="<name>"` on each `@tool`. The tool then does not show for an org that turned it off.
 4. In a job that runs for all orgs, skip an org when `organizations.module_enabled(org, "<name>")` is false.
 5. Add the name to the expected dict in `tests/contract/test_modules.py`.
+6. A new org starts with the module off. To start new orgs with it on, add it to `NEW_ORG_MODULES` in `modules/manifest.py`.
 
 ## Routes
 

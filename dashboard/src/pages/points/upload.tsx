@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Dialog, Field, FormActions, Input, OkNote } from '../../components/ui';
@@ -17,7 +17,10 @@ export function UploadDialog({ prefix, open, onClose }: { prefix: string; open: 
       return api<{ message: string }>(`/api/points/${prefix}/uploadEventCSV`, { method: 'POST', body: form });
     },
   });
+  const client = useQueryClient();
   const close = () => {
+    // The import runs in the background, so the lists load again when the dialog closes
+    if (upload.isSuccess) client.invalidateQueries({ queryKey: ['points', prefix] });
     upload.reset();
     setFile(null);
     setEvent('');

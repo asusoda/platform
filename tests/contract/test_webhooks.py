@@ -31,7 +31,7 @@ def test_listing_names_events_kinds_and_feeds(client, officer_headers, sent):
     body = client.get(BASE, headers=officer_headers).get_json()
     keys = {e["key"] for e in body["events"]}
     expected = {"errors", "job.failed", "pod.started", "pod.stopped", "app.deployed", "order.created"}
-    assert expected | {"member.joined", "knowledge.crawl_failed"} <= keys
+    assert expected | {"member.joined", "knowledge.crawl_failed", "monitor.down", "monitor.up"} <= keys
     assert body["kinds"] == [{"key": "discord", "label": "Discord", "example": "https://discord.com/api/webhooks/..."}]
     assert body["webhooks"] == []
     assert body["alerts"] is True

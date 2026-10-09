@@ -19,7 +19,12 @@ export function timeAgo(iso: string | null | undefined, now: Date = new Date()):
 
 // The time between two timestamps, as 45m, 2h or 1h 30m.
 export function duration(start: string, stop: string): string {
-  const minutes = Math.max(0, Math.round((parse(stop).getTime() - parse(start).getTime()) / 60_000));
+  return elapsed((parse(stop).getTime() - parse(start).getTime()) / 1000);
+}
+
+// A length of time in seconds, as 45m, 2h or 1h 30m.
+export function elapsed(seconds: number): string {
+  const minutes = Math.max(0, Math.round(seconds / 60));
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   if (!hours) return `${rest}m`;

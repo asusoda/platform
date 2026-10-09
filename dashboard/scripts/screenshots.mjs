@@ -1,6 +1,7 @@
 // Takes screenshots of the built dashboard for the site, with every API call answered from fixtures.mjs.
 // Run with npm run screenshots. Needs Playwright with Chromium: a global install, or npm i --no-save playwright.
 // PLAYWRIGHT_CHROMIUM sets the Chromium binary when the installed browser does not match the Playwright version.
+// SCREENS takes a comma-separated list of screen names to take only those.
 
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -8,7 +9,7 @@ import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
-import { fixtures, ORG } from './fixtures.mjs';
+import { asuDuoFixtures, fixtures, ORG } from './fixtures.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = resolve(root, process.env.SCREENSHOT_DIR ?? '../site/public/screenshots');
@@ -17,10 +18,28 @@ const HEIGHT = 900;
 const QUALITY = 0.86;
 const SCALE = 2;
 
-// Each screen is a dashboard path and, optionally, a step that runs before the screenshot.
+// Each screen is a dashboard path and, optionally, a step that runs before the screenshot and its own fixtures.
 const SCREENS = [
   { name: 'overview', path: '' },
   { name: 'hosting', path: 'hosting?tab=pods' },
+  {
+    name: 'tokens-scopes',
+    path: 'tokens',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'New token' }).click();
+      await page.getByLabel('knowledge:read').check();
+    },
+  },
+  {
+    name: 'tokens-integrations',
+    path: 'tokens',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'New token' }).click();
+      await page.getByLabel('google:read').check();
+      await page.locator('legend', { hasText: /^Googleconnected$/ }).scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 260);
+    },
+  },
   {
     name: 'tokens',
     path: 'tokens',
@@ -33,9 +52,55 @@ const SCREENS = [
       await page.getByPlaceholder('my-org/website, my-org/*').fill('my-org/*');
     },
   },
+  {
+    name: 'integrations-sign-in',
+    path: 'integrations',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'Sign in with Google' }).scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, -200);
+    },
+  },
+  {
+    name: 'asu-signed-out',
+    path: 'integrations',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'Sign in to ASU' }).scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 200);
+    },
+  },
+  {
+    name: 'asu-duo',
+    path: 'integrations',
+    fixtures: asuDuoFixtures,
+    before: async (page) => {
+      await page.getByLabel('Duo code').scrollIntoViewIfNeeded();
+      await page.mouse.wheel(0, 200);
+    },
+  },
+  { name: 'notifications', path: 'notifications' },
   { name: 'settings', path: 'settings' },
   { name: 'webhooks', path: 'webhooks' },
+  { name: 'uptime', path: 'uptime' },
+  {
+    name: 'uptime-edit',
+    path: 'uptime',
+    before: async (page) => {
+      await page.getByRole('button', { name: 'Edit Parts inventory API' }).click();
+    },
+  },
+  {
+    name: 'knowledge-search',
+    path: 'knowledge',
+    before: async (page) => {
+      await page.getByLabel('Search query').fill('When are build nights?');
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByText('Full text').first().scrollIntoViewIfNeeded();
+    },
+  },
+  { name: 'knowledge-source', path: 'knowledge/sources/club/build-nights?chunk=c1' },
 ];
+
+const only = process.env.SCREENS?.split(',').filter(Boolean);
 
 async function loadPlaywright() {
   try {
@@ -64,7 +129,7 @@ async function main() {
         localStorage.setItem('platform.access_token', 'screenshot-placeholder');
         localStorage.setItem('platform.theme', t);
       }, theme);
-      const data = fixtures();
+      let data = fixtures();
       await context.route('**/api/**', (route) => {
         const url = new URL(route.request().url());
         if (url.origin === base) return route.fallback();
@@ -73,7 +138,8 @@ async function main() {
         return route.fulfill({ status: 200, json: body });
       });
       const page = await context.newPage();
-      for (const screen of SCREENS) {
+      for (const screen of SCREENS.filter((s) => !only?.length || only.includes(s.name))) {
+        data = (screen.fixtures ?? fixtures)();
         await page.goto(`${base}/${ORG.prefix}${screen.path ? `/${screen.path}` : ''}`);
         await page.waitForLoadState('networkidle');
         if (screen.before) await screen.before(page);

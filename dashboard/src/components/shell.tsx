@@ -1,11 +1,12 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronsUpDown, Globe, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from 'lucide-react';
 import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { tokens } from '../lib/auth';
 import { useAccentColor } from '../lib/branding';
 import { builtByLabel } from '../lib/links';
 import { useCurrentOrg, useOrganizations } from '../lib/org';
 import { useBranding, useModules, useSuperadmin } from '../lib/queries';
+import { useSignOut } from '../lib/query-client';
 import { useSidebarCollapsed } from '../lib/sidebar';
 import { type Theme, useTheme } from '../lib/theme';
 import { GROUPS, type PageEntry, PAGES, SECTIONS } from '../pages/registry';
@@ -158,6 +159,7 @@ function NavItem({
   icon: Icon,
   collapsed,
   onNavigate,
+  onPrefetch,
 }: {
   to: string;
   end?: boolean;
@@ -165,6 +167,7 @@ function NavItem({
   icon: ComponentType<{ className?: string }>;
   collapsed: boolean;
   onNavigate?: () => void;
+  onPrefetch?: () => void;
 }) {
   return (
     <Tooltip label={label} disabled={!collapsed}>
@@ -172,6 +175,8 @@ function NavItem({
         to={to}
         end={end}
         onClick={onNavigate}
+        onMouseEnter={onPrefetch}
+        onFocus={onPrefetch}
         aria-label={collapsed ? label : undefined}
         className={({ isActive }) =>
           cx(itemClass, collapsed ? 'w-10' : 'w-full', isActive ? 'bg-panel-2 font-medium text-fg' : quietItem)
@@ -186,13 +191,15 @@ function NavItem({
 
 function Nav({ collapsed = false, onNavigate, className = 'w-[248px]' }: { collapsed?: boolean; onNavigate?: () => void; className?: string }) {
   const { org, prefix } = useCurrentOrg();
-  const navigate = useNavigate();
+  const signOut = useSignOut();
+  const client = useQueryClient();
   const { data: superadmin } = useSuperadmin();
   const modules = useModules(org?.id).data?.modules;
   const website = useBranding(prefix).data?.website_url;
   // A module is hidden only when the API says it is off. A page with a list of modules is hidden when all are off.
   const off = (name: string) => modules?.some((m) => m.name === name && !m.enabled) ?? false;
-  const shown = (page: PageEntry) => (!page.superadmin || superadmin) && !(page.module && [page.module].flat().every(off));
+  const shown = (page: PageEntry) =>
+    !page.hidden && (!page.superadmin || superadmin) && !(page.module && [page.module].flat().every(off));
   // Each section holds its pages with no group, then each group of the section that has a page to show.
   const sections = SECTIONS.map((s) => {
     const items = PAGES.filter((p) => p.section === s.id && shown(p));
@@ -210,10 +217,6 @@ function Nav({ collapsed = false, onNavigate, className = 'w-[248px]' }: { colla
       ].filter((b) => b.items.length),
     };
   }).filter((s) => s.size);
-  const signOut = () => {
-    tokens.clear();
-    navigate('/login');
-  };
   return (
     <div className={cx('flex h-full flex-col', className)}>
       <div className="p-2">
@@ -227,7 +230,7 @@ function Nav({ collapsed = false, onNavigate, className = 'w-[248px]' }: { colla
               {section.blocks.map((block) => (
                 <div key={block.id} role={block.title ? 'group' : undefined} aria-label={block.title} className="flex flex-col gap-0.5">
                   {block.title ? <GroupSlot title={block.title} collapsed={collapsed} /> : null}
-                  {block.items.map(({ path, label, icon }) => (
+                  {block.items.map(({ path, label, icon, prefetch }) => (
                     <NavItem
                       key={label}
                       to={`/${prefix}${path ? `/${path}` : ''}`}
@@ -236,6 +239,7 @@ function Nav({ collapsed = false, onNavigate, className = 'w-[248px]' }: { colla
                       icon={icon}
                       collapsed={collapsed}
                       onNavigate={onNavigate}
+                      onPrefetch={prefetch && prefix ? () => prefetch(client, prefix) : undefined}
                     />
                   ))}
                 </div>
@@ -359,8 +363,14 @@ export function Shell() {
   const branding = useBranding(prefix);
   const page = useCurrentPage();
   const { pathname } = useLocation();
+  const client = useQueryClient();
   useAccentColor(branding.data?.accent_color);
   const name = org?.name ?? prefix;
+
+  // The page requests start with the org list, not after the module check of a gated page.
+  useEffect(() => {
+    if (page?.prefetch && prefix) page.prefetch(client, prefix);
+  }, [client, page, prefix]);
 
   useEffect(() => {
     document.title = page ? `${page.label} - ${name} - Platform` : 'Platform';

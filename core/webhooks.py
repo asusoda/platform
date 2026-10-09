@@ -1,7 +1,8 @@
 """Outbound webhooks: the events that modules send, the webhooks that officers add, and the delivery of each event.
 
 A module declares its events with declare() and sends one with emit(). emit() returns at once: a daemon thread
-finds the enabled webhooks of the org that take the event and posts the message to each. A kind (Discord now)
+saves the event as a notification of the org, then finds the enabled webhooks of the org that take the event
+and posts the message to each. The org keeps the notifications of the last KEEP_DAYS days, at most KEEP_COUNT. A kind (Discord now)
 checks the URL and formats the message. URLs are encrypted with SECRETS_KEY, and no log line or error has one.
 Each process sends at most LIMIT_PER_HOUR messages for each org and event in an hour. No Flask here.
 """
@@ -11,6 +12,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import cast
 
 import requests
@@ -25,6 +27,8 @@ from core.time import utcnow
 logger = get_logger("webhooks")
 
 LIMIT_PER_HOUR = 30
+KEEP_DAYS = 30
+KEEP_COUNT = 200
 TIMEOUT_SECONDS = 10
 RED = 0xE5484D
 GREEN = 0x30A46C
@@ -124,6 +128,20 @@ class Webhook(Base):
     __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_webhook_name"),)
 
 
+class Notification(Base):
+    """One event that an org's officers see in Notifications, whether or not a webhook takes it."""
+
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    event = Column(String(50), nullable=False)
+    title = Column(String(256), nullable=False)
+    text = Column(Text, nullable=False, default="")
+    color = Column(Integer, nullable=False, default=BLUE)
+    created_at = Column(DateTime, nullable=False, default=utcnow, index=True)
+
+
 declare("job.failed", "Failed job runs", "A background job for the org fails, such as a crawl or a reindex.")
 
 _organizations = sql_table("organizations", column("id"), column("prefix"))
@@ -159,6 +177,10 @@ def emit(org: int | str | None, event: str, message: Message) -> None:
     if event not in EVENTS:
         logger.warning("webhook event not declared event=%s", event)
         return
+    try:
+        spawn(save, org, event, message)
+    except Exception:
+        logger.warning("notification save did not start event=%s", event)
     if not _allow(org, event):
         logger.info("webhook event over the hourly limit org=%s event=%s", org, event)
         return
@@ -173,6 +195,35 @@ def _org_id(db, org: int | str) -> int | None:
         return org
     row = db.execute(_organizations.select().where(_organizations.c.prefix == org)).first()
     return int(row.id) if row is not None else None
+
+
+def save(org: int | str, event: str, message: Message) -> None:
+    """Save the event as a notification of the org and drop the org's old ones. Never raises."""
+    try:
+        with session() as db:
+            org_id = _org_id(db, org)
+            if org_id is None:
+                return
+            text = "\n".join([message.text, *(f"{name}: {value}" for name, value in message.fields)]).strip()
+            db.add(
+                Notification(
+                    organization_id=org_id,
+                    event=event,
+                    title=message.title[:256],
+                    text=text[:2000],
+                    color=message.color,
+                )
+            )
+            db.flush()
+            mine = db.query(Notification).filter_by(organization_id=org_id)
+            mine.filter(Notification.created_at < utcnow() - timedelta(days=KEEP_DAYS)).delete()
+            kept = [
+                i for (i,) in mine.order_by(Notification.id.desc()).with_entities(Notification.id).limit(KEEP_COUNT)
+            ]
+            mine.filter(Notification.id.notin_(kept)).delete(synchronize_session=False)
+            db.commit()
+    except Exception:
+        logger.warning("notification save failed event=%s", event)
 
 
 def post(kind: str, url: str, message: Message) -> str | None:

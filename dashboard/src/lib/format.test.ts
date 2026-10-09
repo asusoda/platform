@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bytes, compact, deployTone, duration, keyPath, localToIso, podTone, runTone, timeAgo, toLocalInput } from './format';
+import { bytes, compact, deployTone, duration, elapsed, keyPath, localToIso, podTone, runTone, timeAgo, toLocalInput } from './format';
 
 describe('duration', () => {
   it('shows hours and minutes', () => {
@@ -7,6 +7,14 @@ describe('duration', () => {
     expect(duration('2026-10-08T18:00:00', '2026-10-08T19:30:00Z')).toBe('1h 30m');
     expect(duration('2026-10-08T18:00:00Z', '2026-10-08T18:45:00Z')).toBe('45m');
     expect(duration('2026-10-08T18:00:00Z', '2026-10-08T17:00:00Z')).toBe('0m');
+  });
+});
+
+describe('elapsed', () => {
+  it('shows a length in seconds as hours and minutes', () => {
+    expect(elapsed(20)).toBe('0m');
+    expect(elapsed(340)).toBe('6m');
+    expect(elapsed(5400)).toBe('1h 30m');
   });
 });
 
