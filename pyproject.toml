@@ -168,6 +168,7 @@ source_modules = [
     "modules.compute.ssh",
     "modules.dashboard.ci",
     "modules.dashboard.notices",
+    "modules.dashboard.trends",
     "modules.games.cog",
     "modules.games.jeopardy",
     "modules.games.ui",

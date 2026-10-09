@@ -19,6 +19,7 @@ import {
 import { compact, deployTone, runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import { useCi, useNotifications, useOverview } from '../lib/queries';
+import { TrendsCard } from './overview-trends';
 
 export function OverviewPage() {
   const { prefix } = useCurrentOrg();
@@ -80,6 +81,8 @@ export function OverviewPage() {
           icon={<Bot className="size-4" />}
         />
       </StatGrid>
+
+      <TrendsCard prefix={prefix} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

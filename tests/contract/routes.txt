@@ -139,6 +139,7 @@
 /api/dashboard/<string:org_prefix>/notifications/reopen OPTIONS,POST dashboard.reopen_notifications
 /api/dashboard/<string:org_prefix>/notifications/resolve OPTIONS,POST dashboard.resolve_notifications
 /api/dashboard/<string:org_prefix>/overview GET,HEAD,OPTIONS dashboard.overview
+/api/dashboard/<string:org_prefix>/trends GET,HEAD,OPTIONS dashboard.trends
 /api/knowledge/crawls/<path:key> OPTIONS,PUT knowledge.schedule_crawl
 /api/knowledge/crawls/run OPTIONS,POST knowledge.run_crawl
 /api/knowledge/search OPTIONS,POST knowledge.search

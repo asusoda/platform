@@ -65,3 +65,7 @@ export type CiRun = {
 };
 
 export type CiRepo = { repo: string; runs: CiRun[]; error: string | null };
+
+export type TrendDay = { date: string; value: number; failed: number };
+export type TrendSeries = { key: string; title: string; unit: string; total: number; failed: number; days: TrendDay[] };
+export type Trends = { days: number; series: TrendSeries[]; generated_at: string };

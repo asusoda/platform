@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api, send } from './api';
-import type { Branding, CiRepo, IntegrationList, ModuleState, NotificationList, OrganizationDetail, Overview } from './types';
+import type { Branding, CiRepo, IntegrationList, ModuleState, NotificationList, OrganizationDetail, Overview, Trends } from './types';
 
 export function useOverview(prefix: string) {
   return useQuery({
@@ -8,6 +8,16 @@ export function useOverview(prefix: string) {
     queryFn: () => api<Overview>(`/api/dashboard/${prefix}/overview`),
     refetchInterval: 30_000,
     enabled: Boolean(prefix),
+  });
+}
+
+export function useTrends(prefix: string, days: number) {
+  return useQuery({
+    queryKey: ['overview', prefix, 'trends', days],
+    queryFn: () => api<Trends>(`/api/dashboard/${prefix}/trends?days=${days}`),
+    refetchInterval: 300_000,
+    enabled: Boolean(prefix),
+    placeholderData: (previous) => previous,
   });
 }
 
