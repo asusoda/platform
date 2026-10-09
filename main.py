@@ -12,6 +12,7 @@ from flask_cors import CORS
 from core import jobs
 from core.config import config
 from core.http.audit_hook import register_audit
+from core.http.cached import register_cache_invalidation
 from core.http.request_log import register_request_logging
 from core.integrations.discord import DiscordDirectory
 from core.log import get_logger, init_sentry
@@ -109,6 +110,8 @@ def health():
 register_request_logging(app, token_manager)
 
 register_audit(app, token_manager)
+
+register_cache_invalidation(app)
 
 
 @app.before_request

@@ -9,11 +9,10 @@ The checks start in report mode. Each request that would be refused logs one
 lines into 403 responses (`decision=deny`). Run in report mode until the log is clean.
 """
 
-import time
-
 import jwt
 from flask import current_app, request, session
 
+from core.cache import cache
 from core.config import config
 from core.db import db_connect
 from core.http.request_log import bearer_token
@@ -27,7 +26,6 @@ use("discord", "auth")
 logger = get_logger("access")
 
 OFFICER_CACHE_SECONDS = 60
-_officer_cache: dict[str, tuple[float, frozenset[str]]] = {}
 
 
 class Principal:
@@ -110,25 +108,30 @@ def officer_guilds(directory, discord_id) -> list:
 
 
 def officer_guild_ids(discord_id: str) -> frozenset[str] | None:
-    """Guild ids where the user holds the officer role, or None if Discord cannot tell."""
-    now = time.monotonic()
-    cached = _officer_cache.get(discord_id)
-    if cached and cached[0] > now:
-        return cached[1]
+    """Guild ids where the user holds the officer role, or None if Discord cannot tell.
+
+    Concurrent requests of one user share one Discord lookup.
+    """
+    key = ("access", "officer_guilds", discord_id)
+    found, guilds = cache.get(key)
+    if found:
+        return guilds
     directory = discord_directory()
     if directory is None or not directory.is_ready():
         return None
     try:
-        guilds = frozenset(str(g) for g in officer_guilds(directory, discord_id))
+        return cache.get_or_compute(
+            key,
+            OFFICER_CACHE_SECONDS,
+            lambda: frozenset(str(g) for g in officer_guilds(directory, discord_id)),
+        )
     except DiscordUnavailable:
         logger.warning("Discord unavailable while checking officer guilds", exc_info=True)
         return None
-    _officer_cache[discord_id] = (now + OFFICER_CACHE_SECONDS, guilds)
-    return guilds
 
 
 def clear_cache() -> None:
-    _officer_cache.clear()
+    cache.invalidate("access")
 
 
 def _route_org():
