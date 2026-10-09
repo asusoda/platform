@@ -1,14 +1,14 @@
 # runpod
 
-Deploys an org's own apps to RunPod pods: register an app's manifest, deploy a new image tag from the app's CI, check health, roll back. Each org pays with its own RunPod key.
+Deploys an org's own apps to pods on a hosting provider: register an app's manifest, deploy a new image tag from the app's CI, check health, roll back. Each app keeps its `provider`, and calls go through `core/hosting.py`. RunPod is the only provider, and each org pays with its own RunPod key. The module name stays `runpod`.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
 | `api.py` | Machine routes for apps, deployments, deploy and rollback |
-| `service.py` | Manifests (inline, or `platform.app.yaml` from the app's repo), deploys, health checks and rollback; declares `apps:read`, `apps:manage`, `apps:deploy` and the `runpod_api_key`, `github_token` and `app_*` secrets |
-| `models.py` | Apps and deployments |
+| `service.py` | Manifests (inline, or `platform.app.yaml` from the app's repo), deploys, health checks and rollback on the app's provider; declares `apps:read`, `apps:manage`, `apps:deploy` and the `runpod_api_key`, `github_token` and `app_*` secrets |
+| `models.py` | Apps, with their `provider`, and deployments |
 | `tools.py` | The `apps.list` tool |
 | `jobs.py` | The health check job |
 

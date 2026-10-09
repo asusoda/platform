@@ -1,10 +1,12 @@
-"""Apps on RunPod: manifests, deploys, health checks, rollback. No Flask here.
+"""Apps on a hosting provider: manifests, deploys, health checks, rollback. No Flask here.
 
 An officer registers an app's manifest (the pod's hardware, ports, env and health path), or the
 app's repo, whose platform.app.yaml is then read at the deployed git ref. The app's CI deploys a
 new image tag with a token that can do nothing else. The first deploy creates the
 pod; later deploys change its image, which restarts it. A job polls the health path and marks the
-deployment healthy or failed. Each org pays with its own RunPod key, the org secret runpod_api_key.
+deployment healthy or failed. Each app keeps the name of its provider (core.hosting). RunPod is the
+only one; each org pays with its own RunPod key, the org secret runpod_api_key. The manifest follows
+the RunPod v2 pod API.
 """
 
 import datetime
@@ -17,9 +19,9 @@ import jsonschema
 import requests
 import yaml
 
-from core import secrets, webhooks
+from core import hosting, secrets, webhooks
 from core.errors import ServiceError
-from core.integrations import github, registry, runpod
+from core.integrations import github, registry
 from core.log import get_logger
 from core.time import iso, utcnow
 from modules.auth import scopes
@@ -29,6 +31,7 @@ logger = get_logger("runpod")
 
 SECRET_PREFIX = "app_"  # nosec B105 - a secret name prefix, not a value
 GITHUB_SECRET = github.SECRET_NAME
+hosting.load()
 registry.use("runpod", "runpod")
 registry.use("github", "runpod")
 secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named in its manifest's secret_env")
@@ -118,11 +121,22 @@ def _announce(app: App, deployment: AppDeployment) -> None:
     webhooks.emit(cast(int, app.organization_id), "app.deployed", message)
 
 
-def client_for(db, org_id: int) -> runpod.RunPodClient:
-    key = secrets.get_secret(db, org_id, runpod.SECRET_NAME)
-    if not key:
-        raise AppError(f"Set the org secret {runpod.SECRET_NAME} to deploy to RunPod", 503)
-    return runpod.RunPodClient(key)
+def _provider(name: object) -> hosting.HostingProvider:
+    try:
+        return hosting.get(name)
+    except hosting.ProviderError as e:
+        raise AppError(e.message, e.status) from e
+
+
+def _provider_of(app: App) -> hosting.HostingProvider:
+    return _provider(str(app.provider or hosting.DEFAULT))
+
+
+def client_for(db, org_id: int, provider: str = hosting.DEFAULT) -> hosting.HostingClient:
+    found = _provider(provider)
+    if not found.configured(db, org_id):
+        raise AppError(f"Connect {found.title} on the Integrations page to deploy there", 503)
+    return found.client(db, org_id)
 
 
 def _find(db, org_id: int, name: str) -> App:
@@ -203,7 +217,8 @@ def _app_dict(db, app: App) -> dict:
         "kind": manifest.get("kind", "service"),
         "description": manifest.get("description"),
         "url": manifest.get("url"),
-        "host": "runpod",
+        "host": app.provider,
+        "provider": app.provider,
         "manifest": manifest,
         "repo": app.repo,
         "manifest_path": app.manifest_path,
@@ -214,9 +229,20 @@ def _app_dict(db, app: App) -> dict:
     }
 
 
-def put_app(db, org_id: int, name: str, manifest: Any = None, repo: Any = None, manifest_path: Any = None) -> dict:
+def put_app(
+    db,
+    org_id: int,
+    name: str,
+    manifest: Any = None,
+    repo: Any = None,
+    manifest_path: Any = None,
+    provider: Any = None,
+) -> dict:
     """Create an app or replace its manifest. Takes a manifest, or a repo whose manifest file is read
-    now from the default branch and again at each deploy's ref. Commits."""
+    now from the default branch and again at each deploy's ref. Commits.
+
+    provider names the hosting provider of a new app, runpod when missing. An app with a pod keeps its provider.
+    """
     if not NAME_PATTERN.match(name):
         raise AppError("name must be lowercase letters, digits and dashes, up to 63")
     if (manifest is None) == (repo is None):
@@ -229,9 +255,14 @@ def put_app(db, org_id: int, name: str, manifest: Any = None, repo: Any = None, 
     else:
         _validated(manifest)
     app = db.query(App).filter_by(organization_id=org_id, name=name).first()
+    chosen = _provider(provider).name if provider is not None else None
     if app is None:
-        app = App(organization_id=org_id, name=name)
+        app = App(organization_id=org_id, name=name, provider=chosen or hosting.DEFAULT)
         db.add(app)
+    elif chosen is not None and chosen != app.provider:
+        if app.pod_id:
+            raise AppError("The app has a pod on its provider. Delete the app to move it to another provider", 409)
+        app.provider = chosen
     app.repo, app.manifest_path = repo, path
     app.manifest = json.dumps(manifest, sort_keys=True)
     app.updated_at = utcnow()
@@ -248,7 +279,7 @@ def get_app(db, org_id: int, name: str) -> dict:
 
 
 def delete_app(db, org_id: int, name: str) -> dict:
-    """Forget the app. The pod keeps running; terminate it in RunPod. Commits."""
+    """Forget the app. The pod keeps running; terminate it on its provider. Commits."""
     app = _find(db, org_id, name)
     pod_id = app.pod_id
     db.query(AppDeployment).filter_by(app_id=app.id).delete(synchronize_session=False)
@@ -274,8 +305,8 @@ def pod(db, org_id: int, name: str) -> dict | None:
     if not app.pod_id:
         return None
     try:
-        return client_for(db, org_id).get_pod(str(app.pod_id))
-    except runpod.RunPodError as e:
+        return client_for(db, org_id, str(app.provider)).get_pod(str(app.pod_id))
+    except hosting.HostingError as e:
         raise AppError(e.message, 502) from e
 
 
@@ -295,7 +326,7 @@ def _env(db, org_id: int, manifest: dict, redact: bool) -> dict[str, str]:
 def _request(
     db, org_id: int, org_prefix: str, app: App, manifest: dict, tag: str, redact: bool
 ) -> tuple[str, str, dict]:
-    """The RunPod call a deploy makes: create the pod, or change the existing one."""
+    """The provider call a deploy makes: create the pod, or change the existing one."""
     image = f"{manifest['image']}@{tag}" if tag.startswith("sha256:") else f"{manifest['image']}:{tag}"
     body: dict[str, Any] = {"image": image, "env": _env(db, org_id, manifest, redact)}
     for field in ("disk", "ports", "args", "registry"):
@@ -344,7 +375,7 @@ def deploy(
             "request": {"method": method, "path": path, "body": body},
         }
 
-    client = client_for(db, org_id)
+    client = client_for(db, org_id, str(app.provider))
     method, _, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=False)
     db.query(AppDeployment).filter_by(app_id=app.id, status="deploying").update(
         {"status": "failed", "finished_at": utcnow(), "error": "Replaced by a later deployment"},
@@ -362,9 +393,10 @@ def deploy(
             app.pod_id = str(created["id"])
         else:
             client.update_pod(str(app.pod_id), body)
-    except (runpod.RunPodError, KeyError, TypeError) as e:
+    except (hosting.HostingError, KeyError, TypeError) as e:
         deployment.status, deployment.finished_at = "failed", utcnow()
-        deployment.error = e.message if isinstance(e, runpod.RunPodError) else "RunPod returned no pod id"
+        title = _provider_of(app).title
+        deployment.error = e.message if isinstance(e, hosting.HostingError) else f"{title} returned no pod id"
         db.commit()
         _announce(app, deployment)
         raise AppError(f"Deploy failed: {deployment.error}", 502) from e
@@ -404,7 +436,8 @@ def check_deployments(db, now: datetime.datetime | None = None) -> dict:
     running = db.query(AppDeployment, App).join(App, App.id == AppDeployment.app_id)
     for deployment, app in running.filter(AppDeployment.status == "deploying").all():
         health = _manifest(app)["health"]
-        if app.pod_id and _healthy(runpod.proxy_url(str(app.pod_id), health["port"], health["path"])):
+        url = _provider_of(app).proxy_url(str(app.pod_id), health["port"], health["path"]) if app.pod_id else None
+        if url and _healthy(url):
             deployment.status, deployment.finished_at = "healthy", now
             counts["healthy"] += 1
             ended.append((app, deployment))

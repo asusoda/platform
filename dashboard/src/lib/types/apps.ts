@@ -1,4 +1,4 @@
-// Apps, their deployments and the RunPod pod of an app.
+// Apps, their deployments and the pod of an app on its hosting provider.
 
 export type AppManifest = Record<string, unknown>;
 
@@ -20,7 +20,9 @@ export type App = {
   kind: AppKind;
   description: string | null;
   url: string | null;
-  host: 'runpod';
+  // host and provider both name the hosting provider; host is the older key
+  host: string;
+  provider: string;
   manifest: AppManifest;
   repo: string | null;
   manifest_path: string | null;
@@ -32,7 +34,7 @@ export type App = {
 
 export type AppDetail = App & { deployments: AppDeployment[] };
 
-// The RunPod call a deploy makes, as a dry run returns it. Secret env values show as (secret).
+// The provider call a deploy makes, as a dry run returns it. Secret env values show as (secret).
 export type DeployPreview = {
   dry_run: true;
   tag: string;

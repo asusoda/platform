@@ -8,6 +8,7 @@ export type * from './knowledge';
 export type * from './calendar';
 export type * from './superadmin';
 export type * from './compute';
+export type * from './hosting';
 export type * from './points';
 export type * from './store';
 export type * from './notifications';

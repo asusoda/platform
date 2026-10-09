@@ -35,7 +35,7 @@ class FakeRunPod:
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(service, "client_for", lambda db, org_id: client)
+    monkeypatch.setattr(service, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 

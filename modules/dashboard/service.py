@@ -144,6 +144,7 @@ def _apps(db, org_id: int) -> dict:
         result.append(
             {
                 "name": app.name,
+                "provider": app.provider,
                 "repo": app.repo,
                 "tag": app.current_tag,
                 "status": latest.status if latest else None,

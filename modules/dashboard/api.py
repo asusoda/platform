@@ -10,7 +10,7 @@ from typing import cast
 
 from flask import Blueprint, redirect, request
 
-from core import secrets
+from core import hosting, secrets
 from core.config import config
 from core.db import db_connect
 from core.http import audit_hook
@@ -223,7 +223,12 @@ def set_ci_repos(db, org):
     return {"repos": ci.set_repos(db, org, json_body().get("repos"))}
 
 
-# Apps on RunPod
+# Hosting providers and the apps that run on them
+
+
+@_route("/hosting/providers", ["GET"])
+def hosting_providers(db, org):
+    return {"providers": hosting.listing(db, _org_id(org))}
 
 
 @_route("/apps", ["GET"])
@@ -239,7 +244,9 @@ def get_app(db, org, name):
 @_route("/apps/<string:name>", ["PUT"])
 def put_app(db, org, name):
     data = json_body()
-    return apps.put_app(db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"))
+    return apps.put_app(
+        db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"), data.get("provider")
+    )
 
 
 @_route("/apps/<string:name>", ["DELETE"])

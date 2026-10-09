@@ -256,6 +256,7 @@ export function fixtures(now = Date.now()) {
   const livePods = [
     {
       id: '7kq2x9ab',
+      provider: 'runpod',
       name: 'Workshop GPU (A40)',
       status: 'RUNNING',
       is_public: true,
@@ -267,6 +268,7 @@ export function fixtures(now = Date.now()) {
     },
     {
       id: 'm3v8c1tz',
+      provider: 'runpod',
       name: 'Rover vision training',
       status: 'RUNNING',
       is_public: false,
@@ -278,6 +280,7 @@ export function fixtures(now = Date.now()) {
     },
     {
       id: 'q9w4e2rd',
+      provider: 'runpod',
       name: 'Simulation (CPU)',
       status: 'EXITED',
       is_public: false,
@@ -426,6 +429,7 @@ export function fixtures(now = Date.now()) {
       description: 'Scouting site for match days',
       url: 'https://scout.robotics.example.org',
       host: 'runpod',
+      provider: 'runpod',
       manifest: { cpu: { id: 'cpu5c', vcpuCount: 4 }, health: { path: '/healthz', port: 3000 }, image: 'ghcr.io/robotics-club/match-scout', ports: ['3000/http'] },
       repo: 'robotics-club/match-scout',
       manifest_path: 'deploy/platform.app.yaml',
@@ -440,6 +444,7 @@ export function fixtures(now = Date.now()) {
       description: null,
       url: null,
       host: 'runpod',
+      provider: 'runpod',
       manifest: { cpu: { id: 'cpu3c', vcpuCount: 2 }, health: { path: '/health', port: 8000 }, image: 'ghcr.io/robotics-club/parts-inventory', ports: ['8000/http'] },
       repo: null,
       manifest_path: null,
@@ -454,6 +459,7 @@ export function fixtures(now = Date.now()) {
       description: 'Reads rover telemetry and answers questions in Discord',
       url: null,
       host: 'runpod',
+      provider: 'runpod',
       manifest: telemetryManifest,
       repo: 'robotics-club/rover-telemetry',
       manifest_path: 'platform.app.yaml',
@@ -643,9 +649,9 @@ export function fixtures(now = Date.now()) {
       },
       apps: {
         apps: [
-          { name: 'rover-telemetry', repo: 'robotics-club/rover-telemetry', tag: 'v1.8.2', status: 'healthy', deployed_at: at(-2 * HOUR), error: null },
-          { name: 'parts-inventory', repo: 'robotics-club/parts-inventory', tag: 'v0.4.0', status: 'healthy', deployed_at: at(-6 * DAY), error: null },
-          { name: 'match-scout', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
+          { name: 'rover-telemetry', provider: 'runpod', repo: 'robotics-club/rover-telemetry', tag: 'v1.8.2', status: 'healthy', deployed_at: at(-2 * HOUR), error: null },
+          { name: 'parts-inventory', provider: 'runpod', repo: 'robotics-club/parts-inventory', tag: 'v0.4.0', status: 'healthy', deployed_at: at(-6 * DAY), error: null },
+          { name: 'match-scout', provider: 'runpod', repo: 'robotics-club/match-scout', tag: 'v2.0.0-rc1', status: 'deploying', deployed_at: at(-3 * MINUTE), error: null },
         ],
       },
       knowledge: {
@@ -1174,6 +1180,7 @@ export function fixtures(now = Date.now()) {
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES, integrations: INTEGRATIONS, uses: SCOPE_USES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },
+    [`/api/dashboard/${ORG.prefix}/hosting/providers`]: { providers: [{ name: 'runpod', title: 'RunPod', integration: 'runpod', configured: true }] },
     [`/api/dashboard/${ORG.prefix}/apps`]: { apps: appList },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry`]: { ...appList[2], deployments: telemetryDeployments },
     [`/api/dashboard/${ORG.prefix}/apps/rover-telemetry/pod`]: { pod: telemetryPod },

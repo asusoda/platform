@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { Button, Code, cx, Field, FormActions, Input, Mono, Spinner } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { App, DeployPreview } from '../../lib/types';
+import { providerTitle, useProviders } from '../hosting/providers';
 import { DEFAULT_MANIFEST_PATH, JsonBlock, Label, TAG_PATTERN, useInvalidate } from './shared';
 
 export function DeployPanel({ prefix, app, onDone }: { prefix: string; app: App; onDone: () => void }) {
   const invalidate = useInvalidate(prefix);
+  const host = providerTitle(useProviders(prefix).data, app.provider);
   const [tag, setTag] = useState('');
   const [ref, setRef] = useState('');
   const tagOk = !tag || TAG_PATTERN.test(tag);
@@ -47,11 +49,11 @@ export function DeployPanel({ prefix, app, onDone }: { prefix: string; app: App;
       </div>
       {preview.data ? (
         <div>
-          <Label action={<Mono>{preview.data.request.method} {preview.data.request.path}</Mono>}>RunPod request</Label>
+          <Label action={<Mono>{preview.data.request.method} {preview.data.request.path}</Mono>}>{host} request</Label>
           <JsonBlock value={preview.data.request.body} />
           <p className="mt-2 text-xs text-muted">
             {preview.data.request.method === 'POST'
-              ? 'Creates the pod. It starts billing on the org RunPod account.'
+              ? `Creates the pod. It starts billing on the org's ${host} account.`
               : 'Changes the image of the pod, which restarts it. The container disk is erased; volumes stay.'}
           </p>
         </div>
@@ -78,6 +80,7 @@ export function DeployPanel({ prefix, app, onDone }: { prefix: string; app: App;
 
 export function RollbackPanel({ prefix, app, onDone }: { prefix: string; app: App; onDone: () => void }) {
   const invalidate = useInvalidate(prefix);
+  const host = providerTitle(useProviders(prefix).data, app.provider);
   const preview = useQuery({
     queryKey: ['app-rollback', prefix, app.name, app.current_tag],
     queryFn: () => send<DeployPreview>(`/api/dashboard/${prefix}/apps/${app.name}/rollback`, 'POST', { dry_run: true }),
@@ -110,7 +113,7 @@ export function RollbackPanel({ prefix, app, onDone }: { prefix: string; app: Ap
             .
           </p>
           <div>
-            <Label action={<Mono>{preview.data.request.method} {preview.data.request.path}</Mono>}>RunPod request</Label>
+            <Label action={<Mono>{preview.data.request.method} {preview.data.request.path}</Mono>}>{host} request</Label>
             <JsonBlock value={preview.data.request.body} />
           </div>
         </>
@@ -140,6 +143,7 @@ export function DeletePanel({
   onDeleted: (name: string, podId: string | null) => void;
 }) {
   const invalidate = useInvalidate(prefix);
+  const host = providerTitle(useProviders(prefix).data, app.provider);
   const [typed, setTyped] = useState('');
   const remove = useMutation({
     mutationFn: () => send<{ deleted: boolean; pod_id: string | null }>(`/api/dashboard/${prefix}/apps/${app.name}`, 'DELETE'),
@@ -162,10 +166,10 @@ export function DeletePanel({
           {app.pod_id ? (
             <>
               The pod <Mono className="text-fg">{app.pod_id}</Mono> is not deleted. It keeps running and billing until you
-              terminate it in RunPod.
+              terminate it on {host}.
             </>
           ) : (
-            'The app has no pod, so nothing runs on RunPod.'
+            `The app has no pod, so nothing runs on ${host}.`
           )}
         </p>
       </div>

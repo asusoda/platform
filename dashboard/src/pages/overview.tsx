@@ -158,7 +158,7 @@ export function OverviewPage() {
         <Card>
           <CardHeader
             title="Services"
-            hint="App deploys on RunPod"
+            hint="App deploys on the org's hosting providers"
             action={
               <Link to="hosting" className={quietLink}>
                 Details
