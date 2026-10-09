@@ -958,6 +958,21 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
     '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
+    [`/api/alerts/${ORG.prefix}/presets`]: {
+      presets: [
+        {
+          pack: 'careers',
+          pack_title: 'Internships and hackathons',
+          key: 'new-grad',
+          title: 'New grad roles',
+          description: 'New rows in the 2026 new grad list that vanshb03 keeps on GitHub.',
+          kind: 'github_jobs',
+          config: { repo: 'vanshb03/New-Grad-2026', branch: 'main', path: 'README.md', label: 'New grad', skip_closed: true, max_age_days: 2 },
+          every_hours: 3,
+          added: false,
+        },
+      ],
+    },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },
     [`/api/organizations/${ORG.id}/modules`]: { modules: MODULES },

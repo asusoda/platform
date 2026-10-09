@@ -206,3 +206,36 @@ def test_old_asu_routes_still_answer(client, writer, pages, queued):
     body = client.post("/api/asu/query", json={"source": "library_hours"}, headers=headers).get_json()
     assert body["url"] == url and body["source"] == "library_hours"
     assert client.post("/api/asu/sync", headers=headers).get_json()["added"] == len(SOURCES)
+
+
+def test_every_pack_feed_is_a_valid_alert_feed():
+    from modules.alerts import service as alerts
+    from modules.packs import catalog
+
+    for pack in catalog.PACKS.values():
+        for feed in pack.feeds:
+            assert alerts.KEY_PATTERN.match(feed.key), f"{pack.name}/{feed.key}"
+            assert feed.kind in alerts.KINDS, f"{pack.name}/{feed.key}"
+            alerts.KINDS[feed.kind].validate(dict(feed.config))
+
+
+def test_alert_presets_come_from_packs(client, officer_headers):
+    presets = client.get("/api/alerts/ais/presets", headers=officer_headers).get_json()["presets"]
+    internships = next(p for p in presets if p["key"] == "internships")
+    assert internships["pack"] == "careers" and internships["kind"] == "github_jobs"
+    assert internships["config"]["repo"] == "vanshb03/Summer2026-Internships" and internships["added"] is False
+    assert client.get("/api/alerts/ais/presets").status_code == 401
+
+
+def test_canvas_url_comes_from_the_pack(monkeypatch):
+    from modules.accounts import providers
+
+    monkeypatch.setenv("ACCOUNTS_BASE_URL", "https://api.test")
+    monkeypatch.setenv("ACCOUNTS_CANVAS_CLIENT_ID", "id")
+    monkeypatch.setenv("ACCOUNTS_CANVAS_CLIENT_SECRET", "secret")
+    monkeypatch.delenv("ACCOUNTS_CANVAS_URL", raising=False)
+    canvas = providers.get("canvas")
+    assert canvas is not None and canvas.token_url == "https://canvas.asu.edu/login/oauth2/token"
+    monkeypatch.setenv("ACCOUNTS_CANVAS_URL", "https://canvas.example.edu/")
+    canvas = providers.get("canvas")
+    assert canvas is not None and canvas.authorize_url == "https://canvas.example.edu/login/oauth2/auth"

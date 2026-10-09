@@ -32,7 +32,8 @@ export function SourcePacks({ prefix, onSynced }: { prefix: string; onSynced: (m
       );
     },
   });
-  if (!packs.data?.packs.length) return null;
+  const knowledge = (packs.data?.packs ?? []).filter((p) => p.pages || p.queries.length);
+  if (!knowledge.length) return null;
   return (
     <Card className="mb-6">
       <CardHeader
@@ -44,7 +45,7 @@ export function SourcePacks({ prefix, onSynced }: { prefix: string; onSynced: (m
           </a>
         }
       />
-      {packs.data.packs.map((pack) => (
+      {knowledge.map((pack) => (
         <div key={pack.name} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 py-3 last:border-0">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-sm font-medium">

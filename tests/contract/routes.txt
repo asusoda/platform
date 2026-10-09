@@ -38,6 +38,7 @@
 /api/alerts/<string:org_prefix>/feeds/<string:key> OPTIONS,PUT alerts.put_feed
 /api/alerts/<string:org_prefix>/feeds/<string:key>/history GET,HEAD,OPTIONS alerts.feed_history
 /api/alerts/<string:org_prefix>/feeds/<string:key>/run OPTIONS,POST alerts.run_feed
+/api/alerts/<string:org_prefix>/presets GET,HEAD,OPTIONS alerts.list_presets
 /api/apps GET,HEAD,OPTIONS apps.list_apps
 /api/apps/<string:name> DELETE,OPTIONS apps.delete_app
 /api/apps/<string:name> GET,HEAD,OPTIONS apps.get_app

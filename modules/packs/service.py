@@ -51,6 +51,7 @@ def list_packs(db, org_id: int) -> list[dict]:
                 "key_prefix": pack.key_prefix,
                 "pages": len(pack.sources),
                 "queries": [q.key for q in pack.queries],
+                "feeds": [f.key for f in pack.feeds],
                 "sources": int(count or 0),
             }
         )
