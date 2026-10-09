@@ -168,7 +168,7 @@ Set these in the pod env, then restart the pod.
 | Hermes | `HERMES_ENV_DISCORD_BOT_TOKEN` | The Hermes bot token. Hermes gets each `HERMES_ENV_*` variable without the prefix |
 | Hermes | `HERMES_ENV_DISCORD_ALLOWED_ROLES` | The Discord roles that can talk to Hermes |
 | Hermes | `HERMES_ENV_OPENROUTER_API_KEY`, `HERMES_PROVIDER`, `HERMES_MODEL` | The model provider key, the provider and the model. Another provider needs its own key name, such as `HERMES_ENV_ANTHROPIC_API_KEY` |
-| Hermes | `HERMES_PLATFORM_TOKEN` | A machine token of kind `agent`, for example with `org:read` and `knowledge:read`. Hermes uses the MCP server at `http://127.0.0.1:8001/mcp` |
+| Hermes | `HERMES_PLATFORM_TOKEN` | A machine token of kind `agent`. Hermes uses the MCP server at `http://127.0.0.1:8001/mcp`. For read access give `org:read` and `knowledge:read`. To let Hermes run the org like an officer, add `activity:read`, `settings:write`, `integrations:manage`, `knowledge:write`, `apps:read`, `apps:manage`, `apps:deploy`, `alerts:manage` and `compute:manage`. Then limit who can talk to Hermes with `HERMES_ENV_DISCORD_ALLOWED_ROLES` |
 
 Sparky sends no query vector unless `SPARKY_EMBEDDING__BASE_URL` is set. The platform then embeds each query with the Embeddings integration, so set the Embeddings card to the model that embedded the org's knowledge. The engine listens on `127.0.0.1:8080` only, and `run_sandbox` is off because the pod cannot run containers.
 

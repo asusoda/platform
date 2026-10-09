@@ -33,7 +33,12 @@ def _list(token: str | None) -> list[types.Tool]:
         if caller is None:
             raise Unauthorized("A valid machine token is required")
         return [
-            types.Tool(name=spec.name, description=spec.description, input_schema=spec.input_schema)
+            types.Tool(
+                name=spec.name,
+                description=spec.description,
+                input_schema=spec.input_schema,
+                annotations=types.ToolAnnotations(read_only_hint=spec.read_only, destructive_hint=spec.confirm),
+            )
             for spec in runtime.available(db, caller)
         ]
     finally:

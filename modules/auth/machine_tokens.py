@@ -35,6 +35,11 @@ class MachineCaller:
     def allows(self, scope: str) -> bool:
         return scope in self.scopes
 
+    @property
+    def actor(self) -> str:
+        """How the audit log and updated_by fields name this token."""
+        return f"{self.kind}:{self.name}#{self.token_id}"
+
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()

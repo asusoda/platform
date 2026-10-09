@@ -14,6 +14,7 @@ from core.time import iso, utcnow
 from modules.accounts.models import AccountGrant
 from modules.agents.models import AgentConversation, AgentMemory, AgentPendingAction
 from modules.alerts.models import AlertFeed, AlertPost
+from modules.auth import scopes
 from modules.auth.models import MachineToken
 from modules.compute.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
@@ -25,6 +26,9 @@ from modules.storefront.models import Order, Product
 from modules.users.models import UserOrganizationMembership
 
 from . import notices
+
+scopes.declare("activity:read", "Read the org overview, daily trends, notifications and the audit log")
+scopes.declare("integrations:manage", "See which integrations are set, set or clear their keys, and test them")
 
 
 def overview(db, org: Organization) -> dict:

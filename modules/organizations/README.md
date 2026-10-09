@@ -10,13 +10,13 @@ Keeps the org record (Discord server, URL prefix, officer role, config) and the 
 | `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`, org secrets and machine tokens; declares `org:read` |
 | `config.py` | `OrganizationSettings`, the default config of a new org |
 | `models.py` | Orgs, and the unused org config and officer tables |
-| `tools.py` | The `org.info` tool |
+| `tools.py` | The `org.*` tools: org info, branding and module switches |
 
 ## Surface
 
 - Routes: `/api/organizations`. Each route needs an officer of the org in the URL. The list shows only the caller's orgs.
 - Jobs: none.
-- Tools: `org.info` (scope `org:read`).
+- Tools: `org.info`, `org.branding` (scope `org:read`); `org.set_modules` (confirm), `org.set_branding` (scope `settings:write`). Tools marked confirm run only with `confirm=true`.
 - Tables: `organizations`, `organization_configs`, `officers`.
 
 Config keys: `modules` (a module name set to false for each module that is off), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.

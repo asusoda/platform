@@ -12,6 +12,7 @@ from modules.auth import machine_tokens, scopes
 from modules.organizations.models import Organization
 
 scopes.declare("org:read", "Read the org's name, description and enabled modules")
+scopes.declare("settings:write", "Turn modules on or off, change branding, and resolve notifications")
 
 # Modules an organization can turn off. Everything else (auth, users, organizations,
 # superadmin, public pages) is always on. A module missing from an org's config is on,

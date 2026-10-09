@@ -59,6 +59,9 @@ TOOL_MODULES = [
     "modules.knowledge.tools",
     "modules.runpod.tools",
     "modules.asu.tools",
+    "modules.dashboard.tools",
+    "modules.alerts.tools",
+    "modules.compute.tools",
 ]
 
 

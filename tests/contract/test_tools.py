@@ -25,9 +25,10 @@ def _names(client, headers):
 
 
 def test_tools_follow_scopes(client, token_for):
-    assert _names(client, token_for("org:read")) == ["org.info"]
+    assert _names(client, token_for("org:read")) == ["org.branding", "org.info"]
     assert _names(client, token_for("org:read", "points:read", "calendar:read")) == [
         "events.list",
+        "org.branding",
         "org.info",
         "points.leaderboard",
     ]
@@ -101,7 +102,9 @@ def test_mcp_lists_and_calls_tools(mcp_client, token_for):
     assert init.status_code == 200, init.text
     listed = _rpc(mcp_client, headers, "tools/list")
     assert listed.status_code == 200, listed.text
-    assert [t["name"] for t in listed.json()["result"]["tools"]] == ["org.info"]
+    tools = listed.json()["result"]["tools"]
+    assert [t["name"] for t in tools] == ["org.branding", "org.info"]
+    assert tools[1]["annotations"] == {"readOnlyHint": True, "destructiveHint": False}
     called = _rpc(mcp_client, headers, "tools/call", {"name": "org.info", "arguments": {}})
     result = called.json()["result"]
     assert result.get("isError") in (None, False)
