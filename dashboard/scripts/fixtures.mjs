@@ -8,7 +8,7 @@ export const ORG = { id: 1, name: 'Robotics Club', prefix: 'robotics', guild_id:
 
 export const BRANDING = { logo_url: null, accent_color: '#2563eb', website_url: 'https://robotics.example.org' };
 
-const MODULES = [
+export const MODULES = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
   { name: 'storefront', description: 'Merch store paid with points', enabled: true },
   { name: 'calendar', description: 'Notion to Google Calendar sync and the public events feed', enabled: true },
@@ -16,6 +16,48 @@ const MODULES = [
   { name: 'compute', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
   { name: 'alerts', description: 'Job and hackathon listings posted to Discord webhooks', enabled: true },
 ];
+
+// The modules on the Modules page, as GET /api/dashboard/<org>/modules returns them. enabled comes from MODULES.
+const need = (key, label, connected, extra = {}) => ({ key, label, kind: 'integration', optional: false, connected, ...extra });
+const CATALOG = [
+  { name: 'games', title: 'Games', description: "Jeopardy games in the org's Discord server.", category: 'Bots', switchable: false, needs: [need('discord', 'Discord bot', true)], packs: [] },
+  { name: 'leetcode', title: 'LeetCode', description: "Posts the daily LeetCode question in a Discord channel and checks who solved it.", category: 'Bots', switchable: true, needs: [need('discord', 'Discord bot', true)], packs: [] },
+  { name: 'agents', title: 'Agents', description: "Conversations, memories and pending actions of the org's agents.", category: 'AI and agents', switchable: false, needs: [need('openrouter', 'OpenRouter', false, { optional: true })], packs: [] },
+  { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI and agents', switchable: false, needs: [], packs: [] },
+  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'AI and agents', switchable: false, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], packs: ['asu'] },
+  { name: 'mcp', title: 'MCP', description: "The MCP server that gives agents and apps the tools of each module.", category: 'AI and agents', switchable: false, needs: [], packs: [] },
+  { name: 'packs', title: 'Packs', description: "Loads content packs: campus pages and live queries for knowledge, and feeds for alerts.", category: 'AI and agents', switchable: false, needs: [need('searxng', 'Web search (SearXNG)', true, { optional: true })], packs: ['asu', 'careers'] },
+  { name: 'accounts', title: 'Member accounts', description: "Members connect Canvas, Google and Outlook, and agents read them for the member.", category: 'Members', switchable: false, needs: [need('ACCOUNTS_BASE_URL', 'ACCOUNTS_BASE_URL setting', true, { kind: 'setting' })], packs: [] },
+  { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Members', switchable: true, needs: [], packs: [] },
+  { name: 'storefront', title: 'Store', description: "A merch store that members pay for with points.", category: 'Members', switchable: true, needs: [], packs: [] },
+  { name: 'alerts', title: 'Alerts', description: "Job and hackathon listings posted to Discord webhooks.", category: 'Automations', switchable: true, needs: [], packs: ['careers'] },
+  { name: 'calendar', title: 'Calendar sync', description: "Syncs a Notion events database to Google Calendar and serves the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], packs: [] },
+  { name: 'compute', title: 'Member pods', description: "GPU and CPU pods on the org's RunPod account that members SSH into.", category: 'Infrastructure', switchable: true, needs: [need('runpod', 'RunPod', true)], packs: [] },
+  { name: 'runpod', title: 'Hosting', description: "Deploys the org's own apps to a hosting provider, checks their health and rolls them back.", category: 'Infrastructure', switchable: false, needs: [need('runpod', 'RunPod', true), need('github', 'GitHub', true, { optional: true })], packs: [] },
+];
+const CATEGORIES = ['Bots', 'AI and agents', 'Members', 'Automations', 'Infrastructure'];
+const PACKS = {
+  asu: { name: 'asu', title: 'Arizona State University', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.' },
+  careers: { name: 'careers', title: 'Internships and hackathons', description: 'Alert feeds for software internships, new grad roles and upcoming hackathons.' },
+};
+
+// The body of GET /api/dashboard/<org>/modules for the given switch states.
+export function moduleCatalog(states = MODULES) {
+  const enabled = Object.fromEntries(states.map((m) => [m.name, m.enabled]));
+  return {
+    categories: CATEGORIES,
+    modules: CATALOG.map((m) => ({
+      ...m,
+      enabled: enabled[m.name] ?? true,
+      ready: m.needs.every((n) => n.connected || n.optional),
+      packs: m.packs.map((p) => PACKS[p]),
+    })),
+  };
+}
+
+// The titles of the modules that need each integration.
+const UNLOCKS = CATALOG.flatMap((m) => m.needs.filter((n) => n.kind === 'integration').map((n) => [n.key, m.title]));
+const unlocks = (key) => UNLOCKS.filter(([k]) => k === key).map(([, title]) => title).sort();
 
 const SCOPES = {
   'knowledge:read': "Search the organization's knowledge and public sources",
@@ -1136,8 +1178,9 @@ export function fixtures(now = Date.now()) {
     '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding`]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview`]: overview,
+    [`/api/dashboard/${ORG.prefix}/modules`]: moduleCatalog(),
     [`/api/dashboard/${ORG.prefix}/integrations`]: {
-      integrations,
+      integrations: integrations.map((i) => ({ ...i, unlocks: unlocks(i.key) })),
       oauth: {
         notion: { title: 'Notion', connected: true, connected_by: 'ash', connected_at: at(-2 * DAY), blocked: null },
         google: { title: 'Google', connected: false, connected_by: null, connected_at: null, blocked: null },

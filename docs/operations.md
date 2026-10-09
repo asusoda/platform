@@ -103,7 +103,7 @@ Run these in the API container (`make shell`) or on your machine with the same `
 ```bash
 flask --app main config check                    # settings, database and migrations; exits non-zero on a fault
 flask --app main org list
-flask --app main org create --name "Robotics Club" --prefix robotics --guild-id <id> --officer-role-id <id> --off points,storefront
+flask --app main org create --name "Robotics Club" --prefix robotics --guild-id <id> --officer-role-id <id> --on points,storefront
 flask --app main org modules robotics --on calendar
 flask --app main jobs list
 flask --app main jobs run calendar.sync_all

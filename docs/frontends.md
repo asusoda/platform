@@ -14,7 +14,7 @@ The sidebar puts the pages in sections: Members (Points, Store), Automations, Kn
 
 `dashboard/src/pages/registry.tsx` has one entry for each page, with its section and group. To add an automation, add its page there with `group` set to `webhooks`, `scheduled` or `bots`. To add a kind, add a line to `GROUPS`.
 
-The sidebar hides the page of an optional module when the module is off for the org. It hides Hosting only when the `runpod` and `compute` modules are both off. A section or group with no pages has no header. If you open the Points, Store, Calendar sync or LeetCode page while its module is off, the page links to Settings, Modules. The old path `agents` opens `mcp`, and `ci` opens Activity, CI runs. The old paths `apps` and `compute` open the Services and Member pods tabs of Hosting.
+The sidebar hides the page of an optional module when the module is off for the org. It hides Hosting only when the `runpod` and `compute` modules are both off. A section or group with no pages has no header. If you open the Points, Store, Calendar sync or LeetCode page while its module is off, the page links to Modules. The old path `agents` opens `mcp`, and `ci` opens Activity, CI runs. The old paths `apps` and `compute` open the Services and Member pods tabs of Hosting.
 
 The sidebar collapses to a 56px rail of icons. To collapse or expand it, use the button at the left of the top bar, Ctrl+B (Cmd+B on a Mac) or `[`. The `[` key does nothing while you type in a field. The rail shows a tooltip with the page name on hover and on keyboard focus. The dashboard keeps the state in `localStorage` as `platform.sidebar`. On a phone, the sidebar is a menu that opens from the top bar.
 
@@ -27,7 +27,8 @@ The dashboard has one React Query client, made in `dashboard/src/lib/query-clien
 | Page | Shows |
 | --- | --- |
 | Overview | A link to open notifications, module switches, members, points, pods, agent use, CI, services, alert feeds, sessions, recent changes and job runs |
-| Integrations | The accounts and services the org connects, in two groups: state, keys, Test and the modules that use each one. See [integrations.md](./integrations.md) |
+| Modules | Each module that is not Core, grouped by category, with a search field and a category filter. Each card shows what the module does, what it needs (integrations or settings) and whether each need is connected, its packs, and Add to organization or Remove. If a need is not connected, the card links to Integrations and Add is off. Remove asks first, turns the module off and keeps its data. Modules that are always on show no button. See [Modules and packs](./architecture.md#modules-and-packs) |
+| Integrations | The accounts and services the org connects, in two groups: state, keys, Test, the modules that use each one, and the modules on the Modules page that it unlocks. See [integrations.md](./integrations.md) |
 | Notifications | Problems that need an officer (failed alert runs, failed deploys, knowledge sources that could not be fetched) and each webhook event of the org (errors, failed jobs, pods started and stopped, deploys, store orders, new members), with no webhook needed. Errors and failures show in red. Resolve or reopen each one. The bell in the top bar shows the open count and the newest ones |
 | Points | Members ranked by points, with the entries of each member. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV. Events grouped by name, with delete for all entries of an event |
 | Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: change the status, add a message to the member, delete |
@@ -41,7 +42,7 @@ The dashboard has one React Query client, made in `dashboard/src/lib/query-clien
 | MCP | How to connect an agent to the MCP server, agent tokens, linked accounts, and conversation, memory and member counts. It shows no conversation text |
 | Tokens | Machine tokens: create and revoke |
 | Activity | Four tabs: Changes, the org's audit log with pages; Knowledge runs, the last crawls and uploads with their errors; CI runs, the latest GitHub Actions runs for the repos the org lists; Errors, the org's errors from the error log with Resolve, Reopen and the stack trace. Activity only shows data: webhooks are on the Webhooks page |
-| Settings | General, branding, module switches and org secrets |
+| Settings | General, branding, a link to Modules and org secrets |
 | Superadmin | Orgs, officer roles, Discord servers without an org, the audit log of all orgs, and the errors of every org and of the server. Only the superadmin sees it |
 
 The dashboard uses these officer routes in `modules/dashboard/`:
@@ -49,6 +50,7 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | Route | Does |
 | --- | --- |
 | `GET /api/dashboard/<org>/overview` | Every section in one response |
+| `GET /api/dashboard/<org>/modules` | `categories`, and for each module that is not Core: `name`, `title`, `description`, `category`, `switchable`, `enabled`, `ready`, `needs` (each with `key`, `label`, `kind`, `optional` and `connected`) and `packs`. The Modules page sets a switch with `PUT /api/organizations/<id>/modules` |
 | `GET /api/dashboard/<org>/trends?days=30` | One series per chart, a value per UTC day (7 to 90 days). Modules that are off have no series |
 | `GET /api/dashboard/<org>/ci` | The latest runs for each listed repo, kept in a cache for 120 seconds |
 | `PUT /api/dashboard/<org>/ci/repos` | Sets the repo list: `{"repos": ["owner/name"]}`, 20 or fewer |
@@ -62,7 +64,7 @@ The other pages use the routes of their modules: `/api/points`, `/api/storefront
 
 For private repos, connect GitHub on the Integrations page with a read-only token that can read Actions.
 
-The Settings page has these sections: General (description, points per message, points cooldown), Branding, Modules and Secrets. The calendar and LeetCode settings are on the Calendar sync and LeetCode pages. The old links `settings#calendar` and `settings#leetcode` open those pages. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
+The Settings page has these sections: General (description, points per message, points cooldown), Branding, a link to Modules, and Secrets. The calendar and LeetCode settings are on the Calendar sync and LeetCode pages. The old links `settings#calendar`, `settings#leetcode` and `settings#modules` open the Calendar sync, LeetCode and Modules pages. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. It uses the `/api/superadmin/` routes. When the bot is not available, those routes return 503 and the page says so.
 
 Each org sets its logo, accent color and website on the Settings page. The sidebar links to the website. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 
@@ -133,7 +135,7 @@ Put a part in `src/components/` or `src/lib/` only when two or more pages use it
 These fields of a registry entry control who sees the page:
 
 - `module`: the sidebar hides the page when the API says that this module is off for the org.
-- `gate`: with `module`, the page shows a note with a link to Settings, Modules while the module is off. Without `gate`, the page opens and its API calls return 404.
+- `gate`: with `module`, the page shows a note with a link to Modules while the module is off. Without `gate`, the page opens and its API calls return 404.
 - `superadmin`: only the superadmin sees the page in the sidebar. The page must also check `useSuperadmin()`.
 
 An old path that opens another page goes in `REDIRECTS` in the same file.

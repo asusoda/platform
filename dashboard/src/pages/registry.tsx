@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Blocks,
   BellRing,
   Cable,
   CalendarDays,
@@ -30,6 +31,7 @@ import { KnowledgePage } from './knowledge';
 import { KnowledgeSourcePage } from './knowledge/source';
 import { LeetCodePage } from './leetcode';
 import { McpPage } from './mcp';
+import { ModulesPage } from './modules';
 import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
@@ -104,6 +106,7 @@ export const PAGES: PageEntry[] = [
   { path: 'hosting', label: 'Hosting', icon: Server, section: 'infrastructure', module: ['runpod', 'compute'], page: HostingPage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
+  { path: 'modules', label: 'Modules', icon: Blocks, section: 'bottom', page: ModulesPage },
   { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },

@@ -37,7 +37,7 @@ flask --app main org|jobs|config ...
 | `main.py`, `bot_main.py`, `worker_main.py`, `mcp_main.py` | API, Discord bot, job worker (Postgres only), MCP server on port 8001 |
 | `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, hosting providers (`core/hosting.py`) |
 | `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, only the files it needs |
-| `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; model, job and tool modules |
+| `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; categories, the module catalog, the modules of a new org, and model, job and tool modules |
 | `alembic/` | Migrations. Nothing creates tables at startup |
 | `tests/contract/` | Route tests, `snapshots.json`, and `routes.txt`, the list of every route |
 | `tests/test_module_layout.py` | Checks that each module is registered and documented in every place |
