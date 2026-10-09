@@ -132,7 +132,8 @@ def auth_required(f):
             if problem:
                 return _refuse(*_HEADER_REFUSALS[problem])
         except Exception as e:
-            return _refuse(str(e), 401)
+            logger.debug(f"Token check error: {e}")
+            return _refuse("Authentication failed due to an internal error.", 401)
         return _with_org_scope(f, *args, **kwargs)
 
     return wrapper
@@ -172,7 +173,7 @@ def superadmin_required(f):
                 return f(*args, **kwargs)
             except Exception as e:
                 logger.debug(f"Error validating session token: {e}")
-                return _refuse(str(e), 401)
+                return _refuse("Authentication failed due to an internal error.", 401)
 
         if "Authorization" in request.headers and not request.headers["Authorization"].startswith("Bearer "):
             return _refuse("Invalid Authorization header format!", 401)
