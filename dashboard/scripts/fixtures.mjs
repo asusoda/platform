@@ -29,6 +29,34 @@ const SCOPES = {
 };
 
 // All responses, with times relative to now so the dashboard shows "2h ago" and "in 3d".
+// 30 days of made-up daily counts. Weekdays are busier, and a few days have failures.
+function trends(now) {
+  const dates = Array.from({ length: 30 }, (_, i) => new Date(now - (29 - i) * DAY).toISOString().slice(0, 10));
+  const series = (key, title, unit, base, spread, failEvery = 0) => {
+    const days = dates.map((date, i) => {
+      const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+      const busy = weekday === 0 || weekday === 6 ? 0.4 : 1;
+      const value = Math.max(0, Math.round((base + spread * Math.sin(i * 1.7 + key.length)) * busy));
+      const failed = failEvery && i % failEvery === 3 && value ? Math.ceil(value / 4) : 0;
+      return { date, value, failed };
+    });
+    const sum = (field) => days.reduce((n, d) => n + d[field], 0);
+    return { key, title, unit, total: sum('value'), failed: sum('failed'), days };
+  };
+  return {
+    days: 30,
+    generated_at: new Date(now).toISOString(),
+    series: [
+      series('actions', 'Officer and app actions', 'actions', 14, 8),
+      series('jobs', 'Job runs', 'runs', 40, 6, 9),
+      series('points', 'Points given', 'points', 60, 45),
+      series('orders', 'Store orders', 'orders', 3, 3),
+      series('questions', 'Questions to agents', 'questions', 55, 30),
+      series('alert_posts', 'Alerts posted', 'posts', 9, 7),
+    ],
+  };
+}
+
 export function fixtures(now = Date.now()) {
   const at = (offset) => new Date(now + offset).toISOString();
 
@@ -916,6 +944,7 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/knowledge/search`]: search,
     [`/api/dashboard/${ORG.prefix}/knowledge/settings`]: knowledgeSettings,
     [`/api/dashboard/${ORG.prefix}/knowledge/runs`]: { runs: knowledgeRuns },
+    [`/api/dashboard/${ORG.prefix}/trends`]: trends(now),
     [`/api/compute/${ORG.prefix}/pods`]: { pods: livePods },
     [`/api/compute/${ORG.prefix}/settings`]: {
       settings: { pod_image: 'theaisocietyasu/workshop-base:latest', deployment_pod_image: 'theaisocietyasu/godfather-base:latest' },

@@ -22,6 +22,7 @@ from modules.organizations import service as organizations
 from modules.runpod import service as apps
 
 from . import ci, notices, service
+from . import trends as trends_service
 
 dashboard_blueprint = Blueprint("dashboard", __name__)
 _route = partial(officer_route, dashboard_blueprint)
@@ -43,6 +44,12 @@ def _actor() -> str:
 @_route("/overview", ["GET"])
 def overview(db, org):
     return service.overview(db, org)
+
+
+@_route("/trends", ["GET"])
+def trends(db, org):
+    days = request.args.get("days", type=int) or trends_service.DEFAULT_DAYS
+    return trends_service.trends(db, org, days)
 
 
 @_route("/notifications", ["GET"])
