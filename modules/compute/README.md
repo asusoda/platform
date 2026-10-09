@@ -6,7 +6,7 @@ Runs GPU and CPU pods on an org's own RunPod account that members connect to ove
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Officer routes under `/<org_prefix>/pods` and the member search at `/<org_prefix>/members`, member routes under `/<org_prefix>/me`, and the CLI sign-in through Discord |
+| `api.py` | Officer routes under `/<org_prefix>/pods` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me`, and the CLI sign-in through Discord |
 | `service.py` | Pods on RunPod, sharing and member connect; reads the org secret `runpod_api_key` |
 | `ssh.py` | The org's SSH keys and short-lived certificates |
 | `files.py` | File operations on a pod over SFTP, as root with the org's backend key |

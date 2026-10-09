@@ -304,6 +304,21 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
     return {"id": pod_id, "action": action}
 
 
+def member_page(directory, guild_id, query: str = "", role: str = "", limit: int = 50) -> dict:
+    """Server members for the allowed members picker, sorted by name. Bots are left out.
+
+    A query searches names through Discord. Without one, the whole member list is read. role keeps the members
+    that hold that role. total counts every match; members holds the first limit.
+    """
+    if query:
+        found = directory.search_members(guild_id, query, 100)
+    else:
+        found = directory.list_members(guild_id)
+    matches = [m for m in found if not m.get("bot") and (not role or role in m.get("roles", []))]
+    matches.sort(key=lambda m: (str(m["name"]).casefold(), m["id"]))
+    return {"members": matches[:limit], "total": len(matches)}
+
+
 def _may_connect(row: ComputePod, discord_id: str) -> bool:
     return bool(row.is_public) or discord_id in (cast(list, row.allowed_users) or [])
 

@@ -316,3 +316,85 @@ def get_or_create_user_from_clerk(db, organization_id, clerk_user, email):
         return user
     logger.error(f"Failed to create/get user from Clerk: {message}")
     return None
+
+
+# Members from the org's Discord server
+
+SYNC_CHUNK = 500
+
+
+def discord_roles(directory, guild_id) -> list[dict]:
+    """Roles a member filter can use, highest first. The everyone role and roles that bots manage are left out."""
+    roles = [r for r in directory.get_guild_roles(guild_id) if r["id"] != str(guild_id) and not r["managed"]]
+    roles.sort(key=lambda r: -r["position"])
+    return [{"id": r["id"], "name": r["name"], "color": r["color"]} for r in roles]
+
+
+def _chunks(values: list, size: int = SYNC_CHUNK):
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
+def sync_discord_members(db, organization_id: int, members: list[dict], dry_run: bool = False) -> dict:
+    """Make each Discord member a member of the org. Commits unless dry_run.
+
+    members are rows from DiscordDirectory.list_members. A person with no user row gets one with their Discord id,
+    name and username; the username is left empty when another user has it. A removed membership is made active
+    again. Returns counts: matched, new_users, joined (new or active again) and already.
+    """
+    wanted = {str(m["id"]): m for m in members if str(m.get("id", "")).isdigit() and not m.get("bot")}
+    ids = list(wanted)
+    users: dict[str, User] = {}
+    for chunk in _chunks(ids):
+        users |= {str(u.discord_id): u for u in db.query(User).filter(User.discord_id.in_(chunk)).all()}
+    memberships: dict[int, UserOrganizationMembership] = {}
+    user_ids = [int(cast(int, u.id)) for u in users.values()]
+    for chunk in _chunks(user_ids):
+        rows = (
+            db.query(UserOrganizationMembership)
+            .filter(
+                UserOrganizationMembership.organization_id == organization_id,
+                UserOrganizationMembership.user_id.in_(chunk),
+            )
+            .all()
+        )
+        memberships |= {int(cast(int, m.user_id)): m for m in rows}
+    usernames = [str(wanted[i].get("username")) for i in ids if i not in users and wanted[i].get("username")]
+    taken: set[str] = set()
+    for chunk in _chunks(usernames):
+        taken |= {str(name) for (name,) in db.query(User.username).filter(User.username.in_(chunk)).all()}
+
+    counts = {"matched": len(ids), "new_users": 0, "joined": 0, "already": 0}
+    for discord_id in ids:
+        member = wanted[discord_id]
+        user = users.get(discord_id)
+        if user is None:
+            counts["new_users"] += 1
+            counts["joined"] += 1
+            if dry_run:
+                continue
+            username = member.get("username")
+            if not username or username in taken:
+                username = None
+            else:
+                taken.add(username)
+            user = User(discord_id=discord_id, username=username, name=member.get("name"), uuid=str(uuid.uuid4()))
+            db.add(user)
+            db.flush()
+            db.add(UserOrganizationMembership(user_id=user.id, organization_id=organization_id))
+            continue
+        membership = memberships.get(int(cast(int, user.id)))
+        if membership is not None and membership.is_active:
+            counts["already"] += 1
+            continue
+        counts["joined"] += 1
+        if dry_run:
+            continue
+        if membership is None:
+            db.add(UserOrganizationMembership(user_id=user.id, organization_id=organization_id))
+        else:
+            membership.is_active = True
+    if not dry_run:
+        db.commit()
+    logger.info("discord member sync org=%s dry_run=%s counts=%s", organization_id, dry_run, counts)
+    return counts

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button, cx, Dialog, Field, FormActions, Input, Select, Switch } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { NewPod } from '../../lib/types';
-import { computePath, useComputeSettings, useRefreshCompute, UsersEditor } from './shared';
+import { UsersEditor } from './members';
+import { computePath, useComputeSettings, useRefreshCompute } from './shared';
 
 // Defaults and limits match pod_request in modules/compute/service.py.
 const DEFAULT_GPU = 'NVIDIA RTX A4000';
