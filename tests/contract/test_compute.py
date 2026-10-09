@@ -17,9 +17,11 @@ class FakeRunPod:
         self.calls.append(("create", body))
         self.pods[pod_id] = {
             "id": pod_id,
-            "desiredStatus": "RUNNING",
-            "publicIp": "203.0.113.5",
-            "portMappings": {"22": 40022},
+            "status": "RUNNING",
+            "cost": 0.2,
+            "dataCenterId": "US-TX-3",
+            "gpu": {"id": "NVIDIA A40", "count": 1},
+            "runtime": {"ports": [{"ip": "203.0.113.5", "private": 22, "public": 40022, "type": "tcp"}]},
         }
         return self.pods[pod_id]
 
@@ -28,11 +30,11 @@ class FakeRunPod:
 
     def start_pod(self, pod_id):
         self.calls.append(("start", pod_id))
-        self.pods[pod_id]["desiredStatus"] = "RUNNING"
+        self.pods[pod_id]["status"] = "RUNNING"
 
     def stop_pod(self, pod_id):
         self.calls.append(("stop", pod_id))
-        self.pods[pod_id]["desiredStatus"] = "EXITED"
+        self.pods[pod_id]["status"] = "EXITED"
 
     def delete_pod(self, pod_id):
         self.calls.append(("delete", pod_id))
@@ -72,8 +74,9 @@ def test_officer_creates_and_lists_a_pod(client, officer_headers, runpod):
     assert response.status_code == 201
     assert response.get_json()["pod"]["status"] == "RUNNING"
     _, body = runpod.calls[0]
-    assert body["computeType"] == "GPU" and body["gpuTypeIds"] == ["NVIDIA A40"]
-    assert body["imageName"] == "theaisocietyasu/godfather-base:latest" and body["ports"] == ["22/tcp"]
+    assert body["gpu"] == {"id": "NVIDIA A40", "count": 1} and body["cloud"] == "COMMUNITY"
+    assert body["image"] == "theaisocietyasu/godfather-base:latest" and body["ports"] == ["22/tcp"]
+    assert body["disk"] == 20 and "mounts" not in body
     assert body["env"]["HF_HOME"] == "/workspace/hf"
     assert body["env"]["GODFATHER_SSH_CA_PUBLIC_KEY"].startswith("ssh-ed25519 ")
     assert "PRIVATE" not in str(body)
@@ -85,10 +88,14 @@ def test_officer_creates_and_lists_a_pod(client, officer_headers, runpod):
 def test_cpu_pods_and_bad_requests(client, officer_headers, runpod):
     assert _create(client, officer_headers, use_cpu_only=True).status_code == 201
     _, body = runpod.calls[0]
-    assert body["computeType"] == "CPU" and body["cpuFlavorIds"] == ["cpu3c"] and "gpuTypeIds" not in body
+    assert body["cpu"] == {"id": "cpu3c", "vcpuCount": 2} and "gpu" not in body and "mounts" not in body
+    assert _create(client, officer_headers, volume_in_gb=50, volume_mount_path="/data").status_code == 201
+    assert runpod.calls[1][1]["mounts"] == {"persistent": {"size": 50, "path": "/data"}}
     for bad in (
         {"env": {"GODFATHER_SETUP": "false"}},
         {"volume_in_gb": -1},
+        {"volume_in_gb": 5},
+        {"use_cpu_only": True, "vcpu_count": 3},
         {"cloud_type": "MOON"},
         {"allowed_users": ["not-an-id"]},
     ):
@@ -340,7 +347,7 @@ def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
     from modules.compute import schedule
 
     _create(client, officer_headers)
-    runpod.pods["pod1"]["desiredStatus"] = "EXITED"
+    runpod.pods["pod1"]["status"] = "EXITED"
     base = "/api/compute/soda/pods/pod1/sessions"
     utc = datetime.datetime(2099, 10, 9, 0, 0)
 
@@ -363,12 +370,12 @@ def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
     run = lambda minutes: schedule.run(db, now=at(minutes), client_for=lambda db, org_id: runpod)  # noqa: E731
     assert run(-30) == {"started": [], "stopped": [], "failed": []}
     assert run(-5)["started"] == ["pod1"]
-    assert runpod.pods["pod1"]["desiredStatus"] == "RUNNING"
+    assert runpod.pods["pod1"]["status"] == "RUNNING"
     assert run(60) == {"started": [], "stopped": [], "failed": []}
     # The first session ends while the second still runs
     assert run(125) == {"started": [], "stopped": [], "failed": []}
     assert run(185)["stopped"] == ["pod1"]
-    assert runpod.pods["pod1"]["desiredStatus"] == "EXITED"
+    assert runpod.pods["pod1"]["status"] == "EXITED"
     assert run(200) == {"started": [], "stopped": [], "failed": []}
     db.close()
 
@@ -388,7 +395,7 @@ def test_a_running_pod_is_stopped_after_its_session_and_others_are_left_alone(cl
     run = lambda when: schedule.run(db, now=when, client_for=lambda db, org_id: runpod)  # noqa: E731
     assert run(now)["started"] == []
     assert run(now + datetime.timedelta(hours=2))["stopped"] == ["pod1"]
-    assert runpod.pods["pod2"]["desiredStatus"] == "RUNNING"
+    assert runpod.pods["pod2"]["status"] == "RUNNING"
     db.close()
 
 
@@ -507,5 +514,30 @@ def test_cli_messages_and_pod_image_come_from_config(app, client, officer_header
     assert token and "run godfather auth and paste it" in page.get_data(as_text=True)
 
     assert _create(client, officer_headers).status_code == 201
-    assert runpod.calls[0][1]["imageName"] == "example/pod:1"
+    assert runpod.calls[0][1]["image"] == "example/pod:1"
     assert set(runpod.calls[0][1]["env"]) >= {"GODFATHER_SSH_PUBLIC_KEY", "GODFATHER_SETUP"}
+
+
+def test_runpod_refusal_reaches_the_dashboard(client, officer_headers, runpod, monkeypatch):
+    from core.integrations.runpod import RunPodError
+
+    def refuse(body):
+        raise RunPodError("RunPod answered 422: cpu.vcpuCount is required", 422)
+
+    monkeypatch.setattr(runpod, "create_pod", refuse)
+    response = _create(client, officer_headers, use_cpu_only=True)
+    assert response.status_code == 400
+    assert "vcpuCount" in response.get_json()["error"]
+
+    def fail(body):
+        raise RunPodError("RunPod could not be reached")
+
+    monkeypatch.setattr(runpod, "create_pod", fail)
+    assert _create(client, officer_headers).status_code == 424
+
+
+def test_pod_list_reads_v2_fields(client, officer_headers, runpod):
+    assert _create(client, officer_headers).status_code == 201
+    pod = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"][0]
+    assert pod["cost_per_hour"] == 0.2
+    assert pod["machine"] == {"gpuTypeId": "NVIDIA A40", "dataCenterId": "US-TX-3"}

@@ -215,6 +215,19 @@ def list_sources(db, org):
     return {"sources": sources, "can_publish": knowledge.can_publish(db, str(org.prefix))}
 
 
+@_route("/knowledge/sources/<path:key>", ["GET"])
+def read_source(db, org, key):
+    """One page of a source's full text. Query: chunk (a search result's chunk_id), offset."""
+    offset = request.args.get("offset")
+    return knowledge.read_source(
+        db,
+        _org_id(org),
+        key,
+        chunk_id=request.args.get("chunk") or None,
+        offset=int(offset) if offset is not None and offset.isdigit() else offset,
+    )
+
+
 @_route("/knowledge/sources/<path:key>", ["DELETE"])
 def delete_source(db, org, key):
     knowledge.delete_source(db, _org_id(org), key)

@@ -1,4 +1,5 @@
 import uuid
+from typing import cast
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +15,7 @@ from modules.organizations import service as organizations
 from modules.points import service as points
 from modules.users.models import User, UserOrganizationMembership
 from modules.users.service import (
+    active_members,
     active_membership,
     link_or_create_user,
     member_fields,
@@ -321,29 +323,21 @@ def get_organization_users(org_prefix):
         if not organization:
             return jsonify({"error": "Organization not found"}), 404
 
-        memberships = (
-            db.query(UserOrganizationMembership).filter_by(organization_id=organization.id, is_active=True).all()
-        )
-
-        users_data = []
-        for membership in memberships:
-            user = db.query(User).filter_by(id=membership.user_id).first()
-            if user:
-                user_points = points.total_points(db, user.id, organization.id) or 0
-
-                users_data.append(
-                    {
-                        "id": user.id,
-                        "name": user.name,
-                        "username": user.username,
-                        "email": user.email,
-                        **member_fields(user, membership),
-                        "major": user.major,
-                        "discord_linked": bool(user.discord_id),
-                        "points": user_points,
-                        "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
-                    }
-                )
+        totals = points.totals_by_user(db, organization.id)
+        users_data = [
+            {
+                "id": user.id,
+                "name": user.name,
+                "username": user.username,
+                "email": user.email,
+                **member_fields(user, membership),
+                "major": user.major,
+                "discord_linked": bool(user.discord_id),
+                "points": totals.get(cast(int, user.id)) or 0,
+                "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
+            }
+            for membership, user in active_members(db, organization.id)
+        ]
 
         return jsonify(
             {

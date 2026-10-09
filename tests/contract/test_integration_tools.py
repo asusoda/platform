@@ -160,8 +160,15 @@ def test_token_list_groups_integration_scopes(client, officer_headers, soda):
         "title": "GitHub",
         "connected": True,
         "scopes": ["github:read", "github:write"],
+        "through": ["apps:manage"],
         "limits": ["repos", "tools"],
     }
+    keys = [i["key"] for i in body["integrations"]]
+    assert {"discord", "embeddings", "notion", "runpod"} <= set(keys)
+    runpod = next(i for i in body["integrations"] if i["key"] == "runpod")
+    assert runpod["scopes"] == [] and "compute:manage" in runpod["through"]
+    assert body["uses"]["knowledge:write"] == ["embeddings", "firecrawl"]
+    assert "org:read" not in body["uses"]
 
 
 def test_remote_errors_are_tool_errors(client, officer_headers, soda, monkeypatch):

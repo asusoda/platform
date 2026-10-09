@@ -130,12 +130,14 @@ def app():
 
 @pytest.fixture(autouse=True)
 def stubs(app, monkeypatch):
-    """Replace Clerk and Notion with local stand-ins so no test reaches the network."""
+    """Replace Clerk and Notion with local stand-ins so no test reaches the network. Each test starts with no cache."""
+    from core.cache import cache
     from modules.auth import clerk
     from modules.calendar import service as calendar_service
 
     monkeypatch.setattr(clerk, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
     monkeypatch.setattr(calendar_service.get_service().notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
+    cache.clear()
 
 
 @pytest.fixture

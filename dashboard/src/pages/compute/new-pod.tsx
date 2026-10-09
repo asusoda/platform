@@ -33,6 +33,7 @@ type Draft = {
   cpu: boolean;
   gpu: string;
   flavor: string;
+  vcpus: string;
   cloud: NewPod['cloud_type'];
   volume: string;
   disk: string;
@@ -47,9 +48,10 @@ const EMPTY: Draft = {
   cpu: false,
   gpu: DEFAULT_GPU,
   flavor: DEFAULT_CPU,
+  vcpus: '2',
   cloud: 'COMMUNITY',
-  volume: '1',
-  disk: '2',
+  volume: '0',
+  disk: '20',
   mount: '/workspace',
   isPublic: false,
   users: [],
@@ -97,7 +99,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
       const body: NewPod = {
         use_cpu_only: draft.cpu,
         cloud_type: draft.cloud,
-        volume_in_gb: Number(draft.volume),
+        volume_in_gb: draft.cpu ? 0 : Number(draft.volume),
         container_disk_in_gb: Number(draft.disk),
         volume_mount_path: draft.mount.trim() || '/workspace',
         env: Object.fromEntries(env.filter((r) => r.name.trim()).map((r) => [r.name.trim(), r.value])),
@@ -106,8 +108,10 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
       };
       if (draft.name.trim()) body.name = draft.name.trim();
       if (draft.image.trim()) body.image_name = draft.image.trim();
-      if (draft.cpu) body.cpu_flavor = draft.flavor.trim() || DEFAULT_CPU;
-      else body.gpu_type_id = draft.gpu.trim() || DEFAULT_GPU;
+      if (draft.cpu) {
+        body.cpu_flavor = draft.flavor.trim() || DEFAULT_CPU;
+        body.vcpu_count = Number(draft.vcpus);
+      } else body.gpu_type_id = draft.gpu.trim() || DEFAULT_GPU;
       return send(`${computePath(prefix)}/pods`, 'POST', body);
     },
     onSuccess: () => {
@@ -147,9 +151,20 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             {draft.cpu ? (
-              <Field label="CPU flavor" hint="A RunPod CPU flavor id">
-                <Input value={draft.flavor} onChange={set('flavor')} list="cpu-flavors" className="font-mono text-xs" />
-              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="CPU flavor" hint="A RunPod CPU flavor id">
+                  <Input value={draft.flavor} onChange={set('flavor')} list="cpu-flavors" className="font-mono text-xs" />
+                </Field>
+                <Field label="vCPUs">
+                  <Select value={draft.vcpus} onChange={set('vcpus')}>
+                    {['2', '4', '8', '16'].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
             ) : (
               <Field label="GPU type" hint="A RunPod GPU type id">
                 <Input value={draft.gpu} onChange={set('gpu')} list="gpu-types" />
@@ -175,14 +190,23 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
         </fieldset>
 
         <div className="grid gap-5 sm:grid-cols-3">
-          <Field label="Volume (GB)" hint="Kept when the pod stops. 0 to 2000">
-            <Input type="number" min={0} max={2000} step={1} value={draft.volume} onChange={set('volume')} required />
+          <Field label="Volume (GB)" hint={draft.cpu ? 'CPU pods have no volume on RunPod.' : 'Kept when the pod stops. 0, or 10 to 2000'}>
+            <Input
+              type="number"
+              min={0}
+              max={2000}
+              step={1}
+              value={draft.cpu ? '0' : draft.volume}
+              onChange={set('volume')}
+              disabled={draft.cpu}
+              required
+            />
           </Field>
           <Field label="Container disk (GB)" hint="Lost when the pod stops. 1 to 500">
             <Input type="number" min={1} max={500} step={1} value={draft.disk} onChange={set('disk')} required />
           </Field>
           <Field label="Volume mount path">
-            <Input value={draft.mount} onChange={set('mount')} className="font-mono text-xs" required />
+            <Input value={draft.mount} onChange={set('mount')} className="font-mono text-xs" disabled={draft.cpu} required />
           </Field>
         </div>
 
