@@ -44,6 +44,14 @@ def test_matching_etag_gets_304(client, officer_headers, path):
     assert again.data == b""
 
 
+def test_cached_body_matches_jsonify(app, client, officer_headers):
+    response = client.get("/api/points/soda/leaderboard", headers=officer_headers)
+    with app.app_context():
+        from flask import jsonify
+
+        assert response.data == jsonify(response.get_json()).get_data()
+
+
 def test_cached_read_answers_without_the_database(client, officer_headers, queries):
     assert client.get(ENTRIES, headers=officer_headers).status_code == 200
     queries.clear()
