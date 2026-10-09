@@ -7,10 +7,20 @@ import type { App, DeployPreview } from '../../lib/types';
 import { providerTitle, useProviders } from '../hosting/providers';
 import { DEFAULT_MANIFEST_PATH, JsonBlock, Label, TAG_PATTERN, useInvalidate } from './shared';
 
-export function DeployPanel({ prefix, app, onDone }: { prefix: string; app: App; onDone: () => void }) {
+export function DeployPanel({
+  prefix,
+  app,
+  initialTag = '',
+  onDone,
+}: {
+  prefix: string;
+  app: App;
+  initialTag?: string;
+  onDone: () => void;
+}) {
   const invalidate = useInvalidate(prefix);
   const host = providerTitle(useProviders(prefix).data, app.provider);
-  const [tag, setTag] = useState('');
+  const [tag, setTag] = useState(initialTag);
   const [ref, setRef] = useState('');
   const tagOk = !tag || TAG_PATTERN.test(tag);
   const body = (dryRun: boolean) => ({ tag, ...(app.repo && ref.trim() ? { ref: ref.trim() } : {}), dry_run: dryRun });

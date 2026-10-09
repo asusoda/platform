@@ -47,6 +47,8 @@ REPO_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 PATH_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]{0,199}$")
 REF_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]{0,99}$")
 DEFAULT_MANIFEST_PATH = "platform.app.yaml"
+# The app template routes use this path segment, so no app has this name
+RESERVED_NAME = "templates"
 MAX_MANIFEST_BYTES = 100_000
 HEALTH_TIMEOUT = datetime.timedelta(minutes=15)
 REDACTED = "(secret)"
@@ -245,6 +247,8 @@ def put_app(
     """
     if not NAME_PATTERN.match(name):
         raise AppError("name must be lowercase letters, digits and dashes, up to 63")
+    if name == RESERVED_NAME:
+        raise AppError(f"{RESERVED_NAME} is not available as an app name")
     if (manifest is None) == (repo is None):
         raise AppError("Send either manifest or repo")
     path = None

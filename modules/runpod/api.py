@@ -8,7 +8,7 @@ from flask import Blueprint, g
 from core.http.responses import json_body
 from modules.auth.routes import machine_route
 
-from . import service
+from . import service, templates
 
 apps_blueprint = Blueprint("apps", __name__)
 _route = partial(machine_route, apps_blueprint)
@@ -26,6 +26,27 @@ def _org_id(org) -> int:
 @_route("", "apps:read", ["GET"])
 def list_apps(db, org):
     return {"apps": service.list_apps(db, _org_id(org))}
+
+
+@_route("/templates", "apps:read", ["GET"])
+def list_templates(db, org):
+    return {"templates": templates.list_templates()}
+
+
+@_route("/templates/<string:template>", "apps:manage", ["POST"])
+def create_from_template(db, org, template):
+    data = json_body()
+    app = templates.create(
+        db,
+        _org_id(org),
+        template,
+        data.get("name"),
+        data.get("values"),
+        data.get("secrets"),
+        data.get("provider"),
+        _actor(),
+    )
+    return app, 201
 
 
 @_route("/<string:name>", "apps:read", ["GET"])
