@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify, redirect, request, send_file, session
 from core import audit
 from core.config import config
 from core.db import db_connect
+from core.integrations.discord import DiscordUnavailable
+from core.log import get_logger
 from modules.accounts import providers
 from modules.auth import access
 from modules.auth.routes import member_view, officer_route, respond
@@ -19,6 +21,7 @@ from modules.organizations import service as organizations
 from . import cli_login, files, schedule, service
 
 compute_blueprint = Blueprint("compute", __name__)
+logger = get_logger(__name__)
 
 
 def _body():
@@ -116,6 +119,26 @@ def update_pod(db, org, pod_id):
 def pod_action(db, org, pod_id):
     data = _body()
     return service.act(db, _org_id(org), pod_id, data.get("action") if isinstance(data, dict) else None)
+
+
+@_officer_route("/members", ["GET"])
+def find_members(db, org):
+    """Server members for the allowed members field: ?q= searches names, ?ids= names the given ids."""
+    directory = access.discord_directory()
+    if directory is None or not directory.is_ready():
+        return {"error": "Discord is not set up, so members cannot be looked up. Enter Discord ids."}, 503
+    query = (request.args.get("q") or "").strip()[:100]
+    ids = [i for i in (request.args.get("ids") or "").split(",") if i.isdigit()][:50]
+    try:
+        if ids:
+            names = {i: directory.get_display_name(org.guild_id, i) for i in ids}
+            return {"members": [{"id": i, "name": name} for i, name in names.items() if name]}
+        if not query:
+            return {"members": []}
+        return {"members": directory.search_members(org.guild_id, query, 10)}
+    except DiscordUnavailable as e:
+        logger.warning("member lookup failed for org %s: %s", org.id, e)
+        return {"error": "Discord did not answer the member search. Enter Discord ids."}, 503
 
 
 @_member_route("/pods", ["GET"])

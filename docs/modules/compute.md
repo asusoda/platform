@@ -28,6 +28,8 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 | `POST /pods` | Creates a pod. Body below. 201 |
 | `GET /pods/<pod_id>` | One pod |
 | `PUT /pods/<pod_id>` | `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}`, or both |
+| `GET /members?q=<name>` | Up to 10 server members whose username or server nickname starts with `name`: `id`, `name`, `username`, `avatar`. The dashboard uses it to fill `allowed_users` |
+| `GET /members?ids=<id>,<id>` | The display names of up to 50 ids. 503 when Discord does not answer |
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate"}`. `terminate` deletes the pod and its record |
 
 All fields of the create body are optional:

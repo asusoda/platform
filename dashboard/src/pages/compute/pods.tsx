@@ -214,7 +214,7 @@ export function AccessDialog({ prefix, pod, onClose }: { prefix: string; pod: Po
           </div>
           <Switch checked={isPublic} onChange={setPublic} label="Open to all members" />
         </div>
-        <UsersEditor users={users} onChange={setUsers} />
+        <UsersEditor prefix={prefix} users={users} onChange={setUsers} />
         <FormActions error={save.error}>
           <Button variant="primary" disabled={save.isPending}>
             Save access

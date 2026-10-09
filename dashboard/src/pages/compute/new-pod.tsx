@@ -241,7 +241,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
             </div>
             <Switch checked={draft.isPublic} onChange={(v) => setDraft({ ...draft, isPublic: v })} label="Open to all members" />
           </div>
-          <UsersEditor users={draft.users} onChange={(users) => setDraft({ ...draft, users })} />
+          <UsersEditor prefix={prefix} users={draft.users} onChange={(users) => setDraft({ ...draft, users })} />
         </div>
 
         <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-xs text-pretty">
