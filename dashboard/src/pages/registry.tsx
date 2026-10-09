@@ -8,6 +8,7 @@ import {
   CodeXml,
   Coins,
   Database,
+  HeartPulse,
   KeyRound,
   LayoutDashboard,
   Plug,
@@ -40,6 +41,7 @@ import { SettingsPage } from './settings';
 import { StorePage } from './store';
 import { prefetchStore } from './store/shared';
 import { TokensPage } from './tokens';
+import { UptimePage } from './uptime';
 import { WebhooksPage } from './webhooks';
 
 // The sidebar sections, in order. A section with no title has no header.
@@ -104,6 +106,7 @@ export const PAGES: PageEntry[] = [
   { path: 'knowledge/sources/*', label: 'Knowledge source', icon: Database, section: 'knowledge', hidden: true, page: KnowledgeSourcePage },
   { path: 'mcp', label: 'MCP', icon: Cable, section: 'knowledge', page: McpPage },
   { path: 'hosting', label: 'Hosting', icon: Server, section: 'infrastructure', module: ['runpod', 'compute'], page: HostingPage },
+  { path: 'uptime', label: 'Uptime', icon: HeartPulse, section: 'infrastructure', module: 'uptime', gate: true, page: UptimePage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
   { path: 'modules', label: 'Modules', icon: Blocks, section: 'bottom', page: ModulesPage },

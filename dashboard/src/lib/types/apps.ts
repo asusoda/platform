@@ -55,3 +55,24 @@ export type RunPodPod = {
   machine?: { gpuDisplayName?: string; cpuTypeId?: string; location?: string; dataCenterId?: string } | null;
   [field: string]: unknown;
 };
+
+// An app template from GET /api/dashboard/<org>/apps/templates. Secret inputs become org secrets.
+export type AppTemplateInput = {
+  key: string;
+  kind: 'image' | 'env' | 'secret' | 'volume' | 'data_center';
+  label: string;
+  required: boolean;
+};
+
+export type AppTemplate = {
+  name: string;
+  title: string;
+  summary: string;
+  kind: AppKind;
+  tag: string | null;
+  inputs: AppTemplateInput[];
+  manifest: AppManifest;
+};
+
+// The answer to POST /api/dashboard/<org>/apps/templates/<template>.
+export type AppFromTemplate = App & { template: string; suggested_tag: string | null };

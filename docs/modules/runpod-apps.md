@@ -16,6 +16,14 @@ Officers can do steps 1, 2 and 4 on the dashboard (Settings > Secrets, and the S
 
 With a repo, a change to the pod's env, ports or disk is a pull request to the app, with the same review as its code. A person who can merge to the app's repo can already change what runs on the pod. Thus the deploy token gets no more access.
 
+## Templates
+
+`apps/` holds ready-made apps: [Vaultwarden](../../apps/vaultwarden/README.md) and [Hermes Agent](../../apps/hermes/README.md). See [apps/README.md](../../apps/README.md) for the template format.
+
+1. On the Services tab of the Hosting page, select **Templates** and pick a template.
+2. Fill in the name and the inputs, then select **Create app**. Secret inputs become org secrets named `app_<name>_<input>`. The app gets an inline manifest.
+3. Deploy a tag. The deploy form shows the template's tag, if it has one.
+
 ## Manifest
 
 `platform.app.yaml` has the same fields as the inline JSON:
@@ -50,8 +58,10 @@ All routes are under `/api/apps`. They need a machine token, and the org is the 
 | Route | Scope | Does |
 | --- | --- | --- |
 | `GET /` | `apps:read` | Apps with pod id, current tag and latest deployment |
+| `GET /templates` | `apps:read` | App templates from `apps/`, with their inputs and manifests |
+| `POST /templates/<template>` | `apps:manage` | `{"name": "vault", "values": {...}, "secrets": {...}, "provider": "runpod"}`. Saves the secrets, then registers the app inline. 201. 409 if the app exists. A secret the org already saved can be left out |
 | `GET /<name>` | `apps:read` | One app and its manifest |
-| `PUT /<name>` | `apps:manage` | Creates or replaces the manifest |
+| `PUT /<name>` | `apps:manage` | Creates or replaces the manifest. The name `templates` is not available |
 | `DELETE /<name>` | `apps:manage` | Removes the app record. The pod continues to run |
 | `GET /<name>/deployments` | `apps:read` | The latest 20 deployments |
 | `GET /<name>/pod` | `apps:read` | The pod as its provider shows it |

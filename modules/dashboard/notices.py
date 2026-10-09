@@ -35,9 +35,18 @@ EVENT_LINKS = {
     "order.created": "store",
     "member.joined": "points",
     "asu.session_expired": "integrations",
+    "monitor.down": "uptime",
+    "monitor.up": "uptime",
 }
 # The module label of each event in the dashboard
-EVENT_MODULES = {"errors": "errors", "job.failed": "jobs", "pod.started": "compute", "pod.stopped": "compute"}
+EVENT_MODULES = {
+    "errors": "errors",
+    "job.failed": "jobs",
+    "pod.started": "compute",
+    "pod.stopped": "compute",
+    "monitor.down": "uptime",
+    "monitor.up": "uptime",
+}
 ERROR_COLORS = (webhooks.RED, webhooks.AMBER)
 MAX_IDS = 500
 

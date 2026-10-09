@@ -14,7 +14,7 @@ CATEGORIES = {
     "AI and agents": ["agents", "integrations", "knowledge", "mcp", "packs"],
     "Members": ["accounts", "points", "storefront"],
     "Automations": ["alerts", "calendar"],
-    "Infrastructure": ["compute", "runpod"],
+    "Infrastructure": ["compute", "runpod", "uptime"],
 }
 
 CORE = "Core"
@@ -105,6 +105,9 @@ CATALOG = {
     ),
     "storefront": ModuleInfo("Store", "A merch store that members pay for with points."),
     "superadmin": ModuleInfo("Superadmin", "Orgs for the whole deployment. Only the superadmin uses it."),
+    "uptime": ModuleInfo(
+        "Uptime", "Checks the org's sites and Hosting apps on a schedule and sends an event when one goes down or up."
+    ),
     "users": ModuleInfo("Member list", "The members of the org and their profile fields."),
 }
 
@@ -131,6 +134,7 @@ MODEL_MODULES = [
     "modules.points.models",
     "modules.runpod.models",
     "modules.storefront.models",
+    "modules.uptime.models",
     "modules.users.models",
 ]
 
@@ -149,6 +153,7 @@ JOB_MODULES = [
     "modules.leetcode.jobs",
     "modules.compute.jobs",
     "modules.alerts.jobs",
+    "modules.uptime.jobs",
 ]
 
 # Importing a tools module registers its tools with core.tools
@@ -164,6 +169,7 @@ TOOL_MODULES = [
     "modules.compute.tools",
     "modules.integrations.tools",
     "modules.accounts.tools",
+    "modules.uptime.tools",
     "packs.asu.signin.tools",
 ]
 

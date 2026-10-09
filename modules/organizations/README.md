@@ -19,7 +19,7 @@ Keeps the org record (Discord server, URL prefix, officer role, config) and the 
 - Tools: `org.info`, `org.branding` (scope `org:read`); `org.set_modules` (confirm), `org.set_branding` (scope `settings:write`). Tools marked confirm run only with `confirm=true`.
 - Tables: `organizations`, `organization_configs`, `officers`.
 
-Config keys: `modules` (a module name set to false for each module that is off; a new org has an entry for each optional module, on only for `NEW_ORG_MODULES` in `modules/manifest.py`), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.
+Config keys: `modules` (a module name set to false for each module that is off; a new org has an entry for each optional module, on only for `NEW_ORG_MODULES` in `modules/manifest.py`; migration `c4d6e8f0a2b4` turns off compute, alerts and uptime for existing orgs that have no data for them), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.
 
 ## Known gaps
 
