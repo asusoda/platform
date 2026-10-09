@@ -19,12 +19,14 @@ from modules.auth.tokens import token_manager
 from modules.bot.bot import BotFork
 from modules.bot.factory import create_bot
 from modules.cli import register_cli
+from modules.dashboard import errors as error_alerts
 from modules.manifest import load_jobs, load_tools
 from modules.registry import register_modules
 
 logger = get_logger(__name__)
 
 init_sentry(config.SENTRY, "api")
+error_alerts.setup("api")
 
 
 class App(Flask):

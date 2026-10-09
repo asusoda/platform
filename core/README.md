@@ -1,6 +1,6 @@
 # core
 
-Shared code that modules use: config, database, logs, HTTP hooks, Discord and RunPod clients, jobs, tools, audit and org secrets. `core/` imports nothing from `modules/`; the import-linter contract `core imports no module` in `pyproject.toml` checks it.
+Shared code that modules use: config, database, logs, HTTP hooks, Discord and RunPod clients, jobs, tools, audit, the error log and org secrets. `core/` imports nothing from `modules/`; the import-linter contract `core imports no module` in `pyproject.toml` checks it.
 
 ## Files
 
@@ -12,6 +12,7 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres, threads on SQLite |
 | `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) |
 | `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
+| `error_log.py` | The `error_groups` table, `ErrorLogHandler` that records log lines at ERROR and above, `capture()`, and the `error_log.prune` job |
 | `secrets.py` | The `org_secrets` table, `declare()`, `set_secret` and `get_secret`, encrypted with `SECRETS_KEY` |
 | `log.py` | `get_logger`, JSON log lines and `init_sentry` |
 | `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log) |
@@ -19,7 +20,7 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 
 ## Surface
 
-- Jobs: `audit.prune`, schedule `30 3 * * *`, keeps `AUDIT_RETENTION_DAYS` (default 365).
-- Tables: `audit_log`, `org_secrets`.
+- Jobs: `audit.prune`, schedule `30 3 * * *`, keeps `AUDIT_RETENTION_DAYS` (default 365). `error_log.prune`, schedule `40 3 * * *`, keeps groups seen in the last `ERROR_RETENTION_DAYS` (default 90).
+- Tables: `audit_log`, `error_groups`, `org_secrets`.
 
 See [docs/architecture.md](../docs/architecture.md).

@@ -676,22 +676,6 @@ export function fixtures(now = Date.now()) {
       used_by: ['compute', 'runpod'],
     },
     {
-      key: 'sentry',
-      title: 'Sentry',
-      description: 'Connect the org's Sentry project.',
-      docs: 'integrations',
-      fields: [
-        field('sentry_auth_token', 'Auth token', 'An internal integration or user auth token with project:read and event:read.', -2 * DAY),
-        field('sentry_org', 'Org slug', 'The organization slug in the Sentry URL.', -2 * DAY, 'text', { secret: false, value: 'robotics-club' }),
-        field('sentry_project', 'Project slug', 'The project that gets the errors.', -2 * DAY, 'text', { secret: false, value: 'platform' }),
-        field('sentry_url', 'Sentry URL', 'Only for self-hosted Sentry or a regional host. Default https://sentry.io.', null, 'url', { secret: false, optional: true }),
-      ],
-      editable: true,
-      source: 'org',
-      testable: true,
-      used_by: ['dashboard'],
-    },
-    {
       key: 'searxng',
       title: 'Web search (SearXNG)',
       description: 'Connect a SearXNG server for live web search.',
@@ -707,30 +691,40 @@ export function fixtures(now = Date.now()) {
     },
   ];
 
-  const issue = (id, title, culprit, level, count, users, lastOffset, firstOffset) => ({
-    id: String(id),
-    short_id: `PLATFORM-${id}`,
-    title,
-    culprit,
-    level,
+  const errorGroup = (id, source, org, kind, message, location, route, count, lastOffset, firstOffset, stack = null) => ({
+    id,
+    source,
+    org,
+    kind,
+    message,
+    location,
+    route,
+    stack,
     count,
-    users,
     first_seen: at(firstOffset),
     last_seen: at(lastOffset),
-    url: `https://robotics-club.sentry.io/issues/${id}/`,
+    resolved_at: null,
+    resolved_by: null,
   });
-  const sentryIssues = {
-    configured: true,
-    error: null,
-    project_url: 'https://sentry.io/organizations/robotics-club/issues/?query=is%3Aunresolved',
-    issues: [
-      issue(41, 'RunPodError: pod create timed out after 30s', 'modules.compute.service in create_pod', 'error', 7, 2, -18 * MINUTE, -2 * DAY),
-      issue(38, "KeyError: 'guild_id'", 'modules.users.service in sync_discord_members', 'error', 3, 1, -3 * HOUR, -3 * HOUR),
-      issue(35, 'Knowledge crawl refused: page text under half of previous version', 'modules.knowledge.crawl in run', 'warning', 12, 0, -5 * HOUR, -6 * DAY),
-      issue(29, 'ApiError: Could not reach the API', 'query compute', 'error', 4, 3, -1 * DAY, -1 * DAY),
-      issue(22, 'OperationalError: database is locked', 'core.jobs in run_due', 'warning', 26, 0, -2 * DAY, -9 * DAY),
-    ],
-  };
+  const podStack = [
+    'Traceback (most recent call last):',
+    '  File "modules/compute/api.py", line 88, in create_pod',
+    '    return service.create_pod(db, org, body, actor)',
+    '  File "modules/compute/service.py", line 214, in create_pod',
+    '    pod = runpod.create_pod(key, spec)',
+    '  File "core/integrations/runpod.py", line 61, in create_pod',
+    '    response.raise_for_status()',
+    'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
+  ].join('\n');
+  const orgErrors = [
+    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
+    errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/compute (mutation)', '/robotics/compute (mutation)', 4, -26 * MINUTE, -1 * DAY),
+    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
+    errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
+  ];
+  const serverErrors = [
+    errorGroup(22, 'worker', null, 'OperationalError', 'job failed name=knowledge.crawl_due: database is locked', 'core/jobs.py:_execute', null, 26, -2 * DAY, -9 * DAY),
+  ];
 
   const secret = (name, description, setOffset) => ({
     name,
@@ -961,7 +955,8 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/integrations`]: { integrations, secrets_key: true },
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
-    [`/api/dashboard/${ORG.prefix}/errors`]: sentryIssues,
+    [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
+    '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
     [`/api/organizations/${ORG.id}/tokens`]: { tokens, scopes: SCOPES },
     [`/api/organizations/${ORG.id}/audit`]: { entries: [...activity, ...jobs].sort((a, b) => b.id - a.id) },

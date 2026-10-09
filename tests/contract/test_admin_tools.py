@@ -41,7 +41,13 @@ def test_write_tools_need_their_scope(client):
     assert _call(client, headers, "org.set_modules", modules={"alerts": False}, confirm=True).status_code == 404
     assert _call(client, headers, "integrations.list").status_code == 404
     names = [t["name"] for t in client.get("/api/tools", headers=_issue("settings:write")).get_json()["tools"]]
-    assert names == ["notifications.reopen", "notifications.resolve", "org.set_branding", "org.set_modules"]
+    assert names == [
+        "errors.resolve",
+        "notifications.reopen",
+        "notifications.resolve",
+        "org.set_branding",
+        "org.set_modules",
+    ]
 
 
 def test_branding_and_notifications(client, restore_soda_config):

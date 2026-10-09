@@ -1,92 +1,119 @@
-import { Bug, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router';
-import { Badge, Button, Card, CardHeader, Dot, EmptyState, ErrorNote, SkeletonRows } from '../../components/ui';
-import { compact, type Tone, timeAgo } from '../../lib/format';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Bug, CheckCheck } from 'lucide-react';
+import { useState } from 'react';
+import { ErrorList } from '../../components/error-list';
+import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, Field, Input, Select, SkeletonRows } from '../../components/ui';
+import { send } from '../../lib/api';
 import { useCurrentOrg } from '../../lib/org';
-import { useSentryIssues } from '../../lib/queries';
+import { type ErrorStatus, useErrorChange, useErrors } from '../../lib/queries';
 
-const LEVEL_TONE: Record<string, Tone> = { fatal: 'bad', error: 'bad', warning: 'warn', info: 'muted', debug: 'muted' };
-
-// Unresolved issues of the org's Sentry project. Shown on the Activity page.
-export function SentryErrors() {
+// The org's errors from the Platform error log, and the Discord webhook for new ones. Shown on the Activity page.
+export function ErrorsTab() {
   const { prefix } = useCurrentOrg();
-  const errors = useSentryIssues(prefix);
-  const navigate = useNavigate();
+  const [status, setStatus] = useState<ErrorStatus>('open');
+  const list = useErrors(prefix, status);
+  const change = useErrorChange(prefix);
+  const errors = list.data?.errors ?? [];
+  const run = (action: 'resolve' | 'reopen', ids: number[]) => change.mutate({ action, ids });
 
-  if (errors.isLoading) {
-    return (
+  return (
+    <div className="grid gap-6">
       <Card>
-        <SkeletonRows rows={6} />
-      </Card>
-    );
-  }
-  if (errors.error) return <ErrorNote error={errors.error} />;
-  const data = errors.data;
-  if (!data?.configured) {
-    return (
-      <Card>
-        <EmptyState
-          icon={Bug}
-          title="Sentry is not connected"
-          action={
-            <Button onClick={() => navigate(`/${prefix}/integrations`)}>Connect Sentry</Button>
+        <CardHeader
+          title={
+            <span className="inline-flex items-center gap-2">
+              Errors
+              {list.data ? <Badge tone={list.data.open ? 'bad' : 'ok'}>{list.data.open} open</Badge> : null}
+            </span>
           }
-        >
-          Connect the Sentry card on the Integrations page to see the unresolved errors here.
-        </EmptyState>
+          hint="Errors of the API, bot, jobs, MCP server and this dashboard. Repeats add to one row. A resolved error opens again when it happens again."
+          action={
+            <div className="flex items-center gap-2">
+              {status === 'open' && errors.length ? (
+                <Button disabled={change.isPending} onClick={() => run('resolve', errors.map((e) => e.id))}>
+                  <CheckCheck className="size-4" /> Resolve all
+                </Button>
+              ) : null}
+              <Select value={status} onChange={(e) => setStatus(e.target.value as ErrorStatus)} aria-label="Status" className="h-8 w-32! text-xs">
+                <option value="open">Open</option>
+                <option value="resolved">Resolved</option>
+              </Select>
+            </div>
+          }
+        />
+        {list.error ? (
+          <div className="p-4">
+            <ErrorNote error={list.error} />
+          </div>
+        ) : null}
+        {change.error ? (
+          <div className="p-4">
+            <ErrorNote error={change.error} />
+          </div>
+        ) : null}
+        {list.isLoading ? (
+          <SkeletonRows rows={5} />
+        ) : errors.length ? (
+          <ErrorList errors={errors} onChange={run} busy={change.isPending} />
+        ) : (
+          <EmptyState icon={Bug} title={status === 'open' ? 'No open errors' : 'Nothing resolved'}>
+            {status === 'open' ? 'Errors show here as they happen.' : 'Resolved errors show here until they are deleted after 90 days.'}
+          </EmptyState>
+        )}
       </Card>
-    );
-  }
+      <WebhookCard set={Boolean(list.data?.webhook_set)} />
+    </div>
+  );
+}
 
+function WebhookCard({ set }: { set: boolean }) {
+  const { prefix } = useCurrentOrg();
+  const client = useQueryClient();
+  const [url, setUrl] = useState('');
+  const save = useMutation({
+    mutationFn: (value: string | null) => send(`/api/dashboard/${prefix}/errors/webhook`, 'PUT', { url: value }),
+    onSuccess: () => {
+      setUrl('');
+      client.invalidateQueries({ queryKey: ['errors', prefix] });
+    },
+  });
   return (
     <Card>
       <CardHeader
-        title="Unresolved errors"
-        hint="From Sentry, last 14 days. Open an error in Sentry for its stack trace."
-        action={
-          data.project_url ? (
-            <Button variant="ghost" onClick={() => window.open(data.project_url ?? '', '_blank', 'noopener')}>
-              Open Sentry
-              <ExternalLink className="size-3.5" />
-            </Button>
-          ) : null
+        title={
+          <span className="inline-flex items-center gap-2">
+            Discord alerts {set ? <Badge tone="ok">On</Badge> : <Badge tone="muted">Off</Badge>}
+          </span>
         }
+        hint="Each new error, and each resolved error that comes back, posts one message to this channel."
       />
-      {data.error ? (
-        <div className="p-4">
-          <ErrorNote error={data.error} />
+      <form
+        className="space-y-4 p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate(url.trim());
+        }}
+      >
+        <Field label="Discord webhook URL" hint="Channel settings > Integrations > Webhooks. The URL is stored encrypted and never shown again.">
+          <Input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={set ? 'Saved. Paste a new URL to replace it.' : 'https://discord.com/api/webhooks/...'}
+          />
+        </Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="primary" disabled={save.isPending || !url.trim()}>
+            Save
+          </Button>
+          {set ? (
+            <Button type="button" variant="ghost" disabled={save.isPending} onClick={() => save.mutate(null)}>
+              Turn off
+            </Button>
+          ) : null}
+          {save.error ? <ErrorNote error={save.error} /> : null}
         </div>
-      ) : data.issues.length ? (
-        data.issues.map((issue) => {
-          const tone = LEVEL_TONE[issue.level ?? ''] ?? 'muted';
-          return (
-            <a
-              key={issue.id}
-              href={issue.url ?? undefined}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-h-12 items-center gap-3 border-b border-line px-4 py-2.5 transition-colors last:border-0 hover:bg-panel-2/50"
-            >
-              <Dot tone={tone} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm">{issue.title}</div>
-                <div className="mt-0.5 truncate text-xs text-muted">
-                  <span className="font-mono">{issue.short_id}</span>
-                  {issue.culprit ? ` · ${issue.culprit}` : null}
-                </div>
-              </div>
-              <Badge tone={tone}>{compact(issue.count)} events</Badge>
-              <span className="hidden w-20 text-right text-xs text-muted tabular-nums sm:block">
-                {timeAgo(issue.last_seen)}
-              </span>
-            </a>
-          );
-        })
-      ) : (
-        <EmptyState icon={Bug} title="No unresolved errors">
-          Sentry has no open issues for this project.
-        </EmptyState>
-      )}
+      </form>
     </Card>
   );
 }

@@ -30,6 +30,8 @@ _route = partial(officer_route, dashboard_blueprint)
 # Searches are reads sent as POST
 audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/knowledge/search")
 audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/integrations/<string:key>/test")
+# Error reports from the dashboard are not officer changes
+audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/errors/report")
 
 
 def _org_id(org) -> int:
@@ -102,8 +104,29 @@ def ci_runs(db, org):
 
 
 @_route("/errors", ["GET"])
-def sentry_issues(db, org):
-    return errors.issues(db, org, request.args.get("limit", 25, type=int))
+def list_errors(db, org):
+    status = request.args.get("status", "open")
+    return errors.listing(db, org, status, request.args.get("limit", 50, type=int))
+
+
+@_route("/errors/resolve", ["POST"])
+def resolve_errors(db, org):
+    return errors.resolve(db, org, json_body().get("ids"), _actor())
+
+
+@_route("/errors/reopen", ["POST"])
+def reopen_errors(db, org):
+    return errors.reopen(db, org, json_body().get("ids"))
+
+
+@_route("/errors/report", ["POST"])
+def report_error(db, org):
+    return errors.report(org, json_body())
+
+
+@_route("/errors/webhook", ["PUT"])
+def set_error_webhook(db, org):
+    return errors.set_webhook(db, org, json_body().get("url"), _actor())
 
 
 @_route("/ci/repos", ["PUT"])
