@@ -146,3 +146,42 @@ The manifest env sets `HERMES_PROVIDER` and `HERMES_MODEL`, `PLATFORM_MCP_URL` a
 Caution: anyone with `API_SERVER_KEY` has full use of the agent, including its terminal. Anyone with access to the org's RunPod account can read the pod env. Revoke the machine token on the dashboard Tokens page to stop Hermes from using Platform.
 
 To keep the memories and skills of a Hermes that runs on a laptop, copy its `~/.hermes` folder to the network volume before the first deploy. Do not copy `.env`; put its secrets in org secrets. When the pod is healthy, stop the old gateway (`systemctl --user stop hermes-gateway`), or the same Discord bot runs two times.
+
+## Agents on the platform pod
+
+To save the cost of more pods, the platform pod can also run Sparky (engine and Discord bot) and Hermes. `deploy/runpod/start.sh` starts each one when its token is set. Each agent restarts 10 seconds after it stops. Both use a hosted model API, so the pod needs no GPU.
+
+| File | Does |
+| --- | --- |
+| `sparky.sh` | Copies `engine`, `discord` and `sparky.toml` from the public image `SPARKY_IMAGE:SPARKY_TAG` (default `ghcr.io/ashworks1706/sparkyai-rust:main`) to `/workspace/sparky/bin` with `image_files.py`, then runs both with this platform as the store |
+| `hermes.sh` | Installs Hermes `HERMES_VERSION` from its source tag to `/workspace/hermes`, writes the model and the MCP server into its config, and runs `hermes gateway run` as the user `hermes` |
+| `image_files.py` | Copies files out of a public image without a container runtime. It downloads again only when the image digest changes |
+
+Set these in the pod env, then restart the pod.
+
+| Agent | Variable | Value |
+| --- | --- | --- |
+| Sparky | `SPARKY_DISCORD__TOKEN`, `SPARKY_DISCORD__GUILD_ID` | The Sparky bot token and the server id |
+| Sparky | `SPARKY_PLATFORM__TOKEN` | A machine token of kind `agent` with `agents:read`, `agents:write`, `knowledge:read`, `accounts:link`, `accounts:token` |
+| Sparky | `SPARKY_MODEL__BASE_URL`, `SPARKY_MODEL__API_KEY`, `SPARKY_MODEL__NAME` | Any OpenAI-compatible chat API. The summary model is the same unless `SPARKY_SUMMARY__*` is set |
+| Sparky | `SPARKY_TAG` | Optional. An image tag (commit sha) in place of `main` |
+| Hermes | `HERMES_ENV_DISCORD_BOT_TOKEN` | The Hermes bot token. Hermes gets each `HERMES_ENV_*` variable without the prefix |
+| Hermes | `HERMES_ENV_DISCORD_ALLOWED_ROLES` | The Discord roles that can talk to Hermes |
+| Hermes | `HERMES_ENV_OPENROUTER_API_KEY`, `HERMES_PROVIDER`, `HERMES_MODEL` | The model provider key, the provider and the model. Another provider needs its own key name, such as `HERMES_ENV_ANTHROPIC_API_KEY` |
+| Hermes | `HERMES_PLATFORM_TOKEN` | A machine token of kind `agent`, for example with `org:read` and `knowledge:read`. Hermes uses the MCP server at `http://127.0.0.1:8001/mcp` |
+
+Sparky sends no query vector unless `SPARKY_EMBEDDING__BASE_URL` is set. The platform then embeds each query with the Embeddings integration, so set the Embeddings card to the model that embedded the org's knowledge. The engine listens on `127.0.0.1:8080` only, and `run_sandbox` is off because the pod cannot run containers.
+
+Hermes keeps its config, memories and skills in `/workspace/hermes/home`. To keep those of a Hermes that runs on a laptop, copy its `~/.hermes` folder there before the first start (not `.env`), then `chown -R hermes:hermes /workspace/hermes/home`. Stop the laptop gateway when the pod one runs.
+
+Caution: Hermes can run shell commands on the pod. It runs as the user `hermes` with only its own env, and `/workspace/data` and the platform checkout are closed to it. To remove the shell tools from Discord, set `platform_toolsets.discord` in its `config.yaml`, for example to `[web, vision, skills, todo]`.
+
+### Use your own GPU later
+
+The model settings are URLs, so a GPU changes only the pod env. Run the Sparky RunPod image (`ghcr.io/ashworks1706/sparkyai-runpod`) on a GPU pod with `SPARKY_MODELS_API_KEY` set and port `8000/http` and `8001/http` open. llama-server then serves chat on 8000 and embeddings on 8001 at the pod proxy URLs.
+
+1. On the platform pod, set `SPARKY_MODEL__BASE_URL=https://<gpu pod>-8000.proxy.runpod.net/v1`, `SPARKY_MODEL__API_KEY` to the `SPARKY_MODELS_API_KEY` value, and `SPARKY_MODEL__NAME` to the GGUF name, for example `Qwen/Qwen3-4B-GGUF:Q4_K_M`.
+2. Point the Embeddings integration at `https://<gpu pod>-8001.proxy.runpod.net/v1` with the same key. If its model name changes, embed the knowledge again.
+3. To give Hermes the same model, set `HERMES_PROVIDER=custom`, `HERMES_BASE_URL` to the chat URL, `HERMES_MODEL`, and the key in `HERMES_ENV_OPENAI_API_KEY`.
+
+Set `SPARKY_POD_ROLE=models` on the GPU pod so it runs only the model servers. Without it the image also runs its own engine and bot, and the same bot token must not run on two pods.

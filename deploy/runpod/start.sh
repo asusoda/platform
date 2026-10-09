@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Runs the platform on one RunPod pod: API on 8000, dashboard on 5000, MCP server on 8001, bot when BOT_TOKEN is set.
+# Sparky and Hermes also run here when their tokens are set (sparky.sh, hermes.sh).
 # RUN_BOT=false skips the bot, for a BOT_TOKEN that another bot process already uses.
 # The pod clones PLATFORM_BRANCH into /workspace on each start, so a restart deploys the branch head.
 # State (SQLite database, generated keys) lives in /workspace/data on the pod's volume.
@@ -53,6 +54,14 @@ if [ -n "${ORG_PREFIX:-}" ] && [ -n "${ORG_GUILD_ID:-}" ]; then
       --guild-id "$ORG_GUILD_ID" ${ORG_OFFICER_ROLE_ID:+--officer-role-id "$ORG_OFFICER_ROLE_ID"} \
       ${ORG_MODULES_OFF:+--off "$ORG_MODULES_OFF"}
   fi
+fi
+
+# Agents on the same pod, each when its token is set. See "Agents on the platform pod" in docs/operations.md.
+if [ -n "${SPARKY_DISCORD__TOKEN:-}" ] && [ -n "${SPARKY_PLATFORM__TOKEN:-}" ]; then
+  bash deploy/runpod/sparky.sh &
+fi
+if [ -n "${HERMES_ENV_DISCORD_BOT_TOKEN:-}" ]; then
+  bash deploy/runpod/hermes.sh &
 fi
 
 npx --yes serve@14 -s dashboard/dist -l 5000 &
