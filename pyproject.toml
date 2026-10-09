@@ -139,6 +139,7 @@ source_modules = [
     "modules.*.models",
     "modules.*.jobs",
     "modules.*.tools",
+    "modules.accounts.canvas",
     "modules.accounts.providers",
     "modules.agents.conversations",
     "modules.agents.memories",
