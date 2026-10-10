@@ -16,6 +16,7 @@ Each event also shows on the dashboard page Notifications, with or without a web
 | `order.created` | Store orders | `modules/storefront/service.py` | A member places an order |
 | `member.joined` | New members | `modules/users/service.py` | A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it |
 | `knowledge.crawl_failed` | Knowledge crawl failures | `modules/knowledge/runs.py` | A crawl of a knowledge source fails |
+| `asu.session_expired` | ASU sign-in expired | `packs/asu/signin/service.py` | An `asu.*` tool finds that the saved ASU sign-in expired. Sent one time for each sign-in |
 
 The page lists an event only when its module is on for the org. Pods need `compute` and orders need `storefront`.
 

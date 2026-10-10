@@ -26,6 +26,7 @@ from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.packs import service as packs
 from modules.runpod import service as apps
+from packs.asu.signin import service as asu
 
 from . import ci, errors, notices, service, webhooks
 from . import trends as trends_service
@@ -81,8 +82,25 @@ def list_integrations(db, org):
     return {
         "integrations": integrations.status(db, _org_id(org)),
         "oauth": oauth.status(db, _org_id(org)),
+        "asu": asu.status(db, _org_id(org)),
         "secrets_key": secrets.configured(),
     }
+
+
+@_route("/integrations/asu/signin", ["GET"])
+def asu_signin(db, org):
+    return asu.status(db, _org_id(org))
+
+
+@_route("/integrations/asu/signin", ["POST"])
+def start_asu_signin(db, org):
+    body = json_body()
+    return asu.start(db, _org_id(org), body.get("netid"), body.get("password"), _actor()), 202
+
+
+@_route("/integrations/asu/signin", ["DELETE"])
+def stop_asu_signin(db, org):
+    return asu.sign_out(db, _org_id(org))
 
 
 @_route("/integrations/<string:key>/oauth", ["POST"])

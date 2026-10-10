@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, LogIn, PlugZap } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { AsuCard } from '../components/asu-card';
 import { IntegrationIcon } from '../components/integration-icons';
 import {
   Badge,
@@ -310,6 +311,7 @@ export function IntegrationsPage() {
                 {items.map((i) => (
                   <IntegrationCard key={i.key} prefix={prefix} i={i} canSave={data.secrets_key} oauth={data.oauth?.[i.key]} />
                 ))}
+                {n === 0 && data.asu ? <AsuCard prefix={prefix} initial={data.asu} /> : null}
               </div>
             </section>
           ) : null;

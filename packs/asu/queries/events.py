@@ -43,7 +43,7 @@ def public_cards(fetched: Fetched) -> str:
     return "\n".join(out) if out else extract_events(fetched)
 
 
-def _public(keywords: str) -> tuple[str, str]:
+def public(keywords: str) -> tuple[str, str]:
     """The public ASU events calendar, narrowed to a keyword when one was given."""
     target = url(_PUBLIC, [("searchText", keywords)])
     return target, public_cards(http.fetch(target, needs_js=True))
@@ -51,7 +51,7 @@ def _public(keywords: str) -> tuple[str, str]:
 
 def answer(params: dict[str, str]) -> tuple[str, str]:
     """The public ASU events calendar. Sun Devil Central needs an ASU sign-in and is not read here."""
-    source_url, body = _public(text(params, "keywords"))
+    source_url, body = public(text(params, "keywords"))
     if not body.strip():
         raise QueryError("no events found on the ASU events calendar")
     budget = settings().scraper.query_max_chars

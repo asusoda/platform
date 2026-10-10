@@ -70,6 +70,10 @@ dependencies = [
     "pypdf>=6.19.0",
 ]
 
+[project.optional-dependencies]
+# The ASU sign-in (packs/asu/signin). Install with `uv sync --extra browser`, then `playwright install chromium`.
+browser = ["playwright>=1.49"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"

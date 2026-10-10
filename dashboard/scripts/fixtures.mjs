@@ -855,6 +855,15 @@ export function fixtures(now = Date.now()) {
     '    response.raise_for_status()',
     'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
   ].join('\n');
+  const asuSignedOut = {
+    title: 'ASU',
+    signed_in: false,
+    signed_in_by: null,
+    signed_in_at: null,
+    expired_at: null,
+    blocked: null,
+    attempt: null,
+  };
   const webhookEvents = [
     ['errors', 'Errors', 'A new error, or a resolved error that comes back. At most 30 messages an hour.', null],
     ['job.failed', 'Failed job runs', 'A background job for the org fails, such as a crawl or a reindex.', null],
@@ -864,6 +873,7 @@ export function fixtures(now = Date.now()) {
     ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
     ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
     ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+    ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
   ].map(([key, label, description, module]) => ({ key, label, description, module }));
   const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
     id,
@@ -1126,8 +1136,10 @@ export function fixtures(now = Date.now()) {
         notion: { title: 'Notion', connected: true, connected_by: 'ash', connected_at: at(-2 * DAY), blocked: null },
         google: { title: 'Google', connected: false, connected_by: null, connected_at: null, blocked: null },
       },
+      asu: asuSignedOut,
       secrets_key: true,
     },
+    [`/api/dashboard/${ORG.prefix}/integrations/asu/signin`]: asuSignedOut,
     [`/api/dashboard/${ORG.prefix}/notifications`]: { notifications, open: notifications.filter((n) => !n.resolved_at).length },
     [`/api/dashboard/${ORG.prefix}/ci`]: ci,
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
@@ -1250,6 +1262,24 @@ export function fixtures(now = Date.now()) {
 
 // The same org with long lists, for perf.mjs: 2,000 knowledge sources, 1,500 members, 200 knowledge runs,
 // 600 store orders and 1,000 audit log entries.
+// The ASU card while Duo shows a code, for the asu-duo screenshot.
+export function asuDuoFixtures(now = Date.now()) {
+  const data = fixtures(now);
+  const path = `/api/dashboard/${ORG.prefix}/integrations`;
+  const asu = {
+    ...data[path].asu,
+    attempt: {
+      state: 'duo_code',
+      message: 'Enter the code 482916 in the Duo app.',
+      code: '482916',
+      reason: null,
+      started_at: new Date(now - 20_000).toISOString(),
+      finished_at: null,
+    },
+  };
+  return { ...data, [path]: { ...data[path], asu }, [`${path}/asu/signin`]: asu };
+}
+
 export function largeFixtures(now = Date.now()) {
   const base = fixtures(now);
   const at = (offset) => new Date(now + offset).toISOString();

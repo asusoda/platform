@@ -4,7 +4,7 @@ A pack is content for one campus or topic that any org can use: public pages cra
 
 | Pack | Content |
 | --- | --- |
-| [asu](asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU Canvas URL |
+| [asu](asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU Canvas URL; the ASU sign-in for Sun Devil Central |
 | [careers](careers/__init__.py) | Alert feeds for software internships, new grad roles and hackathons |
 
 ## Write a pack
@@ -42,8 +42,8 @@ A pack is content for one campus or topic that any org can use: public pages cra
 
 Rules:
 
-- Public pages only. Do not add pages that need a sign-in.
-- A pack imports only `modules.packs` and the standard library. It does not import Flask.
+- Public pages only. Do not add pages that need a sign-in. The ASU sign-in in `asu/signin/` is the one exception: it has its own tools, routes in the dashboard module and an org secret, and its results are never indexed.
+- A pack imports only `modules.packs` and the standard library. It does not import Flask. `asu/signin/` also imports `core` and `modules.auth.scopes`.
 - Do not change a source key after orgs use it. A new key makes a new source, and the old one is turned off on the next sync.
 
 Platform loads every folder in `packs/` on start. Officers add a pack's pages on the Knowledge page and its feeds on the Alerts page of the dashboard.

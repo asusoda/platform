@@ -66,6 +66,7 @@ TOOL_MODULES = [
     "modules.alerts.tools",
     "modules.compute.tools",
     "modules.integrations.tools",
+    "packs.asu.signin.tools",
 ]
 
 
