@@ -24,6 +24,7 @@ import { useOverview } from '../../lib/queries';
 import type { Pod } from '../../lib/types';
 import { FilesDialog } from './files';
 import { NewPodDialog } from './new-pod';
+import { PodMembersDialog } from './people';
 import { AccessDialog, type PodDialog, PodsTable, TerminateDialog } from './pods';
 import { SessionsDialog } from './sessions';
 import { ComputeSettingsDialog } from './settings';
@@ -183,6 +184,9 @@ export function MemberPodsTab({ tabs }: { tabs: ReactNode }) {
       {creating ? <NewPodDialog prefix={prefix} onClose={() => setCreating(false)} /> : null}
       {editing ? <ComputeSettingsDialog prefix={prefix} onClose={() => setEditing(false)} /> : null}
       {current?.kind === 'access' ? <AccessDialog key={current.pod.id} prefix={prefix} pod={current.pod} onClose={close} /> : null}
+      {current?.kind === 'members' ? (
+        <PodMembersDialog prefix={prefix} pod={current.pod} onClose={close} onEditAccess={() => setDialog({ kind: 'access', pod: current.pod })} />
+      ) : null}
       {current?.kind === 'terminate' ? <TerminateDialog prefix={prefix} pod={current.pod} onClose={close} /> : null}
       {current?.kind === 'sessions' ? <SessionsDialog prefix={prefix} pod={current.pod} onClose={close} /> : null}
       {current?.kind === 'files' ? <FilesDialog prefix={prefix} pod={current.pod} onClose={close} /> : null}

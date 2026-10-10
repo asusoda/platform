@@ -105,6 +105,8 @@
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/rename OPTIONS,POST compute.rename_file
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/upload OPTIONS,POST compute.upload_file
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/write OPTIONS,POST compute.write_file
+/api/compute/<string:org_prefix>/pods/<string:pod_id>/members GET,HEAD,OPTIONS compute.pod_members
+/api/compute/<string:org_prefix>/pods/<string:pod_id>/members/connected GET,HEAD,OPTIONS compute.pod_connected
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions GET,HEAD,OPTIONS compute.list_sessions
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions OPTIONS,POST compute.add_session
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/sessions/<int:session_id> DELETE,OPTIONS compute.delete_session

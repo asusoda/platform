@@ -1228,6 +1228,40 @@ export function fixtures(now = Date.now()) {
         { id: '1202', name: 'Members', color: '#2ecc71' },
       ],
     },
+    [`/api/compute/${ORG.prefix}/pods/m3v8c1tz/members`]: {
+      pod_id: 'm3v8c1tz',
+      access: {
+        is_public: false,
+        allowed: [
+          { discord_id: '1290000000000000201', name: 'Maya Patel' },
+          { discord_id: '1290000000000000202', name: 'Noah Kim' },
+          { discord_id: '1290000000000000203', name: null },
+        ],
+      },
+      recent: [
+        ['1290000000000000201', 'Maya Patel', 'mayap', false, -25 * MINUTE],
+        ['1290000000000000101', 'Ava Chen', 'avachen', true, -70 * MINUTE],
+        ['1290000000000000202', 'Noah Kim', 'noahk', false, -5 * HOUR],
+        ['1290000000000000201', 'Maya Patel', 'mayap', false, -DAY - 3 * HOUR],
+        ['1290000000000000202', 'Noah Kim', 'noahk', false, -3 * DAY],
+      ].map(([discord_id, name, username, is_admin, offset]) => ({ discord_id, name, username, is_admin, created_at: at(offset) })),
+    },
+    [`/api/compute/${ORG.prefix}/pods/m3v8c1tz/members/connected`]: {
+      pod_id: 'm3v8c1tz',
+      state: 'known',
+      reason: null,
+      sessions: [
+        { username: 'mayap', is_admin: false, seconds: 1500, discord_id: '1290000000000000201', name: 'Maya Patel' },
+        { username: 'avachen', is_admin: true, seconds: 640, discord_id: '1290000000000000101', name: 'Ava Chen' },
+      ],
+    },
+    [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/members`]: { pod_id: '7kq2x9ab', access: { is_public: true, allowed: [] }, recent: [] },
+    [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/members/connected`]: {
+      pod_id: '7kq2x9ab',
+      state: 'unknown',
+      reason: 'The pod image has no godfather-login, so its sessions cannot be read',
+      sessions: [],
+    },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files`]: { path: '/workspace', files: podFiles },
     [`/api/compute/${ORG.prefix}/pods/7kq2x9ab/files/read`]: { path: '/workspace/README.md', content: readme },
 

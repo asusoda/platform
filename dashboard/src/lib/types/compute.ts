@@ -48,3 +48,33 @@ export type PodFile = {
   modified: number;
   permissions: string;
 };
+
+// A member of the org named by Discord id. name is null when the member directory does not know it.
+export type PodPerson = { discord_id: string; name: string | null };
+
+// A certificate issued for a pod. username is the member's folder on the pod.
+export type PodConnection = PodPerson & { username: string; is_admin: boolean; created_at: string | null };
+
+// Who may connect to a pod and who got a certificate for it, newest first.
+export type PodMembers = {
+  pod_id: string;
+  access: { is_public: boolean; allowed: PodPerson[] };
+  recent: PodConnection[];
+};
+
+// A live SSH session on a pod. discord_id is null when no certificate for the pod has its username.
+export type PodLiveSession = {
+  username: string;
+  is_admin: boolean;
+  seconds: number;
+  discord_id: string | null;
+  name: string | null;
+};
+
+// The live sessions on a pod. When state is unknown, reason says why and sessions is empty.
+export type PodConnected = {
+  pod_id: string;
+  state: 'known' | 'unknown';
+  reason: string | null;
+  sessions: PodLiveSession[];
+};

@@ -44,6 +44,30 @@ def _load_key(private_key: str) -> paramiko.PKey:
     raise FilesError("The backend key cannot be read", 500)
 
 
+def open_ssh(host: str, port: int, private_key: str, timeout: float = CONNECT_TIMEOUT_SECONDS) -> paramiko.SSHClient:
+    """An SSH connection to a pod as root with the org's backend key, or FilesError."""
+    client = paramiko.SSHClient()
+    # Pods are created and replaced often and publish no host keys to check against
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # nosec B507
+    try:
+        client.connect(
+            hostname=host,
+            port=port,
+            username="root",
+            pkey=_load_key(private_key),
+            timeout=timeout,
+            banner_timeout=timeout,
+            auth_timeout=timeout,
+            look_for_keys=False,
+            allow_agent=False,
+        )
+    except (paramiko.SSHException, OSError) as e:
+        client.close()
+        logger.warning("SSH to %s:%s failed: %s", host, port, e)
+        raise FilesError("Could not connect to the pod", 502) from e
+    return client
+
+
 class PodFiles:
     """An open SFTP session on one pod. Use as a context manager."""
 
@@ -53,23 +77,12 @@ class PodFiles:
 
     @classmethod
     def open(cls, host: str, port: int, private_key: str) -> "PodFiles":
-        client = paramiko.SSHClient()
-        # Pods are created and replaced often and publish no host keys to check against
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # nosec B507
+        client = open_ssh(host, port, private_key)
         try:
-            client.connect(
-                hostname=host,
-                port=port,
-                username="root",
-                pkey=_load_key(private_key),
-                timeout=CONNECT_TIMEOUT_SECONDS,
-                look_for_keys=False,
-                allow_agent=False,
-            )
             return cls(client, client.open_sftp())
         except (paramiko.SSHException, OSError) as e:
             client.close()
-            logger.warning("SSH to %s:%s failed: %s", host, port, e)
+            logger.warning("SFTP to %s:%s failed: %s", host, port, e)
             raise FilesError("Could not connect to the pod", 502) from e
 
     def __enter__(self) -> "PodFiles":

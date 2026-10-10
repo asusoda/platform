@@ -62,7 +62,20 @@ These routes need a Discord session, or the CLI token as `Authorization: Bearer 
 | `GET /api/compute/<org>/me/pods` | Running pods that are public or that list the member in `allowed_users` |
 | `POST /api/compute/<org>/me/pods/<pod_id>/connect` | `{"public_key": "ssh-ed25519 ..."}`. Returns host, port, `user_folder` and a certificate |
 
-A member certificate has the principal `gf-<pod_id>` and forces `/usr/local/bin/godfather-login <username>`, which puts the member in their own account and folder. An officer of the org gets a root certificate with no forced command. A certificate is valid from 5 minutes ago to 12 hours from now. The audit log records each connect.
+A member certificate has the principal `gf-<pod_id>` and forces `/usr/local/bin/godfather-login <username>`, which puts the member in their own account and folder. An officer of the org gets a root certificate with no forced command. A certificate is valid from 5 minutes ago to 12 hours from now. The audit log records each connect, and the `compute_connections` table keeps it for the pod's member list.
+
+## Who is on a pod
+
+Officers see who can connect to a pod, who connected and who is connected now. On the dashboard, open a pod's Members from its row on the Member pods tab.
+
+| Route | Does |
+| --- | --- |
+| `GET .../pods/<pod_id>/members` | `access`: `is_public` and the `allowed` members (`discord_id`, `name`). `recent`: the last 100 certificates for the pod, newest first (`discord_id`, `name`, `username`, `is_admin`, `created_at`) |
+| `GET .../pods/<pod_id>/members/connected` | The live SSH sessions on the pod: `state` (`known` or `unknown`), `reason`, and `sessions` (`username`, `is_admin`, `seconds`, `discord_id`, `name`) |
+
+Names come from the org's Discord server, for at most 50 members in each request. Other names are null. `connect` writes one `compute_connections` row for each certificate. A new row deletes the org's rows older than 90 days. Terminate deletes the pod's rows.
+
+The connected route opens SSH to the pod as root with the `backend` key, with a 5 second limit. It runs `ps` and finds the `su - godfather_<username>` process of each member session and the `/etc/godfather/admin.bashrc` shell of each officer session, which has `GODFATHER_USER` in its environment. It maps a username to the member who last got a certificate with it for the pod. The answer is always 200. The state is `unknown`, with a reason, when the pod is stopped, SSH fails, or the pod has no `/usr/local/bin/godfather-login`. A root SSH login that does not go through `godfather-login` is not shown.
 
 ## CLI sign-in
 
