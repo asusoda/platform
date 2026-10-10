@@ -1,9 +1,11 @@
 """Turns text into vectors through an OpenAI-compatible embeddings endpoint. No Flask here.
 
-Configured by EMBEDDINGS_URL (base URL, for example http://llama-embed:8080/v1), EMBEDDINGS_MODEL
-and EMBEDDINGS_API_KEY. Without EMBEDDINGS_URL there is no embedder: writers send their own vectors
-and search runs on text alone. EMBEDDINGS_QUERY_PREFIX is put before search queries, for models
-that embed queries and documents differently (Qwen3-Embedding takes an instruction).
+An org sets its own service on the Integrations page. Else the deployment default comes from
+EMBEDDINGS_URL (base URL, for example http://llama-embed:8080/v1), EMBEDDINGS_MODEL and
+EMBEDDINGS_API_KEY. Without either there is no embedder: writers send their own vectors and search
+runs on text alone. The query prefix is put before search queries, for models that embed queries and
+documents differently (Qwen3-Embedding takes an instruction). Search compares only vectors of the
+same model, so orgs with different models do not mix.
 """
 
 import os
@@ -11,12 +13,19 @@ from dataclasses import dataclass
 
 import requests
 
+from core import net
+from core.integrations.registry import Field, Integration, IntegrationError, org_values, register, use
 from core.log import get_logger
+from modules.knowledge.models import DIMENSIONS
 
 logger = get_logger("knowledge.embedder")
 
 TIMEOUT_SECONDS = 30
 BATCH = 64
+URL_SECRET = "embeddings_url"  # nosec B105 - the name of an org secret, not its value
+MODEL_SECRET = "embeddings_model"  # nosec B105 - the name of an org secret, not its value
+KEY_SECRET = "embeddings_api_key"  # nosec B105 - the name of an org secret, not its value
+PREFIX_SECRET = "embeddings_query_prefix"  # nosec B105 - the name of an org secret, not its value
 
 
 class EmbeddingError(RuntimeError):
@@ -29,6 +38,8 @@ class Embedder:
     model: str
     api_key: str | None = None
     query_prefix: str = ""
+    # An org's own service must stay on a public address; the deployment's may be on the private network
+    public_only: bool = False
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
@@ -41,12 +52,18 @@ class Embedder:
 
     def _post(self, batch: list[str]) -> list[list[float]]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        if self.public_only:
+            try:
+                net.check_public(self.url)
+            except ValueError as e:
+                raise EmbeddingError(str(e)) from e
         try:
             response = requests.post(
                 self.url.rstrip("/") + "/embeddings",
                 json={"model": self.model, "input": batch},
                 headers=headers,
                 timeout=TIMEOUT_SECONDS,
+                allow_redirects=False,
             )
             response.raise_for_status()
             data = sorted(response.json()["data"], key=lambda row: row["index"])
@@ -60,6 +77,7 @@ class Embedder:
 
 
 def configured() -> Embedder | None:
+    """The deployment default from .env, or None."""
     url = os.environ.get("EMBEDDINGS_URL", "").strip()
     if not url:
         return None
@@ -69,3 +87,67 @@ def configured() -> Embedder | None:
         api_key=os.environ.get("EMBEDDINGS_API_KEY") or None,
         query_prefix=os.environ.get("EMBEDDINGS_QUERY_PREFIX", ""),
     )
+
+
+def for_org(db, org_id: int) -> Embedder | None:
+    """The org's own embeddings service, else the deployment default, else None."""
+    saved = org_values(db, org_id, "embeddings")
+    if saved is None:
+        return configured()
+    return Embedder(
+        url=saved[URL_SECRET],
+        model=saved[MODEL_SECRET],
+        api_key=saved.get(KEY_SECRET),
+        query_prefix=saved.get(PREFIX_SECRET, ""),
+        public_only=True,
+    )
+
+
+def _test(db, org_id: int) -> str:
+    embedder = for_org(db, org_id)
+    if embedder is None:
+        raise IntegrationError("Set an embeddings service first")
+    try:
+        vector = embedder.embed(["test"])[0]
+    except EmbeddingError as e:
+        raise IntegrationError(str(e)) from e
+    if len(vector) != DIMENSIONS:
+        raise IntegrationError(f"{embedder.model} returns {len(vector)} dimensions. Platform stores {DIMENSIONS}.")
+    return f"Connected. {embedder.model} returns {len(vector)} dimensions."
+
+
+register(
+    Integration(
+        key="embeddings",
+        title="Embeddings",
+        description="An OpenAI-compatible embeddings service for meaning search in knowledge and agent memory.",
+        fields=(
+            Field(
+                URL_SECRET,
+                "Base URL",
+                "For example https://api.example.com/v1, on a public address. Platform adds /embeddings.",
+                kind="url",
+                secret=False,
+            ),
+            Field(
+                MODEL_SECRET,
+                "Model",
+                f"A model that returns {DIMENSIONS} numbers, such as Qwen3-Embedding-0.6B.",
+                secret=False,
+            ),
+            Field(KEY_SECRET, "API key", "Leave empty when the service needs no key.", optional=True),
+            Field(
+                PREFIX_SECRET,
+                "Query prefix",
+                "Text put before each search query. Qwen3-Embedding takes an instruction here.",
+                secret=False,
+                optional=True,
+            ),
+        ),
+        docs="modules/knowledge",
+        deployment=lambda: configured() is not None,
+        test=_test,
+    )
+)
+use("embeddings", "knowledge")
+use("embeddings", "agents")

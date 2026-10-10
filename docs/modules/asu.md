@@ -4,11 +4,11 @@ Public ASU pages and live queries (dining, library hours, events and others) tha
 
 ## Scheduled pages
 
-`POST /api/asu/sync` (scope `knowledge:write`) adds each ASU page as a crawled knowledge source of the token's org, with a key that starts with `asu/`. When you run it again, it updates URLs, categories and schedules, and turns off the `asu/` sources that are no longer in the list. The crawl job then gets the pages as it does for other crawled sources.
+`POST /api/asu/sync` (scope `knowledge:write`) adds each ASU page as a crawled knowledge source of the token's org, with a key that starts with `asu/`. When you run it again, it updates URLs, categories and schedules, and turns off the `asu/` sources that are no longer in the list. The crawl job then gets the pages as it does for other crawled sources. The module registers this sync as the `asu` source pack, so officers can run it with **Add** or **Sync** under Source packs on the Knowledge page of the dashboard.
 
 Some pages have their own extractor (library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports). An extractor keeps each record on one line, so a chunk never splits a name from its hours or date. The `extractor` column of the source names it (`asu.<key>`).
 
-If the org is in `KNOWLEDGE_PUBLISHERS`, the sources are public. If not, they are private.
+If the org is a knowledge publisher, the sources are public. If not, they are private.
 
 ## Live queries
 
@@ -36,9 +36,11 @@ After the answer, the `asu.index_result` job adds the result to knowledge. It us
 | campus_map | place (required) |
 | social_media | account, keywords |
 | dining | campus (required) |
-| web | query (required), time_range. Needs `SEARXNG_URL` |
+| web | query (required), time_range. Needs a SearXNG server |
 
 ## Settings
+
+An org sets its own Firecrawl and SearXNG on the Integrations page of the dashboard ([integrations](../integrations.md)). The variables below are the deployment defaults.
 
 | Variable | Default | Does |
 | --- | --- | --- |

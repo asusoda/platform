@@ -17,3 +17,8 @@ A merch store paid with points. Officers manage products and orders. Members buy
 - Jobs: none.
 - Tools: none.
 - Tables: `products`, `orders`, `order_items`.
+
+## Known gaps
+
+- Views in `api.py` and `member_api.py` open their own session, query and commit. `service.py` has only the shared queries.
+- Checkout reads the balance and writes the order with no row lock. See Known faults in `docs/roadmap.md`.

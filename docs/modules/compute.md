@@ -4,11 +4,12 @@ GPU and CPU pods on an org's own RunPod account that members connect to over SSH
 
 ## Setup
 
-1. Save the org's RunPod key as the org secret `runpod_api_key`. The runpod module uses the same key. `SECRETS_KEY` must be set.
+1. Connect RunPod on the dashboard's Integrations page. This saves the org secret `runpod_api_key`. The runpod module uses the same key. `SECRETS_KEY` must be set.
 2. Keep the `compute` module on for the org. It is on by default.
 3. Optional: set these in the server's `.env`.
    - `COMPUTE_CLI_NAME`: the CLI name in sign-in pages and errors. Default `the compute CLI`. The example AIS server sets `godfather`.
-   - `COMPUTE_POD_IMAGE`: the image of a pod when the create body has none. Default `theaisocietyasu/godfather-base:latest`.
+   - `COMPUTE_POD_IMAGE`: the deployment default pod image. Default `theaisocietyasu/godfather-base:latest`.
+4. Optional: set the org's own default pod image under Compute > Settings on the dashboard (`PUT /api/compute/<org>/settings` with `{"pod_image": "..."}`, null to clear). A pod gets the image of its create body, else the org default, else `COMPUTE_POD_IMAGE`.
 
 The first pod makes two ed25519 key pairs for the org in `compute_keys`. `SECRETS_KEY` encrypts the private keys.
 
@@ -96,7 +97,7 @@ These officer routes work on the files of a running pod over SFTP, as root with 
 
 A stopped pod returns 409. A failed SSH connection returns 502. Platform does not check pod host keys, because RunPod does not publish them.
 
-Officers manage pods at `/<org>/compute` and files at `/<org>/compute/<pod_id>/files` in `web/`. The dashboard Compute page shows pods and sessions.
+Officers manage pods on the dashboard Compute page, `/<org>/compute`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
 
 ## Limits
 

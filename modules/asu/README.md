@@ -11,7 +11,7 @@ An example campus source module, for Arizona State University. It adds public AS
 | `queries/` | One file for each live query source; `registry.py` checks parameters and runs a query; `params.py` maps parameters to URL values |
 | `sources/` | Crawled ASU pages: one file for each source with its extractor, and the page list in `pages.py` |
 | `types.py`, `http.py`, `text.py` | `Source`, `QuerySource`, `QueryError`; page fetches and readers; text and markdown helpers |
-| `settings.py` | `ASU_QUERY_MAX_CHARS`, `SEARXNG_URL`, `SEARXNG_ENGINES` |
+| `settings.py` | `ASU_QUERY_MAX_CHARS`; registers the SearXNG integration; `query_scope()` sets the org's SearXNG and Firecrawl for a live query |
 | `jobs.py` | The indexing job |
 
 ## Surface

@@ -80,3 +80,20 @@ def test_config_check_reports_missing_settings(cli, monkeypatch):
     assert "FAIL  BOT_TOKEN missing" in result.output
     assert "database reachable" in result.output
     assert result.exit_code != 0
+
+
+def test_config_check_names_the_bot_and_catches_a_client_id_from_another_app(cli, monkeypatch):
+    from core.config import config
+    from core.integrations.discord import DiscordDirectory
+
+    monkeypatch.setattr(config, "BOT_TOKEN", "token")
+    monkeypatch.setattr(
+        DiscordDirectory, "identity", lambda self: {"app_id": "77", "app_name": "sparky", "bot_name": "Sparky"}
+    )
+    monkeypatch.setenv("CLIENT_ID", "77")
+    result = cli.invoke(args=["config", "check"])
+    assert "ok    Discord bot Sparky of app sparky (77)" in result.output
+    assert "another Discord app" not in result.output
+
+    monkeypatch.setenv("CLIENT_ID", "88")
+    assert "CLIENT_ID 88 is from another Discord app" in cli.invoke(args=["config", "check"]).output

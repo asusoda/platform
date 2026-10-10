@@ -50,3 +50,9 @@ def test_discord_errors_raise_unavailable(app):
 
 def test_without_token_it_is_not_ready():
     assert DiscordDirectory(None).is_ready() is False
+
+
+def test_identity_names_the_app_of_the_token(app):
+    body = {"id": "77", "name": "sparky", "bot": {"username": "Sparky"}}
+    directory = DiscordDirectory("token", http=FakeHttp({"/oauth2/applications/@me": FakeResponse(200, body)}))
+    assert directory.identity() == {"app_id": "77", "app_name": "sparky", "bot_name": "Sparky"}

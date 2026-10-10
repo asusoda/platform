@@ -21,4 +21,4 @@ Runs GPU and CPU pods on an org's own RunPod account that members connect to ove
 - Tools: none.
 - Tables: `compute_pods`, `compute_keys`, `compute_sessions`.
 
-See [docs/modules/compute.md](../../docs/modules/compute.md) for setup, `COMPUTE_CLI_NAME`, `COMPUTE_POD_IMAGE` and the pod image contract.
+See [docs/modules/compute.md](../../docs/modules/compute.md) for setup, `COMPUTE_CLI_NAME`, `COMPUTE_POD_IMAGE`, the org default pod image and the pod image contract.

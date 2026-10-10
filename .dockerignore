@@ -40,13 +40,15 @@ docker-compose*.yml
 Dockerfile*
 .dockerignore
 
-# Node/React (for web service)
-web/node_modules/
+# Node: web/ is built by Dockerfile.web; the site deploys on its own
+**/node_modules/
 web/build/
 web/dist/
 web/.env
 web/.env.*
 web/npm-debug.log*
+dashboard/dist/
+site/
 
 # Documentation
 *.md

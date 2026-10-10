@@ -88,7 +88,18 @@ def list_pods(db, org):
 
 @_officer_route("/pods", ["POST"])
 def create_pod(db, org):
-    return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), config.COMPUTE_POD_IMAGE)}, 201
+    image = service.pod_image(db, _org_id(org), config.COMPUTE_POD_IMAGE)
+    return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), image)}, 201
+
+
+@_officer_route("/settings", ["GET"])
+def get_settings(db, org):
+    return {"settings": service.compute_settings(db, _org_id(org), config.COMPUTE_POD_IMAGE)}
+
+
+@_officer_route("/settings", ["PUT"])
+def put_settings(db, org):
+    return {"settings": service.update_compute_settings(db, _org_id(org), _body(), config.COMPUTE_POD_IMAGE)}
 
 
 @_officer_route("/pods/<string:pod_id>", ["GET"])

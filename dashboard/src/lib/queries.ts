@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
-import type { Branding, CiRepo, Overview } from './types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ApiError, api, send } from './api';
+import type { Branding, CiRepo, IntegrationList, ModuleState, NotificationList, OrganizationDetail, Overview } from './types';
 
 export function useOverview(prefix: string) {
   return useQuery({
@@ -26,5 +26,75 @@ export function useBranding(prefix: string) {
     queryFn: () => api<Branding>(`/api/dashboard/${prefix}/branding`),
     enabled: Boolean(prefix),
     staleTime: 300_000,
+  });
+}
+
+// Whether the signed-in officer is the superadmin. A 403 means no.
+export function useSuperadmin() {
+  return useQuery({
+    queryKey: ['superadmin'],
+    queryFn: () =>
+      api<{ is_superadmin: boolean }>('/api/superadmin/check').then(
+        (body) => body.is_superadmin,
+        (error) => {
+          if (error instanceof ApiError && error.status === 403) return false;
+          throw error;
+        },
+      ),
+    retry: false,
+    staleTime: 600_000,
+  });
+}
+
+// One organization with its settings.
+export function useOrganization(id: number | undefined) {
+  return useQuery({
+    queryKey: ['organization', id],
+    queryFn: () => api<OrganizationDetail>(`/api/organizations/${id}`),
+    enabled: id !== undefined,
+  });
+}
+
+export function useModules(id: number | undefined) {
+  return useQuery({
+    queryKey: ['modules', id],
+    queryFn: () => api<{ modules: ModuleState[] }>(`/api/organizations/${id}/modules`),
+    enabled: id !== undefined,
+  });
+}
+
+// Whether an error is the API saying the Discord bot cannot be reached.
+export function isBotDown(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 503;
+}
+
+export function useNotifications(prefix: string) {
+  return useQuery({
+    queryKey: ['notifications', prefix],
+    queryFn: () => api<NotificationList>(`/api/dashboard/${prefix}/notifications`),
+    refetchInterval: 60_000,
+    enabled: Boolean(prefix),
+  });
+}
+
+// Resolve or reopen notifications by id. The answer is the new list, so the bell and the page update at once.
+export function useNotificationChange(prefix: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ action, ids }: { action: 'resolve' | 'reopen'; ids: string[] }) =>
+      send<NotificationList>(`/api/dashboard/${prefix}/notifications/${action}`, 'POST', { ids }),
+    onSuccess: (list) => {
+      client.setQueryData(['notifications', prefix], list);
+      client.invalidateQueries({ queryKey: ['overview', prefix] });
+    },
+  });
+}
+
+export function useIntegrations(prefix: string) {
+  return useQuery({
+    queryKey: ['integrations', prefix],
+    queryFn: () => api<IntegrationList>(`/api/dashboard/${prefix}/integrations`),
+    enabled: Boolean(prefix),
+    staleTime: 60_000,
   });
 }

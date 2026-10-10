@@ -6,7 +6,7 @@ This page lists the files a module can have, the places to register it, and the 
 
 | File | Holds | Add it when |
 | --- | --- | --- |
-| `README.md` | What the module does, a Files table and a Surface list (routes, jobs, tools, tables) | always |
+| `README.md` | What the module does, a Files table and a Surface list (routes, jobs, tools, tables). A Known gaps list if the module breaks a rule on this page | always |
 | `service.py` | The logic. It takes a database session and plain values, returns plain values and raises a `ServiceError`. It does not import Flask | the module does more than read a table |
 | `api.py` | A Flask blueprint. Each route reads the request, calls `service.py` and returns JSON | the module has routes |
 | `models.py` | SQLAlchemy tables that use `Base` from `core/db/base.py` | the module keeps data |
@@ -19,18 +19,31 @@ If `service.py` has more than one concern, split it into more Flask-free files. 
 
 | What | Where |
 | --- | --- |
-| Blueprint and URL prefix | `MOUNTS` in `modules/registry.py` |
-| Org switch | `OPTIONAL_MODULES` in `modules/organizations/service.py`, and `module=` on the `Mount` |
+| Category | `CATEGORIES` in `modules/manifest.py`. Put the module in the category of its dashboard section |
+| Blueprint and URL prefix | `MOUNTS` in `modules/registry.py`, and the import at the top of that file |
 | Tables | `MODEL_MODULES` in `modules/manifest.py`, then `uv run alembic revision --autogenerate -m "..."` |
 | Jobs | `JOB_MODULES` in `modules/manifest.py` |
 | Tools | `TOOL_MODULES` in `modules/manifest.py` |
 | Machine token scopes | `scopes.declare(...)` from `modules/auth/scopes.py`, at the top of `service.py` |
-| Org secrets | `secrets.declare(...)` from `core/secrets.py` |
-| Flask-free files | The "service modules do not import Flask" contract in `pyproject.toml` |
+| Org secrets | `secrets.declare(...)` or `secrets.declare_prefix(...)` from `core/secrets.py`, at the top of `service.py` |
+| Outside services | `register(...)` and `use(...)` from `core/integrations/registry.py`. See [integrations.md](./integrations.md) |
+| Flask-free files | `service.py`, `models.py`, `jobs.py` and `tools.py` are in the "service modules do not import Flask" contract in `pyproject.toml` by wildcard. Add each other Flask-free file, such as `crawl.py`, to that list |
 | Routes | `tests/contract/routes.txt`: run `UPDATE_ROUTES=1 uv run pytest tests/contract/test_routes.py` |
-| Docs | The module `README.md`, a row in `modules/README.md`, and the active modules line in `AGENTS.md` and `CLAUDE.md` |
+| Docs | The module `README.md`, a row under its category in `modules/README.md` and in the module table of `README.md`, the `Modules:` line in `AGENTS.md` and `CLAUDE.md`, and each table in `docs/data-model.md` |
 
 If the module needs more than its README, add `docs/modules/<name>.md`, a row in `docs/README.md`, and the page in `site/scripts/sync-docs.mjs`.
+
+`tests/test_module_layout.py` checks the categories, the manifest lists, `MOUNTS`, the Flask-free contract, the module switches, the docs rows, and that each README and `docs/data-model.md` name the module's jobs, tools and tables. If you forget a place, the test names the file to change.
+
+### Org switch
+
+If orgs can turn the module off:
+
+1. Add the name and a one-line description to `OPTIONAL_MODULES` in `modules/organizations/service.py`.
+2. Set `module="<name>"` on the `Mount`. Its org routes then return 404 when the module is off. For one route in a shared blueprint, use `endpoint_modules`.
+3. Set `module="<name>"` on each `@tool`. The tool then does not show for an org that turned it off.
+4. In a job that runs for all orgs, skip an org when `organizations.module_enabled(org, "<name>")` is false.
+5. Add the name to the expected dict in `tests/contract/test_modules.py`.
 
 ## Routes
 
@@ -85,6 +98,7 @@ The route helpers and the tool runner return its message and status. A tool func
 - `tests/contract/routes.txt` agrees with the routes of the app.
 - `tests/contract/` checks each route that a client uses. Add a test there for a new route.
 - `alembic check` finds no model change without a migration.
+- `tests/test_module_layout.py` finds each module in every place listed in [Register it](#register-it).
 
 ## Example
 

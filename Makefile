@@ -48,10 +48,10 @@ build-api:
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
 		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build api
 
-# Build only web
-build-web:
-	@echo -e "$(GREEN)[INFO]$(NC) Building web image..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build web
+# Build only the dashboard
+build-dashboard:
+	@echo -e "$(GREEN)[INFO]$(NC) Building dashboard image..."
+	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build dashboard
 
 # Start services in development mode
 up:
@@ -108,16 +108,16 @@ deploy:
 			CHANGED_FILES=$$(git diff --name-only "$$OLD_HEAD" "$$NEW_HEAD"); \
 		fi; \
 		BUILD_API=0; \
-		BUILD_WEB=0; \
+		BUILD_DASHBOARD=0; \
 		if [ -n "$$CHANGED_FILES" ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Changed files since last deploy commit:"; \
 			printf "%s\n" "$$CHANGED_FILES"; \
 			while IFS= read -r FILE; do \
 				case "$$FILE" in \
-					web/*|Dockerfile.web) \
-						BUILD_WEB=1 ;; \
+					dashboard/*|Dockerfile.dashboard) \
+						BUILD_DASHBOARD=1 ;; \
 					docker-compose.yml|docker-compose.dev.yml|Makefile) \
-						BUILD_API=1; BUILD_WEB=1 ;; \
+						BUILD_API=1; BUILD_DASHBOARD=1 ;; \
 					.github/*|*.md|CLAUDE.md|AGENTS.md|.pre-commit-config.yaml) \
 						;; \
 					*) \
@@ -129,7 +129,7 @@ deploy:
 		fi; \
 		SERVICES_TO_BUILD=""; \
 		if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD api"; fi; \
-		if [ "$$BUILD_WEB" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD web"; fi; \
+		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD dashboard"; fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."; \
 		mkdir -p data; \
 		chmod -R 755 data; \
@@ -140,16 +140,18 @@ deploy:
 			echo -e "$(GREEN)[INFO]$(NC) Tagging API image as previous..."; \
 			$(CONTAINER_CMD) tag soda-internal-api:latest soda-internal-api:previous 2>/dev/null || true; \
 		fi; \
-		if [ "$$BUILD_WEB" -eq 1 ]; then \
-			echo -e "$(GREEN)[INFO]$(NC) Tagging web image as previous..."; \
-			$(CONTAINER_CMD) tag soda-web:latest soda-web:previous 2>/dev/null || true; \
+		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then \
+			echo -e "$(GREEN)[INFO]$(NC) Tagging dashboard image as previous..."; \
+			$(CONTAINER_CMD) tag soda-dashboard:latest soda-dashboard:previous 2>/dev/null || true; \
 		fi; \
 		if [ -n "$$SERVICES_TO_BUILD" ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Building changed service images:$$SERVICES_TO_BUILD"; \
 			export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
 			BUILDAH_LAYERS=true DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml build $$SERVICES_TO_BUILD; \
-			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_BUILD"; \
-			$(COMPOSE_CMD) -f docker-compose.yml up -d $$SERVICES_TO_BUILD; \
+			SERVICES_TO_START="$$SERVICES_TO_BUILD"; \
+			if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_START="$$SERVICES_TO_START bot"; fi; \
+			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_START"; \
+			$(COMPOSE_CMD) -f docker-compose.yml up -d $$SERVICES_TO_START; \
 		else \
 			echo -e "$(YELLOW)[WARNING]$(NC) No deploy-impacting service changes detected. Skipping build/restart."; \
 		fi; \
@@ -177,8 +179,8 @@ deploy:
 		if [ "$$BUILD_API" -eq 1 ]; then \
 			wait_for_health soda-internal-api 60; \
 		fi; \
-		if [ "$$BUILD_WEB" -eq 1 ]; then \
-			wait_for_health soda-web 60; \
+		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then \
+			wait_for_health soda-dashboard 60; \
 		fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Container status:"; \
 		$(COMPOSE_CMD) ps; \

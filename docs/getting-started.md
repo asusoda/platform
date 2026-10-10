@@ -9,7 +9,7 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
 | uv | Python 3.12, dependencies and the virtual environment |
 | Podman and podman-compose, or Docker | The containers. The Makefile finds the one you have |
 | make | Every command |
-| Node 20 | Only to run `web/`, `dashboard/` or `site/` outside a container |
+| Node 20 | Only to run `dashboard/` or `site/` outside a container |
 
 ## Run it on your machine
 
@@ -21,7 +21,7 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
    ```
 
 2. Copy `.env.template` to `.env`. Set the values in the table below.
-3. Start the containers with `make dev`. The API is at http://localhost:8000 and the web app at http://localhost:5000.
+3. Start the containers with `make dev`. The API is at http://localhost:8000 and the dashboard at http://localhost:5000.
 4. Create an org:
 
    ```bash
@@ -39,14 +39,22 @@ To run the API with no container, run `uv run alembic upgrade head`, then `uv ru
 | Variable | Use |
 | --- | --- |
 | `BOT_TOKEN` | The Discord bot token. The API also uses it to read servers, roles and members. If it is not set, sign-in returns 503 |
-| `CLIENT_ID`, `CLIENT_SECRET` | The Discord OAuth app for officer sign-in |
+| `CLIENT_ID`, `CLIENT_SECRET` | The Discord OAuth app for officer sign-in. It must be the app of `BOT_TOKEN` |
 | `REDIRECT_URI` | `<API URL>/api/auth/callback`. It must be a redirect of the Discord app |
-| `CLIENT_URL` | The web app URL. Sign-in sends the browser back to it |
+| `CLIENT_URL` | Sign-in from a client other than the dashboard sends the browser back to it |
 | `SYS_ADMIN` | The Discord user id of the superadmin |
 | `SECRET_KEY` or `FLASK_SECRET_KEY` | Signs session cookies. If neither is set, a random key is used and sessions end at each restart |
 | `SECRETS_KEY` | A Fernet key that encrypts org secrets. If it is not set, orgs cannot save secrets |
 | `DATABASE_URL` | Default `sqlite:///./data/user.db`. Use `postgresql://...` for Postgres |
 | `ACCESS_ENFORCE` | `false` logs refused requests and lets them through. `true` refuses them. See [Authentication](./authentication.md) |
+
+### Discord apps
+
+Platform uses one Discord app: `BOT_TOKEN`, `CLIENT_ID` and `CLIENT_SECRET` all come from it. An agent bot that runs as a RunPod app (see [RunPod apps](./modules/runpod-apps.md)) gets its own token from an org secret, such as `app_<app>_discord_token`, not from these settings.
+
+Platform can share the app of an agent bot. Then set `RUN_BOT=false`, so that only one process connects to Discord with the token.
+
+`flask --app main config check` shows the bot name and app of `BOT_TOKEN`. It fails if `CLIENT_ID` is from a different app. `deploy/runpod/start.sh` runs it at each start, so the pod log shows the app.
 
 ## Commands
 
@@ -66,7 +74,7 @@ To run one test file: `uv run pytest tests/contract/test_compute.py -v`. The tes
 
 ## Run it on one RunPod pod
 
-`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the web app on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Jobs run in threads of the API, on SQLite.
+`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the dashboard on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Set `RUN_BOT=false` to use the token of a bot that runs elsewhere, such as an agent bot: the API then uses the token only for Discord's REST API, and the bot commands, LeetCode posts and games do not run. Do not run two bot processes with one token. Jobs run in threads of the API, on SQLite.
 
 At each start the script gets the head of `PLATFORM_BRANCH`. A pod restart thus deploys the branch.
 
@@ -88,6 +96,7 @@ Caution: keep `/workspace/data/keys.env`. It holds `SECRET_KEY` and `SECRETS_KEY
 | `PLATFORM_BRANCH` | The branch to run |
 | `ORG_PREFIX`, `ORG_NAME`, `ORG_GUILD_ID`, `ORG_OFFICER_ROLE_ID`, `ORG_MODULES_OFF` | The org that the script creates on the first start |
 | `CLIENT_ID`, `CLIENT_SECRET`, `BOT_TOKEN`, `SYS_ADMIN` | As in the settings above |
+| `RUN_BOT` | `false` to not start the bot process. The API still uses `BOT_TOKEN` |
 | `API_URL`, `WEB_URL` | Only for a custom domain. The defaults are the pod proxy URLs, `https://<pod id>-8000.proxy.runpod.net` and `-5000` |
 
 Agents connect to the MCP server at `https://<pod id>-8001.proxy.runpod.net/mcp` with a machine token.

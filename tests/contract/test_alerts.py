@@ -134,7 +134,7 @@ def alerts(app, monkeypatch):
     from core.db import db_connect
     from core.secrets import OrgSecret
     from modules.alerts import service
-    from modules.alerts.models import AlertFeed, AlertPost
+    from modules.alerts.models import AlertFeed, AlertPost, AlertRun
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     monkeypatch.setattr(service, "POST_GAP_SECONDS", 0)
@@ -144,6 +144,7 @@ def alerts(app, monkeypatch):
     monkeypatch.setattr(service, "utcnow", lambda: datetime.datetime(2026, 10, 8, 12))
     yield state
     db = db_connect.SessionLocal()
+    db.query(AlertRun).delete()
     db.query(AlertPost).delete()
     db.query(AlertFeed).delete()
     db.query(OrgSecret).filter(OrgSecret.name.like("alert_webhook_%")).delete(synchronize_session=False)
@@ -223,6 +224,29 @@ def test_post_existing_and_failures(client, officer_headers, alerts, monkeypatch
     assert _run() == {"key": "internships", "error": "README unreachable"}
     feed = client.get("/api/alerts/soda/feeds/internships", headers=officer_headers).get_json()["feed"]
     assert feed["last_error"] == "README unreachable"
+
+    history = client.get("/api/alerts/soda/feeds/internships/history", headers=officer_headers).get_json()
+    runs = history["runs"]
+    assert [(r["found"], r["posted"], r["error"]) for r in runs] == [
+        (None, 0, "README unreachable"),
+        (1, 1, None),
+        (1, 0, "Discord webhook failed: 500"),
+        (1, 1, None),
+    ]
+    assert [(i["title"], i["posted"]) for i in history["items"]][0] == ("New Job: Gamma", True)
+    assert client.get("/api/alerts/soda/feeds/nope/history", headers=officer_headers).status_code == 404
+
+
+def test_runs_are_pruned(client, officer_headers, alerts, monkeypatch):
+    from modules.alerts import service
+
+    monkeypatch.setattr(service, "RUNS_KEPT", 3)
+    _put(client, officer_headers)
+    for _ in range(5):
+        _run()
+    assert (
+        len(client.get("/api/alerts/soda/feeds/internships/history", headers=officer_headers).get_json()["runs"]) == 3
+    )
 
 
 @pytest.mark.parametrize(

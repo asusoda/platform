@@ -4,9 +4,11 @@ Deploys an org's own apps (a Discord bot, an agent, a model server) to RunPod po
 
 ## Setup
 
-1. Save the org's RunPod key as the org secret `runpod_api_key`: `PUT /api/organizations/<id>/secrets/runpod_api_key`.
+Officers can do steps 1, 2 and 4 on the dashboard (Settings > Secrets, and the Apps page). The Apps page also deploys, rolls back and deletes.
+
+1. Connect RunPod on the dashboard's Integrations page. This saves the org secret `runpod_api_key`.
 2. Save each secret env value of the app as an org secret with a name that starts with `app_`.
-3. Make a machine token with `apps:read` and `apps:manage` for officers, and one with only `apps:deploy` for the app's CI.
+3. Make a machine token with only `apps:deploy` for the app's CI. A script that manages apps needs `apps:read` and `apps:manage`.
 4. Register the app in one of two ways:
    - From its repo: `PUT /api/apps/<name>` with `{"repo": "owner/name"}`, and `manifest_path` if the file is not `platform.app.yaml` at the root. Platform reads the file from the default branch now, and again at the `ref` of each deploy. A private repo needs the org secret `github_token` with read access to the repo contents.
    - Inline: `PUT /api/apps/<name>` with `{"manifest": {...}}`.
@@ -19,6 +21,8 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 
 ```json
 {
+  "kind": "bot",
+  "description": "The club Discord bot",
   "image": "ghcr.io/example-club/club-bot",
   "gpu": {"id": "NVIDIA RTX A5000", "count": 1},
   "cloud": "SECURE",
@@ -31,6 +35,7 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 }
 ```
 
+- `kind` is `bot`, `agent`, `site` or `service` (the default). `description` (200 characters or fewer) and `url` (https, the app's public address) are optional. The dashboard groups apps by `kind` and shows the other two. Deploys do not send these three fields to RunPod. App responses include `kind`, `description`, `url` and `host` (`runpod`).
 - `image` has no tag. The deploy gives the tag. Use `gpu` or `cpu` (`{"id": "cpu5c", "vcpuCount": 4}`), not both.
 - `gpu`, `cpu`, `cloud`, `dataCenterIds` and `mounts` apply when the pod is created. To change them, terminate the pod in RunPod, then `DELETE` and `PUT` the app again.
 - `env`, `disk`, `ports`, `args` and `registry` go with each deploy.

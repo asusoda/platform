@@ -15,9 +15,12 @@ from sqlalchemy.exc import IntegrityError
 
 from core.config import config
 from core.integrations.discord import DiscordDirectory, DiscordUnavailable, add_reaction, send_message
+from core.integrations.registry import use
 from core.log import get_logger
 from modules.leetcode import client, service
 from modules.leetcode.models import LeetCodeDaily
+
+use("discord", "leetcode")
 
 logger = get_logger("leetcode.daily")
 

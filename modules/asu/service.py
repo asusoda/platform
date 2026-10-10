@@ -12,10 +12,10 @@ from typing import Any
 from core.jobs import defer
 from core.log import get_logger
 from modules.asu.queries import registry
-from modules.asu.settings import settings
+from modules.asu.settings import query_scope, settings
 from modules.asu.sources import SOURCES
 from modules.asu.types import QueryError
-from modules.knowledge import crawl, extract, fetch
+from modules.knowledge import crawl, extract, fetch, packs
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import KnowledgeError, can_publish
@@ -32,7 +32,7 @@ for _source in SOURCES.values():
 
 def sync(db, org_id: int, org_prefix: str) -> dict:
     """Make the org's asu/ crawled sources match the ASU source list. Retired ones are disabled. Commits."""
-    public = can_publish(org_prefix)
+    public = can_publish(db, org_prefix)
     existing = {
         s.key: s
         for s in db.query(KnowledgeSource).filter(
@@ -103,10 +103,11 @@ def query(db, org_id: int, org_prefix: str, source_key: Any, params: Any) -> dic
     source = registry.QUERY_SOURCES.get(source_key) if isinstance(source_key, str) else None
     if source is None:
         raise KnowledgeError(f"No live source named {source_key}", 404)
-    if source.key == "web" and not settings().search.base_url:
-        raise KnowledgeError("Web search needs SEARXNG_URL", 503)
     try:
-        url, text = registry.run(source, _params(params))
+        with query_scope(db, org_id):
+            if source.key == "web" and not settings().search.base_url:
+                raise KnowledgeError("Web search needs a SearXNG server. Set one on the Integrations page", 503)
+            url, text = registry.run(source, _params(params))
     except QueryError as e:
         raise KnowledgeError(str(e), 422) from e
     except fetch.FetchRejected as e:
@@ -133,7 +134,7 @@ def index_result(db, org_id: int, org_prefix: str, query_key: str, url: str, tex
         if source is None:
             category = registry.QUERY_SOURCES[query_key].category
             source = KnowledgeSource(
-                organization_id=org_id, key=key, url=url, category=category, public=can_publish(org_prefix)
+                organization_id=org_id, key=key, url=url, category=category, public=can_publish(db, org_prefix)
             )
             db.add(source)
             db.flush()
@@ -146,3 +147,14 @@ def index_result(db, org_id: int, org_prefix: str, query_key: str, url: str, tex
     result = crawl.index_text(db, source, text, title, content_hash, embedder, previous=previous, force=True)
     logger.info("live result indexed source=%s chunks=%s", source.key, result["chunks"])
     return result
+
+
+packs.register(
+    packs.Pack(
+        name="asu",
+        title="Arizona State University",
+        description="Public ASU pages: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.",
+        key_prefix=KEY_PREFIX,
+        sync=sync,
+    )
+)

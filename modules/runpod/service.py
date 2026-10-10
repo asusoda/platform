@@ -19,7 +19,7 @@ import yaml
 
 from core import secrets
 from core.errors import ServiceError
-from core.integrations import runpod
+from core.integrations import github, registry, runpod
 from core.log import get_logger
 from core.time import iso, utcnow
 from modules.auth import scopes
@@ -28,9 +28,9 @@ from modules.runpod.models import App, AppDeployment
 logger = get_logger("runpod")
 
 SECRET_PREFIX = "app_"  # nosec B105 - a secret name prefix, not a value
-secrets.declare(runpod.SECRET_NAME, "RunPod API key the org's apps are deployed and billed with")
-GITHUB_SECRET = "github_token"  # nosec B105 - a secret name, not a value
-secrets.declare(GITHUB_SECRET, "GitHub token that can read the contents of the org's private app repos")
+GITHUB_SECRET = github.SECRET_NAME
+registry.use("runpod", "runpod")
+registry.use("github", "runpod")
 secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named in its manifest's secret_env")
 
 scopes.declare("apps:read", "List apps on RunPod, their pods and deployments")
@@ -48,9 +48,15 @@ HEALTH_TIMEOUT = datetime.timedelta(minutes=15)
 REDACTED = "(secret)"
 
 _PORT = {"type": "string", "pattern": r"^[0-9]{1,5}/(http|tcp)$"}
+# What an app is for. The dashboard groups apps by kind; deploys ignore it.
+APP_KINDS = ("bot", "agent", "site", "service")
+
 MANIFEST_SCHEMA: dict = {
     "type": "object",
     "properties": {
+        "kind": {"enum": list(APP_KINDS)},
+        "description": {"type": "string", "maxLength": 200},
+        "url": {"type": "string", "maxLength": 500, "pattern": r"^https://[^\s]+$"},
         "image": {"type": "string", "pattern": r"^[a-z0-9][a-z0-9._/-]{0,250}$"},
         "gpu": {
             "type": "object",
@@ -176,9 +182,14 @@ def _latest(db, app: App) -> AppDeployment | None:
 
 def _app_dict(db, app: App) -> dict:
     latest = _latest(db, app)
+    manifest = _manifest(app)
     return {
         "name": app.name,
-        "manifest": _manifest(app),
+        "kind": manifest.get("kind", "service"),
+        "description": manifest.get("description"),
+        "url": manifest.get("url"),
+        "host": "runpod",
+        "manifest": manifest,
         "repo": app.repo,
         "manifest_path": app.manifest_path,
         "pod_id": app.pod_id,
@@ -311,7 +322,12 @@ def deploy(
     manifest = manifest if manifest is not None else _manifest(app)
     if dry_run:
         method, path, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=True)
-        return {"dry_run": True, "manifest": manifest, "request": {"method": method, "path": path, "body": body}}
+        return {
+            "dry_run": True,
+            "tag": tag,
+            "manifest": manifest,
+            "request": {"method": method, "path": path, "body": body},
+        }
 
     client = client_for(db, org_id)
     method, _, body = _request(db, org_id, org_prefix, app, manifest, tag, redact=False)

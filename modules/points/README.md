@@ -17,3 +17,8 @@ Keeps the points that an org's members earn. Officers add members, give points b
 - Jobs: `points.import_event_csv`, started by the CSV upload.
 - Tools: `points.leaderboard` (scope `points:read`).
 - Tables: `points`. Members and memberships are in `modules/users`.
+
+## Known gaps
+
+- Views in `api.py` open their own session, query and commit. Only the leaderboard is in `service.py`. Move the rest one route at a time, with the contract tests.
+- The camelCase routes (`getUserPoints`, `getUserTotalPoints`) are aliases. See Cleanup in `docs/roadmap.md`.

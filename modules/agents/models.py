@@ -4,8 +4,6 @@ Rows are scoped by organization and the member's Discord id. Ids are UUID string
 SQLite and Postgres alike.
 """
 
-import uuid
-
 from sqlalchemy import (
     JSON,
     Column,
@@ -19,19 +17,15 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from core.db import Base
+from core.db import Base, new_uuid
 from core.time import utcnow
 from modules.knowledge.models import Embedding
-
-
-def _uuid() -> str:
-    return str(uuid.uuid4())
 
 
 class AgentConversation(Base):
     __tablename__ = "agent_conversations"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     discord_id = Column(String(32), nullable=False)
     channel_id = Column(String(255), nullable=False)
@@ -62,7 +56,7 @@ class AgentMessage(Base):
 class AgentMemory(Base):
     __tablename__ = "agent_memories"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     discord_id = Column(String(32), nullable=False)
     kind = Column(String(20), nullable=False)  # episodic, semantic, profile, task
@@ -80,7 +74,7 @@ class AgentMemory(Base):
 class AgentProfileNode(Base):
     __tablename__ = "agent_profile_nodes"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     discord_id = Column(String(32), nullable=False)
     kind = Column(String(100), nullable=False)
@@ -101,7 +95,7 @@ class AgentProfileNode(Base):
 class AgentProfileEdge(Base):
     __tablename__ = "agent_profile_edges"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     from_node = Column(String(36), ForeignKey("agent_profile_nodes.id", ondelete="CASCADE"), nullable=False)
     to_node = Column(String(36), ForeignKey("agent_profile_nodes.id", ondelete="CASCADE"), nullable=False)

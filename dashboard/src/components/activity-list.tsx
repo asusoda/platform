@@ -9,18 +9,19 @@ function tone(entry: AuditEntry) {
   return 'ok' as const;
 }
 
-export function ActivityList({ entries, empty }: { entries: AuditEntry[]; empty: string }) {
+export function ActivityList({ entries, empty, showOrg = false }: { entries: AuditEntry[]; empty: string; showOrg?: boolean }) {
   if (!entries.length) return <EmptyState icon={History}>{empty}</EmptyState>;
   return (
     <ul>
       {entries.map((e) => (
-        <li key={e.id} className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-0">
+        <li key={e.id} className="cv-row flex items-start gap-3 border-b border-line px-4 py-3 last:border-0">
           <span className="mt-1.5">
             <Dot tone={tone(e)} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate font-mono text-xs">{e.action}</div>
             <div className="mt-0.5 truncate text-xs text-muted">
+              {showOrg ? `${e.org ?? 'no org'} · ` : ''}
               {e.actor_kind === 'job'
                 ? String(e.details?.result ?? 'ran')
                 : e.actor_kind

@@ -1,21 +1,15 @@
 """Members' connected accounts (OAuth grants) and logins in progress. Tokens are stored encrypted."""
 
-import uuid
-
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
-from core.db import Base
+from core.db import Base, new_uuid
 from core.time import utcnow
-
-
-def _uuid() -> str:
-    return str(uuid.uuid4())
 
 
 class AccountGrant(Base):
     __tablename__ = "account_grants"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     discord_id = Column(String(32), nullable=False)
     provider = Column(String(50), nullable=False)

@@ -2,27 +2,55 @@
 
 One folder for each module. Each folder has a `README.md` with its files and its surface: routes, jobs, tools and tables. [docs/writing-a-module.md](../docs/writing-a-module.md) gives the rules and the places to register a new module.
 
+The folders are not nested. `CATEGORIES` in `manifest.py` groups the modules below in the same sections as the sidebar of the dashboard.
+
+## Members
+
 | Module | Does | Org switch |
 | --- | --- | --- |
 | [accounts](accounts/README.md) | Canvas, Google and Outlook sign-in for a member | |
-| [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | |
-| [alerts](alerts/README.md) | Job and hackathon listings posted to Discord webhooks | `alerts` |
-| [asu](asu/README.md) | Example campus source: ASU pages and live queries | |
-| [auth](auth/README.md) | Discord sign-in, tokens, access checks, machine tokens and scopes | |
-| [bot](bot/README.md) | The Discord bot and its helper cog | |
-| [calendar](calendar/README.md) | Notion events synced to Google Calendar | `calendar` |
-| [compute](compute/README.md) | RunPod pods that members connect to over SSH | `compute` |
-| [dashboard](dashboard/README.md) | Overview, branding and CI runs for the officer dashboard | |
 | [games](games/README.md) | Jeopardy in Discord | |
-| [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | |
-| [leetcode](leetcode/README.md) | The daily LeetCode post and solve checks | `leetcode` |
-| [mcp](mcp/README.md) | The MCP server and `/api/tools` | |
-| [organizations](organizations/README.md) | Orgs, config, module switches, secrets and machine tokens | |
 | [points](points/README.md) | Points, leaderboards and CSV imports | `points` |
-| [public](public/README.md) | Open reads | |
-| [runpod](runpod/README.md) | App deploys to RunPod | |
 | [storefront](storefront/README.md) | Merch store paid in points | `storefront` |
-| [superadmin](superadmin/README.md) | Orgs for the whole deployment | |
 | [users](users/README.md) | Members and memberships | |
 
-`registry.py` mounts each blueprint. `manifest.py` lists the model, job and tool modules. `cli.py` has the `flask --app main org`, `jobs` and `config` commands.
+## Automations
+
+| Module | Does | Org switch |
+| --- | --- | --- |
+| [alerts](alerts/README.md) | Job and hackathon listings posted to Discord webhooks | `alerts` |
+| [calendar](calendar/README.md) | Notion events synced to Google Calendar | `calendar` |
+| [leetcode](leetcode/README.md) | The daily LeetCode post and solve checks | `leetcode` |
+
+## Knowledge and agents
+
+| Module | Does | Org switch |
+| --- | --- | --- |
+| [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | |
+| [asu](asu/README.md) | Example campus source: ASU pages and live queries | |
+| [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | |
+| [mcp](mcp/README.md) | The MCP server and `/api/tools` | |
+
+## Infrastructure
+
+| Module | Does | Org switch |
+| --- | --- | --- |
+| [compute](compute/README.md) | RunPod pods that members connect to over SSH | `compute` |
+| [runpod](runpod/README.md) | App deploys to RunPod | |
+
+## Platform
+
+| Module | Does | Org switch |
+| --- | --- | --- |
+| [auth](auth/README.md) | Discord sign-in, tokens, access checks, machine tokens and scopes | |
+| [bot](bot/README.md) | The Discord bot and its helper cog | |
+| [dashboard](dashboard/README.md) | Overview, branding and CI runs for the officer dashboard | |
+| [organizations](organizations/README.md) | Orgs, config, module switches, secrets and machine tokens | |
+| [public](public/README.md) | Open reads | |
+| [superadmin](superadmin/README.md) | Orgs for the whole deployment | |
+
+## Shared files
+
+`registry.py` mounts each blueprint. `manifest.py` lists the categories and the model, job and tool modules. `cli.py` has the `flask --app main org`, `jobs` and `config` commands. `tests/test_module_layout.py` checks that each module is in these lists and in the docs.
+
+The modules from SoDA (points, storefront, users, superadmin, calendar, organizations, public, auth, games) do not follow the module pattern in full. Each README lists its Known gaps.

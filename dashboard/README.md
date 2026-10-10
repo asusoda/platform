@@ -1,16 +1,52 @@
 # Dashboard
 
-Officer dashboard for Platform: overview, compute, alerts, apps, agents, CI, tokens, activity and settings for one org. Vite, React, Tailwind and TanStack Query.
+Officer dashboard for Platform: the pages officers use to see and control one org, and a Superadmin page for the superadmin. Vite, React, Tailwind and TanStack Query.
 
 ```bash
 cp .env.example .env   # VITE_API_URL
 npm install
 npm run dev
 npm test
-npm run build
-npm run screenshots   # images for the landing page, see docs/frontends.md
+npm run build          # tsc, then vite build to dist/
+npm run screenshots    # images for the landing page, see docs/frontends.md
+npm run demo-video     # the demo video for the landing page, see docs/frontends.md
+npm run perf           # long lists: time of each step and long tasks
 ```
 
-`src/lib/` holds the API client, sign-in and queries. `src/pages/` has one file per page. `src/components/ui.tsx` has the shared parts. `scripts/` has the screenshot script and its fixtures.
+## Layout
 
-See [docs/frontends.md](../docs/frontends.md) for routes, sign-in and deployment.
+```
+src/
+  main.tsx, app.tsx        start the app; app.tsx makes the routes from pages/registry.tsx
+  index.css                theme tokens
+  components/
+    ui/                    shared parts, imported from components/ui: layout (page header, cards, stats),
+                           data (tables, badges), controls (buttons, fields), feedback (states, notes,
+                           long lists), overlays (dialogs, form footers)
+    tabs.tsx               TabBar and useTabParam
+    tooltip.tsx            Tooltip and Kbd
+    module-gate.tsx        the note for a module that is off
+    shell.tsx              sidebar, top bar and page frame; the sidebar comes from pages/registry.tsx
+    auth-frame.tsx         the frame of the sign-in, sign-in return and org list pages
+    built-by.tsx           the marks of the orgs that build Platform
+    activity-list.tsx, org-mark.tsx, logo.tsx, brand-icons.tsx
+  lib/
+    api.ts, auth.ts        API client and sign-in tokens
+    queries.ts             queries that two or more pages use
+    links.ts               repo, docs and landing page links, and the orgs that build Platform
+    sidebar.ts             the collapsed state of the sidebar and its shortcut
+    format.ts, branding.ts, theme.ts, org.ts
+    types/                 API response shapes, one file for each domain
+  pages/
+    registry.tsx           every org page: path, label, icon, section, module, component
+    <page>.tsx             a small page
+    <page>/index.tsx       a large page; the other files in the folder are its parts
+public/orgs/               logos for the org marks
+scripts/
+  fixtures.mjs             API responses for a fictional org, and largeFixtures() with long lists
+  screenshots.mjs          screenshots for the landing page
+  demo-video.mjs           the demo video for the landing page
+  perf.mjs                 timing and long tasks of the long lists
+```
+
+To add a page, write the page file and add one entry to `PAGES` in `src/pages/registry.tsx`. See [docs/frontends.md](../docs/frontends.md) for all the steps, the routes, sign-in and deployment.

@@ -1,8 +1,8 @@
-import { AlertTriangle, BellRing, Boxes, Bot, CalendarClock, Coins, Cpu, GitBranch, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BellRing, Boxes, Bot, CalendarClock, Coins, Cpu, GitBranch, Users } from 'lucide-react';
 import { Link } from 'react-router';
 import { ActivityList } from '../components/activity-list';
+import { moduleLabel } from '../components/notifications';
 import {
-  Badge,
   Card,
   CardHeader,
   Dot,
@@ -14,48 +14,52 @@ import {
   quietLink,
   Row,
   Stat,
+  StatGrid,
 } from '../components/ui';
 import { compact, deployTone, runTone, timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
-import { useCi, useOverview } from '../lib/queries';
+import { useCi, useNotifications, useOverview } from '../lib/queries';
 
 export function OverviewPage() {
   const { prefix } = useCurrentOrg();
   const { data, isLoading, error } = useOverview(prefix);
   const ci = useCi(prefix);
+  const notes = useNotifications(prefix);
   if (isLoading) return <PageSkeleton stats />;
   if (error || !data) return <ErrorNote error={error ?? 'No data'} />;
   const s = data.sections;
   const runs = (ci.data?.repos ?? []).flatMap((r) => r.runs.slice(0, 1).map((run) => ({ repo: r.repo, ...run })));
   const enabled = data.modules.filter((m) => m.enabled).length;
+  const open = (notes.data?.notifications ?? []).filter((n) => !n.resolved_at);
 
   return (
     <>
       <PageHeader
-        title={data.organization.name}
-        description={`Everything running for ${data.organization.prefix}, refreshed ${timeAgo(data.generated_at)}.`}
+        title="Overview"
+        description={`What runs for ${data.organization.name} and what needs attention. Updated ${timeAgo(data.generated_at)}.`}
       />
 
-      {data.problems.length ? (
-        <Card className="mb-6 border-bad/30">
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2 text-bad">
-                <AlertTriangle className="size-4" /> Needs attention
-              </span>
-            }
-          />
-          {data.problems.map((p) => (
-            <Row key={`${p.module}-${p.subject}`} className="flex-wrap sm:flex-nowrap">
-              <Badge tone="bad">{p.module}</Badge>
-              <Mono className="text-fg">{p.subject}</Mono>
-              <span className="min-w-0 flex-1 basis-full truncate text-sm text-muted sm:basis-auto">{p.message}</span>
-            </Row>
-          ))}
-        </Card>
+      {open.length ? (
+        <Link
+          to={`/${prefix}/notifications`}
+          className="mb-6 flex animate-in items-center gap-3 rounded-lg border border-bad/30 bg-bad/5 px-4 py-3 text-sm transition-colors hover:bg-bad/10"
+        >
+          <AlertTriangle className="size-4 shrink-0 text-bad" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">
+              {open.length} {open.length === 1 ? 'problem needs' : 'problems need'} attention
+            </span>
+            <span className="ml-2 hidden text-muted sm:inline">
+              {[...new Set(open.map((n) => moduleLabel(n.module)))].join(', ')}
+            </span>
+          </span>
+          <span className="flex items-center gap-1 text-xs text-muted">
+            Notifications <ArrowRight className="size-3.5" />
+          </span>
+        </Link>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatGrid>
         <Stat label="Members" value={compact(s.members.total)} icon={<Users className="size-4" />} />
         <Stat
           label="Points"
@@ -75,15 +79,15 @@ export function OverviewPage() {
           sub={`${s.agents.members_7_days} members this week`}
           icon={<Bot className="size-4" />}
         />
-      </div>
+      </StatGrid>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader
             title="Modules"
-            hint={`${enabled} of ${data.modules.length} on for this organization`}
+            hint={`${enabled} of ${data.modules.length} on for this org`}
             action={
-              <Link to="settings" className={quietLink}>
+              <Link to="settings#modules" className={quietLink}>
                 Change
               </Link>
             }
@@ -111,7 +115,7 @@ export function OverviewPage() {
             title="CI"
             hint="Latest run per repository"
             action={
-              <Link to="ci" className={quietLink}>
+              <Link to="activity?tab=ci" className={quietLink}>
                 All runs
               </Link>
             }
@@ -140,7 +144,7 @@ export function OverviewPage() {
           ) : (
             <EmptyState icon={GitBranch}>
               Add repositories in{' '}
-              <Link to="ci" className="text-fg underline underline-offset-2">
+              <Link to="activity?tab=ci" className="text-fg underline underline-offset-2">
                 CI runs
               </Link>
               .
