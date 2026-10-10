@@ -9,15 +9,19 @@ from dataclasses import dataclass, field
 
 from flask import Blueprint, Flask, jsonify, request
 
+from modules.accounts.api import accounts_blueprint
 from modules.agents.api import agents_blueprint
+from modules.asu.api import asu_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.games.api import game_blueprint
+from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
 from modules.points.api import points_blueprint
 from modules.public.api import public_blueprint
+from modules.runpod.api import apps_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
@@ -45,15 +49,36 @@ MOUNTS = [
     Mount(storefront_blueprint, "/api/storefront", module="storefront"),
     Mount(tools_blueprint, "/api/tools"),
     Mount(agents_blueprint, "/api/agents"),
+    Mount(knowledge_blueprint, "/api/knowledge"),
+    Mount(accounts_blueprint, "/api/accounts"),
+    Mount(apps_blueprint, "/api/apps"),
+    Mount(asu_blueprint, "/api/asu"),
 ]
 
 
 # Modules with background jobs. Importing a jobs.py registers its jobs with core.jobs.
-JOB_MODULES = ["core.audit", "modules.auth.jobs", "modules.points.jobs", "modules.calendar.jobs", "modules.agents.jobs"]
+JOB_MODULES = [
+    "core.audit",
+    "modules.auth.jobs",
+    "modules.points.jobs",
+    "modules.calendar.jobs",
+    "modules.agents.jobs",
+    "modules.accounts.jobs",
+    "modules.runpod.jobs",
+    "modules.knowledge.jobs",
+    "modules.asu.jobs",
+]
 
 
 # Modules with MCP tools. Importing a tools.py registers its tools with core.tools.
-TOOL_MODULES = ["modules.organizations.tools", "modules.calendar.tools", "modules.points.tools"]
+TOOL_MODULES = [
+    "modules.organizations.tools",
+    "modules.calendar.tools",
+    "modules.points.tools",
+    "modules.knowledge.tools",
+    "modules.runpod.tools",
+    "modules.asu.tools",
+]
 
 
 def load_tools() -> None:

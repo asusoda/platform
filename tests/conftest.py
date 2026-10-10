@@ -36,13 +36,16 @@ def create_schema():
     for model_module in (
         "core.audit",
         "core.secrets",
+        "modules.accounts.models",
         "modules.agents.models",
         "modules.auth.models",
         "modules.games.models",
+        "modules.knowledge.models",
         "modules.leetcode.models",
         "modules.calendar.models",
         "modules.organizations.models",
         "modules.points.models",
+        "modules.runpod.models",
         "modules.storefront.models",
     ):
         import_module(model_module)
@@ -51,4 +54,5 @@ def create_schema():
         with db_connect.engine.begin() as conn:
             conn.execute(text("DROP SCHEMA public CASCADE"))
             conn.execute(text("CREATE SCHEMA public"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=db_connect.engine)

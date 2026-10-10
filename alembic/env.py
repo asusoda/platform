@@ -41,13 +41,16 @@ from core.base import Base  # noqa: E402
 for model_module in (
     "core.audit",
     "core.secrets",
+    "modules.accounts.models",
     "modules.agents.models",
     "modules.auth.models",
     "modules.games.models",
+    "modules.knowledge.models",
     "modules.leetcode.models",
     "modules.calendar.models",
     "modules.organizations.models",
     "modules.points.models",
+    "modules.runpod.models",
     "modules.storefront.models",
 ):
     import_module(model_module)
@@ -86,8 +89,14 @@ def _ensure_sqlite_parent_dir_exists() -> None:
         os.makedirs(db_dir, exist_ok=True)
 
 
+# Postgres-only indexes created in migrations with raw SQL (pgvector HNSW, full-text GIN).
+UNMODELED_INDEXES = {"ix_knowledge_chunks_embedding_hnsw", "ix_knowledge_chunks_content_fts"}
+
+
 def include_object(obj, name, type_, reflected, compare_to):
     """Procrastinate's tables come from its own schema SQL, not from our models."""
+    if type_ == "index" and reflected and compare_to is None and name in UNMODELED_INDEXES:
+        return False
     return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate_"))
 
 

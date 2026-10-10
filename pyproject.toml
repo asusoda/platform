@@ -60,6 +60,9 @@ dependencies = [
     "croniter>=6.0",
     "mcp==2.2.0",
     "jsonschema>=4.20",
+    "beautifulsoup4>=4.13",
+    "lxml>=5.3",
+    "defusedxml>=0.7.1",
 ]
 
 [tool.pytest.ini_options]
@@ -131,12 +134,21 @@ ignore_imports = [
 name = "service modules do not import Flask"
 type = "forbidden"
 source_modules = [
+    "modules.accounts.providers",
+    "modules.accounts.service",
     "modules.agents.service",
+    "modules.asu.service",
     "modules.auth.machine_tokens",
     "modules.calendar.service",
+    "modules.knowledge.crawl",
+    "modules.knowledge.embedder",
+    "modules.knowledge.extract",
+    "modules.knowledge.fetch",
+    "modules.knowledge.service",
     "modules.leetcode.service",
     "modules.mcp.runtime",
     "modules.organizations.service",
     "modules.points.service",
+    "modules.runpod.service",
 ]
 forbidden_modules = ["flask"]
