@@ -61,7 +61,7 @@ The decorators are in `modules/auth/decorators.py`. `officer_route`, `machine_ro
 | `auth_required` | A platform token, from an officer of the org in the URL (`org_prefix` or `org_id`) |
 | `dual_auth_required` | A Clerk token, or a platform token. It sets `request.clerk_user_email` to the Clerk email or to the token's `username` |
 | `org_officer_required` | After `dual_auth_required`: an officer of the org in the URL |
-| `superadmin_required` | A platform token whose `discord_id` is `SYS_ADMIN` |
+| `superadmin_required` | A platform token whose `discord_id` is in `SYS_ADMIN` |
 | `member_required` | A Discord session (`session["discord_id"]`) of a member of the org's server |
 | `machine_scope_required(scope)` | A machine token with the scope. It sets `g.machine_caller` |
 

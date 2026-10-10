@@ -13,7 +13,7 @@ import jwt
 from flask import current_app, request, session
 
 from core.cache import cache
-from core.config import config
+from core.config import config, superadmin_ids
 from core.db import db_connect
 from core.http.request_log import bearer_token
 from core.integrations.discord import DiscordUnavailable
@@ -81,8 +81,7 @@ def awarded_by(typed_name: str | None) -> str | None:
 
 
 def is_superadmin(discord_id: str | None) -> bool:
-    superadmin = config.SUPERADMIN_USER_ID
-    return bool(discord_id and superadmin and str(discord_id) == str(superadmin))
+    return bool(discord_id) and str(discord_id) in superadmin_ids()
 
 
 def discord_directory():
