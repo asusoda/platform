@@ -69,6 +69,30 @@ services:
     networks:
       - soda-network
 
+  worker:
+    # Background jobs (token cleanup, CSV imports, calendar sync). Postgres only: with SQLite
+    # the API runs jobs itself, so this service is under the postgres profile.
+    image: soda-internal-api:latest
+    container_name: soda-worker
+    restart: unless-stopped
+    profiles: ["postgres"]
+    command: ["python3", "worker_main.py"]
+    depends_on:
+      - api
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./google-secret.json:/app/google-secret.json:ro
+    environment:
+      - IS_PROD=true
+      - LOG_FORMAT=json
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - soda-network
+
   web:
     build:
       context: .

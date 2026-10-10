@@ -244,6 +244,8 @@ ci:
 	@uv run ruff format --check .
 	@echo -e "$(GREEN)[INFO]$(NC) Running ty type checking..."
 	@uv run ty check .
+	@echo -e "$(GREEN)[INFO]$(NC) Checking module boundaries..."
+	@uv run lint-imports --no-cache
 	@echo -e "$(GREEN)[INFO]$(NC) Running tests, including the API contract tests..."
 	@uv run pytest -v
 	@echo -e "$(GREEN)[INFO]$(NC) Checking alembic migrations against a fresh database..."

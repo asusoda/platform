@@ -3,12 +3,12 @@ import os
 
 from flask import Blueprint, current_app, jsonify, request
 
+from core.logging_config import get_logger
 from modules.auth.access import any_officer_denial
-from modules.utils.logging_config import get_logger
 from shared import db_connect as db
 
 # Get module logger
-logger = get_logger("bot.api")
+logger = get_logger("games.api")
 
 game_blueprint = Blueprint("game", __name__, template_folder=None, static_folder=None)
 # bot_running is a complex state now, depends on whether the auth_bot thread is alive and bot is logged in.

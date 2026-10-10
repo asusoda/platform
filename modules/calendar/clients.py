@@ -464,9 +464,10 @@ class GoogleCalendarClient:
 class NotionCalendarClient:
     """Client for Notion calendar-related operations."""
 
-    def __init__(self, logger_instance=None):
+    def __init__(self, logger_instance=None, token: str | None = None):
         self.logger = logger_instance or logger  # Use shared logger by default
-        self.notion: NotionClient = notion_shared_client  # Use shared Notion client instance
+        # An org's own integration token if given, else the shared instance-wide client
+        self.notion: NotionClient = NotionClient(auth=token) if token else notion_shared_client
         self.error_handler = APIErrorHandler(self.logger, "NotionCalendarClient")
 
     def fetch_events(self, database_id: str, parent_transaction=None) -> list[dict] | None:  # Accept parent transaction

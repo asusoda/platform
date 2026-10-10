@@ -2,9 +2,9 @@ import uuid
 
 import discord
 
-from modules.bot.discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
-from modules.bot.discord_modules.cogs.jeopardy.Team import Team
-from modules.utils.logging_config import get_logger
+from core.logging_config import get_logger
+from modules.games.jeopardy.JeopardyQuestion import JeopardyQuestion
+from modules.games.jeopardy.Team import Team
 
 logger = get_logger(__name__)
 

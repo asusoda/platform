@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
-from modules.utils.base import Base
+from core.base import Base
 
 
 # Database Models

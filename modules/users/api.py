@@ -184,7 +184,7 @@ def create_user_in_org(org_prefix):
 
             # If email already exists, return the existing user instead of failing
             if user_email:
-                from modules.utils.logging_config import get_logger
+                from core.logging_config import get_logger
 
                 logger_module = get_logger(__name__)
                 logger_module.warning(f"Duplicate email found for {user_email}, returning existing user.")
@@ -312,7 +312,7 @@ def user_in_org(org_prefix):
 
                     # If email already exists, return the existing user instead of failing
                     if user_email:
-                        from modules.utils.logging_config import get_logger
+                        from core.logging_config import get_logger
 
                         logger_module = get_logger(__name__)
                         logger_module.warning(f"Duplicate email found for {user_email}, returning existing user.")

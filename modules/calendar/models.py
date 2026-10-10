@@ -6,7 +6,7 @@ from typing import Any, Optional
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from modules.utils.base import Base
+from core.base import Base
 
 # Import helpers from the new utils module
 from .utils import DateParser, extract_property, logger  # Added logger import

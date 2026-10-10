@@ -26,7 +26,7 @@ no database server. This is a real constraint: SQLite handles one writer at a ti
 concurrent writes will block.
 
 In production a third container, `soda-bot`, runs `bot_main.py`: the Discord bot, from the same
-image. The API reads Discord through the REST API (`modules/utils/discord_directory.py`) and does
+image. The API reads Discord through the REST API (`core/discord_directory.py`) and does
 not need the bot. The sections below describe `python3 main.py`, which still starts the bot in a
 thread for local development unless `RUN_BOT_IN_API=false`.
 
@@ -45,7 +45,6 @@ main.py imported
     │   └─ creates ./data/, creates all tables                      │  no app factory.
     ├─ builds `tokenManager` (loads or generates RSA keypair)       │
     ├─ Base.metadata.create_all()                                   │
-    ├─ starts a daemon thread: refresh-token cleanup, every 1 hour  │
     ├─ builds the Notion client                                     │
     └─ builds a BotFork instance (see gotcha: this one is unused)   ┘
 
@@ -69,8 +68,34 @@ main.py `initialize_app()` (only when run as __main__)
 |--------|-----------|--------------|
 | Main | `main.py:initialize_app` | The Flask dev server (`app.run`), handling HTTP |
 | `AuthBotThread` (daemon) | `main.py:114` | Owns its own asyncio loop, runs the Discord bot |
-| cleanup thread (daemon) | `shared.py:98` | Every 3600s, deletes expired rows from `refresh_tokens` |
+| `job-scheduler` (daemon, SQLite only) | `core/jobs.py:start_inline_scheduler`, called from `main.py` | Runs periodic jobs, e.g. hourly refresh-token cleanup. On Postgres the worker process runs them instead. |
 | py-cord task loops | inside `AuthBotThread` | `post_daily` (every 24h at a fixed time) and `verify_loop` (every 10 min while a daily challenge is live) |
+
+### Background jobs
+
+Modules declare jobs in a `jobs.py` with `@job(name, cron=..., retry=...)` from `core/jobs.py`,
+list that file in `JOB_MODULES` in `modules/registry.py`, and start one with
+`jobs.defer(name, **kwargs)`.
+
+| Job | Schedule | What it does |
+|-----|----------|--------------|
+| `auth.cleanup_tokens` | hourly | Deletes expired refresh tokens |
+| `points.import_event_csv` | on CSV upload | Awards event points from an attendance CSV |
+| `calendar.sync_all` | `CALENDAR_SYNC_CRON`, unset by default | Notion to Google sync for every enabled org |
+| `audit.prune` | daily, 03:30 | Deletes audit rows older than `AUDIT_RETENTION_DAYS` |
+
+Every run of a job declared with `audit=True` (the default) is written to `audit_log`.
+
+How they run depends on the database:
+
+- **Postgres:** Procrastinate. `defer` inserts a row in `procrastinate_jobs`; the `worker` compose
+  service (`worker_main.py`, postgres profile) runs it, retries failures, and schedules periodic
+  jobs. Job history is the `procrastinate_jobs` table. The schema comes from the Alembic migration
+  `e4b8c1f0a7d3`; upgrading procrastinate needs a migration that applies its SQL migrations.
+- **SQLite:** no queue. `defer` runs the job in a thread of the calling process and periodic jobs
+  run from a thread in the API, which is what the platform did before. `worker_main.py` exits.
+
+`JOBS_BACKEND=inline|procrastinate` overrides the choice; the tests use `inline`.
 
 Because the bot lives in a separate thread with its own event loop, Flask request handlers cannot
 `await` bot calls. Instead they call **synchronous** helper methods on the bot object
@@ -130,14 +155,26 @@ Every folder under `modules/` follows the same shape:
 ```
 modules/<name>/
 ├── api.py       Blueprint + route handlers. This is the module's public surface.
-├── models.py    SQLAlchemy models, all inheriting from modules/utils/base.py:Base
+├── models.py    SQLAlchemy models, all inheriting from core/base.py:Base
 └── README.md    Older, module-local notes (treat as historical — see Gotchas)
 ```
 
 Some modules add more: `calendar/` has `service.py`, `clients.py`, `utils.py`, `errors.py`;
-`bot/` has the whole `discord_modules/` tree; `organizations/` has `config.py`.
+`bot/` has the Discord client (`discord_modules/`), `games/` and `leetcode/` have a `cog.py` the bot loads; `organizations/` has `config.py`.
 
-Blueprints are registered in `main.py` with these prefixes:
+Shared code that is not a feature lives in `core/` (database, config, tokens, logging, Discord
+REST client, Clerk). `core/` must not import from `modules/`; three existing imports are listed as
+exceptions in `pyproject.toml` until they are moved.
+
+Module logic is moving into a `service.py` per module that takes a DB session and plain values and
+does not import Flask. The REST routes, the bot, scheduled jobs and (later) MCP tools call the same
+functions. `calendar/service.py` is the first one done: `find_organization`, `list_events`,
+`sync_organization`, `setup_calendar`, `sync_all`, raising `CalendarError(message, status)`.
+
+`make ci` runs `lint-imports` (import-linter) to enforce both rules. Add a module's `service` to the
+"service modules do not import Flask" contract in `pyproject.toml` when it gets one.
+
+Blueprints are mounted by `modules/registry.py` (`MOUNTS`), which `main.py` calls, with these prefixes:
 
 | Blueprint | URL prefix |
 |-----------|-----------|
@@ -146,10 +183,15 @@ Blueprints are registered in `main.py` with these prefixes:
 | `users_blueprint` | `/api/users` |
 | `auth_blueprint` | `/api/auth` |
 | `calendar_blueprint` | `/api/calendar` |
-| `game_blueprint` (from `modules/bot`) | `/api/bot` |
+| `game_blueprint` (from `modules/games`) | `/api/bot` |
 | `organizations_blueprint` | `/api/organizations` |
 | `superadmin_blueprint` | `/api/superadmin` |
 | `storefront_blueprint` | `/api/storefront` |
+
+Points, storefront and calendar are optional: an officer can turn them off for their org, and then
+that org's routes in the module return 404 (the public leaderboard follows the points switch).
+Switches live in `Organization.config["modules"]`; a missing entry means on, so existing orgs are
+unchanged. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`.
 
 Plus `GET /health`, defined directly in `main.py`, which returns the git commit hash and process
 start time — that is how you confirm which build is live.
@@ -192,10 +234,10 @@ It also means if the bot is offline, nobody can prove they are an officer.
 
 | Service | Used for | Where |
 |---------|----------|-------|
-| Discord (gateway + REST) | Login, role/membership checks, the bot itself | `modules/bot/`, `modules/auth/api.py` |
-| Clerk | Auth for the public-facing member storefront | `modules/utils/clerk_auth.py` |
+| Discord (gateway + REST) | Login, role/membership checks, the bot itself | `modules/bot/`, `modules/games/`, `modules/leetcode/`, `modules/auth/api.py` |
+| Clerk | Auth for the public-facing member storefront | `core/clerk_auth.py` |
 | Notion | Source of truth for club events | `modules/calendar/clients.py:NotionCalendarClient` |
 | Google Calendar | Destination for synced events | `modules/calendar/clients.py:GoogleCalendarClient` |
-| LeetCode GraphQL | Daily/random problems, verifying solves | `modules/bot/discord_modules/utils/leetcode.py` |
+| LeetCode GraphQL | Daily/random problems, verifying solves | `modules/leetcode/client.py` |
 | Sentry | Errors, logs, and calendar-sync performance traces | `shared.py`, `modules/calendar/utils.py` |
 | Google Sheets | One-off distinguished-member import | `modules/users/user_reader.py` (not wired to any route) |

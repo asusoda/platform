@@ -5,9 +5,9 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from core.db import DBConnect
+from core.logging_config import get_logger
 from modules.points.models import User
-from modules.utils.db import DBConnect
-from modules.utils.logging_config import get_logger
 
 # Get module logger
 logger = get_logger("users.reader")

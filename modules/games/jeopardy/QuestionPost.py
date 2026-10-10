@@ -1,5 +1,6 @@
 import discord
-from discord_modules.cogs.jeopardy.JeopardyQuestion import JeopardyQuestion
+
+from modules.games.jeopardy.JeopardyQuestion import JeopardyQuestion
 
 
 class QuestionPost(discord.ui.View):

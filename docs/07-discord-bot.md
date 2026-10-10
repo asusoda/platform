@@ -17,8 +17,8 @@ loop.run_until_complete(auth_bot_instance.start(config.BOT_TOKEN))
 `shared.py:create_auth_bot(loop)` builds a `BotFork` with `Intents.default()` plus `members` and
 `guilds`, then registers three cogs:
 
-- `HelperCog`
-- `GameCog`
+- `HelperCog` (`modules/bot/discord_modules/cogs/HelperCog.py`)
+- `GameCog` (`modules/games/cog.py`)
 - `LeetCodeCog(bot, db_connect, channel_id, role_ping, daily_time, timezone)` — the LeetCode config
   values are parsed from the env here, with warnings (not crashes) on bad values.
 
@@ -52,8 +52,8 @@ Jeopardy HTTP endpoints work at all.
 
 ## `LeetCodeCog` — the daily challenge
 
-`modules/bot/discord_modules/cogs/LeetCodeCog.py`, with GraphQL calls in
-`modules/bot/discord_modules/utils/leetcode.py`.
+`modules/leetcode/cog.py`, with GraphQL calls in `modules/leetcode/client.py` and database reads
+and writes in `modules/leetcode/service.py`.
 
 ### Slash commands
 
@@ -134,7 +134,7 @@ reaction, and reacting adds you as a player.
 
 Three layers:
 
-### 1. Game model — `discord_modules/cogs/jeopardy/`
+### 1. Game model — `modules/games/jeopardy/`
 
 Pure Python, no Discord dependency beyond type hints:
 
@@ -145,7 +145,7 @@ Pure Python, no Discord dependency beyond type hints:
 - **`Team`** — name, score, member ids, and the Discord role attached to it.
 - **`QuestionPost`** — a button view for a posted question.
 
-### 2. Discord orchestration — `GameCog`
+### 2. Discord orchestration — `GameCog` (`modules/games/cog.py`)
 
 Holds all live game state as **instance attributes on the cog** (`game`, `game_category`, `roles`,
 `announcement_channel`, `voice_channels`, `scoreboard_channel`, `gameboard`, `question_post`,
@@ -165,7 +165,7 @@ teams (`balance_teams`), assigns Discord roles, and renders the scoreboard and g
 Then `show_question` / `show_answer` / `award_points` / `update_scoreboard` / `update_gameboard` /
 `end_game` drive the game.
 
-### 3. HTTP control — `modules/bot/api.py`
+### 3. HTTP control — `modules/games/api.py`
 
 The React `GamePanel` / `ActiveGame` pages drive the game over HTTP. Each route validates input,
 reads or writes the `jeopardy_game` / `active_game` tables, and calls

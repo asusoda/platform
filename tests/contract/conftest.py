@@ -1,5 +1,6 @@
 """Fixtures for the API contract tests: the Flask app, seeded data, and stand-ins for Discord, Clerk and Notion."""
 
+import copy
 import uuid
 
 import pytest
@@ -126,7 +127,7 @@ def app():
 @pytest.fixture(autouse=True)
 def stubs(app, monkeypatch):
     """Replace Clerk and Notion with local stand-ins so no test reaches the network."""
-    import modules.utils.clerk_auth as clerk_auth
+    import core.clerk_auth as clerk_auth
 
     monkeypatch.setattr(clerk_auth, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
     monkeypatch.setattr(app.multi_org_calendar_service.notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
@@ -157,3 +158,21 @@ def officer_headers(app):
 @pytest.fixture
 def clerk_headers():
     return {"Authorization": "Bearer clerk-session-token"}
+
+
+@pytest.fixture
+def restore_soda_config(app):
+    """Put SoDA's config JSON back after a test that changes it (the contract snapshots read it)."""
+    from modules.organizations.models import Organization
+    from shared import db_connect
+
+    db = db_connect.SessionLocal()
+    original = copy.deepcopy(db.query(Organization).filter_by(prefix="soda").one().config)
+    db.close()
+    yield
+    db = db_connect.SessionLocal()
+    try:
+        db.query(Organization).filter_by(prefix="soda").one().config = original
+        db.commit()
+    finally:
+        db.close()

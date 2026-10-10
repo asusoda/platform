@@ -7,7 +7,7 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from modules.utils.logging_config import get_logger
+from core.logging_config import get_logger
 
 logger = get_logger(__name__)
 

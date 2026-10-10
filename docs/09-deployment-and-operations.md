@@ -50,7 +50,7 @@ Stage 2: node:18-alpine
 
 ## Compose
 
-`docker-compose.yml` defines three services on a `soda-network` bridge with `restart: unless-stopped`
+`docker-compose.yml` defines these services on a `soda-network` bridge with `restart: unless-stopped`
 and JSON log rotation (10 MB × 3 files):
 
 - `api`: gunicorn serving `main:app` with one worker and 8 threads. One worker because SQLite takes
@@ -59,6 +59,8 @@ and JSON log rotation (10 MB × 3 files):
 - `bot`: `python3 bot_main.py`, the Discord bot (LeetCode daily post, helper and game cogs), from the
   same image. Exactly one must run, or scheduled posts go out more than once.
 - `web`: the static React bundle.
+- `postgres` and `worker` (profile `postgres`, off by default): the database and the job worker
+  (`python3 worker_main.py`). With SQLite the API runs jobs itself and the worker is not needed.
 
 The game control routes (`/api/bot/*`) call the bot's cogs directly, so with the bot in its own
 process they return 503. The web app's game screens already called the wrong paths. Phase 3 moves
@@ -173,13 +175,32 @@ Steps, rehearsed on staging first:
    It refuses non-empty tables and exits non-zero if any table's row count or any org's points
    total differs.
 5. Set `DATABASE_URL=postgresql://platform:<password>@postgres:5432/platform` in `.env` and
-   `docker compose up -d`.
+   `docker compose --profile postgres up -d`. The API's `alembic upgrade head` creates the job
+   queue tables, and the `worker` service starts running jobs.
 6. Keep `data/user.db` for at least two weeks. Rollback is removing `DATABASE_URL` and restarting.
 
 Keep gunicorn at one worker until the switch; afterwards raise `--workers` in `docker-compose.yml`
 once login codes move to the database (they are in memory today).
 
 ## Operational recipes
+
+### Command-line tools
+
+Run inside the API container (`make shell`) or locally with the same `.env`:
+
+```bash
+flask --app main config check     # required settings, database, migrations; non-zero exit on failure
+flask --app main org list
+flask --app main org create --name "AI Society" --prefix ais --guild-id <discord server id> \
+    --officer-role-id <role id> --off points,storefront,calendar
+flask --app main org modules ais --on calendar
+flask --app main jobs list
+flask --app main jobs run calendar.sync_all
+flask --app main jobs run points.import_event_csv -a org_prefix=soda -a event_name=X -a event_points=5 -a file_content=...
+```
+
+`jobs run` runs the job in the shell's process, not through the queue, and records it in the audit
+log like any other run.
 
 ### Which build is live?
 
@@ -203,7 +224,7 @@ for request and access lines their `key=value` fields, such as `route`, `status`
 `reason`). Without it, logs are colour-formatted by `colorlog` at INFO; the dev override sets
 `LOG_FORMAT=text`. There is a lot of DEBUG-level detail in
 `decoraters.py` and `bot.py` that will not appear unless you lower the level in
-`modules/utils/logging_config.py`.
+`core/logging_config.py`.
 
 ### Shell into the API
 

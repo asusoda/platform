@@ -7,8 +7,8 @@ running side by side. Read this page before touching anything auth-related.
 
 | System | Who uses it | Credential | Verified by |
 |--------|-------------|-----------|-------------|
-| **Discord OAuth + local JWT** | Officers, in the admin web app | RS256 JWT issued by this API | `modules/utils/TokenManager.py` |
-| **Clerk** | Members, on the public storefront | Clerk session token | `modules/utils/clerk_auth.py` (Clerk SDK) |
+| **Discord OAuth + local JWT** | Officers, in the admin web app | RS256 JWT issued by this API | `core/TokenManager.py` |
+| **Clerk** | Members, on the public storefront | Clerk session token | `core/clerk_auth.py` (Clerk SDK) |
 | **Flask session cookie** | Member store login, legacy paths | Signed cookie | Flask's built-in session |
 
 They overlap. Some endpoints accept exactly one; some accept either; the storefront accepts all
@@ -50,7 +50,7 @@ This is the main admin path. End to end:
 
 Two consequences worth flagging:
 
-- **Discord lookups use the REST API, not the bot.** `modules/utils/discord_directory.py` reads
+- **Discord lookups use the REST API, not the bot.** `core/discord_directory.py` reads
   guilds, roles and members with `BOT_TOKEN`, so the API answers while the bot process is down. If
   `BOT_TOKEN` is unset or Discord is unreachable, `/callback` returns `503`.
 - **Login codes are held in the API process's memory.** This works because `main.py` runs one
@@ -58,7 +58,7 @@ Two consequences worth flagging:
 
 ### The tokens themselves
 
-`TokenManager` (`modules/utils/TokenManager.py`):
+`TokenManager` (`core/TokenManager.py`):
 
 - Algorithm **RS256**, with an RSA keypair stored at `./data/jwt_private.pem` /
   `./data/jwt_public.pem`. Generated on first boot, `chmod 600` on the private key, and reloaded on
@@ -86,7 +86,7 @@ Note: when the token comes from the Flask session (`session["token"]`), the curr
 
 ## System 2: Clerk (the member storefront)
 
-`modules/utils/clerk_auth.py`.
+`core/clerk_auth.py`.
 
 `verify_clerk_token(token)`:
 

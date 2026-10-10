@@ -1,7 +1,5 @@
 import asyncio
 import os
-import threading
-import time
 
 import discord
 import sentry_sdk
@@ -10,12 +8,13 @@ from flask_cors import CORS
 from notion_client import Client
 from sentry_sdk.integrations.flask import FlaskIntegration
 
+from core.config import Config
+from core.db import DBConnect
+from core.logging_config import logger
+from core.TokenManager import TokenManager
+
 # Import custom BotFork class
 from modules.bot.discord_modules.bot import BotFork
-from modules.utils.config import Config
-from modules.utils.db import DBConnect
-from modules.utils.logging_config import logger
-from modules.utils.TokenManager import TokenManager
 
 # Initialize Flask app
 app = Flask(
@@ -66,31 +65,6 @@ db_connect = DBConnect(os.environ.get("DATABASE_URL", "sqlite:///./data/user.db"
 tokenManager = TokenManager()
 
 
-# Periodic cleanup of expired refresh tokens
-def cleanup_expired_tokens():
-    """Clean up expired refresh tokens periodically"""
-    try:
-        tokenManager.cleanup_expired_refresh_tokens()
-        logger.info("Cleaned up expired refresh tokens")
-    except Exception as e:
-        logger.error(f"Error cleaning up expired tokens: {e}")
-
-
-# Schedule cleanup every hour
-
-
-def run_cleanup_scheduler():
-    """Run the cleanup scheduler in a separate thread"""
-    while True:
-        cleanup_expired_tokens()
-        time.sleep(3600)
-
-
-# Start cleanup scheduler in background thread
-cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
-cleanup_thread.start()
-
-
 def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
     """Create and configure the auth bot (BotFork) instance with a specific event loop."""
     logger.info("Creating auth bot instance (BotFork)...")
@@ -100,9 +74,9 @@ def create_auth_bot(loop: asyncio.AbstractEventLoop) -> BotFork:
 
     auth_bot_instance = BotFork(intents=intents, loop=loop)
     try:
-        from modules.bot.discord_modules.cogs.GameCog import GameCog
         from modules.bot.discord_modules.cogs.HelperCog import HelperCog
-        from modules.bot.discord_modules.cogs.LeetCodeCog import LeetCodeCog
+        from modules.games.cog import GameCog
+        from modules.leetcode.cog import LeetCodeCog
 
         auth_bot_instance.add_cog(HelperCog(auth_bot_instance))
         auth_bot_instance.add_cog(GameCog(auth_bot_instance))

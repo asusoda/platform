@@ -6,7 +6,7 @@ interesting logic lives.
 
 ---
 
-## `modules/utils` — the foundation
+## `core` — the foundation
 
 Everything else imports from here. Nothing here imports from other domain modules (except lazily,
 inside functions, to break cycles).
@@ -51,6 +51,9 @@ resolved from SoDA's own Discord server** regardless of which org the user belon
 - **`api.py`** — read/update endpoints for an org, its stats, its recent activity, its settings, its
   calendar config, and its Discord roles. All `@auth_required`, all keyed by numeric `org_id`
   (unlike most of the codebase, which uses `org_prefix`).
+- **`service.py`** — Flask-free: `OPTIONAL_MODULES`, `module_enabled(org, name)`,
+  `module_states(org)`, `set_modules(db, org, changes)`. Module switches are stored in
+  `Organization.config["modules"]`; anything not listed is on.
 
 `GET /api/organizations/` is what the frontend uses to build the org switcher.
 
@@ -69,7 +72,7 @@ The largest module (~1300 lines). Two halves: shared helper functions, then rout
 | `get_or_create_user(discord_id, org_id, username)` | Wrapper for Discord-originated users. |
 | `link_or_create_user(org_id, user_data, discord_id)` | Wrapper for member-store logins. |
 | `get_or_create_user_from_clerk(db, org_id, clerk_user, email)` | Wrapper for Clerk users. Derives a name from Clerk's first/last name, falling back to the email local part. Also called from the storefront checkout. |
-| `process_csv_in_background(...)` | Parses an uploaded attendance CSV and awards points row by row, in a background thread. |
+| `process_csv_in_background(...)` | Parses an uploaded attendance CSV and awards points row by row. Run by the `points.import_event_csv` job. |
 
 ### Routes
 
@@ -85,10 +88,10 @@ Officer (`@auth_required`): user CRUD, `add_points`, `assign_points` (aliased as
 
 ### CSV upload
 
-`POST /<org_prefix>/uploadEventCSV` reads the file **into memory**, then spawns a plain
-`threading.Thread` to process it and returns 202-style immediately. Consequences: no progress
-reporting, no result reporting, errors only reach the log, and the work dies if the process
-restarts mid-run. Fine for a few hundred rows; do not feed it a huge file.
+`POST /<org_prefix>/uploadEventCSV` reads the file **into memory**, defers the
+`points.import_event_csv` job with the file contents, and returns 202. On Postgres the worker runs
+it and a restart does not lose it; on SQLite it runs in a thread and dies with the process. Either
+way there is no progress or result reporting and errors only reach the log.
 
 ---
 
@@ -175,7 +178,7 @@ Four files plus models:
 | File | Role |
 |------|------|
 | `clients.py` | `GoogleCalendarClient` (create/update/get/batch-delete events; create/get/list/delete calendars) and `NotionCalendarClient` (query a database, write a gcal id back to a page). |
-| `service.py` | `MultiOrgCalendarService` — the orchestration. Also a thin legacy `CalendarService`. |
+| `service.py` | `MultiOrgCalendarService`, the orchestration, plus Flask-free functions the routes call (`find_organization`, `list_events`, `sync_organization`, `setup_calendar`, `sync_all`). Also a thin legacy `CalendarService`. |
 | `models.py` | `CalendarEventDTO` (a dataclass, `from_notion()` → `to_gcal_format()` / `to_frontend_format()`) and the `CalendarEventLink` table. |
 | `utils.py` | `DateParser` (parse Notion dates, `ensure_end_date` defaults to +1 hour or a 1-day all-day span), `extract_property` (pull a typed value out of Notion's property JSON), `operation_span` (Sentry tracing), `batch_operation` (Google batch API helper). |
 | `errors.py` | `APIErrorHandler` — normalises Google `HttpError`, Notion `APIResponseError`, and generic exceptions into Sentry-tagged logs. |
@@ -207,28 +210,31 @@ org.last_sync_at = now
 
 ### Sync is manual
 
-**There is no background scheduler for calendar sync.** Older documentation claims it runs every
-120 minutes; no such thread exists in the code. Sync happens only when something calls
-`POST /api/calendar/<org_prefix>/sync` or `POST /api/calendar/sync-all`. If you want it periodic,
-you need an external cron hitting those endpoints, or a new thread.
+**Calendar sync is not scheduled by default.** Sync happens when something calls
+`POST /api/calendar/<org_prefix>/sync` or `POST /api/calendar/sync-all`. To make it periodic, set
+`CALENDAR_SYNC_CRON` (for example `0 */2 * * *`) and the `calendar.sync_all` job runs on that
+schedule.
 
 ---
 
-## `modules/bot` — Discord
+## `modules/bot`, `modules/games`, `modules/leetcode` — Discord
 
-Covered in full in [Discord Bot](./07-discord-bot.md). Structurally:
+Covered in full in [Discord Bot](./07-discord-bot.md). `bot` is the Discord client; games and
+LeetCode are their own modules that the bot loads as cogs:
 
 ```
-modules/bot/
+modules/bot/discord_modules/
+├── bot.py                          BotFork (extends commands.Bot)
+└── cogs/HelperCog.py               Guild plumbing: channels, roles, messages, reactions
+modules/games/
 ├── api.py                          HTTP control surface for Jeopardy (/api/bot/*)
-├── models.py                       jeopardy_game, active_game, leetcode_link, leetcode_solve
-└── discord_modules/
-    ├── bot.py                      BotFork (extends commands.Bot)
-    ├── cogs/
-    │   ├── HelperCog.py            Guild plumbing: channels, roles, messages, reactions
-    │   ├── GameCog.py              Jeopardy orchestration inside Discord
-    │   ├── LeetCodeCog.py          Daily challenge, verification, slash commands
-    │   ├── UI.py                   discord.ui.View button components
-    │   └── jeopardy/               Pure game model: Jeopardy, JeopardyQuestion, Team, QuestionPost
-    └── utils/leetcode.py           LeetCode GraphQL client
+├── models.py                       jeopardy_game, active_game
+├── cog.py                          GameCog: Jeopardy orchestration inside Discord
+├── ui.py                           discord.ui.View button components
+└── jeopardy/                       Pure game model: Jeopardy, JeopardyQuestion, Team, QuestionPost
+modules/leetcode/
+├── models.py                       leetcode_link, leetcode_solve
+├── service.py                      Links, solves, leaderboard, stats (no Flask, no Discord)
+├── client.py                       LeetCode GraphQL client
+└── cog.py                          LeetCodeCog: daily post, verification, slash commands
 ```

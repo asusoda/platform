@@ -81,27 +81,27 @@ All core functionality is organized in `/modules/` with consistent structure:
 - `models.py` - SQLAlchemy database models  
 - `README.md` - Module documentation
 
-Active modules: auth, bot, calendar, merch, organizations, points, public, superadmin, users, utils
+Active modules: auth, bot, calendar, games, leetcode, organizations, points, public, storefront, superadmin, users. Shared code (database, config, tokens, logging, Discord client) is in `core/`.
 
 #### Database Architecture
 - SQLite database (`./data/user.db`) with SQLAlchemy ORM
-- Base model class in `modules/utils/base.py`
+- Base model class in `core/base.py`
 - Centralized connection management via `DBConnect` class
-- Automatic table creation on startup
+- Schema managed by Alembic migrations (`alembic upgrade head`); no table creation at startup
 
 #### Discord Integration
 - **Auth Bot**: BotFork instance with HelperCog and GameCog for server management
 - Bot runs in separate asyncio event loop in daemon thread
 - Bot token managed via environment variable (`BOT_TOKEN`)
 
-#### Background Services
-- **Calendar Sync Service**: Syncs Notion data to Google Calendar (runs every 120 minutes)
-- **Token Cleanup**: Automatic cleanup of expired refresh tokens (runs hourly)
-- **Multi-org Calendar Service**: Handles calendar operations across organizations
+#### Background Jobs
+- Declared per module in `jobs.py` with `@job` from `core/jobs.py`, listed in `modules/registry.py`
+- Postgres: Procrastinate queue, run by `worker_main.py`. SQLite: run in threads of the API process
+- Hourly refresh-token cleanup, CSV point imports, calendar sync when `CALENDAR_SYNC_CRON` is set
 
 ### Configuration Management
 - Environment variables via `.env` file (not tracked in git)
-- `Config` class in `modules/utils/config.py` centralizes configuration
+- `Config` class in `core/config.py` centralizes configuration
 - Organization-specific configs stored in database
 - Sentry integration for error monitoring
 

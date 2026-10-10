@@ -8,18 +8,13 @@ from datetime import UTC, datetime
 import discord
 from flask import jsonify  # Import current_app
 
-from modules.auth.api import auth_blueprint
-from modules.bot.api import game_blueprint
-from modules.calendar.api import calendar_blueprint
-from modules.calendar.service import MultiOrgCalendarService
-from modules.organizations.api import organizations_blueprint
-from modules.points.api import points_blueprint
-from modules.public.api import public_blueprint
-from modules.storefront.api import storefront_blueprint
-from modules.superadmin.api import superadmin_blueprint
-from modules.users.api import users_blueprint
-from modules.utils.discord_directory import DiscordDirectory
-from modules.utils.request_log import register_request_logging
+from core import jobs
+from core.audit import register_audit
+from core.discord_directory import DiscordDirectory
+from core.request_log import register_request_logging
+from modules.calendar import service as calendar_service
+from modules.cli import register_cli
+from modules.registry import load_jobs, register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Session cookies are signed with this key. A known default would let anyone forge a session,
@@ -33,8 +28,8 @@ if not app.secret_key:
 app.discord_directory = DiscordDirectory(config.BOT_TOKEN)
 
 # Initialize multi-organization calendar service
-multi_org_calendar_service = MultiOrgCalendarService(logger)
-app.multi_org_calendar_service = multi_org_calendar_service
+# Kept on the app for code that still reads it; the same instance calendar.service uses
+app.multi_org_calendar_service = calendar_service.get_service()
 
 
 def get_git_commit_hash():
@@ -81,16 +76,19 @@ def health():
 # Log one structured line per API request
 register_request_logging(app, tokenManager)
 
+# Record every successful API write in the audit_log table
+register_audit(app, tokenManager)
+
 # Register Blueprints
-app.register_blueprint(public_blueprint, url_prefix="/api/public")
-app.register_blueprint(points_blueprint, url_prefix="/api/points")
-app.register_blueprint(users_blueprint, url_prefix="/api/users")
-app.register_blueprint(auth_blueprint, url_prefix="/api/auth")
-app.register_blueprint(calendar_blueprint, url_prefix="/api/calendar")
-app.register_blueprint(game_blueprint, url_prefix="/api/bot")
-app.register_blueprint(organizations_blueprint, url_prefix="/api/organizations")
-app.register_blueprint(superadmin_blueprint, url_prefix="/api/superadmin")
-app.register_blueprint(storefront_blueprint, url_prefix="/api/storefront")
+register_modules(app)
+
+# Background jobs. On Postgres the worker process (worker_main.py) runs them; on SQLite
+# periodic jobs run from a thread here, as the token cleanup always has.
+load_jobs()
+jobs.start_inline_scheduler()
+
+# `flask --app main org|jobs|config ...`
+register_cli(app)
 # Static file serving for the frontend is configured elsewhere (no Flask route defined here).
 
 

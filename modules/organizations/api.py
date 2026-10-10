@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from modules.auth.access import visible_org_filter
 from modules.auth.decoraters import auth_required
+from modules.organizations import service
 from modules.organizations.models import Organization
 from shared import db_connect
 
@@ -17,7 +18,7 @@ def get_organizations():
     """Get all organizations the user has access to"""
     try:
         db = next(db_connect.get_db())
-        organizations = db.query(Organization).filter_by(is_active=True).all()
+        organizations = db.query(Organization).filter_by(is_active=True).order_by(Organization.id).all()
         visible = visible_org_filter()
         if visible is not None:
             organizations = [org for org in organizations if str(org.guild_id) in visible]
@@ -119,7 +120,11 @@ def update_organization_settings(org_id):
 
         # Update organization settings
         if "config" in data:
+            # Module switches are changed through /modules; keep them when the rest of config is replaced
+            modules = (org.config or {}).get("modules")
             org.config = data["config"]
+            if modules is not None and isinstance(org.config, dict) and "modules" not in org.config:
+                org.config = {**org.config, "modules": modules}
         if "prefix" in data:
             new_prefix = data["prefix"].strip()
 
@@ -226,3 +231,115 @@ def get_organization_roles(org_id):
     except Exception:
         logging.exception("Error while fetching organization roles for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500
+
+
+@organizations_blueprint.route("/<int:org_id>/modules", methods=["GET"])
+@auth_required
+def get_organization_modules(org_id):
+    """Which optional modules are on for this organization."""
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        return jsonify({"modules": service.module_states(org)})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/modules", methods=["PUT"])
+@auth_required
+def update_organization_modules(org_id):
+    """Turn optional modules on or off. Body: {"modules": {"storefront": false}}."""
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        try:
+            states = service.set_modules(db, org, data.get("modules"))
+        except service.ModuleError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"modules": states})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/audit", methods=["GET"])
+@auth_required
+def get_organization_audit(org_id):
+    """Recent changes in this organization, newest first. ?limit=100&before_id=<id> to page."""
+    from core import audit
+
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        entries = audit.list_entries(
+            db,
+            org=org.prefix,
+            limit=request.args.get("limit", 100, type=int),
+            before_id=request.args.get("before_id", type=int),
+        )
+        return jsonify({"entries": entries})
+    finally:
+        db.close()
+
+
+def _active_org(db, org_id):
+    return db.query(Organization).filter_by(id=org_id, is_active=True).first()
+
+
+@organizations_blueprint.route("/<int:org_id>/secrets", methods=["GET"])
+@auth_required
+def list_organization_secrets(org_id):
+    """Which secrets this org has saved. Values are never returned."""
+    from core import secrets
+
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        return jsonify({"configured": secrets.configured(), "secrets": secrets.list_secrets(db, org_id)})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/secrets/<string:name>", methods=["PUT"])
+@auth_required
+def set_organization_secret(org_id, name):
+    """Save a secret. Body: {"value": "..."}."""
+    from core import secrets
+    from modules.auth.access import current_principal
+
+    data = request.get_json(silent=True) or {}
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        principal = current_principal()
+        try:
+            secrets.set_secret(db, org_id, name, data.get("value"), principal.discord_id if principal else None)
+        except secrets.SecretsError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"name": name, "set": True})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/secrets/<string:name>", methods=["DELETE"])
+@auth_required
+def delete_organization_secret(org_id, name):
+    from core import secrets
+
+    db = next(db_connect.get_db())
+    try:
+        if not _active_org(db, org_id):
+            return jsonify({"error": "Organization not found"}), 404
+        if not secrets.delete_secret(db, org_id, name):
+            return jsonify({"error": "Secret not set"}), 404
+        return jsonify({"name": name, "set": False})
+    finally:
+        db.close()

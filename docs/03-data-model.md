@@ -8,11 +8,11 @@ One SQLite file: `./data/user.db`. The URL is hardcoded in `shared.py`:
 db_connect = DBConnect("sqlite:///./data/user.db")
 ```
 
-`DBConnect` (`modules/utils/db.py`) creates the engine with `check_same_thread=False` — required
+`DBConnect` (`core/db.py`) creates the engine with `check_same_thread=False` — required
 because the bot thread and the Flask threads share the same engine — and builds a `sessionmaker`
 called `SessionLocal`.
 
-All models inherit from one declarative base, `modules/utils/base.py:Base`. That single `Base` is
+All models inherit from one declarative base, `core/base.py:Base`. That single `Base` is
 what makes `Base.metadata.create_all()` and Alembic autogenerate see every table.
 
 ## Entity relationship overview
@@ -141,7 +141,7 @@ created but the live sync path does not depend on it.
 
 `token` (a SHA-256 **hash** of the actual refresh token, not the token itself), `username`,
 `discord_id`, `expires_at`, `created_at`. Persisted so refresh tokens survive an API restart. The
-hourly cleanup thread deletes expired rows.
+hourly `auth.cleanup_tokens` job deletes expired rows.
 
 ### `sessions` — `modules/auth/models.py:Session`
 
@@ -149,14 +149,14 @@ Declared, and the table is created, but **nothing reads or writes it**. Flask se
 cookies, not DB-backed. It also has a latent bug (`func.utcnow()` is not a real SQL function), which
 is harmless only because the table is never inserted into.
 
-### `jeopardy_game` / `active_game` — `modules/bot/models.py`
+### `jeopardy_game` / `active_game` — `modules/games/models.py`
 
 - `jeopardy_game`: `name` + a `data` JSON blob — an uploaded game template.
 - `active_game`: `name`, `game_data` JSON, `helper_data` JSON — the single currently-running game.
   The code treats this as a singleton (queries `.first()`), so only one game runs at a time across
   the whole deployment.
 
-### `leetcode_link` / `leetcode_solve` — `modules/bot/models.py`
+### `leetcode_link` / `leetcode_solve` — `modules/leetcode/models.py`
 
 - `leetcode_link`: `discord_id` (PK) → `leetcode_username`. Written by the `/link` slash command.
 - `leetcode_solve`: `discord_id`, `title_slug`, `solved_date`, with a unique constraint
@@ -164,6 +164,22 @@ is harmless only because the table is never inserted into.
   leaderboard a "daily streak" count rather than a raw problem count.
 
 Neither is scoped to an organization. LeetCode features are global across all guilds the bot is in.
+
+### `audit_log` — `core/audit.py:AuditEntry`
+
+One row per successful API write (POST, PUT, PATCH, DELETE below 400, plus `GET /api/auth/appToken`,
+which creates a token) and per job run. Columns: `created_at`, `source` (`api` or `job`), `action`
+(method and route rule, or `job <name>`), `org` (prefix), `actor_kind` and `actor_id` (Discord id,
+member email, or job name), `status`, `details` (request path, or job result and small arguments).
+Request bodies and file contents are never stored. `/api/auth/refresh` is skipped. The daily
+`audit.prune` job deletes rows older than `AUDIT_RETENTION_DAYS` (default 365).
+
+### `org_secrets` — `core/secrets.py:OrgSecret`
+
+Per-org integration tokens, one row per org and secret name, encrypted with Fernet using
+`SECRETS_KEY`. Modules declare the names they read with `secrets.declare()`; today that is
+`notion_api_key`, which calendar uses instead of the instance-wide `NOTION_API_KEY` when an org has
+saved one. The API lists which secrets are set but never returns a value.
 
 ## Migrations (Alembic)
 

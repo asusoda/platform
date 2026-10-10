@@ -3,8 +3,8 @@ import random
 import discord
 from discord.ext import commands
 
-from modules.bot.discord_modules.cogs.jeopardy.Jeopardy import JeopardyGame
-from modules.bot.discord_modules.cogs.UI import QuestionPost
+from modules.games.jeopardy.Jeopardy import JeopardyGame
+from modules.games.ui import QuestionPost
 
 
 class GameCog(commands.Cog):

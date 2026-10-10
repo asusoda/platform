@@ -14,8 +14,8 @@ import time
 import jwt
 from flask import current_app, request, session
 
-from modules.utils.discord_directory import DiscordUnavailable
-from modules.utils.logging_config import get_logger
+from core.discord_directory import DiscordUnavailable
+from core.logging_config import get_logger
 from shared import config, tokenManager
 
 logger = get_logger("access")

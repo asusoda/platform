@@ -2,7 +2,7 @@
 
 import pytest
 
-from modules.utils.discord_directory import DiscordDirectory, DiscordUnavailable
+from core.discord_directory import DiscordDirectory, DiscordUnavailable
 
 
 class FakeResponse:
