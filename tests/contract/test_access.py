@@ -137,5 +137,16 @@ def test_superadmin_routes_need_the_superadmin(client):
     assert client.get("/api/superadmin/guild_roles/1001", headers=headers_for(SUPERADMIN_ID)).status_code != 403
 
 
+def test_sys_admin_takes_a_list_of_ids(client, monkeypatch):
+    from core.config import config
+
+    second = "900000000000000010"
+    monkeypatch.setattr(config, "SUPERADMIN_USER_ID", f"{SUPERADMIN_ID}, {second}")
+    for discord_id in (SUPERADMIN_ID, second):
+        assert client.get("/api/superadmin/check", headers=headers_for(discord_id)).status_code == 200
+        assert client.get("/api/points/ais/users", headers=headers_for(discord_id)).status_code == 200
+    assert client.get("/api/superadmin/check", headers=headers_for(OFFICER_DISCORD_ID)).status_code == 403
+
+
 def test_member_cannot_list_all_orders(client, clerk_headers):
     assert client.get("/api/storefront/soda/orders", headers=clerk_headers).status_code == 403

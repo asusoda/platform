@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from core.config import config
+from core.config import superadmin_ids
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from modules.organizations import service as organizations
@@ -14,8 +14,8 @@ logger = get_logger(__name__)
 
 
 def is_superadmin(discord_id: object) -> bool:
-    """Whether the Discord id is SUPERADMIN_USER_ID."""
-    return str(discord_id) == str(config.SUPERADMIN_USER_ID)
+    """Whether the Discord id is one of the ids in SYS_ADMIN."""
+    return str(discord_id) in superadmin_ids()
 
 
 def available_guilds(guilds: list[dict], orgs: list[Organization]) -> list[dict]:

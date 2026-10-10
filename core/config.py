@@ -67,7 +67,7 @@ class Config:
                 logs_level=os.environ.get("SENTRY_LOGS_LEVEL", "WARNING"),
             )
 
-            # Superadmin config: the Discord user id in SYS_ADMIN
+            # Superadmin config: the Discord user ids in SYS_ADMIN, comma-separated
             self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
 
             # Path prefixes that answer 404 like an unknown route, comma-separated. Empty turns none off
@@ -94,3 +94,8 @@ class Config:
 
 
 config = Config()
+
+
+def superadmin_ids() -> frozenset[str]:
+    """The Discord user ids in SYS_ADMIN. It takes one id or a comma-separated list."""
+    return frozenset(i.strip() for i in str(config.SUPERADMIN_USER_ID or "").split(",") if i.strip())

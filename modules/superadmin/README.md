@@ -1,6 +1,6 @@
 # superadmin
 
-Routes for the one superadmin of the deployment (`SYS_ADMIN`): add and remove orgs for Discord servers, set an org's officer role, list a server's roles, and read the audit log of all orgs.
+Routes for the superadmins of the deployment (the Discord user ids in `SYS_ADMIN`, comma-separated): add and remove orgs for Discord servers, set an org's officer role, list a server's roles, and read the audit log of all orgs.
 
 ## Files
 
