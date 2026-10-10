@@ -15,7 +15,7 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 
 | Module | Tables |
 | --- | --- |
-| core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `webhooks` (outbound webhooks of each org and their events) |
+| core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `webhooks` (outbound webhooks of each org and their events), `notifications` (each webhook event of an org, shown in Notifications) |
 | organizations | `organizations`, `organization_configs` and `officers` (not used) |
 | users | `users`, `user_organization_memberships` |
 | points | `points` |
@@ -37,6 +37,8 @@ Rows that belong to an org have an `organization_id` column. Discord roles decid
 `error_groups` has one row for each distinct error. Errors with the same source, org, exception type and first frame in this repo add to one row: `count` goes up and `last_seen`, `message` and `stack` change. A resolved row opens again when its error happens again. The `error_log.prune` job removes rows not seen for `ERROR_RETENTION_DAYS` (default 90).
 
 `webhooks` has one row for each outbound webhook of an org: a name, a kind (`discord`), the URL encrypted with `SECRETS_KEY` in `url_ciphertext`, a `url_hint` with no token in it, and the list of event keys it sends. `last_sent_at` and `last_error` keep the result of the last message. Migration `a1358e0da9ef` moved each org secret `error_webhook_url` to a webhook named Errors.
+
+`notifications` has one row for each webhook event of an org, whether or not a webhook takes it: the event key, title, text and color. Saving a new row removes the org's rows older than 30 days and keeps at most the newest 200.
 
 ## Migrations
 

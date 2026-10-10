@@ -2,6 +2,8 @@
 
 Platform sends a message to a channel when an event happens in an org. Officers add webhooks on the dashboard page Automations, Webhooks. Each webhook has a name, a destination and the events it sends.
 
+Each event also shows on the dashboard page Notifications, with or without a webhook. The hourly limit applies only to webhook messages.
+
 ## Events
 
 | Key | Label | Sent by | Sent when |

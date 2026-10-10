@@ -8,7 +8,7 @@ GPU and CPU pods on an org's own RunPod account that members connect to over SSH
 2. Keep the `compute` module on for the org. It is on by default.
 3. Optional: set these in the server's `.env`.
    - `COMPUTE_CLI_NAME`: the CLI name in sign-in pages and errors. Default `the compute CLI`. The example AIS server sets `godfather`.
-   - `COMPUTE_POD_IMAGE`: the deployment default pod image. Default `theaisocietyasu/godfather-base:latest`.
+   - `COMPUTE_POD_IMAGE`: the deployment default pod image. Default `ghcr.io/theaisocietyasu/godfather-base:latest`.
 4. Optional: set the org's own default pod image under Compute > Settings on the dashboard (`PUT /api/compute/<org>/settings` with `{"pod_image": "..."}`, null to clear). A pod gets the image of its create body, else the org default, else `COMPUTE_POD_IMAGE`.
 
 The first pod makes two ed25519 key pairs for the org in `compute_keys`. `SECRETS_KEY` encrypts the private keys.
@@ -38,7 +38,7 @@ All fields of the create body are optional. Platform sends them to the RunPod v2
 ```json
 {
   "name": "workshop",
-  "image_name": "theaisocietyasu/godfather-base:latest",
+  "image_name": "ghcr.io/theaisocietyasu/godfather-base:latest",
   "gpu_type_id": "NVIDIA RTX A4000",
   "use_cpu_only": false,
   "cpu_flavor": "cpu3c",

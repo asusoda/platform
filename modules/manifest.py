@@ -65,6 +65,7 @@ TOOL_MODULES = [
     "modules.dashboard.tools",
     "modules.alerts.tools",
     "modules.compute.tools",
+    "modules.integrations.tools",
 ]
 
 

@@ -205,9 +205,18 @@ def delete_secret(db, org_id: int, name: str) -> bool:
 def token_list(db, org_id: int) -> dict:
     """The org's active machine tokens, the scopes a token can hold, and each integration with the scopes that reach it.
 
-    An integration's scopes give its own tools. Its through scopes are Platform scopes that call it for the agent.
+    An integration's scopes give its own tools: tools names the Platform tools under each scope, and remote is true
+    when the tools come from the service's own MCP server. Its through scopes are Platform scopes that call it for
+    the agent, and used_by names the modules that use it.
     """
     from core.integrations import registry
+    from core.tools import TOOLS
+    from modules.integrations.servers import SERVERS
+
+    tools: dict[str, dict[str, list[str]]] = {}
+    for spec in sorted(TOOLS.values(), key=lambda t: t.name):
+        if spec.integration is not None:
+            tools.setdefault(spec.integration, {}).setdefault(spec.scope, []).append(spec.name)
 
     direct: dict[str, list[str]] = {}
     for scope, integration in scopes.INTEGRATION_SCOPES.items():
@@ -226,6 +235,9 @@ def token_list(db, org_id: int) -> dict:
             "scopes": sorted(direct.get(key, [])),
             "through": sorted(through.get(key, [])),
             "limits": sorted(machine_tokens.LIMIT_NAMES.get(key, ())),
+            "tools": tools.get(key, {}),
+            "remote": any(server.integration == key for server in SERVERS.values()),
+            "used_by": sorted(registry.INTEGRATIONS[key].used_by) if key in registry.INTEGRATIONS else [],
         }
         for key in keys
     ]

@@ -72,13 +72,17 @@ def _client(db, org_id: int) -> runpod.RunPodClient:
     return runpod.RunPodClient(key)
 
 
+def _error(e: runpod.RunPodError) -> ComputeError:
+    # 400 when RunPod refused the request, 424 when RunPod failed
+    status = 400 if e.status is not None and 400 <= e.status < 500 else 424
+    return ComputeError(e.message, status)
+
+
 def _call(fn, *args):
     try:
         return fn(*args)
     except runpod.RunPodError as e:
-        # 400 when RunPod refused the request, 424 when RunPod failed
-        status = 400 if e.status is not None and 400 <= e.status < 500 else 424
-        raise ComputeError(e.message, status) from e
+        raise _error(e) from e
 
 
 def keypair(db, org_id: int, kind: str) -> tuple[str, str]:
@@ -341,7 +345,13 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
         _call(client.stop_pod, pod_id)
         _call(client.start_pod, pod_id)
     else:
-        _call(client.delete_pod, pod_id)
+        try:
+            client.delete_pod(pod_id)
+        except runpod.RunPodError as e:
+            # A pod already deleted on RunPod is forgotten here too
+            if e.status != 404:
+                raise _error(e) from e
+            logger.info("compute pod already gone on RunPod org=%s pod=%s", org_id, pod_id)
         from modules.compute.schedule import delete_pod_sessions
 
         delete_pod_sessions(db, org_id, pod_id)
@@ -423,7 +433,7 @@ def connect(
         raise ComputeError("Pod is not running", 409)
     address = ssh_address(cast(dict, live))
     if address is None:
-        raise ComputeError("Pod network information not available", 503)
+        raise ComputeError("RunPod has not given the pod an SSH address yet. Wait a minute and try again", 503)
     _, ca_private = keypair(db, org_id, USER_CA_KEY)
     user = ssh.safe_username(username or discord_id)
     certificate = ssh.sign_user_key(ca_private, cast(str, public_key), pod_id, discord_id, user, is_admin)
@@ -449,6 +459,6 @@ def pod_files(db, org_id: int, pod_id: str, client: runpod.RunPodClient | None =
         raise ComputeError("Pod is not running", 409)
     address = ssh_address(cast(dict, live))
     if address is None:
-        raise ComputeError("Pod network information not available", 503)
+        raise ComputeError("RunPod has not given the pod an SSH address yet. Wait a minute and try again", 503)
     _, backend_private = keypair(db, org_id, BACKEND_KEY)
     return (opener or PodFiles.open)(address[0], address[1], backend_private)

@@ -87,6 +87,18 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 | `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
 | `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
 | `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
+| `runpod.*`: the read-only tools of RunPod's MCP server | `runpod:read` | integrations |
+| `runpod.*`: the other tools of RunPod's MCP server (confirm) | `runpod:write` | integrations |
+| `notion.*`: the tools of Notion's MCP server, after an officer signs in | `notion:read`, `notion:write` | integrations |
+| `gmail.*`: the tools of Google's Gmail MCP server, after an officer signs in | `gmail:read`, `gmail:send` | integrations |
+| `drive.*`, `calendar.*`: the tools of Google's Drive and Calendar MCP servers, after an officer signs in | `google:read`, `google:write` | integrations |
+| `google.calendar_list`, `google.calendar_events`, `google.drive_search`, `google.drive_read`, `google.sheets_read` | `google:read` | integrations |
+| `google.calendar_create_event` (confirm), `google.sheets_append` (confirm) | `google:write` | integrations |
+| `google.gmail_search`, `google.gmail_read` | `gmail:read` | integrations |
+| `google.gmail_send` (confirm) | `gmail:send` | integrations |
+| `notion.search`, `notion.read_page`, `notion.query_database` | `notion:read` | integrations |
+| `notion.create_page` (confirm) | `notion:write` | integrations |
+| `web.search` | `web:read` | integrations |
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 

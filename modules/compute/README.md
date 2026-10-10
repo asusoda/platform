@@ -2,6 +2,8 @@
 
 Runs GPU and CPU pods on an org's own RunPod account that members connect to over SSH. Officers create, share, start, stop and schedule pods and manage their files. Members get a short-lived SSH certificate from the compute CLI.
 
+Terminate also forgets a pod that was already deleted on RunPod, such as one deleted in the RunPod console.
+
 ## Files
 
 | File | Holds |

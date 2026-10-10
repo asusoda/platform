@@ -48,7 +48,7 @@ An officer makes a machine token with `POST /api/organizations/<id>/tokens` (`na
 
 - A machine token belongs to one org. A route for a different org refuses it with 403.
 - A module declares its scopes with `scopes.declare(name, description, integration=None, uses=())` from `modules/auth/scopes.py`. `integration` names the service whose own tools the scope gives. `uses` names the services that the scope calls with the org's keys, such as `knowledge:read` and `embeddings`.
-- `GET .../tokens` lists all scopes and, under `uses`, the services each scope calls. Under `integrations` it lists every integration: whether the org connected it, its own scopes, the Platform scopes that call it (`through`), and its limits. The Tokens page marks a scope that calls a service with the service icon.
+- `GET .../tokens` lists all scopes and, under `uses`, the services each scope calls. Under `integrations` it lists every integration: whether the org connected it, its own scopes, the tools each scope gives (`tools`), whether the tools come from the service's MCP server (`remote`), the Platform scopes that call it (`through`), the modules that use it (`used_by`), and its limits. The Tokens page shows each integration's scopes with their tools, and marks a Platform scope that calls a service with the service icon.
 - Officer routes do not accept a machine token. It is not a JWT, so they return 401.
 - `GET /api/auth/machine/whoami` returns the org, name, kind and scopes of a token.
 
