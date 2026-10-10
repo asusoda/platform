@@ -149,45 +149,34 @@ Two things are worth internalising:
 
 ## The module pattern
 
-Every folder under `modules/` follows the same shape:
+Every feature is a folder under `modules/`:
 
 ```
 modules/<name>/
-├── api.py       Blueprint + route handlers. This is the module's public surface.
-├── models.py    SQLAlchemy models, all inheriting from core/base.py:Base
-└── README.md    Older, module-local notes (treat as historical — see Gotchas)
+├── README.md    What the module does, its files, routes, jobs, tools and tables
+├── service.py   The logic. Takes a DB session and plain values. Does not import Flask
+├── api.py       Flask blueprint. Reads the request, calls service.py, returns JSON
+├── models.py    SQLAlchemy tables, each inheriting core/base.py:Base
+├── jobs.py      Background jobs (@job from core/jobs.py)
+└── tools.py     Tools for agents (@tool from core/tools.py), served over MCP and /api/tools
 ```
 
-Some modules add more: `calendar/` has `service.py`, `clients.py`, `utils.py`, `errors.py`;
-`bot/` has the Discord client (`discord_modules/`), `games/` and `leetcode/` have a `cog.py` the bot loads; `organizations/` has `config.py`.
+A module has only the files it needs. REST routes, the bot, jobs and tools all call the same
+`service.py` functions, which raise a subclass of `core.errors.ServiceError(message, status)`.
+Routes for machine tokens use `machine_route` from `modules/auth/routes.py`. The older SoDA modules
+(`points`, `storefront`, `users`) still keep most logic in `api.py`.
 
-Shared code that is not a feature lives in `core/` (database, config, tokens, logging, Discord
-REST client, Clerk). `core/` must not import from `modules/`; three existing imports are listed as
-exceptions in `pyproject.toml` until they are moved.
+Shared code that is not a feature lives in `core/` (database, config, jobs, tools, secrets, audit,
+logging, Discord and RunPod clients). `core/` must not import from `modules/`; three existing
+imports are listed as exceptions in `pyproject.toml` until they are moved.
 
-Module logic is moving into a `service.py` per module that takes a DB session and plain values and
-does not import Flask. The REST routes, the bot, scheduled jobs and (later) MCP tools call the same
-functions. `calendar/service.py` is the first one done: `find_organization`, `list_events`,
-`sync_organization`, `setup_calendar`, `sync_all`, raising `CalendarError(message, status)`.
+`make ci` runs `lint-imports` (import-linter) to enforce both rules. [Writing a
+module](./writing-a-module.md) lists every place a new module is registered.
 
-`make ci` runs `lint-imports` (import-linter) to enforce both rules. Add a module's `service` to the
-"service modules do not import Flask" contract in `pyproject.toml` when it gets one.
+Blueprints are mounted by `modules/registry.py` (`MOUNTS`), which `main.py` calls. `MOUNTS` is the
+list of every URL prefix and the org switch that gates it.
 
-Blueprints are mounted by `modules/registry.py` (`MOUNTS`), which `main.py` calls, with these prefixes:
-
-| Blueprint | URL prefix |
-|-----------|-----------|
-| `public_blueprint` | `/api/public` |
-| `points_blueprint` | `/api/points` |
-| `users_blueprint` | `/api/users` |
-| `auth_blueprint` | `/api/auth` |
-| `calendar_blueprint` | `/api/calendar` |
-| `game_blueprint` (from `modules/games`) | `/api/bot` |
-| `organizations_blueprint` | `/api/organizations` |
-| `superadmin_blueprint` | `/api/superadmin` |
-| `storefront_blueprint` | `/api/storefront` |
-
-Points, storefront and calendar are optional: an officer can turn them off for their org, and then
+Points, storefront, calendar, leetcode, compute and alerts are optional: an officer can turn them off for their org, and then
 that org's routes in the module return 404 (the public leaderboard follows the points switch).
 Switches live in `Organization.config["modules"]`; a missing entry means on, so existing orgs are
 unchanged. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`.
@@ -239,4 +228,3 @@ It also means if the bot is offline, nobody can prove they are an officer.
 | Google Calendar | Destination for synced events | `modules/calendar/clients.py:GoogleCalendarClient` |
 | LeetCode GraphQL | Daily/random problems, verifying solves | `modules/leetcode/client.py` |
 | Sentry | Errors, logs, and calendar-sync performance traces | `shared.py`, `modules/calendar/utils.py` |
-| Google Sheets | One-off distinguished-member import | `modules/users/user_reader.py` (not wired to any route) |

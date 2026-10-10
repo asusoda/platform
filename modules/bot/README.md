@@ -1,149 +1,25 @@
-# Discord Bot Module
+# bot
 
-The Discord bot module manages all Discord-related functionality and interactions for the SoDA Internal API.
+The Discord gateway bot. `shared.create_auth_bot` builds the bot from `discord_modules/bot.py` and adds `HelperCog`, `GameCog` from games and `LeetCodeCog` from leetcode. `bot_main.py` runs it as its own process; `main.py` runs it in a thread when `RUN_BOT_IN_API` is true.
 
-## Structure
+## Files
 
-```
-bot/
-├── api.py               # Bot API endpoints
-├── models.py            # Bot-related models
-└── discord_modules/     # Discord-specific components
-    ├── cogs/           # Bot command modules
-    ├── events/         # Event handlers
-    └── utils/          # Bot utilities
-```
+| File | Holds |
+| --- | --- |
+| `discord_modules/bot.py` | The bot class, a py-cord `Bot` subclass: start and stop, `execute(cog, method)` to call another cog's method, guild, role and officer lookups |
+| `discord_modules/cogs/HelperCog.py` | Creates and deletes categories, channels and roles for other cogs, sends and edits messages, tracks reactions for game sign-up, and the `/clear` slash command that removes the Jeopardy channels and team roles |
 
-## Features
+## Surface
 
-### Bot Management
-- Bot initialization and configuration
-- Command registration and handling
-- Event listening and processing
-- State management
-- Error handling
+- Routes: none. The game controls mounted at `/api/bot` live in `modules/games`.
+- Jobs: none.
+- Tools: none.
+- Tables: none.
 
-### Command System
-- Slash commands
-- Text commands
-- Command permissions
-- Command cooldowns
-- Command help system
+## Depends on
 
-### Event Handling
-- Message events
-- Member events
-- Voice events
-- Reaction events
-- Guild events
+`core.logging_config`; `modules.organizations.models`; `shared`.
 
-## API Endpoints
+## More
 
-### Bot Control
-- `POST /bot/start`
-  - Initializes the bot
-  - Registers commands
-  - Starts event listeners
-
-- `POST /bot/stop`
-  - Gracefully shuts down the bot
-  - Saves state
-  - Cleans up resources
-
-- `GET /bot/status`
-  - Returns bot status
-  - Shows connected servers
-  - Displays command stats
-
-## Models
-
-### BotConfig
-- Bot token
-- Command prefix
-- Allowed servers
-- Admin roles
-- Bot settings
-
-### CommandStats
-- Command usage
-- User statistics
-- Error rates
-- Performance metrics
-
-## Cogs
-
-### Admin
-- Server management
-- User management
-- Bot configuration
-- System commands
-
-### Points
-- Point management
-- Leaderboard
-- Point transactions
-- User stats
-
-### Events
-- Event creation
-- Event management
-- RSVP system
-- Notifications
-
-## Configuration
-
-Required environment variables:
-- `DISCORD_TOKEN`: Bot authentication token
-- `DISCORD_CLIENT_ID`: Bot client ID
-- `DISCORD_CLIENT_SECRET`: Bot client secret
-- `DISCORD_GUILD_ID`: Primary guild ID
-
-## Usage Example
-
-```python
-from modules.bot import bot
-from discord.ext import commands
-
-@bot.command()
-async def ping(ctx):
-    await ctx.send('Pong!')
-
-@bot.event
-async def on_ready():
-    print(f'Bot is ready as {bot.user}')
-```
-
-## Error Handling
-
-The module handles various bot-related errors:
-- Command errors
-- API rate limits
-- Connection issues
-- Permission errors
-- Event processing errors
-
-## Security Considerations
-
-1. **Token Security**
-   - Bot token is stored securely
-   - Token rotation is supported
-   - Access is restricted
-
-2. **Command Security**
-   - Permission checks
-   - Rate limiting
-   - Input validation
-   - Error logging
-
-3. **Data Security**
-   - Secure storage
-   - Data encryption
-   - Access control
-   - Audit logging
-
-## Dependencies
-
-- `discord.py`: Discord API wrapper
-- `python-dotenv`: Environment management
-- `aiohttp`: Async HTTP client
-- `asyncio`: Async I/O support 
+[docs/05-backend-modules.md](../../docs/05-backend-modules.md)

@@ -18,6 +18,7 @@ import requests
 import yaml
 
 from core import runpod, secrets
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from modules.auth import scopes
 from modules.runpod.models import App, AppDeployment
@@ -90,11 +91,8 @@ MANIFEST_SCHEMA: dict = {
 }
 
 
-class AppError(ValueError):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class AppError(ServiceError, ValueError):
+    pass
 
 
 def _now() -> datetime.datetime:

@@ -89,3 +89,16 @@ def test_game_controls_need_an_officer(client, app, monkeypatch, officer_headers
     assert client.post("/api/bot/awardpoints?team=a&points=5").status_code == 401
     assert client.get("/api/calendar/debug/organizations").status_code == 401
     assert client.get("/api/bot/", headers=officer_headers).status_code == 200
+
+
+def test_login_started_from_the_dashboard_returns_there(client, discord, monkeypatch):
+    from shared import config
+
+    monkeypatch.setattr(config, "DASHBOARD_URL", "https://dash.example.org")
+    state = _query(client.get("/api/auth/login?client=dashboard"))["state"][0]
+    response = client.get(f"/api/auth/callback?code=abc&state={state}")
+    assert response.headers["Location"].startswith("https://dash.example.org/auth/?code=")
+
+    state = _query(client.get("/api/auth/login"))["state"][0]
+    response = client.get(f"/api/auth/callback?code=abc&state={state}")
+    assert response.headers["Location"].startswith(f"{config.CLIENT_URL}/auth/?code=")

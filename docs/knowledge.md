@@ -2,8 +2,6 @@
 
 Sources of text that agents search: web pages, handbooks, FAQs. A source is either written by a
 client, which sends it as chunks, or crawled, where the platform fetches a URL on a schedule.
-The columns, the crawl pipeline and the search follow SparkyAI's scraper and retrieval index, so
-its engine can search here instead of keeping its own tables.
 
 ## Who can see what
 
@@ -83,8 +81,7 @@ fetches to the same host. Each crawl:
 6. Refuses to replace the index when the new text is under half of the last version's (when that
    was at least 500 characters), so a broken page cannot wipe a good index. `force` accepts it.
 
-Not ported yet from SparkyAI: summary levels over chunks (they need a chat model), pages behind
-ASU sign-in, per-source extractors, and live queries. Those come with the asu module.
+Not built yet: summary levels over chunks (they need a chat model) and pages behind a sign-in.
 
 ## How search works
 

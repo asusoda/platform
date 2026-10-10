@@ -26,6 +26,15 @@ Calls `https://api.thesoda.io` (`VITE_API_URL`). Storefront and points calls sen
 | GET | /api/storefront/{org}/wallet/{email} | src/lib/api.ts:164 | Clerk | wallet |
 | POST | /api/points/{org}/member_login | src/lib/api.ts:172 | none | member-login |
 
+## Member fields
+
+The `users` columns are `student_id` and `class_standing`; each membership has `profile_fields`, an object of fields the org defines (strings, numbers, booleans). The old keys stay on every route:
+
+- **Deprecated keys:** `asu_id` (now `student_id`) and `academic_standing` (now `class_standing`). thesoda.io sends `asu_id` to `POST /api/points/{org}/member_login` and `web/` sends and reads both, so they are accepted and returned until those clients move.
+- Requests accept the old and the new keys. When both are sent, the new key wins.
+- Every response that returned the old keys still returns them. Responses that are not pinned by a contract snapshot also return `student_id`, `class_standing` and, where the route is scoped to one org, `profile_fields`.
+- `POST /api/points/{org}/member_login`, `GET /api/points/{org}/users` and `GET /api/public/{org}/leaderboard` and `/users` return only the old keys, so their snapshots are unchanged. The public routes still leave out emails and student IDs for anyone but the org's officers.
+
 ## Platform web app (web/)
 
 Calls `config.apiUrl` with the platform JWT from login, or the session cookie.

@@ -2,8 +2,7 @@
 
 On Postgres, chunk embeddings are pgvector columns with an HNSW index and the text has a full-text
 GIN index (both created in the migration, named pg_*). On SQLite, embeddings are JSON text and
-search runs in Python, which is enough for development and tests. The columns follow SparkyAI's
-retrieval index (apps/scraper/migrations) so its scraper can write here.
+search runs in Python, which is enough for development and tests.
 """
 
 import datetime
@@ -25,7 +24,7 @@ from sqlalchemy.types import TypeDecorator, UserDefinedType
 
 from core.base import Base
 
-DIMENSIONS = 1024  # Qwen3-Embedding-0.6B, the model Sparky uses
+DIMENSIONS = 1024  # Qwen3-Embedding-0.6B
 
 
 def _uuid() -> str:

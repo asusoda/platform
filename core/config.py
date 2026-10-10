@@ -20,6 +20,8 @@ class Config:
             self.CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "test-client-secret")
             self.REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/callback")
             self.CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:3000")
+            # Officer dashboard (dashboard/). Login sends officers back here when they start from it
+            self.DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "").rstrip("/")
             self.TNAY_API_URL = os.environ.get("TNAY_API_URL", "")
             self.OPEN_ROUTER_CLAUDE_API_KEY = os.environ.get("OPEN_ROUTER_CLAUDE_API_KEY", "")
             self.DISCORD_OFFICER_WEBHOOK_URL = os.environ.get("DISCORD_OFFICER_WEBHOOK_URL", "")
@@ -80,6 +82,10 @@ class Config:
 
             # Access checks (modules/auth/access.py): false logs refusals, true enforces them
             self.ACCESS_ENFORCE = os.environ.get("ACCESS_ENFORCE", "false").lower() == "true"
+
+            # Compute (modules/compute): the CLI name members see in messages, and the default pod image
+            self.COMPUTE_CLI_NAME = os.environ.get("COMPUTE_CLI_NAME", "the compute CLI")
+            self.COMPUTE_POD_IMAGE = os.environ.get("COMPUTE_POD_IMAGE", "theaisocietyasu/godfather-base:latest")
 
             # LeetCode Daily Bot
             self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")

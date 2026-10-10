@@ -1,0 +1,23 @@
+{
+  "image": "ghcr.io/theaisocietyasu/bedrock-hermes",
+  "cpu": {"id": "cpu3c", "vcpuCount": 2},
+  "dataCenterIds": ["US-KS-2"],
+  "disk": 20,
+  "ports": ["8642/http"],
+  "mounts": {"network": [{"volumeId": "VOLUME_ID", "path": "/opt/data"}]},
+  "env": {
+    "HERMES_PROVIDER": "openrouter",
+    "HERMES_MODEL": "anthropic/claude-sonnet-4.5",
+    "PLATFORM_MCP_URL": "https://PLATFORM_POD_ID-8001.proxy.runpod.net/mcp",
+    "API_SERVER_ENABLED": "true",
+    "API_SERVER_HOST": "0.0.0.0",
+    "DISCORD_ALLOWED_ROLES": "ROLE_ID"
+  },
+  "secret_env": {
+    "DISCORD_BOT_TOKEN": "app_hermes_discord_token",
+    "OPENROUTER_API_KEY": "app_hermes_openrouter_key",
+    "PLATFORM_TOKEN": "app_hermes_platform_token",
+    "API_SERVER_KEY": "app_hermes_api_key"
+  },
+  "health": {"port": 8642, "path": "/health"}
+}

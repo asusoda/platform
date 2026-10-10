@@ -1,7 +1,7 @@
 # ASU sources
 
-The ASU pages and live queries from SparkyAI's scraper, ported into the platform so any org can
-index them. The module only feeds the knowledge module (docs/knowledge.md); it has no tables of
+Public ASU pages and live queries (dining, library hours, events and others) that any org can
+index. It is an example of a campus source module; another campus would add its own the same way. The module only feeds the knowledge module (docs/knowledge.md); it has no tables of
 its own. Pages behind an ASU sign-in (MyASU, Canvas) are not ported.
 
 ## Scheduled pages

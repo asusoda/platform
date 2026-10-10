@@ -1,4 +1,3 @@
-# ben was here
 import csv
 import time
 import uuid
@@ -13,6 +12,13 @@ from core.logging_config import logger
 from modules.auth.access import awarded_by, decide
 from modules.auth.decoraters import auth_required
 from modules.points.models import Points, User
+from modules.points.service import (
+    LEGACY_MEMBER_KEYS,
+    legacy_member_fields,
+    member_fields,
+    member_input,
+    merge_profile_fields,
+)
 from shared import db_connect, tokenManager
 
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
@@ -41,7 +47,7 @@ def update_user_field(db, user, field_name, field_value, organization_id=None):
             return False, f"Invalid field: {field_name}"
 
         # Special validation for unique fields
-        if field_name in ["username", "email", "discord_id", "asu_id"] and field_value:
+        if field_name in ["username", "email", "discord_id", "student_id"] and field_value:
             existing = db.query(User).filter(getattr(User, field_name) == field_value).first()
             if existing and existing.id != user.id:
                 return False, f"{field_name} is already taken"
@@ -74,6 +80,8 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
     try:
         from modules.points.models import UserOrganizationMembership
 
+        user_data = member_input(user_data)
+        profile_changes = user_data.pop("profile_fields", None)
         user = None
 
         # Try to find existing user
@@ -89,9 +97,9 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
             # Try to find by email from user_data
             user = db.query(User).filter_by(email=user_data["email"]).first()
 
-        if not user and user_data.get("asu_id") and user_data["asu_id"] != "N/A":
-            # Try to find by ASU ID
-            user = db.query(User).filter_by(asu_id=user_data["asu_id"]).first()
+        if not user and user_data.get("student_id") and user_data["student_id"] != "N/A":
+            # Try to find by student ID
+            user = db.query(User).filter_by(student_id=user_data["student_id"]).first()
 
         if not user and discord_id:
             # Try to find by Discord ID
@@ -124,10 +132,18 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
             )
 
             if not membership:
-                new_membership = UserOrganizationMembership(user_id=user.id, organization_id=organization_id)
-                db.add(new_membership)
+                membership = UserOrganizationMembership(user_id=user.id, organization_id=organization_id)
+                db.add(membership)
                 db.commit()
                 updated_fields.append("organization_membership")
+
+            if profile_changes is not None:
+                error = merge_profile_fields(membership, profile_changes)
+                if error:
+                    db.rollback()
+                    return user, False, error
+                db.commit()
+                updated_fields.append("profile_fields")
 
             action = "updated" if updated_fields else "found"
             message = f"User {action}" + (f" ({', '.join(updated_fields)})" if updated_fields else "")
@@ -140,10 +156,10 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
                 username=user_data.get("username"),  # Can be None
                 name=user_data.get("name", "Unknown"),
                 email=user_data.get("email"),
-                asu_id=user_data.get("asu_id")
-                if user_data.get("asu_id") and user_data.get("asu_id") != "N/A"
+                student_id=user_data.get("student_id")
+                if user_data.get("student_id") and user_data.get("student_id") != "N/A"
                 else None,
-                academic_standing=user_data.get("academic_standing", "N/A"),
+                class_standing=user_data.get("class_standing", "N/A"),
                 major=user_data.get("major", "N/A"),
                 uuid=str(uuid.uuid4()),
             )
@@ -154,6 +170,11 @@ def manage_user_in_organization(db, organization_id, user_data, discord_id=None,
 
             # Add membership to organization
             membership = UserOrganizationMembership(user_id=new_user.id, organization_id=organization_id)
+            if profile_changes is not None:
+                error = merge_profile_fields(membership, profile_changes)
+                if error:
+                    db.rollback()
+                    return new_user, False, error
             db.add(membership)
             db.commit()
 
@@ -229,7 +250,7 @@ def get_or_create_user(discord_id, organization_id, username=None):
 def link_or_create_user(organization_id, user_data, discord_id=None):
     """
     Link existing user account or create new user for member store access.
-    Handles account linking based on ASU ID, email, or username.
+    Handles account linking based on student ID, email, or username.
     """
     db = next(db_connect.get_db())
     try:
@@ -292,8 +313,8 @@ def get_or_create_user_from_clerk(db, organization_id, clerk_user, email):
         "name": name,
         "username": None,
         "discord_id": None,
-        "asu_id": None,
-        "academic_standing": "N/A",
+        "student_id": None,
+        "class_standing": "N/A",
         "major": "N/A",
     }
 
@@ -347,7 +368,7 @@ def process_csv_in_background(file_content, event_name, event_points, org_prefix
             user = db.query(User).filter_by(email=email).first()
 
             if not user:
-                user_data = {"email": email, "name": name, "asu_id": None, "academic_standing": "N/A", "major": "N/A"}
+                user_data = {"email": email, "name": name, "student_id": None, "class_standing": "N/A", "major": "N/A"}
                 user, success, message = manage_user_in_organization(db, organization.id, user_data)
                 if not success:
                     errors.append(f"Failed to create user {email}: {message}")
@@ -412,7 +433,7 @@ def member_login(org_prefix):
         return jsonify({"error": "Request data is required"}), 400
 
     # The caller must prove the email they log in as: a Clerk session token for that email.
-    # Without one, anyone could log in as any member by typing their email or ASU ID.
+    # Without one, anyone could log in as any member by typing their email or student ID.
     verified_email = _clerk_email()
     claimed_email = str(data.get("email") or "").strip().lower()
     if not verified_email or verified_email.lower() != claimed_email:
@@ -430,13 +451,9 @@ def member_login(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
 
         # Extract user data
+        fields = member_input(data)
         user_data = {
-            "name": data.get("name"),
-            "username": data.get("username"),
-            "email": data.get("email"),
-            "asu_id": data.get("asu_id"),
-            "academic_standing": data.get("academic_standing"),
-            "major": data.get("major"),
+            key: fields.get(key) for key in ("name", "username", "email", "student_id", "class_standing", "major")
         }
 
         # Get discord_id from session if available
@@ -460,7 +477,7 @@ def member_login(org_prefix):
                     "name": user.name,
                     "username": user.username,
                     "email": user.email,
-                    "asu_id": user.asu_id,
+                    "asu_id": user.student_id,
                     "discord_linked": bool(user.discord_id),
                 },
                 "organization": {"id": organization.id, "name": organization.name, "prefix": organization.prefix},
@@ -509,6 +526,7 @@ def get_member_profile(org_prefix):
         org_data = []
         total_points_all_orgs = 0
         current_org_points = 0
+        current_membership = next((m for m in memberships if m.organization_id == organization.id), None)
 
         for membership in memberships:
             org = db.query(Organization).filter_by(id=membership.organization_id).first()
@@ -540,8 +558,7 @@ def get_member_profile(org_prefix):
                     "name": user.name,
                     "username": user.username,
                     "email": user.email,
-                    "asu_id": user.asu_id,
-                    "academic_standing": user.academic_standing,
+                    **member_fields(user, current_membership),
                     "major": user.major,
                     "discord_linked": bool(user.discord_id),
                     "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -580,13 +597,10 @@ def manage_user(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
 
         # Extract user data and identifiers
+        fields = member_input(data)
         user_data = {
-            "username": data.get("username"),
-            "email": data.get("email"),
-            "name": data.get("name"),
-            "asu_id": data.get("asu_id"),
-            "academic_standing": data.get("academic_standing"),
-            "major": data.get("major"),
+            key: fields.get(key)
+            for key in ("username", "email", "name", "student_id", "class_standing", "major", "profile_fields")
         }
 
         # Remove None values to avoid overwriting existing data with None
@@ -602,6 +616,11 @@ def manage_user(org_prefix):
         if not success:
             return jsonify({"error": message}), 400
 
+        from modules.points.models import UserOrganizationMembership
+
+        membership = (
+            db.query(UserOrganizationMembership).filter_by(user_id=user.id, organization_id=organization.id).first()
+        )
         return jsonify(
             {
                 "message": message,
@@ -610,8 +629,7 @@ def manage_user(org_prefix):
                     "name": user.name,
                     "username": user.username,
                     "email": user.email,
-                    "asu_id": user.asu_id,
-                    "academic_standing": user.academic_standing,
+                    **member_fields(user, membership),
                     "major": user.major,
                     "discord_linked": bool(user.discord_id),
                     "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -738,8 +756,7 @@ def get_org_users(org_prefix):
                         "name": user.name,
                         "username": user.username,
                         "email": user.email,
-                        "asu_id": user.asu_id,
-                        "academic_standing": user.academic_standing,
+                        **legacy_member_fields(user),
                         "major": user.major,
                         "discord_linked": bool(user.discord_id),
                         "points": user_points,
@@ -1243,8 +1260,20 @@ def update_user_fields_endpoint(org_prefix, user_identifier):
         for field_name, field_value in data.items():
             if field_name == "user_identifier":  # Skip meta fields
                 continue
+            column = LEGACY_MEMBER_KEYS.get(field_name, field_name)
+            if column != field_name and column in data:
+                continue  # the column name sent alongside wins
 
-            success, message = update_user_field(db, user, field_name, field_value, organization.id)
+            if column == "profile_fields":
+                error = merge_profile_fields(membership, field_value)
+                if error:
+                    errors.append(f"{field_name}: {error}")
+                    continue
+                db.commit()
+                updated_fields.append(field_name)
+                continue
+
+            success, message = update_user_field(db, user, column, field_value, organization.id)
             if success:
                 updated_fields.append(field_name)
             else:
@@ -1265,8 +1294,7 @@ def update_user_fields_endpoint(org_prefix, user_identifier):
                     "name": user.name,
                     "username": user.username,
                     "email": user.email,
-                    "asu_id": user.asu_id,
-                    "academic_standing": user.academic_standing,
+                    **member_fields(user, membership),
                     "major": user.major,
                     "discord_linked": bool(user.discord_id),
                 },

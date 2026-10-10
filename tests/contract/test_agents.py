@@ -24,7 +24,9 @@ def _issue(prefix, *scopes):
     db = db_connect.SessionLocal()
     try:
         org_id = db.query(Organization.id).filter_by(prefix=prefix).scalar()
-        value, _ = machine_tokens.issue(db, organization_id=org_id, name="sparky", kind="agent", scopes=list(scopes))
+        value, _ = machine_tokens.issue(
+            db, organization_id=org_id, name="club-agent", kind="agent", scopes=list(scopes)
+        )
         return {"Authorization": f"Bearer {value}"}
     finally:
         db.close()

@@ -12,6 +12,7 @@ import secrets as token_bytes
 from typing import cast
 
 from core import secrets
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from modules.accounts import providers
 from modules.accounts.models import AccountGrant, AccountLogin
@@ -26,11 +27,8 @@ LOGIN_SECONDS = 600
 REFRESH_MARGIN = datetime.timedelta(seconds=60)
 
 
-class AccountError(ValueError):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class AccountError(ServiceError, ValueError):
+    pass
 
 
 def _now() -> datetime.datetime:

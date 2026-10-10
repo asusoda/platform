@@ -1,6 +1,6 @@
 """Knowledge tools."""
 
-from core.tools import ToolError, tool
+from core.tools import tool
 from modules.knowledge import embedder, service
 
 
@@ -24,9 +24,6 @@ from modules.knowledge import embedder, service
     },
 )
 def knowledge_search(db, org, caller, query: str, category: str | None = None, top_k: int = 8, window: int = 0):
-    try:
-        return service.search(
-            db, int(org.id), query, category=category, top_k=top_k, window=window, embedder=embedder.configured()
-        )
-    except service.KnowledgeError as e:
-        raise ToolError(e.message, e.status) from e
+    return service.search(
+        db, int(org.id), query, category=category, top_k=top_k, window=window, embedder=embedder.configured()
+    )

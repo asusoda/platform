@@ -1,6 +1,6 @@
 """ASU sources for the knowledge module: the scheduled page list and live queries. No Flask here.
 
-Ported from SparkyAI's scraper (apps/scraper/sources and apps/scraper/query). sync() registers
+sync() registers
 every ASU page as a crawled knowledge source of an org, under keys starting with asu/. Live
 queries fetch one page or API with parameters, answer the caller, and then index what they read,
 where the source allows it. Pages behind an ASU sign-in are not ported.

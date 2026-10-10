@@ -1,6 +1,6 @@
 """Pods an org runs on its own RunPod account for members to SSH into. No Flask here.
 
-Ported from Godfather. Officers create, share, start, stop and terminate pods. Members list the
+Officers create, share, start, stop and terminate pods. Members list the
 running pods shared with them and get a short-lived certificate for their own SSH key. The org's
 RunPod key is the org secret runpod_api_key, shared with the runpod apps module.
 """
@@ -11,6 +11,7 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 
 from core import runpod, secrets
+from core.errors import ServiceError
 from core.logging_config import get_logger
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
@@ -19,7 +20,8 @@ logger = get_logger("compute")
 
 BACKEND_KEY = "backend"
 USER_CA_KEY = "user_ca"
-DEFAULT_IMAGE = "theaisocietyasu/godfather-base:latest"
+# Env name prefix the pod image reads its SSH keys and setup flag from; part of the pod image contract.
+POD_ENV_PREFIX = "GODFATHER_"
 DEFAULT_GPU = "NVIDIA RTX A4000"
 DEFAULT_CPU_FLAVOR = "cpu3c"
 ACTIONS = ("start", "stop", "restart", "terminate")
@@ -27,11 +29,8 @@ CLOUD_TYPES = ("COMMUNITY", "SECURE")
 MAX_ALLOWED_USERS = 500
 
 
-class ComputeError(Exception):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class ComputeError(ServiceError):
+    pass
 
 
 def _client(db, org_id: int) -> runpod.RunPodClient:
@@ -134,8 +133,11 @@ def _text(data: dict, key: str, default: str, limit: int = 200) -> str:
     return value.strip()
 
 
-def pod_request(data: dict, backend_public: str, ca_public: str) -> tuple[dict, dict]:
-    """The RunPod create body and the settings recorded with the pod, from an officer's request."""
+def pod_request(data: dict, backend_public: str, ca_public: str, image: str) -> tuple[dict, dict]:
+    """The RunPod create body and the settings recorded with the pod, from an officer's request.
+
+    image is the default when the request names none.
+    """
     cpu = bool(data.get("use_cpu_only", False))
     cloud = _text(data, "cloud_type", "COMMUNITY")
     if cloud not in CLOUD_TYPES:
@@ -143,11 +145,11 @@ def pod_request(data: dict, backend_public: str, ca_public: str) -> tuple[dict, 
     env = data.get("env", {})
     if not isinstance(env, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in env.items()):
         raise ComputeError("env must map names to text")
-    if any(k.startswith("GODFATHER_") for k in env):
-        raise ComputeError("env names starting with GODFATHER_ are reserved")
+    if any(k.startswith(POD_ENV_PREFIX) for k in env):
+        raise ComputeError(f"env names starting with {POD_ENV_PREFIX} are reserved")
     settings = {
         "name": _text(data, "name", f"pod-{random.token_hex(4)}", 100),
-        "image_name": _text(data, "image_name", DEFAULT_IMAGE),
+        "image_name": _text(data, "image_name", image),
         "cloud_type": cloud,
         "use_cpu_only": cpu,
         "volume_in_gb": _int(data, "volume_in_gb", 1, 0, 2000),
@@ -165,9 +167,9 @@ def pod_request(data: dict, backend_public: str, ca_public: str) -> tuple[dict, 
         "ports": ["22/tcp"],
         "env": {
             **env,
-            "GODFATHER_SSH_PUBLIC_KEY": backend_public,
-            "GODFATHER_SSH_CA_PUBLIC_KEY": ca_public,
-            "GODFATHER_SETUP": "true",
+            f"{POD_ENV_PREFIX}SSH_PUBLIC_KEY": backend_public,
+            f"{POD_ENV_PREFIX}SSH_CA_PUBLIC_KEY": ca_public,
+            f"{POD_ENV_PREFIX}SETUP": "true",
         },
     }
     if cpu:
@@ -182,15 +184,22 @@ def pod_request(data: dict, backend_public: str, ca_public: str) -> tuple[dict, 
     return body, settings
 
 
-def create_pod(db, org_id: int, data: object, creator: str | None, client: runpod.RunPodClient | None = None) -> dict:
-    """Create a pod on the org's RunPod account and record it. Commits."""
+def create_pod(
+    db,
+    org_id: int,
+    data: object,
+    creator: str | None,
+    image: str,
+    client: runpod.RunPodClient | None = None,
+) -> dict:
+    """Create a pod on the org's RunPod account and record it, from image unless the request names one. Commits."""
     if not isinstance(data, dict):
         raise ComputeError("Send a JSON object")
     data = cast(dict, data)
     client = client or _client(db, org_id)
     backend_public, _ = keypair(db, org_id, BACKEND_KEY)
     ca_public, _ = keypair(db, org_id, USER_CA_KEY)
-    body, settings = pod_request(data, backend_public, ca_public)
+    body, settings = pod_request(data, backend_public, ca_public, image)
     allowed = _users(data.get("allowed_users", []))
     created = _call(client.create_pod, body)
     if not isinstance(created, dict) or not created.get("id"):

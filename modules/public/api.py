@@ -57,13 +57,13 @@ def get_leaderboard(org_prefix):
         # Get all users who are members of this organization with their points
         leaderboard_query = (
             db.query(
-                User.name, User.email, User.asu_id, func.coalesce(func.sum(Points.points), 0).label("total_points")
+                User.name, User.email, User.student_id, func.coalesce(func.sum(Points.points), 0).label("total_points")
             )
             .join(UserOrganizationMembership, User.id == UserOrganizationMembership.user_id)
             .outerjoin(Points, and_(Points.user_id == User.id, Points.organization_id == org.id))
             .filter(UserOrganizationMembership.organization_id == org.id)
             .filter(UserOrganizationMembership.is_active)
-            .group_by(User.id, User.name, User.email, User.asu_id)
+            .group_by(User.id, User.name, User.email, User.student_id)
             .order_by(func.sum(Points.points).desc(), User.name.asc())
             .all()
         )
@@ -71,10 +71,10 @@ def get_leaderboard(org_prefix):
         # Format leaderboard data
         show_details = member_details_allowed(org)
         leaderboard_data = []
-        for name, email, asu_id, total_points in leaderboard_query:
+        for name, email, student_id, total_points in leaderboard_query:
             entry = {"name": name, "total_points": float(total_points) if total_points else 0.0}
             if show_details:
-                entry.update({"email": email, "asu_id": asu_id})
+                entry.update({"email": email, "asu_id": student_id})
             leaderboard_data.append(entry)
 
     except Exception as e:
@@ -191,7 +191,7 @@ def get_organization_users(org_prefix):
                 "created_at": user.created_at.isoformat() if user.created_at else None,
             }
             if show_details:
-                entry.update({"email": user.email, "asu_id": user.asu_id})
+                entry.update({"email": user.email, "asu_id": user.student_id})
             users.append(entry)
 
         return jsonify(

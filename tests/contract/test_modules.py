@@ -22,6 +22,7 @@ def test_modules_are_on_by_default(client, officer_headers, soda_id):
         "calendar": True,
         "leetcode": True,
         "compute": True,
+        "alerts": True,
     }
 
 

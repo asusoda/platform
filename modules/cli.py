@@ -31,7 +31,7 @@ def _session():
 
 @org_cli.command("create")
 @click.option("--name", required=True)
-@click.option("--prefix", required=True, help="URL prefix, e.g. ais")
+@click.option("--prefix", required=True, help="URL prefix, e.g. acm")
 @click.option("--guild-id", required=True, help="Discord server id")
 @click.option("--officer-role-id", default=None, help="Discord role id that marks officers")
 @click.option("--description", default=None)

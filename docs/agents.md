@@ -1,8 +1,7 @@
 # Agents module
 
-Storage for AI agents that talk to members (Sparky first): conversations, memories, a profile graph
-and pending actions that wait for the member to confirm. The agent keeps no database of its own.
-The semantics follow SparkyAI's stores so its engine can call this API instead.
+Storage for AI agents that talk to members: conversations, memories, a profile graph and pending
+actions that wait for the member to confirm. An agent built on this keeps no database of its own.
 
 ## Who can see what
 
@@ -62,7 +61,7 @@ The per-part routes above stay for agents that write as they go.
 
 ## Not here yet
 
-- Profile nodes match by exact kind and label, as in Sparky. With `EMBEDDINGS_URL` set, each node
+- Profile nodes match by exact kind and label. With `EMBEDDINGS_URL` set, each node
   also gets a vector of "kind: label" (the knowledge module's embedder, pgvector on Postgres) so
   recall can start from what the member just said. Nodes are not merged by similarity.
 - The member routes need a Discord session with `discord_id`; the web app's member login does not
