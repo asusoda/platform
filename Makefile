@@ -98,7 +98,8 @@ discard-local-changes:
 # Deploy to production
 # web, dashboard and bot are created with --requires on the api container. When the api image changes,
 # all four are recreated together: recreating api alone makes podman-compose remove web and dashboard and
-# then fail to replace api ("has dependent containers"), which leaves the old api running.
+# then fail to replace api ("has dependent containers"), which leaves the old api running. soda-mcp (profile
+# mcp) also requires api, so when it exists it is recreated with them and the mcp profile stays on.
 deploy:
 	@set -e; \
 		echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."; \
@@ -145,6 +146,8 @@ deploy:
 		if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD api"; fi; \
 		if [ "$$BUILD_WEB" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD web"; fi; \
 		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD dashboard"; fi; \
+		MCP_ON=0; PROFILE_ARGS=""; \
+		if $(CONTAINER_CMD) inspect soda-mcp >/dev/null 2>&1; then MCP_ON=1; PROFILE_ARGS="--profile mcp"; fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."; \
 		mkdir -p data; \
 		chmod -R 755 data; \
@@ -171,8 +174,9 @@ deploy:
 		if [ -n "$$SERVICES_TO_BUILD" ]; then \
 			SERVICES_TO_START="$$SERVICES_TO_BUILD"; \
 			if [ "$$BUILD_API" -eq 1 ]; then SERVICES_TO_START="api bot web dashboard"; fi; \
+			if [ "$$BUILD_API" -eq 1 ] && [ "$$MCP_ON" -eq 1 ]; then SERVICES_TO_START="$$SERVICES_TO_START mcp"; fi; \
 			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_START"; \
-			$(COMPOSE_CMD) -f docker-compose.yml up -d --remove-orphans $$SERVICES_TO_START; \
+			$(COMPOSE_CMD) -f docker-compose.yml $$PROFILE_ARGS up -d --remove-orphans $$SERVICES_TO_START; \
 		else \
 			echo -e "$(YELLOW)[WARNING]$(NC) No deploy-impacting service changes detected. Skipping build/restart."; \
 		fi; \
@@ -212,6 +216,10 @@ deploy:
 			wait_for_health soda-bot 60; \
 			check_image soda-internal-api soda-internal-api:latest; \
 			check_image soda-bot soda-internal-api:latest; \
+			if [ "$$MCP_ON" -eq 1 ]; then \
+				wait_for_health soda-mcp 60; \
+				check_image soda-mcp soda-internal-api:latest; \
+			fi; \
 			if ! curl -fsS http://127.0.0.1:8000/health | grep -q "$$NEW_HEAD"; then \
 				echo -e "$(RED)[ERROR]$(NC) /health does not report commit $$NEW_HEAD."; \
 				exit 1; \
@@ -316,7 +324,9 @@ backup:
 # Health check
 health:
 	@FAILED=0; \
-	for CONTAINER_NAME in soda-internal-api soda-bot soda-web soda-dashboard; do \
+	CONTAINERS="soda-internal-api soda-bot soda-web soda-dashboard"; \
+	if $(CONTAINER_CMD) inspect soda-mcp >/dev/null 2>&1; then CONTAINERS="$$CONTAINERS soda-mcp"; fi; \
+	for CONTAINER_NAME in $$CONTAINERS; do \
 		RAW=$$($(CONTAINER_CMD) inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.State.Status}}' "$$CONTAINER_NAME" 2>/dev/null || echo "missing|missing"); \
 		STATUS=$${RAW%%|*}; [ -n "$$STATUS" ] || STATUS=$${RAW#*|}; \
 		case "$$STATUS" in \
