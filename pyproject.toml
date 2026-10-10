@@ -63,6 +63,7 @@ dependencies = [
     "beautifulsoup4>=4.13",
     "lxml>=5.3",
     "defusedxml>=0.7.1",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.pytest.ini_options]
@@ -137,6 +138,7 @@ source_modules = [
     "modules.accounts.providers",
     "modules.accounts.service",
     "modules.agents.service",
+    "modules.agents.turns",
     "modules.asu.service",
     "modules.auth.machine_tokens",
     "modules.calendar.service",
@@ -145,6 +147,7 @@ source_modules = [
     "modules.knowledge.extract",
     "modules.knowledge.fetch",
     "modules.knowledge.service",
+    "modules.leetcode.daily",
     "modules.leetcode.service",
     "modules.mcp.runtime",
     "modules.organizations.service",

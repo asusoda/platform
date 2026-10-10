@@ -90,7 +90,11 @@ def _ensure_sqlite_parent_dir_exists() -> None:
 
 
 # Postgres-only indexes created in migrations with raw SQL (pgvector HNSW, full-text GIN).
-UNMODELED_INDEXES = {"ix_knowledge_chunks_embedding_hnsw", "ix_knowledge_chunks_content_fts"}
+UNMODELED_INDEXES = {
+    "ix_knowledge_chunks_embedding_hnsw",
+    "ix_knowledge_chunks_content_fts",
+    "ix_agent_profile_nodes_embedding_hnsw",
+}
 
 
 def include_object(obj, name, type_, reflected, compare_to):

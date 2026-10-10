@@ -9,14 +9,16 @@ Sensitive memories are encrypted with the same Fernet keys as org secrets (SECRE
 """
 
 import datetime
+import math
 import os
 import uuid
 from dataclasses import dataclass
 from typing import Any, cast
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 
 from core import secrets
+from core.logging_config import get_logger
 from modules.agents.models import (
     AgentConversation,
     AgentMemory,
@@ -26,6 +28,10 @@ from modules.agents.models import (
     AgentProfileNode,
 )
 from modules.auth import scopes
+from modules.knowledge.embedder import Embedder, EmbeddingError
+from modules.knowledge.models import DIMENSIONS, Embedding
+
+logger = get_logger("agents")
 
 VISIBILITIES = ("public", "private")
 ROLES = ("system", "user", "assistant", "tool")
@@ -51,6 +57,14 @@ class Owner:
     organization_id: int
     discord_id: str
     token_id: int | None = None
+
+
+def _save(db, commit: bool) -> None:
+    """Commit, or flush when the caller commits several writes as one transaction."""
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
 
 def _now() -> datetime.datetime:
@@ -110,7 +124,9 @@ def _owned(db, who: Owner, conversation_id: str) -> AgentConversation | None:
     )
 
 
-def ensure(db, who: Owner, conversation_id: object, channel_id: object, visibility: object) -> str:
+def ensure(
+    db, who: Owner, conversation_id: object, channel_id: object, visibility: object, *, commit: bool = True
+) -> str:
     """Create the conversation, or confirm the caller already owns it with this channel and visibility.
 
     An id held by another member, channel or visibility raises AgentError 409. Commits.
@@ -131,7 +147,7 @@ def ensure(db, who: Owner, conversation_id: object, channel_id: object, visibili
                 agent_token_id=who.token_id,
             )
         )
-        db.commit()
+        _save(db, commit)
         return cid
     same = (
         row.organization_id == who.organization_id
@@ -182,7 +198,9 @@ def load(db, who: Owner, conversation_id: object, limit: object = None) -> list[
     return out
 
 
-def _write(db, who: Owner, conversation_id: object, rows: list[tuple[str, object, int | None]]) -> list[int]:
+def _write(
+    db, who: Owner, conversation_id: object, rows: list[tuple[str, object, int | None]], commit: bool = True
+) -> list[int]:
     cid = _conversation_id(conversation_id)
     conversation = _owned(db, who, cid)
     if conversation is None:
@@ -193,11 +211,11 @@ def _write(db, who: Owner, conversation_id: object, rows: list[tuple[str, object
         for role, content, covers in rows
     ]
     db.add_all(messages)
-    db.commit()
+    _save(db, commit)
     return [cast(int, m.seq) for m in messages]
 
 
-def append(db, who: Owner, conversation_id: object, messages: Any) -> list[int]:
+def append(db, who: Owner, conversation_id: object, messages: Any, *, commit: bool = True) -> list[int]:
     """Append messages in one transaction. Each is {"role", "content"}; content is any JSON. Returns their seqs."""
     if not isinstance(messages, list) or not messages:
         raise AgentError("messages must be a non-empty list")
@@ -206,16 +224,18 @@ def append(db, who: Owner, conversation_id: object, messages: Any) -> list[int]:
         if not isinstance(m, dict) or m.get("role") not in ROLES or "content" not in m:
             raise AgentError(f"each message needs a role ({', '.join(ROLES)}) and content")
         rows.append((m["role"], m["content"], None))
-    return _write(db, who, conversation_id, rows)
+    return _write(db, who, conversation_id, rows, commit)
 
 
-def append_summary(db, who: Owner, conversation_id: object, content: object, covers: object) -> int:
+def append_summary(
+    db, who: Owner, conversation_id: object, content: object, covers: object, *, commit: bool = True
+) -> int:
     """Store a summary that stands in for every message up to seq covers."""
     if not isinstance(covers, int) or isinstance(covers, bool) or covers < 1:
         raise AgentError("covers must be a message seq")
     if content is None:
         raise AgentError("content is required")
-    return _write(db, who, conversation_id, [("summary", content, covers)])[0]
+    return _write(db, who, conversation_id, [("summary", content, covers)], commit)[0]
 
 
 def latest(db, who: Owner, channel_id: object, visibility: object) -> str | None:
@@ -319,8 +339,9 @@ def remember(
     confidence: object = None,
     source_seq: object = None,
     expires_in_days: object = None,
+    commit: bool = True,
 ) -> dict:
-    """Store one memory. Commits."""
+    """Store one memory. Commits unless commit is false."""
     if kind not in MEMORY_KINDS:
         raise AgentError(f"kind must be one of {', '.join(MEMORY_KINDS)}")
     if sensitivity not in SENSITIVITIES:
@@ -342,7 +363,7 @@ def remember(
         expires_at=_now() + datetime.timedelta(days=expires_in_days) if expires_in_days else None,
     )
     db.add(row)
-    db.commit()
+    _save(db, commit)
     return memory_dict(row, text)
 
 
@@ -408,10 +429,28 @@ def _node(db, who: Owner, kind: str, label: str, confidence: float) -> AgentProf
     return node
 
 
-def upsert(db, who: Owner, facts: Any) -> int:
+def _embed_nodes(nodes: list[AgentProfileNode], embedder: Embedder) -> None:
+    """Give nodes without a vector from this model one, from "kind: label". A failure leaves them without."""
+    todo = [n for n in nodes if n.embedding is None or n.embedding_model != embedder.model]
+    if not todo:
+        return
+    try:
+        vectors = embedder.embed([f"{n.kind}: {n.label}" for n in todo])
+    except EmbeddingError:
+        logger.warning("profile nodes stored without embeddings count=%s", len(todo))
+        return
+    if any(len(v) != DIMENSIONS for v in vectors):
+        logger.warning("embedding service returned vectors that are not %s long", DIMENSIONS)
+        return
+    for node, vector in zip(todo, vectors, strict=True):
+        node.embedding, node.embedding_model = vector, embedder.model
+
+
+def upsert(db, who: Owner, facts: Any, *, commit: bool = True, embedder: Embedder | None = None) -> int:
     """Store facts, each {"subject": {kind, label}, "relation", "object": {kind, label}, "confidence"}.
 
-    Existing nodes and edges keep the higher confidence. One transaction. Returns how many facts.
+    Existing nodes and edges keep the higher confidence. With an embedder, nodes get vectors for
+    similar(). One transaction. Returns how many facts.
     """
     if not isinstance(facts, list):
         raise AgentError("facts must be a list")
@@ -427,9 +466,11 @@ def upsert(db, who: Owner, facts: Any) -> int:
                 _confidence(fact.get("confidence")),
             )
         )
+    touched: dict[str, AgentProfileNode] = {}
     for (s_kind, s_label), relation, (o_kind, o_label), confidence in parsed:
         subject = _node(db, who, s_kind, s_label, confidence)
         obj = _node(db, who, o_kind, o_label, confidence)
+        touched[str(subject.id)], touched[str(obj.id)] = subject, obj
         edge = db.query(AgentProfileEdge).filter_by(from_node=subject.id, to_node=obj.id, relation=relation).first()
         if edge is None:
             db.add(
@@ -444,8 +485,21 @@ def upsert(db, who: Owner, facts: Any) -> int:
             db.flush()
         else:
             edge.confidence = max(float(edge.confidence), confidence)
-    db.commit()
+    if embedder is not None:
+        _embed_nodes(list(touched.values()), embedder)
+    _save(db, commit)
     return len(parsed)
+
+
+def _node_dict(n: AgentProfileNode) -> dict:
+    return {
+        "id": n.id,
+        "kind": n.kind,
+        "label": n.label,
+        "confidence": n.confidence,
+        "created_at": _iso(n.created_at),
+        "updated_at": _iso(n.updated_at),
+    }
 
 
 def profile_nodes(db, who: Owner, limit: object = None) -> list[dict]:
@@ -456,17 +510,73 @@ def profile_nodes(db, who: Owner, limit: object = None) -> list[dict]:
         .limit(_limit(limit, 50))
         .all()
     )
-    return [
-        {
-            "id": n.id,
-            "kind": n.kind,
-            "label": n.label,
-            "confidence": n.confidence,
-            "created_at": _iso(n.created_at),
-            "updated_at": _iso(n.updated_at),
+    return [_node_dict(n) for n in rows]
+
+
+_PGVECTOR: dict[str, bool] = {}
+
+
+def _vector_sql(db) -> bool:
+    """Whether the node embedding column is pgvector, so nearest nodes come from SQL."""
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return False
+    url = str(bind.url)
+    if url not in _PGVECTOR:
+        row = db.execute(
+            text(
+                "SELECT data_type FROM information_schema.columns "
+                "WHERE table_name = 'agent_profile_nodes' AND column_name = 'embedding'"
+            )
+        ).first()
+        _PGVECTOR[url] = row is not None and row[0] == "USER-DEFINED"
+    return _PGVECTOR[url]
+
+
+def similar(db, who: Owner, query: object, limit: object, embedder: Embedder | None) -> list[dict]:
+    """The member's profile nodes nearest to the text, nearest first, each with its cosine distance."""
+    if embedder is None:
+        raise AgentError("Similar nodes need an embedding service (EMBEDDINGS_URL)", 503)
+    query_text = _text(query, "text", 2000)
+    count = _limit(limit, 10)
+    try:
+        vector = embedder.embed_query(query_text)
+    except EmbeddingError as e:
+        raise AgentError("The embedding service failed", 502) from e
+    if _vector_sql(db):
+        params = {
+            "org": who.organization_id,
+            "member": who.discord_id,
+            "model": embedder.model,
+            "vec": Embedding().process_bind_param(vector, None),
+            "n": count,
         }
-        for n in rows
-    ]
+        scored = [
+            (float(distance), node_id)
+            for node_id, distance in db.execute(
+                text(
+                    "SELECT id, embedding <=> CAST(:vec AS vector) AS distance FROM agent_profile_nodes"
+                    " WHERE organization_id = :org AND discord_id = :member AND embedding IS NOT NULL"
+                    " AND embedding_model = :model ORDER BY distance LIMIT :n"
+                ),
+                params,
+            )
+        ]
+    else:
+        rows = db.query(AgentProfileNode.id, AgentProfileNode.embedding).filter(
+            AgentProfileNode.organization_id == who.organization_id,
+            AgentProfileNode.discord_id == who.discord_id,
+            AgentProfileNode.embedding.isnot(None),
+            AgentProfileNode.embedding_model == embedder.model,
+        )
+        norm = math.sqrt(sum(x * x for x in vector)) or 1.0
+        scored = []
+        for node_id, embedding in rows:
+            other = math.sqrt(sum(x * x for x in embedding)) or 1.0
+            scored.append((1.0 - sum(a * b for a, b in zip(vector, embedding, strict=False)) / (norm * other), node_id))
+        scored = sorted(scored)[:count]
+    nodes = {n.id: n for n in db.query(AgentProfileNode).filter(AgentProfileNode.id.in_([i for _, i in scored]))}
+    return [{**_node_dict(nodes[i]), "distance": round(d, 6)} for d, i in scored if i in nodes]
 
 
 def _relations_query(db, who: Owner):
@@ -586,8 +696,17 @@ def forget_everything(db, who: Owner) -> int:
 # Pending actions (confirmations for consequential tool calls)
 
 
-def hold(db, who: Owner, token: object, action: object, payload_hash: object, ttl_seconds: object = 600) -> None:
-    """Hold an action until the member confirms or denies it. token is a UUID the agent chose. Commits."""
+def hold(
+    db,
+    who: Owner,
+    token: object,
+    action: object,
+    payload_hash: object,
+    ttl_seconds: object = 600,
+    *,
+    commit: bool = True,
+) -> None:
+    """Hold an action until the member confirms or denies it. token is a UUID the agent chose. Commits unless commit is false."""
     tid = _conversation_id(token)
     if not isinstance(action, dict):
         raise AgentError("action must be an object")
@@ -607,7 +726,7 @@ def hold(db, who: Owner, token: object, action: object, payload_hash: object, tt
             expires_at=_now() + datetime.timedelta(seconds=ttl_seconds),
         )
     )
-    db.commit()
+    _save(db, commit)
 
 
 def claim(db, who: Owner, token: object, approved: object) -> dict | None:

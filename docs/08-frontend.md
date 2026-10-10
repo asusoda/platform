@@ -138,6 +138,15 @@ const { goToDashboard, goToUsers, goToLeaderboard, navigateToOrg, getOrgPath } =
 
 `getOrgPath("users")` returns `/{currentOrg.prefix}/users`, or the bare path if no org is selected.
 
+## Switched-off modules
+
+`hooks/useOrgModules.js` reads `GET /api/organizations/<id>/modules` for the current org.
+`HomePage` and `OrganizationNavbar` hide points, storefront and calendar entries that the org has
+turned off. Until the answer arrives, or if the request fails, everything shows. Typing the URL
+of a hidden page still opens it; its API calls return 404.
+
+Run the hook's tests with `npx react-scripts test --watchAll=false src/hooks`.
+
 ## Component map
 
 | Area | Files |

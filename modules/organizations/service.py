@@ -17,6 +17,7 @@ OPTIONAL_MODULES = {
     "points": "Points, leaderboards and event check-ins",
     "storefront": "Merch store paid with points",
     "calendar": "Notion to Google Calendar sync and the public events feed",
+    "leetcode": "Daily LeetCode post in the org's channel, with solve checks",
 }
 
 

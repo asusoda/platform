@@ -66,37 +66,41 @@ and writes in `modules/leetcode/service.py`.
 | `/leaderboard [limit]` | no | Top daily solvers, 1–25 entries, medals for the top three |
 | `/stats` | no | `{linked users, active solvers, total solves}` server-wide |
 
-### The daily post and verification loop
+### The daily post and verification jobs
+
+Both run as jobs (`modules/leetcode/jobs.py`, logic in `modules/leetcode/daily.py`), not in the
+bot, and talk to Discord over its REST API with `BOT_TOKEN`. They run in the worker on Postgres
+and in the API process's job thread on SQLite.
 
 ```
-on_ready
-  └─ _start_daily_task()
-       parse LEETCODE_DAILY_TIME as HH:MM (falls back to 09:00 on a bad value)
-       schedule post_daily at that time in TIMEZONE
+leetcode.post_daily (every 5 minutes)
+  for each target: the instance post (LEETCODE_CHANNEL_ID, LEETCODE_ROLE_PING, LEETCODE_DAILY_TIME),
+  then every org with the leetcode module on and a channel set
+  ├─ skip until the target's daily time (HH:MM in TIMEZONE) has passed
+  ├─ skip if leetcode_daily already has a row for (today, target)
+  ├─ fetch today's question once, insert the row ((post_date, scope) is the primary key, so only one run wins)
+  ├─ send the embed, optionally pinging the role, store the message id, add a ✅ reaction
+  └─ if Discord refuses the post, delete the row so the next run tries again
 
-post_daily (tasks.loop hours=24, pinned to a time)
-  ├─ resolve LEETCODE_CHANNEL_ID (get_channel, then fetch_channel)
-  ├─ fetch today's daily question from LeetCode's GraphQL API
-  ├─ send the embed, optionally pinging LEETCODE_ROLE_PING, and add a ✅ reaction
-  └─ reset state:
-       _today_slug, _today_date, _daily_message
-       _verified_today = {}
-       _pending_today  = every discord_id in leetcode_link
-     then start (or restart) verify_loop, unless nobody is linked
-
-verify_loop (tasks.loop minutes=10)
-  ├─ stop if there is no live challenge
-  ├─ stop if the date in TIMEZONE has rolled over
-  ├─ stop if _pending_today is empty
-  └─ for each pending user:
+leetcode.verify (every 10 minutes)
+  └─ for each linked member with no leetcode_solve row for today:
        fetch their last 20 accepted submissions
-       any submission whose titleSlug == today's slug, dated today in TIMEZONE?
-         → move them pending → verified
+       any submission of today's question, dated today in TIMEZONE?
          → insert a leetcode_solve row
-         → reply to the daily message: "✅ @user solved today's challenge as **handle**!"
+         → reply under the instance post, and under each org's post whose server the member is in
 ```
 
-`/link` during a live challenge opts the new user into the current poll immediately.
+Members who `/link` during the day are picked up by the next verify run, and a restart loses
+nothing, because both jobs read their state from the database.
+
+### Per-org posts
+
+An officer sets their org's post with
+`PUT /api/organizations/<org_id>/leetcode {"channel_id": "...", "role_ping": "...", "daily_time": "09:00"}`
+(null clears a value; `GET` returns the settings). The settings live in `Organization.config["leetcode"]`.
+`leetcode` is an optional module, so turning it off for an org stops that org's post. The instance
+post from `LEETCODE_CHANNEL_ID` is separate: to move it to an org, set the org's channel, then unset
+`LEETCODE_CHANNEL_ID`, or the channel gets two posts.
 
 ### Things worth knowing
 
@@ -106,9 +110,10 @@ verify_loop (tasks.loop minutes=10)
 - Verification polls every 10 minutes, so a solve is acknowledged within ~10 minutes, not instantly.
 - `leetcode_solve` has a unique constraint on `(discord_id, solved_date)`. The leaderboard therefore
   counts **days participated**, not problems solved.
-- LeetCode data is **global**, not org-scoped. One channel, one leaderboard, across all guilds.
-- If `LEETCODE_CHANNEL_ID` is unset, `post_daily` never starts and no verification happens — but the
-  slash commands still work.
+- Links and solves are global: a member has one LeetCode handle, and `/leaderboard` and `/stats`
+  count across every server.
+- With no instance channel and no org channels, nothing is posted and no verification happens, but
+  the slash commands still work.
 
 ---
 

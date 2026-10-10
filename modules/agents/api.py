@@ -9,10 +9,11 @@ from flask import Blueprint, g, jsonify, request
 
 from core import audit_http
 from modules.auth.decoraters import machine_scope_required, member_required
+from modules.knowledge import embedder
 from modules.organizations.models import Organization
 from shared import db_connect
 
-from . import service
+from . import service, turns
 
 agents_blueprint = Blueprint("agents", __name__)
 
@@ -28,6 +29,8 @@ audit_http.SKIPPED_ROUTES.update(
         f"/api/agents{M}/memories",
         f"/api/agents{M}/profile/facts",
         f"/api/agents{M}/pending/<string:token>",
+        f"/api/agents{M}/turn/context",
+        f"/api/agents{M}/turn/commit",
     }
 )
 
@@ -160,7 +163,13 @@ def read_profile(db, who):
 
 @_agent_route("/profile/facts", "agents:write", ["POST"])
 def upsert_facts(db, who):
-    return {"stored": service.upsert(db, who, _body().get("facts"))}
+    return {"stored": service.upsert(db, who, _body().get("facts"), embedder=embedder.configured())}
+
+
+@_agent_route("/profile/similar", "agents:read", ["GET"])
+def similar_nodes(db, who):
+    nodes = service.similar(db, who, request.args.get("text"), _int_arg("limit"), embedder.configured())
+    return {"nodes": nodes}
 
 
 @_agent_route("/profile/matching", "agents:read", ["GET"])
@@ -201,6 +210,28 @@ def claim_action(db, who, token):
     if claimed is None:
         return jsonify({"error": "No pending action for this token"}), 404
     return claimed
+
+
+# Turns: one read before the model call, one write after the answer
+
+
+def _member_info(db, who):
+    """The member as Discord sees them in the token's org. Raises AgentError when they are not in it."""
+    from modules.auth.access import discord_directory
+
+    org = db.query(Organization).filter_by(id=who.organization_id).one()
+    return turns.member(discord_directory(), org.guild_id, org.officer_role_id, who.discord_id)
+
+
+@_agent_route("/turn/context", "agents:read", ["POST"])
+def turn_context(db, who):
+    return turns.context(db, who, _member_info(db, who), _body(), embedder.configured())
+
+
+@_agent_route("/turn/commit", "agents:write", ["POST"])
+def turn_commit(db, who):
+    _member_info(db, who)
+    return turns.commit(db, who, _body(), embedder.configured()), 201
 
 
 # Member self-service: a member sees and deletes what agents keep about them.

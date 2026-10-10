@@ -120,11 +120,11 @@ def update_organization_settings(org_id):
 
         # Update organization settings
         if "config" in data:
-            # Module switches are changed through /modules; keep them when the rest of config is replaced
-            modules = (org.config or {}).get("modules")
+            # Module switches and LeetCode settings have their own routes; keep them when the rest is replaced
+            kept = {k: v for k, v in (org.config or {}).items() if k in ("modules", "leetcode")}
             org.config = data["config"]
-            if modules is not None and isinstance(org.config, dict) and "modules" not in org.config:
-                org.config = {**org.config, "modules": modules}
+            if isinstance(org.config, dict):
+                org.config = {**kept, **org.config}
         if "prefix" in data:
             new_prefix = data["prefix"].strip()
 
@@ -262,6 +262,43 @@ def update_organization_modules(org_id):
         except service.ModuleError as e:
             return jsonify({"error": str(e)}), 400
         return jsonify({"modules": states})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/leetcode", methods=["GET"])
+@auth_required
+def get_organization_leetcode(org_id):
+    """The org's daily LeetCode post settings."""
+    from modules.leetcode import service as leetcode
+
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        return jsonify({"settings": leetcode.settings(org), "enabled": service.module_enabled(org, "leetcode")})
+    finally:
+        db.close()
+
+
+@organizations_blueprint.route("/<int:org_id>/leetcode", methods=["PUT"])
+@auth_required
+def update_organization_leetcode(org_id):
+    """Change the daily post settings. Body: {"channel_id": "...", "role_ping": "...", "daily_time": "09:00"}."""
+    from modules.leetcode import service as leetcode
+
+    data = request.get_json(silent=True)
+    db = next(db_connect.get_db())
+    try:
+        org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+        try:
+            saved = leetcode.save_settings(db, org, data)
+        except leetcode.SettingsError as e:
+            return jsonify({"error": str(e)}), 400
+        return jsonify({"settings": saved, "enabled": service.module_enabled(org, "leetcode")})
     finally:
         db.close()
 

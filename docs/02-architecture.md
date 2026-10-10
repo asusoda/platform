@@ -69,7 +69,6 @@ main.py `initialize_app()` (only when run as __main__)
 | Main | `main.py:initialize_app` | The Flask dev server (`app.run`), handling HTTP |
 | `AuthBotThread` (daemon) | `main.py:114` | Owns its own asyncio loop, runs the Discord bot |
 | `job-scheduler` (daemon, SQLite only) | `core/jobs.py:start_inline_scheduler`, called from `main.py` | Runs periodic jobs, e.g. hourly refresh-token cleanup. On Postgres the worker process runs them instead. |
-| py-cord task loops | inside `AuthBotThread` | `post_daily` (every 24h at a fixed time) and `verify_loop` (every 10 min while a daily challenge is live) |
 
 ### Background jobs
 

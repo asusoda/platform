@@ -208,6 +208,23 @@ org.last_sync_at = now
 
 `sync_all_organizations()` loops this over every org with `calendar_sync_enabled`.
 
+### Credentials per org
+
+Each org can save its own Notion token (`notion_api_key`) and Google service account key
+(`google_service_account`, the JSON key file as text) as org secrets:
+
+```
+PUT /api/organizations/<org_id>/secrets/google_service_account   {"value": "<contents of the key file>"}
+```
+
+`notion_for(db, org)` and `gcal_for(db, org)` return a client for the org's own credentials, or the
+instance-wide ones (`NOTION_API_KEY`, `google-secret.json`) when the org has none. A saved Google
+key that is not a JSON object fails the sync; it does not fall back to the instance account.
+
+A calendar belongs to the service account that created it. An org that switches accounts must
+share its existing calendar with the new account's `client_email` (make changes to events), or
+clear `google_calendar_id` so the next sync creates a new calendar.
+
 ### Sync is manual
 
 **Calendar sync is not scheduled by default.** Sync happens when something calls

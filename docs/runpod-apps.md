@@ -11,9 +11,20 @@ deploys with its own RunPod API key, so each org pays for its own pods.
 2. Store each secret env value the app needs as an org secret named `app_...`.
 3. Issue a machine token with `apps:read` and `apps:manage` for officers, and one with only
    `apps:deploy` for the app's CI.
-4. Register the manifest: `PUT /api/apps/<name>` with `{"manifest": {...}}`.
+4. Register the app, one of two ways:
+   - From its repo: `PUT /api/apps/<name>` with `{"repo": "owner/name"}` (and `manifest_path`
+     when the file is not `platform.app.yaml` at the root). The file is read from the default
+     branch now, and again at each deploy's `ref`. Private repos need the org secret
+     `github_token`, a token that can read the repo's contents.
+   - Inline: `PUT /api/apps/<name>` with `{"manifest": {...}}`.
+
+With a repo, a change to the pod's env, ports or disk is a pull request to the app, reviewed
+like its code. Anyone who can merge to the app's repo can already change what runs on the pod,
+so reading the manifest from the same commit gives the deploy token no more reach than that.
 
 ## Manifest
+
+The same fields as YAML in `platform.app.yaml`, or as JSON inline:
 
 ```json
 {
@@ -51,8 +62,8 @@ All under `/api/apps`, machine tokens only, org from the token.
 | `DELETE /<name>` | apps:manage | Forget the app. The pod keeps running |
 | `GET /<name>/deployments` | apps:read | Latest 20 deployments |
 | `GET /<name>/pod` | apps:read | The pod as RunPod reports it |
-| `POST /<name>/deploy` | apps:deploy | `{"tag": "v1.2.0" or "sha256:...", "dry_run": false}`. 202 when started |
-| `POST /<name>/rollback` | apps:manage | Deploy the newest healthy tag other than the current one |
+| `POST /<name>/deploy` | apps:deploy | `{"tag": "v1.2.0" or "sha256:...", "ref": "<git sha>", "dry_run": false}`. `ref` only for apps with a repo; omitted, the default branch is read. A dry run returns the manifest and the RunPod request. 202 when started |
+| `POST /<name>/rollback` | apps:manage | Deploy the newest healthy tag other than the current one, with the manifest that deploy used |
 
 `apps.list` is the same listing as an MCP tool.
 
@@ -63,14 +74,14 @@ health path answers below 400, or failed after 15 minutes. There is no automatic
 
 ## Deploying from GitHub Actions
 
-After the image is pushed:
+After the image is pushed. Drop `ref` for an app registered with an inline manifest:
 
 ```yaml
 - name: Deploy to RunPod
   run: |
     curl -fsS -X POST "$PLATFORM_URL/api/apps/sparky/deploy" \
       -H "Authorization: Bearer $DEPLOY_TOKEN" -H "Content-Type: application/json" \
-      -d "{\"tag\": \"${GITHUB_SHA}\"}"
+      -d "{\"tag\": \"${GITHUB_SHA}\", \"ref\": \"${GITHUB_SHA}\"}"
   env:
     PLATFORM_URL: ${{ vars.PLATFORM_URL }}
     DEPLOY_TOKEN: ${{ secrets.PLATFORM_DEPLOY_TOKEN }}

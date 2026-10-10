@@ -1,13 +1,53 @@
 """LeetCode links, solves and stats. Used by the Discord cog; no Flask here."""
 
 import datetime
+import re
+from typing import cast
 
 from sqlalchemy import func
+from sqlalchemy.orm.attributes import flag_modified
 
 from core.logging_config import get_logger
 from modules.leetcode.models import LeetCodeLink, LeetCodeSolve
 
 logger = get_logger("leetcode.service")
+
+SNOWFLAKE = re.compile(r"^[0-9]{5,25}$")
+HHMM = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+SETTING_KEYS = ("channel_id", "role_ping", "daily_time")
+
+
+class SettingsError(ValueError):
+    pass
+
+
+def settings(org) -> dict:
+    """The org's daily post settings: channel_id, role_ping, daily_time. Missing values are None."""
+    saved = (org.config or {}).get("leetcode") or {}
+    return {key: saved.get(key) for key in SETTING_KEYS}
+
+
+def save_settings(db, org, changes: object) -> dict:
+    """Merge changes into the org's daily post settings. null clears a value. Commits."""
+    if not isinstance(changes, dict) or not changes:
+        raise SettingsError("Send an object with channel_id, role_ping or daily_time")
+    for key, value in changes.items():
+        if key not in SETTING_KEYS:
+            raise SettingsError(f"Unknown setting: {key}")
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise SettingsError(f"{key} must be a string or null")
+        pattern = HHMM if key == "daily_time" else SNOWFLAKE
+        if not pattern.match(value):
+            raise SettingsError(f"{key} is not valid" + (" (use HH:MM)" if key == "daily_time" else " (Discord id)"))
+    config = dict(cast(dict, org.config) or {})
+    merged = {**(config.get("leetcode") or {}), **changes}
+    config["leetcode"] = {key: value for key, value in merged.items() if value is not None}
+    org.config = config
+    flag_modified(org, "config")
+    db.commit()
+    return settings(org)
 
 
 def linked_discord_ids(db) -> list[str]:
@@ -50,6 +90,12 @@ def record_solve(db, discord_id: str, title_slug: str, solved_date: datetime.dat
     except Exception:
         logger.error(f"Failed to record solve for {discord_id}", exc_info=True)
         db.rollback()
+
+
+def unsolved_links(db, day: datetime.date) -> dict[str, str]:
+    """Linked members with no solve recorded for day: discord_id to LeetCode username."""
+    solved = {row.discord_id for row in db.query(LeetCodeSolve.discord_id).filter_by(solved_date=day)}
+    return {row.discord_id: row.leetcode_username for row in db.query(LeetCodeLink) if row.discord_id not in solved}
 
 
 def leaderboard(db, limit: int = 10) -> list[tuple[str, str, int]]:

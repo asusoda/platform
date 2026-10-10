@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 
 from core.base import Base
+from modules.knowledge.models import Embedding
 
 
 def _uuid() -> str:
@@ -90,6 +91,8 @@ class AgentProfileNode(Base):
     kind = Column(String(100), nullable=False)
     label = Column(String(500), nullable=False)
     confidence = Column(Float, nullable=False, default=1.0)
+    embedding = Column(Embedding(), nullable=True)  # of "kind: label", as Sparky embeds nodes
+    embedding_model = Column(String(200), nullable=True)
     agent_token_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, nullable=False, default=_now)
     updated_at = Column(DateTime, nullable=False, default=_now)
