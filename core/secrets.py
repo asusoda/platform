@@ -53,6 +53,23 @@ def configured() -> bool:
     return _fernet() is not None
 
 
+def encrypt(text: str) -> str | None:
+    """Encrypt with SECRETS_KEY, or None when it is not configured."""
+    fernet = _fernet()
+    return fernet.encrypt(text.encode()).decode() if fernet else None
+
+
+def decrypt(ciphertext: str) -> str | None:
+    """Decrypt with SECRETS_KEY, or None when it is missing or the key does not match."""
+    fernet = _fernet()
+    if fernet is None:
+        return None
+    try:
+        return fernet.decrypt(ciphertext.encode()).decode()
+    except InvalidToken:
+        return None
+
+
 def set_secret(db, org_id: int, name: str, value: object, updated_by: str | None = None) -> None:
     """Encrypt and store a secret. Commits."""
     if name not in KNOWN:

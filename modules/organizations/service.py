@@ -5,7 +5,10 @@ from typing import cast
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from modules.auth import scopes
 from modules.organizations.models import Organization
+
+scopes.declare("org:read", "Read the org's name, description and enabled modules")
 
 # Modules an organization can turn off. Everything else (auth, users, organizations,
 # superadmin, public pages) is always on. A module missing from an org's config is on,

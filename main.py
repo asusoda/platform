@@ -9,12 +9,12 @@ import discord
 from flask import jsonify  # Import current_app
 
 from core import jobs
-from core.audit import register_audit
+from core.audit_http import register_audit
 from core.discord_directory import DiscordDirectory
 from core.request_log import register_request_logging
 from modules.calendar import service as calendar_service
 from modules.cli import register_cli
-from modules.registry import load_jobs, register_modules
+from modules.registry import load_jobs, load_tools, register_modules
 from shared import app, config, create_auth_bot, logger, tokenManager
 
 # Session cookies are signed with this key. A known default would let anyone forge a session,
@@ -81,6 +81,7 @@ register_audit(app, tokenManager)
 
 # Register Blueprints
 register_modules(app)
+load_tools()
 
 # Background jobs. On Postgres the worker process (worker_main.py) runs them; on SQLite
 # periodic jobs run from a thread here, as the token cleanup always has.

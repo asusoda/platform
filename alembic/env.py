@@ -41,6 +41,7 @@ from core.base import Base  # noqa: E402
 for model_module in (
     "core.audit",
     "core.secrets",
+    "modules.agents.models",
     "modules.auth.models",
     "modules.games.models",
     "modules.leetcode.models",

@@ -39,6 +39,7 @@ For requests authenticated via the `Authorization: Bearer <access_token>` header
 | POST | `/logout` | — | Body `{refresh_token}` (optional). Revokes, blacklists the header token, clears the Flask session. |
 | GET | `/name` | JWT | `{name}` — the display name stored in the token |
 | GET | `/appToken?appname=<name>` | JWT | Issues a long-lived app token for a named integration |
+| GET | `/machine/whoami` | machine token | The token's org, name, kind and scopes |
 | GET | `/success` | — | A static confirmation string |
 
 ---
@@ -57,6 +58,9 @@ All keyed by **numeric org id**, not prefix.
 | GET | `/<int:org_id>/modules` | JWT | Optional modules and whether each is on for this org |
 | PUT | `/<int:org_id>/modules` | JWT | Turn modules on or off: `{"modules": {"storefront": false}}` |
 | GET | `/<int:org_id>/audit` | JWT | This org's audit log, newest first. `?limit=100&before_id=<id>` |
+| GET | `/<int:org_id>/tokens` | JWT | Active machine tokens (never their values) and the declared scopes |
+| POST | `/<int:org_id>/tokens` | JWT | Issue a machine token: `{"name", "kind", "scopes", "expires_days"?}`. Returns the value once. |
+| DELETE | `/<int:org_id>/tokens/<int:token_id>` | JWT | Revoke a machine token |
 | GET | `/<int:org_id>/secrets` | JWT | Declared secrets and whether each is set. Never returns values. |
 | PUT | `/<int:org_id>/secrets/<name>` | JWT | Save a secret: `{"value": "..."}`. 400 if the name is unknown or `SECRETS_KEY` is unset. |
 | DELETE | `/<int:org_id>/secrets/<name>` | JWT | Remove a secret |
@@ -241,3 +245,12 @@ Allowed headers: `Content-Type, Authorization, X-Organization-ID, X-Organization
 Note the dev web container serves on **port 5000**, which is *not* in the allowlist. Browser calls
 from `http://localhost:5000` to the API will be blocked by CORS. If you are running the web app
 locally against the local API, add your origin to this list.
+
+## `/api/tools` — `modules/mcp/api.py`
+
+Machine tokens only. See [Tools and the MCP server](./tools-and-mcp.md).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/tools` | machine token | Tools this token may call, with their input schemas |
+| POST | `/api/tools/<name>` | machine token | Call a tool; the body is its arguments. Returns `{"result": ...}` |
