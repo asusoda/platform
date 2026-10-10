@@ -27,9 +27,10 @@ The folders are not nested. `CATEGORIES` in `manifest.py` groups the modules bel
 | Module | Does | Org switch |
 | --- | --- | --- |
 | [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | |
-| [asu](asu/README.md) | Example campus source: ASU pages and live queries | |
+| [integrations](integrations/README.md) | Tools of connected services (GitHub) passed through to their MCP servers | |
 | [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | |
 | [mcp](mcp/README.md) | The MCP server and `/api/tools` | |
+| [packs](packs/README.md) | Loads the packs in `packs/`: campus pages and live queries added to knowledge | |
 
 ## Infrastructure
 

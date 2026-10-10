@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button, cx, Dialog, Field, FormActions, Input, Select, Switch } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { NewPod } from '../../lib/types';
-import { computePath, useComputeSettings, useRefreshCompute, UsersEditor } from './shared';
+import { UsersEditor } from './members';
+import { computePath, useComputeSettings, useRefreshCompute } from './shared';
 
 // Defaults and limits match pod_request in modules/compute/service.py.
 const DEFAULT_GPU = 'NVIDIA RTX A4000';
@@ -128,7 +129,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           <Field label="Name" hint="Leave empty for a random name">
             <Input value={draft.name} onChange={set('name')} placeholder="workshop" maxLength={100} />
           </Field>
-          <Field label="Image" hint="Leave empty for the org's default pod image, set in Compute settings">
+          <Field label="Image" hint="Leave empty for the org's default pod image, set in Pod settings">
             <Input
               value={draft.image}
               onChange={set('image')}
@@ -241,7 +242,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
             </div>
             <Switch checked={draft.isPublic} onChange={(v) => setDraft({ ...draft, isPublic: v })} label="Open to all members" />
           </div>
-          <UsersEditor users={draft.users} onChange={(users) => setDraft({ ...draft, users })} />
+          <UsersEditor prefix={prefix} users={draft.users} onChange={(users) => setDraft({ ...draft, users })} />
         </div>
 
         <p className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-xs text-pretty">

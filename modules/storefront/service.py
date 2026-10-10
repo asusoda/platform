@@ -1,9 +1,12 @@
 """Product and order queries for the storefront. No Flask here."""
 
+from core import webhooks
 from core.log import get_logger
 from modules.storefront.models import Order, Product
 
 logger = get_logger(__name__)
+
+webhooks.declare("order.created", "Store orders", "A member places an order in the store.", "storefront")
 
 
 def normalize_category(value):
@@ -56,11 +59,22 @@ def create_order(db, order, order_items, organization_id):
         db.commit()
         db.refresh(order)
         logger.info(f"Created storefront order {order.id} for organization {organization_id}")
+        _announce(order, len(order_items), organization_id)
         return order
     except Exception as e:
         logger.error(f"Error creating storefront order: {str(e)}")
         db.rollback()
         raise
+
+
+def _announce(order, items: int, organization_id) -> None:
+    """Send the order.created webhook event."""
+    message = webhooks.Message(
+        title=f"New store order #{order.id}",
+        fields=(("Items", str(items)), ("Total", f"{float(order.total_amount or 0):g} points")),
+        color=webhooks.GREEN,
+    )
+    webhooks.emit(int(organization_id), "order.created", message)
 
 
 def products(db, organization_id):

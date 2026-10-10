@@ -731,8 +731,8 @@ async function story(d) {
   d.zoomOut();
   await d.press('Escape', { animate: 180, after: 0.05 });
 
-  // Agents.
-  await d.click(nav('Agents'), { after: 0.1 });
+  // MCP.
+  await d.click(nav('MCP'), { after: 0.1 });
   d.caption('See how members use your agents');
   await d.zoomTo(page.locator('main').first(), { max: 1.25, dy: -150 });
   d.hold(0.9);

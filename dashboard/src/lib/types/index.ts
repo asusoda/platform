@@ -12,3 +12,4 @@ export type * from './points';
 export type * from './store';
 export type * from './notifications';
 export type * from './integrations';
+export type * from './webhooks';

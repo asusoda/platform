@@ -18,7 +18,8 @@ const KINDS: { kind: AppKind; title: string; hint: string }[] = [
   { kind: 'service', title: 'Services', hint: 'APIs, workers and anything else' },
 ];
 
-export function AppsPage() {
+// The Services tab of the Hosting page. tabs is the tab bar, shown under the page header.
+export function ServicesTab({ tabs }: { tabs: ReactNode }) {
   const { prefix } = useCurrentOrg();
   const [registering, setRegistering] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
@@ -39,10 +40,11 @@ export function AppsPage() {
   return (
     <>
       <PageHeader
-        title="Apps"
-        description="The org's bots, agents, sites and services. Register a manifest, then deploy image tags here or from CI."
+        title="Hosting"
+        description="The org's bots, agents, sites and services on RunPod. Register a manifest, then deploy image tags here or from CI."
         action={register}
       />
+      {tabs}
       <IntegrationHint keys={['runpod']} />
       {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
       {list.error ? (

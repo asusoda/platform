@@ -1,5 +1,18 @@
 // Alert feeds and their history.
 
+// A feed that a pack offers, with the kind and config to create it.
+export type AlertPreset = {
+  pack: string;
+  pack_title: string;
+  key: string;
+  title: string;
+  description: string;
+  kind: 'github_jobs' | 'hackathons';
+  config: Record<string, unknown>;
+  every_hours: number;
+  added: boolean;
+};
+
 export type AlertFeed = {
   key: string;
   kind: 'github_jobs' | 'hackathons';

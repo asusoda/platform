@@ -15,13 +15,15 @@ from core.http.responses import json_body
 from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
-from modules.knowledge import crawl, documents, embedder, packs, runs, settings
+from modules.knowledge import crawl, documents, embedder, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
+from modules.packs import service as packs
 from modules.runpod import service as apps
 
-from . import ci, notices, service
+from . import ci, errors, notices, service, webhooks
+from . import trends as trends_service
 
 dashboard_blueprint = Blueprint("dashboard", __name__)
 _route = partial(officer_route, dashboard_blueprint)
@@ -29,6 +31,9 @@ _route = partial(officer_route, dashboard_blueprint)
 # Searches are reads sent as POST
 audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/knowledge/search")
 audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/integrations/<string:key>/test")
+audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id>/test")
+# Error reports from the dashboard are not officer changes
+audit_hook.SKIPPED_ROUTES.add("/api/dashboard/<string:org_prefix>/errors/report")
 
 
 def _org_id(org) -> int:
@@ -43,6 +48,12 @@ def _actor() -> str:
 @_route("/overview", ["GET"])
 def overview(db, org):
     return service.overview(db, org)
+
+
+@_route("/trends", ["GET"])
+def trends(db, org):
+    days = request.args.get("days", type=int) or trends_service.DEFAULT_DAYS
+    return trends_service.trends(db, org, days)
 
 
 @_route("/notifications", ["GET"])
@@ -92,6 +103,56 @@ def set_branding(db, org):
 @_route("/ci", ["GET"])
 def ci_runs(db, org):
     return ci.runs(db, org)
+
+
+@_route("/errors", ["GET"])
+def list_errors(db, org):
+    status = request.args.get("status", "open")
+    return errors.listing(db, org, status, request.args.get("limit", 50, type=int))
+
+
+@_route("/errors/resolve", ["POST"])
+def resolve_errors(db, org):
+    return errors.resolve(db, org, json_body().get("ids"), _actor())
+
+
+@_route("/errors/reopen", ["POST"])
+def reopen_errors(db, org):
+    return errors.reopen(db, org, json_body().get("ids"))
+
+
+@_route("/errors/report", ["POST"])
+def report_error(db, org):
+    return errors.report(org, json_body())
+
+
+# Outbound webhooks
+
+
+@_route("/webhooks", ["GET"])
+def list_webhooks(db, org):
+    return webhooks.listing(db, org)
+
+
+@_route("/webhooks", ["POST"])
+def create_webhook(db, org):
+    return webhooks.create(db, org, json_body(), _actor()), 201
+
+
+@_route("/webhooks/<int:webhook_id>", ["PUT"])
+def update_webhook(db, org, webhook_id):
+    return webhooks.update(db, org, webhook_id, json_body())
+
+
+@_route("/webhooks/<int:webhook_id>", ["DELETE"])
+def delete_webhook(db, org, webhook_id):
+    webhooks.delete(db, org, webhook_id)
+    return {"deleted": True}
+
+
+@_route("/webhooks/<int:webhook_id>/test", ["POST"])
+def test_webhook(db, org, webhook_id):
+    return webhooks.send_test(db, org, webhook_id)
 
 
 @_route("/ci/repos", ["PUT"])

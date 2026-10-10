@@ -1,5 +1,5 @@
 import { CalendarClock, Cpu, KeyRound, Plus, Settings2 } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Badge,
@@ -104,7 +104,8 @@ function Upcoming({ prefix, pods, open }: { prefix: string; pods: Pod[]; open: (
   );
 }
 
-export function ComputePage() {
+// The Member pods tab of the Hosting page. tabs is the tab bar, shown under the page header.
+export function MemberPodsTab({ tabs }: { tabs: ReactNode }) {
   const { prefix } = useCurrentOrg();
   const pods = usePods(prefix);
   const [creating, setCreating] = useState(false);
@@ -123,11 +124,11 @@ export function ComputePage() {
   return (
     <>
       <PageHeader
-        title="Compute"
-        description="GPU and CPU pods on the org's RunPod account. Members connect with the compute CLI."
+        title="Hosting"
+        description="GPU and CPU pods on the org's RunPod account that members connect to with the compute CLI."
         action={
           <div className="flex gap-2">
-            <Button onClick={() => setEditing(true)} aria-label="Compute settings">
+            <Button onClick={() => setEditing(true)} aria-label="Pod settings">
               <Settings2 className="size-4" /> <span className="hidden sm:inline">Settings</span>
             </Button>
             <Button variant="primary" onClick={() => setCreating(true)} disabled={missingKey}>
@@ -136,6 +137,7 @@ export function ComputePage() {
           </div>
         }
       />
+      {tabs}
       {missingKey ? null : (
         <StatGrid className="mb-6">
           <Stat label="Pods" value={pods.data ? list.length : '-'} />

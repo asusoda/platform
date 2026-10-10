@@ -24,24 +24,103 @@ import {
 import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
-import type { MachineToken } from '../lib/types';
+import type { MachineToken, TokenIntegration } from '../lib/types';
 
-type TokenList = { tokens: MachineToken[]; scopes: Record<string, string> };
+type TokenList = {
+  tokens: MachineToken[];
+  scopes: Record<string, string>;
+  integrations: TokenIntegration[];
+};
 
-function NewToken({ orgId, scopes, onDone }: { orgId: number; scopes: Record<string, string>; onDone: () => void }) {
+// What each limit takes, with an example.
+const LIMIT_HINTS: Record<string, { label: string; placeholder: string; hint: string }> = {
+  repos: {
+    label: 'Repos',
+    placeholder: 'my-org/website, my-org/*',
+    hint: 'Calls may act only on these repos. Leave empty for every repo the key can reach.',
+  },
+  tools: {
+    label: 'Tools',
+    placeholder: 'github.*issue*, github.get_file_contents',
+    hint: 'Only tools whose names match. Leave empty for all tools the scopes give.',
+  },
+};
+
+function list(text: string): string[] {
+  return text
+    .split(/[\s,]+/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function ScopeBox({
+  scope,
+  description,
+  on,
+  onChange,
+}: {
+  scope: string;
+  description: string;
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <label
+      className={cx(
+        'flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
+        on ? 'border-fg/40 bg-panel-2' : 'border-line hover:bg-panel-2/50',
+      )}
+    >
+      <input type="checkbox" className="mt-0.5 size-4 accent-current" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      <span className="min-w-0">
+        <span className="block font-mono text-xs">{scope}</span>
+        <span className="mt-0.5 block text-xs text-muted">{description}</span>
+      </span>
+    </label>
+  );
+}
+
+function NewToken({
+  orgId,
+  scopes,
+  integrations,
+  onDone,
+}: {
+  orgId: number;
+  scopes: Record<string, string>;
+  integrations: TokenIntegration[];
+  onDone: () => void;
+}) {
   const client = useQueryClient();
   const [name, setName] = useState('');
   const [kind, setKind] = useState('agent');
   const [chosen, setChosen] = useState<string[]>([]);
+  const [limitText, setLimitText] = useState<Record<string, string>>({});
   const [value, setValue] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const create = useMutation({
-    mutationFn: () => send<{ token: string }>(`/api/organizations/${orgId}/tokens`, 'POST', { name, kind, scopes: chosen }),
+    mutationFn: () => {
+      const limits: Record<string, Record<string, string[]>> = {};
+      for (const integration of integrations) {
+        if (!integration.scopes.some((scope) => chosen.includes(scope))) continue;
+        for (const limit of integration.limits) {
+          const values = list(limitText[`${integration.key}.${limit}`] ?? '');
+          if (values.length)
+            limits[integration.key] = {
+              ...limits[integration.key],
+              [limit]: values,
+            };
+        }
+      }
+      return send<{ token: string }>(`/api/organizations/${orgId}/tokens`, 'POST', { name, kind, scopes: chosen, limits });
+    },
     onSuccess: (body) => {
       setValue(body.token);
       client.invalidateQueries({ queryKey: ['tokens', orgId] });
     },
   });
+  const owned = new Set(integrations.flatMap((i) => i.scopes));
+  const toggle = (scope: string) => (on: boolean) => setChosen(on ? [...chosen, scope] : chosen.filter((s) => s !== scope));
   if (value) {
     return (
       <Card className="mb-6">
@@ -87,33 +166,63 @@ function NewToken({ orgId, scopes, onDone }: { orgId: number; scopes: Record<str
           </Field>
         </div>
         <fieldset>
-          <legend className="mb-1.5 text-sm font-medium">Scopes</legend>
+          <legend className="mb-1.5 text-sm font-medium">Platform scopes</legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            {Object.entries(scopes).map(([scope, description]) => {
-              const on = chosen.includes(scope);
-              return (
-                <label
-                  key={scope}
-                  className={cx(
-                    'flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
-                    on ? 'border-fg/40 bg-panel-2' : 'border-line hover:bg-panel-2/50',
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 accent-current"
-                    checked={on}
-                    onChange={(e) => setChosen(e.target.checked ? [...chosen, scope] : chosen.filter((s) => s !== scope))}
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-mono text-xs">{scope}</span>
-                    <span className="mt-0.5 block text-xs text-muted">{description}</span>
-                  </span>
-                </label>
-              );
-            })}
+            {Object.entries(scopes)
+              .filter(([scope]) => !owned.has(scope))
+              .map(([scope, description]) => (
+                <ScopeBox key={scope} scope={scope} description={description} on={chosen.includes(scope)} onChange={toggle(scope)} />
+              ))}
           </div>
         </fieldset>
+        {integrations.map((integration) => {
+          const picked = integration.scopes.some((scope) => chosen.includes(scope));
+          return (
+            <fieldset key={integration.key} disabled={!integration.connected} className="disabled:opacity-60">
+              <legend className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+                {integration.title} tools
+                <Badge>{integration.connected ? 'connected' : 'not connected'}</Badge>
+              </legend>
+              <p className="mb-2 text-xs text-muted">
+                {integration.connected
+                  ? `Agents call ${integration.title} with the org's key, which they never see. Tools that change something run only with confirm=true.`
+                  : `Connect ${integration.title} on the Integrations page to give a token its tools.`}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {integration.scopes.map((scope) => (
+                  <ScopeBox
+                    key={scope}
+                    scope={scope}
+                    description={scopes[scope] ?? ''}
+                    on={chosen.includes(scope)}
+                    onChange={toggle(scope)}
+                  />
+                ))}
+              </div>
+              {picked ? (
+                <div className="mt-3 grid gap-5 sm:grid-cols-2">
+                  {integration.limits.map((limit) => {
+                    const help = LIMIT_HINTS[limit] ?? {
+                      label: limit,
+                      placeholder: '',
+                      hint: '',
+                    };
+                    const id = `${integration.key}.${limit}`;
+                    return (
+                      <Field key={id} label={help.label} hint={help.hint}>
+                        <Input
+                          value={limitText[id] ?? ''}
+                          onChange={(e) => setLimitText({ ...limitText, [id]: e.target.value })}
+                          placeholder={help.placeholder}
+                        />
+                      </Field>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </fieldset>
+          );
+        })}
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
           <Button variant="primary" disabled={create.isPending || !chosen.length}>
             Create token
@@ -152,7 +261,9 @@ export function TokensPage() {
           </Button>
         }
       />
-      {adding && org && list.data ? <NewToken orgId={org.id} scopes={list.data.scopes} onDone={() => setAdding(false)} /> : null}
+      {adding && org && list.data ? (
+        <NewToken orgId={org.id} scopes={list.data.scopes} integrations={list.data.integrations ?? []} onDone={() => setAdding(false)} />
+      ) : null}
       {list.error ? (
         <div className="mb-4">
           <ErrorNote error={list.error} />
@@ -187,14 +298,19 @@ export function TokensPage() {
                           {scope}
                         </Code>
                       ))}
+                      {Object.entries(t.limits ?? {}).flatMap(([integration, limits]) =>
+                        Object.entries(limits).map(([name, values]) => (
+                          <Code key={`${integration}.${name}`} className="text-muted">
+                            {integration} {name}: {values.join(', ')}
+                          </Code>
+                        )),
+                      )}
                     </div>
                   </Td>
                   <Td className="hidden whitespace-nowrap md:table-cell">
                     <Mono>{t.display}…</Mono>
                   </Td>
-                  <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums lg:table-cell">
-                    {timeAgo(t.last_used_at)}
-                  </Td>
+                  <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums lg:table-cell">{timeAgo(t.last_used_at)}</Td>
                   <Td className="text-right">
                     <Button
                       variant="danger"

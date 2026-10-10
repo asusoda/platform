@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Brain, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Search } from 'lucide-react';
+import { BookOpen, Brain, CalendarDays, Cloud, FileText, Flame, Plug, PlugZap, Route, Search } from 'lucide-react';
 import { type ComponentType, useState } from 'react';
 import { Link } from 'react-router';
 import { DiscordIcon, GitHubIcon } from '../components/brand-icons';
@@ -33,22 +33,29 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   runpod: Cloud,
   embeddings: Brain,
   firecrawl: Flame,
+  openrouter: Route,
   searxng: Search,
 };
 
 // The module names the API sends, with their label and dashboard page.
 const MODULES: Record<string, { label: string; path?: string }> = {
-  agents: { label: 'Agents', path: 'agents' },
-  asu: { label: 'ASU pack', path: 'knowledge' },
+  agents: { label: 'MCP', path: 'mcp' },
   auth: { label: 'Sign-in' },
-  calendar: { label: 'Calendar', path: 'calendar' },
-  compute: { label: 'Compute', path: 'compute' },
-  dashboard: { label: 'CI runs', path: 'activity?tab=ci' },
+  calendar: { label: 'Calendar sync', path: 'calendar' },
+  compute: { label: 'Member pods', path: 'hosting?tab=pods' },
+  dashboard: { label: 'Activity', path: 'activity' },
   games: { label: 'Games' },
   knowledge: { label: 'Knowledge', path: 'knowledge' },
   leetcode: { label: 'LeetCode', path: 'leetcode' },
-  runpod: { label: 'Apps', path: 'apps' },
+  packs: { label: 'Packs', path: 'knowledge' },
+  runpod: { label: 'Services', path: 'hosting' },
 };
+
+// The groups of cards, in order. An integration with a key in no group goes in the last group.
+const GROUPS: { title: string; hint: string; keys: string[] }[] = [
+  { title: 'Accounts', hint: "The org's accounts at other services.", keys: ['discord', 'github', 'google', 'notion', 'runpod'] },
+  { title: 'Services', hint: 'Servers that Platform calls for search and page reads.', keys: [] },
+];
 
 function StateBadge({ i }: { i: Integration }) {
   if (i.source === 'org') return <Badge tone="ok">Connected</Badge>;
@@ -162,7 +169,7 @@ function IntegrationCard({ prefix, i, canSave }: { prefix: string; i: Integratio
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold">{i.title}</h2>
+            <h3 className="text-sm font-semibold">{i.title}</h3>
             <StateBadge i={i} />
           </div>
           <p className="mt-1 text-sm text-pretty text-muted">{i.description}</p>
@@ -234,17 +241,31 @@ export function IntegrationsPage() {
     <>
       <PageHeader
         title="Integrations"
-        description={`Outside services that modules use. ${connected} of ${data.integrations.length} connected.`}
+        description={`Connect an account or a service one time. Modules across the dashboard then use it. ${connected} of ${data.integrations.length} connected.`}
       />
       {!data.secrets_key ? (
         <div className="mb-4">
           <ErrorNote error="SECRETS_KEY is not set on the API, so keys cannot be saved." />
         </div>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
-        {data.integrations.map((i) => (
-          <IntegrationCard key={i.key} prefix={prefix} i={i} canSave={data.secrets_key} />
-        ))}
+      <div className="space-y-8">
+        {GROUPS.map((g, n) => {
+          const last = n === GROUPS.length - 1;
+          const items = data.integrations.filter((i) => g.keys.includes(i.key) || (last && !GROUPS.some((o) => o.keys.includes(i.key))));
+          return items.length ? (
+            <section key={g.title} aria-label={g.title}>
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">{g.title}</h2>
+                <p className="mt-0.5 text-xs text-muted">{g.hint}</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {items.map((i) => (
+                  <IntegrationCard key={i.key} prefix={prefix} i={i} canSave={data.secrets_key} />
+                ))}
+              </div>
+            </section>
+          ) : null;
+        })}
       </div>
     </>
   );

@@ -57,7 +57,7 @@ register(
     Integration(
         key="notion",
         title="Notion",
-        description="Reads the org's events database for calendar sync.",
+        description="Connect the org's Notion workspace.",
         fields=(
             Field(
                 NOTION_SECRET,
@@ -74,7 +74,7 @@ register(
     Integration(
         key="google",
         title="Google",
-        description="A service account that owns the org's Google Calendar.",
+        description="Connect a Google Cloud service account for the org.",
         fields=(
             Field(
                 GOOGLE_SECRET,

@@ -8,7 +8,7 @@ import type { Notification } from '../lib/types';
 import { Tooltip } from './tooltip';
 import { Badge, Button, cx, Mono, Spinner } from './ui';
 
-const MODULE_LABELS: Record<string, string> = { alerts: 'Alerts', apps: 'Apps', knowledge: 'Knowledge' };
+const MODULE_LABELS: Record<string, string> = { alerts: 'Alerts', apps: 'Services', knowledge: 'Knowledge' };
 
 export const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module;
 

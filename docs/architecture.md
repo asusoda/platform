@@ -24,8 +24,8 @@ core/          shared code: config, database, jobs, tools, secrets, audit, logs,
 modules/       one folder per module, not nested; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
-web/, dashboard/, site/   the web app, the officer dashboard, the docs and landing site
-deploy/        the RunPod start script, the Hermes image and the SQLite to Postgres copy script
+dashboard/, site/   the dashboard and member store, the docs and landing site
+deploy/        the RunPod start script and the SQLite to Postgres copy script
 ```
 
 `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
@@ -67,16 +67,31 @@ Apps and agents read and change Platform data through tools. A module declares a
 
 Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only the tools that its token scopes allow and that its org has turned on. An unknown tool and a refused tool both return 404, so a token cannot find tools it may not use. A tool always acts on the caller's org. It has no org argument.
 
-| Tool | Scope | Module |
+| Tools | Scope | Module |
 | --- | --- | --- |
-| `org.info` | `org:read` | organizations |
+| `org.info`, `org.branding` | `org:read` | organizations |
+| `org.set_modules` (confirm), `org.set_branding` | `settings:write` | organizations |
+| `org.overview`, `org.trends`, `notifications.list`, `errors.list`, `activity.log` | `activity:read` | dashboard |
+| `notifications.resolve`, `notifications.reopen`, `errors.resolve` | `settings:write` | dashboard |
+| `integrations.list`, `integrations.save` (confirm), `integrations.test` | `integrations:manage` | dashboard |
 | `events.list` | `calendar:read` | calendar |
 | `points.leaderboard` | `points:read` | points |
-| `knowledge.search` | `knowledge:read` | knowledge |
-| `asu.query` | `knowledge:read` | asu |
-| `apps.list` | `apps:read` | runpod |
+| `knowledge.search`, `knowledge.sources`, `knowledge.packs`, `knowledge.settings`, `knowledge.runs` | `knowledge:read` | knowledge |
+| `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_pack`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
+| `packs.query` | `knowledge:read` | packs |
+| `apps.list`, `apps.get` | `apps:read` | runpod |
+| `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
+| `apps.deploy` (confirm) | `apps:deploy` | runpod |
+| `alerts.list`, `alerts.presets`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
+| `compute.pods`, `compute.pod_action` (confirm) | `compute:manage` | compute |
+| `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
+| `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
 
-Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>` and `source=mcp` or `api`. The MCP server keeps no session state, so you can run more than one. Start it with `docker compose --profile mcp up -d mcp`.
+A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
+
+No tool reads a secret value, makes or revokes a token, or changes points or the store. Officers do those in the dashboard.
+
+Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`, `source=mcp` or `api`, and the token as the actor. A call that waits for confirm has `details.confirm=pending`. The MCP server keeps no session state, so you can run more than one. Start it with `docker compose --profile mcp up -d mcp`.
 
 ## Outside services
 
@@ -87,4 +102,6 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
 | RunPod | Compute pods and app deploys | `core/integrations/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
-| Sentry | Errors, logs and traces, if `SENTRY_DSN` is set | `core/log.py` |
+| Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
+| Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to Discord webhooks | `core/webhooks.py`, `modules/dashboard/webhooks.py` |
+| Sentry | Optional: errors, logs and sampled traces if `SENTRY_DSN` is set | `core/log.py` |

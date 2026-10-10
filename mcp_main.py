@@ -9,6 +9,7 @@ import uvicorn
 
 from core.config import config
 from core.log import get_logger, init_sentry
+from modules.dashboard import errors as error_alerts
 from modules.manifest import load_tools
 from modules.mcp.server import build_app
 
@@ -16,7 +17,8 @@ logger = get_logger(__name__)
 
 
 def main() -> None:
-    init_sentry(config.SENTRY_DSN)
+    init_sentry(config.SENTRY, "mcp")
+    error_alerts.setup("mcp")
     load_tools()
     port = int(os.environ.get("MCP_PORT", "8001"))
     logger.info("Starting MCP server on port %s", port)

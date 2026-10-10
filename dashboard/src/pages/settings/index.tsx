@@ -18,7 +18,7 @@ const MODULE_PAGES: Record<string, string> = {
   storefront: 'store',
   calendar: 'calendar',
   leetcode: 'leetcode',
-  compute: 'compute',
+  compute: 'hosting?tab=pods',
   alerts: 'alerts',
 };
 

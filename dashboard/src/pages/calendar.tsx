@@ -215,7 +215,7 @@ export function CalendarPage() {
   return (
     <>
       <PageHeader
-        title="Calendar"
+        title="Calendar sync"
         description="Events from the org's Notion database, copied to a Google calendar and the public feed."
         action={
           <Button variant="primary" onClick={() => sync.mutate()} disabled={!configured || sync.isPending}>

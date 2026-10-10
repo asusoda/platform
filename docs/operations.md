@@ -1,6 +1,6 @@
 # Operations
 
-This page tells you how to deploy Platform, roll it back, move it to Postgres, turn off routes and run Hermes Agent as an org app. To run Platform on one RunPod pod, see [Getting started](./getting-started.md).
+This page tells you how to deploy Platform, roll it back, move it to Postgres, and turn off routes. To run Platform on one RunPod pod, see [Getting started](./getting-started.md).
 
 ## Compose services
 
@@ -27,7 +27,6 @@ The API uses one gunicorn worker because the one-time sign-in codes are in proce
 | --- | --- |
 | `check.yml` | On each push and PR: `make ci` and bandit; migrations and tests on Postgres 16; the dashboard tests and build |
 | `images.yml` | Builds the API and dashboard images on each PR. On `main` it pushes them to GHCR as `ghcr.io/<owner>/<repo>-api` and `-dashboard` |
-| `hermes-image.yml` | Builds `deploy/hermes` when it changes. On `main` it pushes `ghcr.io/<owner>/<repo>-hermes` |
 | `cd.yml` | Deploys the example SoDA server after `check.yml` passes on `main`. It runs only in `asusoda/platform` |
 
 `Dockerfile.api` uses `uv sync --frozen`. If `uv.lock` does not agree with `pyproject.toml`, the build fails. Commit the two files together. The dashboard image gets `VITE_API_URL` and `VITE_SITE_URL` at build time (repository variables in CI), so a change to them needs a new build.
@@ -112,37 +111,10 @@ DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
 - `GET /health` returns `status`, `commit` and `started_at`. `commit` comes from the `GIT_COMMIT_HASH` build argument, so it shows the image, not the files on disk.
 - `make logs` shows the last 50 lines. `make logs-follow` follows them.
 - With `LOG_FORMAT=json` (set in compose), each line is a JSON object with `ts`, `level`, `logger`, `msg` and the request fields (`route`, `status`, `org`, `reason`). `LOG_FORMAT=text` gives colored lines.
-- If `SENTRY_DSN` is set, Sentry gets errors, logs and a trace of each request (`traces_sample_rate=1.0` in `core/log.py`). If the cost is too high, decrease the sample rates.
+- If `SENTRY_DSN` is set, the API, bot, job worker and MCP server send errors to Sentry, with a `service` tag (`api`, `bot`, `worker`, `mcp`) and the commit as the release. They also send log lines at `SENTRY_LOGS_LEVEL` (default `WARNING`) and above, and traces for `SENTRY_TRACES_SAMPLE_RATE` of requests (default `0.1`). `SENTRY_PROFILES_SAMPLE_RATE` (default `0`) turns on profiles. `SENTRY_ENVIRONMENT` (default `production`) names the environment.
+- Platform keeps its own error log, with no outside service. Each process (`api`, `bot`, `worker`, `mcp`) records every log line at ERROR or above in the `error_groups` table, with the stack trace, the org and the route. The dashboard sends browser errors and API calls that got no answer or a status of 500 or more. Repeats of one error add to one group.
+- Officers see their org's errors on Activity, Errors, and resolve them there. The tab only shows errors. A resolved error opens again when it happens again. The superadmin page shows the errors of every org and the errors with no org, such as a failed job.
+- Discord alerts: an officer adds a webhook with the Errors event on Automations, Webhooks. See [Webhooks](./webhooks.md). `ERROR_WEBHOOK_URL` in `.env` gets every new error of every org and of the server. Each new or returning error posts one message, at most 30 for each process in an hour.
+- Sentry is optional. Set `SENTRY_DSN` only if you want Sentry in addition to the error log.
 
 Caution: do not delete `data/jwt_private.pem` or `data/jwt_public.pem`. If you delete them, every officer must sign in again.
-
-## Hermes Agent
-
-`deploy/hermes/` runs [Hermes Agent](https://hermes-agent.nousresearch.com) as an org app on RunPod. Hermes talks to members in Discord and uses the org's tools through the MCP server. Any agent that uses MCP connects the same way. See [RunPod apps](./modules/runpod-apps.md) for app manifests and deploys.
-
-| File | Holds |
-| --- | --- |
-| `Dockerfile` | The official Hermes image at a fixed version, started as `hermes gateway run` |
-| `platform-config.sh` | Runs at each start. Writes the model and the Platform MCP server into `/opt/data/config.yaml` and keeps the rest of the file |
-| `app.example.json` | The app manifest, with the values to fill in |
-
-1. Run the MCP server where Hermes can reach it. On a pod from [Getting started](./getting-started.md), add `8001/http` to the pod ports.
-2. Make a machine token of kind `agent` with the scopes Hermes can use, for example `org:read` and `knowledge:read`. Add `agents:read` and `agents:write` only if Hermes keeps member memories.
-3. Make a Discord app and bot for Hermes. It is not the org's Platform bot.
-4. Make a RunPod network volume of 10 GB in one data center. Hermes keeps its config, memories, sessions and skills in `/opt/data` on it.
-5. Save the org secrets in the table below.
-6. Copy `app.example.json` and fill in the volume id, its data center, the MCP URL and the Discord role that can talk to Hermes. Register it with `PUT /api/apps/hermes` and the body `{"manifest": {...}}`.
-7. Deploy a tag that the workflow pushed: `POST /api/apps/hermes/deploy` with `{"tag": "<commit sha>"}`. The health check reads `/health` on port 8642.
-
-| Org secret | Value |
-| --- | --- |
-| `app_hermes_discord_token` | The Hermes Discord bot token |
-| `app_hermes_openrouter_key` | The model provider token. Another provider needs its own env name, such as `ANTHROPIC_API_KEY` |
-| `app_hermes_platform_token` | The machine token from step 2 |
-| `app_hermes_api_key` | A long random string that protects the Hermes API on port 8642 |
-
-The manifest env sets `HERMES_PROVIDER` and `HERMES_MODEL`, `PLATFORM_MCP_URL` and `PLATFORM_TOKEN` (without both, Hermes has no Platform tools), and `DISCORD_ALLOWED_ROLES`, `DISCORD_ALLOWED_USERS` or `DISCORD_ALLOWED_CHANNELS` (set one or more).
-
-Caution: anyone with `API_SERVER_KEY` has full use of the agent, including its terminal. Anyone with access to the org's RunPod account can read the pod env. Revoke the machine token on the dashboard Tokens page to stop Hermes from using Platform.
-
-To keep the memories and skills of a Hermes that runs on a laptop, copy its `~/.hermes` folder to the network volume before the first deploy. Do not copy `.env`; put its secrets in org secrets. When the pod is healthy, stop the old gateway (`systemctl --user stop hermes-gateway`), or the same Discord bot runs two times.

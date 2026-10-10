@@ -28,6 +28,9 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 | `POST /pods` | Creates a pod. Body below. 201 |
 | `GET /pods/<pod_id>` | One pod |
 | `PUT /pods/<pod_id>` | `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}`, or both |
+| `GET /members?q=&role=&limit=` | Server members for `allowed_users`, sorted by name, bots left out: `members` (`id`, `name`, `username`, `avatar`, `roles`) and `total`. `q` searches usernames and server nicknames that start with it. Without `q` the whole member list is read, which needs the Server Members intent on the bot. `role` keeps the holders of one role. `limit` is 1 to 500, default 50 |
+| `GET /members/roles` | Server roles to filter by, highest first, without the everyone role and roles that bots manage: `id`, `name`, `color` |
+| `GET /members?ids=<id>,<id>` | The display names of up to 50 ids. 503 when Discord does not answer |
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate"}`. `terminate` deletes the pod and its record |
 
 All fields of the create body are optional:
@@ -97,7 +100,7 @@ These officer routes work on the files of a running pod over SFTP, as root with 
 
 A stopped pod returns 409. A failed SSH connection returns 502. Platform does not check pod host keys, because RunPod does not publish them.
 
-Officers manage pods on the dashboard Compute page, `/<org>/compute`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
+Officers manage pods on the Member pods tab of the dashboard Hosting page, `/<org>/hosting?tab=pods`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
 
 ## Limits
 

@@ -1,17 +1,21 @@
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './index.css';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { App } from './app';
 import { ApiError } from './lib/api';
+import { reportError, startErrorReports } from './lib/error-report';
 import { applyTheme, storedTheme } from './lib/theme';
 
 applyTheme(storedTheme());
+startErrorReports();
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: (error, query) => reportError(error, `query ${String(query.queryKey[0])}`) }),
+  mutationCache: new MutationCache({ onError: (error) => reportError(error, 'mutation') }),
   defaultOptions: {
     queries: {
       staleTime: 15_000,

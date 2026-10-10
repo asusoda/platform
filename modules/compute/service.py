@@ -12,10 +12,11 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
-from core import secrets
+from core import secrets, webhooks
 from core.errors import ServiceError
 from core.integrations import registry, runpod
 from core.log import get_logger
+from modules.auth import scopes
 from modules.compute import ssh
 from modules.compute.models import ComputeKey, ComputePod
 from modules.organizations.models import Organization
@@ -30,6 +31,14 @@ USER_CA_KEY = "user_ca"
 POD_ENV_PREFIX = "GODFATHER_"
 DEFAULT_GPU = "NVIDIA RTX A4000"
 DEFAULT_CPU_FLAVOR = "cpu3c"
+scopes.declare("compute:manage", "List the org's compute pods and start, stop, restart or terminate them")
+webhooks.declare(
+    "pod.started", "Pods started", "A pod starts or restarts, by an officer, a tool or its schedule.", "compute"
+)
+webhooks.declare(
+    "pod.stopped", "Pods stopped", "A pod stops or is terminated, by an officer, a tool or its schedule.", "compute"
+)
+
 ACTIONS = ("start", "stop", "restart", "terminate")
 CLOUD_TYPES = ("COMMUNITY", "SECURE")
 MAX_ALLOWED_USERS = 500
@@ -38,6 +47,18 @@ CONFIG_KEY = "compute"
 
 class ComputeError(ServiceError):
     pass
+
+
+def announce(org_id: int, name: str, pod_id: str, action: str, by: str) -> None:
+    """Send the pod.started or pod.stopped webhook event for an action on a pod."""
+    started = action in ("start", "restart")
+    verb = {"start": "started", "stop": "stopped", "restart": "restarted", "terminate": "terminated"}[action]
+    message = webhooks.Message(
+        title=f"Pod {name} {verb}",
+        fields=(("Pod", pod_id), ("By", by)),
+        color=webhooks.GREEN if started else webhooks.AMBER,
+    )
+    webhooks.emit(org_id, "pod.started" if started else "pod.stopped", message)
 
 
 def _client(db, org_id: int) -> runpod.RunPodClient:
@@ -285,6 +306,7 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
     if action not in ACTIONS:
         raise ComputeError(f"action must be one of {', '.join(ACTIONS)}")
     row = _find(db, org_id, pod_id)
+    name = str(row.name)
     client = client or _client(db, org_id)
     if action == "start":
         _call(client.start_pod, pod_id)
@@ -301,7 +323,23 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
         db.delete(row)
         db.commit()
     logger.info("compute pod %s org=%s pod=%s", action, org_id, pod_id)
+    announce(org_id, name, pod_id, str(action), "an officer or a tool")
     return {"id": pod_id, "action": action}
+
+
+def member_page(directory, guild_id, query: str = "", role: str = "", limit: int = 50) -> dict:
+    """Server members for the allowed members picker, sorted by name. Bots are left out.
+
+    A query searches names through Discord. Without one, the whole member list is read. role keeps the members
+    that hold that role. total counts every match; members holds the first limit.
+    """
+    if query:
+        found = directory.search_members(guild_id, query, 100)
+    else:
+        found = directory.list_members(guild_id)
+    matches = [m for m in found if not m.get("bot") and (not role or role in m.get("roles", []))]
+    matches.sort(key=lambda m: (str(m["name"]).casefold(), m["id"]))
+    return {"members": matches[:limit], "total": len(matches)}
 
 
 def _may_connect(row: ComputePod, discord_id: str) -> bool:

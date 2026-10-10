@@ -1,4 +1,4 @@
-"""The GitHub integration: an org token that reads private repos for CI runs and app manifests."""
+"""The GitHub integration: an org token for CI runs, app manifests and the github.* tools for agents."""
 
 import requests
 
@@ -33,12 +33,13 @@ register(
     Integration(
         key="github",
         title="GitHub",
-        description="Reads the org's private repos: CI runs on Activity and app manifests for deploys.",
+        description="Connect the org's GitHub repos: CI runs, app manifests, and GitHub tools for agents.",
         fields=(
             Field(
                 SECRET_NAME,
                 "Access token",
-                "A fine-grained token with read access to Actions and Contents of the org's repos.",
+                "A fine-grained token. Read access to Actions and Contents is enough for CI and apps. "
+                "For the github:write agent tools, also give write access to Issues and Pull requests.",
             ),
         ),
         docs="modules/runpod-apps",

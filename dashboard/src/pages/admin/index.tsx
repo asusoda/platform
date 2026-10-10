@@ -8,6 +8,7 @@ import { isBotDown, useSuperadmin } from '../../lib/queries';
 import type { AvailableGuild, OrganizationDetail, SuperadminDashboard } from '../../lib/types';
 import { AuditCard } from './audit';
 import { AddDialog, OfficerRoleDialog, RemoveDialog } from './dialogs';
+import { ErrorsCard } from './errors';
 import { PublishersCard } from './publishers';
 import { GuildsCard, OrganizationsCard } from './tables';
 
@@ -27,7 +28,7 @@ function Superadmin() {
   const close = () => setOpen(null);
   return (
     <>
-      <PageHeader title="Superadmin" description="All orgs, the Discord servers the bot is in, knowledge publishers, and the audit log of all orgs." />
+      <PageHeader title="Superadmin" description="All orgs, the Discord servers the bot is in, knowledge publishers, the errors of all orgs and the server, and the audit log of all orgs." />
 
       {dashboard.error ? (
         <Card className="mb-6">
@@ -77,6 +78,10 @@ function Superadmin() {
           {dashboard.data ? <PublishersCard orgs={orgs} /> : null}
         </div>
       ) : null}
+
+      <div className="mb-6">
+        <ErrorsCard prefixes={prefixes} />
+      </div>
 
       <AuditCard prefixes={prefixes} />
 
