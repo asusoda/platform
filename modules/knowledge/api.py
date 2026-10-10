@@ -4,16 +4,18 @@ from functools import partial
 
 from flask import Blueprint, request
 
-from core import audit_http
-from modules.auth.routes import json_body, machine_route
+from core.http import audit_hook
+from core.http.responses import json_body
+from modules.auth.routes import machine_route
 
 from . import embedder, service
+from .search import search as search_chunks
 
 knowledge_blueprint = Blueprint("knowledge", __name__)
 _route = partial(machine_route, knowledge_blueprint)
 
 # Searches are reads sent as POST
-audit_http.SKIPPED_ROUTES.add("/api/knowledge/search")
+audit_hook.SKIPPED_ROUTES.add("/api/knowledge/search")
 
 
 @_route("/sources", "knowledge:read", ["GET"])
@@ -41,7 +43,7 @@ def delete_source(db, org, key):
 @_route("/search", "knowledge:read", ["POST"])
 def search(db, org):
     data = json_body()
-    return service.search(
+    return search_chunks(
         db,
         int(org.id),
         data.get("query"),

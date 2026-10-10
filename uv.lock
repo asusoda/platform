@@ -1546,7 +1546,7 @@ wheels = [
 [[package]]
 name = "soda-platform"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiosignal" },
@@ -1577,6 +1577,7 @@ dependencies = [
     { name = "greenlet" },
     { name = "gunicorn" },
     { name = "h11" },
+    { name = "httpx" },
     { name = "idna" },
     { name = "importlib-metadata" },
     { name = "itsdangerous" },
@@ -1605,6 +1606,7 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "tzdata" },
     { name = "urllib3" },
+    { name = "uvicorn" },
     { name = "werkzeug" },
     { name = "yarl" },
     { name = "zipp" },
@@ -1651,6 +1653,7 @@ requires-dist = [
     { name = "greenlet", specifier = "==3.3.1" },
     { name = "gunicorn", specifier = "==25.0.1" },
     { name = "h11", specifier = "==0.16.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "idna", specifier = ">=3.11" },
     { name = "importlib-metadata", specifier = "==8.7.1" },
     { name = "itsdangerous", specifier = "==2.2.0" },
@@ -1679,6 +1682,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.1" },
     { name = "tzdata", specifier = ">=2025.2" },
     { name = "urllib3", specifier = "==2.6.3" },
+    { name = "uvicorn", specifier = ">=0.54.0" },
     { name = "werkzeug", specifier = "==3.1.5" },
     { name = "yarl", specifier = ">=1.18.3" },
     { name = "zipp", specifier = "==3.23.0" },

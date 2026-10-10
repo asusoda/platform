@@ -5,7 +5,6 @@ GIN index (both created in the migration, named pg_*). On SQLite, embeddings are
 search runs in Python, which is enough for development and tests.
 """
 
-import datetime
 import json
 import uuid
 
@@ -19,20 +18,39 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
-from core.base import Base
+from core.db import Base
+from core.time import utcnow
 
 DIMENSIONS = 1024  # Qwen3-Embedding-0.6B
 
 
+_PGVECTOR: dict[tuple[str, str], bool] = {}
+
+
+def vector_sql(db, table: str) -> bool:
+    """Whether the embedding column of table is pgvector, so nearest rows come from SQL."""
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return False
+    key = (str(bind.url), table)
+    if key not in _PGVECTOR:
+        row = db.execute(
+            text(
+                "SELECT data_type FROM information_schema.columns "
+                "WHERE table_name = :table AND column_name = 'embedding'"
+            ),
+            {"table": table},
+        ).first()
+        _PGVECTOR[key] = row is not None and row[0] == "USER-DEFINED"
+    return _PGVECTOR[key]
+
+
 def _uuid() -> str:
     return str(uuid.uuid4())
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 class _PgVector(UserDefinedType):
@@ -84,12 +102,12 @@ class KnowledgeSource(Base):
     current_version_id = Column(String(36), nullable=True)
     # Crawled sources: the platform fetches url on this schedule. None means a writer sends chunks.
     fetch_every_hours = Column(Integer, nullable=True)
-    extractor = Column(String(100), nullable=True)  # a name in modules/knowledge/extractors.py
+    extractor = Column(String(100), nullable=True)  # a name registered in modules/knowledge/extract.py
     enabled = Column(Boolean, nullable=False, default=True)
     last_attempt_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
-    updated_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "key", name="uq_knowledge_source_key"),)
 
@@ -103,7 +121,7 @@ class KnowledgeVersion(Base):
     embedding_model = Column(String(200), nullable=True)
     chunk_count = Column(Integer, nullable=False, default=0)
     text_chars = Column(Integer, nullable=True)  # extracted text length, for crawled sources
-    fetched_at = Column(DateTime, nullable=False, default=_now)
+    fetched_at = Column(DateTime, nullable=False, default=utcnow)
 
 
 class KnowledgeChunk(Base):
@@ -120,7 +138,7 @@ class KnowledgeChunk(Base):
     parent_ordinal = Column(Integer, nullable=True)  # the summary row that covers this one
     content = Column(Text, nullable=False)
     embedding = Column(Embedding(), nullable=True)
-    fetched_at = Column(DateTime, nullable=False, default=_now)
+    fetched_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("version_id", "ordinal", name="uq_knowledge_chunk_ordinal"),

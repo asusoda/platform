@@ -41,9 +41,9 @@ class FakeRunPod:
 
 @pytest.fixture
 def runpod(app, monkeypatch):
+    from core.db import db_connect
     from modules.compute import service
     from modules.compute.models import ComputeKey, ComputePod, ComputeSession
-    from shared import db_connect
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     fake = FakeRunPod()
@@ -158,8 +158,8 @@ def test_actions_and_terminate(client, officer_headers, runpod):
 
 
 def test_keys_are_stored_encrypted_and_reused(client, officer_headers, runpod):
+    from core.db import db_connect
     from modules.compute.models import ComputeKey
-    from shared import db_connect
 
     _create(client, officer_headers)
     _create(client, officer_headers, name="second")
@@ -336,8 +336,8 @@ def test_file_requests_are_checked(client, member_client, officer_headers, pod_f
 def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
     import datetime
 
+    from core.db import db_connect
     from modules.compute import schedule
-    from shared import db_connect
 
     _create(client, officer_headers)
     runpod.pods["pod1"]["desiredStatus"] = "EXITED"
@@ -376,8 +376,8 @@ def test_sessions_start_and_stop_a_pod(client, officer_headers, runpod):
 def test_a_running_pod_is_stopped_after_its_session_and_others_are_left_alone(client, officer_headers, runpod):
     import datetime
 
+    from core.db import db_connect
     from modules.compute import schedule
-    from shared import db_connect
 
     _create(client, officer_headers)
     _create(client, officer_headers, name="no sessions")
@@ -410,8 +410,8 @@ def test_bad_sessions_are_refused(client, officer_headers, runpod, body):
 
 
 def test_deleting_and_terminating_clear_sessions(client, officer_headers, runpod):
+    from core.db import db_connect
     from modules.compute.models import ComputeSession
-    from shared import db_connect
 
     _create(client, officer_headers)
     base = "/api/compute/soda/pods/pod1/sessions"
@@ -492,7 +492,7 @@ def test_cli_sign_in_is_refused_when_it_should_be(app, runpod, monkeypatch):
 
 
 def test_cli_messages_and_pod_image_come_from_config(app, client, officer_headers, runpod, monkeypatch):
-    from shared import config
+    from core.config import config
 
     expired = client.get("/api/compute/soda/me/pods", headers={"Authorization": "Bearer plat_nope"})
     assert expired.get_json()["error"] == "The CLI token is invalid or expired. Run the compute CLI auth again."

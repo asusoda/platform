@@ -35,8 +35,8 @@ def test_inline_defer_runs_the_job():
 
 
 def _csv_points():
+    from core.db import db_connect
     from modules.points.models import Points
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -60,7 +60,7 @@ def test_csv_upload_awards_points_through_a_job(client, officer_headers):
 
 @pytest.fixture
 def procrastinate_backend(monkeypatch):
-    from shared import db_connect
+    from core.db import db_connect
 
     if db_connect.engine.dialect.name != "postgresql":
         pytest.skip("Procrastinate needs Postgres (set TEST_DATABASE_URL)")

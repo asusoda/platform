@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from core.logging_config import get_logger
+from core.log import get_logger
 
 logger = get_logger("accounts.providers")
 

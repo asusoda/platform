@@ -13,7 +13,8 @@ from typing import cast
 
 from core import secrets
 from core.errors import ServiceError
-from core.logging_config import get_logger
+from core.log import get_logger
+from core.time import iso, utcnow
 from modules.accounts import providers
 from modules.accounts.models import AccountGrant, AccountLogin
 from modules.auth import scopes
@@ -29,14 +30,6 @@ REFRESH_MARGIN = datetime.timedelta(seconds=60)
 
 class AccountError(ServiceError, ValueError):
     pass
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
-def _iso(value) -> str | None:
-    return value.isoformat() if value else None
 
 
 def member(discord_id: object) -> str:
@@ -58,7 +51,7 @@ def begin_login(db, org_id: int, discord_id: str, provider_name: str) -> dict:
     if not secrets.configured():
         raise AccountError("SECRETS_KEY is not set, so tokens cannot be stored", 503)
     state = token_bytes.token_urlsafe(32)
-    expires_at = _now() + datetime.timedelta(seconds=LOGIN_SECONDS)
+    expires_at = utcnow() + datetime.timedelta(seconds=LOGIN_SECONDS)
     db.add(
         AccountLogin(
             state=state,
@@ -69,12 +62,12 @@ def begin_login(db, org_id: int, discord_id: str, provider_name: str) -> dict:
         )
     )
     db.commit()
-    return {"url": f"{providers.base_url()}/api/accounts/start/{state}", "expires_at": _iso(expires_at)}
+    return {"url": f"{providers.base_url()}/api/accounts/start/{state}", "expires_at": iso(expires_at)}
 
 
 def open_login(db, state: str) -> AccountLogin:
     login = db.query(AccountLogin).filter_by(state=state).first()
-    if login is None or login.expires_at <= _now():
+    if login is None or login.expires_at <= utcnow():
         raise AccountError("This link has expired or was already used. Ask for a new one.", 404)
     return login
 
@@ -85,7 +78,7 @@ def verify_login(db, state: str, discord_id: str) -> str:
     if not token_bytes.compare_digest(str(login.discord_id), discord_id):
         raise AccountError("You signed in to Discord as a different account than the one this link is for.", 403)
     provider = _provider(str(login.provider))
-    login.verified_at = _now()
+    login.verified_at = utcnow()
     db.commit()
     return provider.consent_url(state)
 
@@ -126,7 +119,7 @@ def _save(db, org_id: int, discord_id: str, provider_name: str, tokens: provider
     grant.refresh_token = _seal(tokens.refresh_token) if tokens.refresh_token else None
     grant.scopes = tokens.scopes
     grant.expires_at = tokens.expires_at
-    grant.updated_at = _now()
+    grant.updated_at = utcnow()
     db.commit()
 
 
@@ -141,9 +134,9 @@ def list_grants(db, org_id: int, discord_id: str) -> list[dict]:
         {
             "provider": g.provider,
             "scopes": str(g.scopes or "").split(),
-            "expires_at": _iso(g.expires_at),
-            "connected_at": _iso(g.created_at),
-            "updated_at": _iso(g.updated_at),
+            "expires_at": iso(g.expires_at),
+            "connected_at": iso(g.created_at),
+            "updated_at": iso(g.updated_at),
         }
         for g in grants
     ]
@@ -172,7 +165,7 @@ def access_token(db, org_id: int, discord_id: str, provider_name: str) -> dict:
     if access is None:
         raise AccountError("The stored token cannot be decrypted with SECRETS_KEY", 503)
 
-    if grant.expires_at is not None and grant.expires_at - REFRESH_MARGIN <= _now():
+    if grant.expires_at is not None and grant.expires_at - REFRESH_MARGIN <= utcnow():
         refresh = secrets.decrypt(str(grant.refresh_token)) if grant.refresh_token else None
         if refresh is None:
             raise AccountError(f"The {provider_name} connection expired. The member has to connect again.", 409)
@@ -189,13 +182,13 @@ def access_token(db, org_id: int, discord_id: str, provider_name: str) -> dict:
         _save(db, org_id, str(grant.discord_id), provider_name, tokens)
         access = tokens.access_token
 
-    return {"access_token": access, "scopes": str(grant.scopes or "").split(), "expires_at": _iso(grant.expires_at)}
+    return {"access_token": access, "scopes": str(grant.scopes or "").split(), "expires_at": iso(grant.expires_at)}
 
 
 def prune(db, now: datetime.datetime | None = None) -> dict:
     """Delete logins past their expiry. Commits."""
     deleted = (
-        db.query(AccountLogin).filter(AccountLogin.expires_at <= (now or _now())).delete(synchronize_session=False)
+        db.query(AccountLogin).filter(AccountLogin.expires_at <= (now or utcnow())).delete(synchronize_session=False)
     )
     db.commit()
     return {"logins": deleted}

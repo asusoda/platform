@@ -98,7 +98,7 @@ def test_officer_sets_branding_and_overview_shows_it(client, officer_headers, re
 
 def test_branding_write_is_audited(client, officer_headers, restore_soda_config):
     from core.audit import AuditEntry
-    from shared import db_connect
+    from core.db import db_connect
 
     db = db_connect.SessionLocal()
     start = db.query(AuditEntry.id).order_by(AuditEntry.id.desc()).limit(1).scalar() or 0
@@ -115,8 +115,8 @@ def test_branding_write_is_audited(client, officer_headers, restore_soda_config)
 class TestPermissions:
     @pytest.fixture(autouse=True)
     def enforce(self, app, monkeypatch, restore_soda_config):
+        from core.config import config
         from modules.auth import access
-        from shared import config
 
         access.clear_cache()
         monkeypatch.setattr(app, "discord_directory", ScopedBot())

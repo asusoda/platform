@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import urllib.parse
 
-from modules.asu.params import choices, code, text
+from modules.asu.queries.params import choices, code, text
 from modules.asu.types import QueryParam, QuerySource
 
 _TYPES = {

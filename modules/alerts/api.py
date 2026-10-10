@@ -4,8 +4,9 @@ from functools import partial
 
 from flask import Blueprint
 
+from core.http.responses import json_body
 from core.jobs import defer
-from modules.auth.routes import json_body, officer_route
+from modules.auth.routes import officer_route
 
 from . import service
 

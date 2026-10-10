@@ -1,24 +1,18 @@
 # users
 
-Officer routes to list, view, create and update an organization's members and their profile fields.
+Members and their org memberships. Officer routes list, show, create and update an org's members and their profile fields.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
 | `api.py` | Member routes under `/<org_prefix>` |
+| `service.py` | Member lookup and create-or-update for points and storefront; maps the deprecated `asu_id` and `academic_standing` keys to `student_id` and `class_standing`; merges the org's `profile_fields` |
+| `models.py` | Users and org memberships |
 
 ## Surface
 
-- Routes: `/api/users`, no module switch. Routes need an officer of the org, except the index and `/<org_prefix>/submit-form`, which echoes its input.
+- Routes: `/api/users`. Routes need an officer of the org, except the index and `/<org_prefix>/submit-form`.
 - Jobs: none.
 - Tools: none.
-- Tables: none of its own; uses `users`, `user_organization_memberships` and `points` from `modules/points/models.py`.
-
-## Depends on
-
-`core.logging_config`; `modules.auth.decoraters`, `modules.points` (models, `link_or_create_user`), `modules.organizations.models`; `shared`.
-
-## More
-
-[docs/05-backend-modules.md](../../docs/05-backend-modules.md)
+- Tables: `users`, `user_organization_memberships`.

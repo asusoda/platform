@@ -12,8 +12,9 @@ from typing import Any, cast
 
 from sqlalchemy import or_
 
-from core.logging_config import get_logger
-from modules.knowledge import extract, extractors, fetch
+from core.log import get_logger
+from core.time import utcnow
+from modules.knowledge import extract, fetch
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import (
@@ -46,10 +47,6 @@ def chunk_chars() -> int:
     return _setting("KNOWLEDGE_CHUNK_CHARS", 300)
 
 
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-
-
 def schedule(db, org_id: int, org_prefix: str, key: str, data: dict) -> dict:
     """Create or update a crawled source from untrusted input. Commits."""
     if not isinstance(key, str) or not KEY_PATTERN.match(key):
@@ -77,7 +74,7 @@ def schedule(db, org_id: int, org_prefix: str, key: str, data: dict) -> dict:
     source.url, source.category, source.public, source.enabled = url, category, public, enabled
     source.title = title or source.title
     source.fetch_every_hours = every
-    source.updated_at = _now()
+    source.updated_at = utcnow()
     db.commit()
     return _source_dict(source, db.query(KnowledgeVersion).filter_by(id=source.current_version_id).first())
 
@@ -92,7 +89,7 @@ def run(db, org_id: int, key: str, embedder: Embedder | None, force: bool = Fals
 
 def crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: bool = False, pacer: Any = None) -> dict:
     """Fetch, extract, chunk, embed and index one crawled source. Commits; records any error on the source."""
-    source.last_attempt_at = _now()
+    source.last_attempt_at = utcnow()
     db.commit()
     try:
         result = _crawl(db, source, embedder, force=force, pacer=pacer)
@@ -118,7 +115,7 @@ def _crawl(db, source: KnowledgeSource, embedder: Embedder | None, *, force: boo
     if previous is not None and previous.content_hash == content_hash and not force:
         return {"key": source.key, "changed": False, "chunks": int(previous.chunk_count or 0)}
 
-    custom = extractors.get(cast(str | None, source.extractor))
+    custom = extract.extractor(cast(str | None, source.extractor))
     if custom is not None:
         text = custom(page)
         title = page.title or (extract.title_of(page.body) if page.text is None else None)
@@ -166,7 +163,7 @@ def index_text(
 
 def due(db, now: datetime.datetime | None = None, limit: int = 20) -> list[KnowledgeSource]:
     """Enabled crawled sources whose schedule has come round, never-tried ones first."""
-    now = now or _now()
+    now = now or utcnow()
     candidates = (
         db.query(KnowledgeSource)
         .filter(KnowledgeSource.fetch_every_hours.isnot(None), KnowledgeSource.enabled.is_(True))

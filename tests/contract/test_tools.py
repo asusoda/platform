@@ -60,7 +60,7 @@ def test_bad_calls(client, token_for):
 
 def test_tool_calls_are_audited(client, token_for):
     from core.audit import AuditEntry
-    from shared import db_connect
+    from core.db import db_connect
 
     client.post("/api/tools/org.info", headers=token_for("org:read"))
     db = db_connect.SessionLocal()

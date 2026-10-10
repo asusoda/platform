@@ -5,11 +5,15 @@ from urllib.parse import urlencode
 import requests
 from flask import Blueprint, jsonify, redirect, request, session
 
-from core.discord_directory import DiscordUnavailable
-from core.logging_config import logger
-from modules.auth.access import decide, discord_directory
-from modules.auth.decoraters import auth_required, error_handler
-from shared import config, tokenManager
+from core.config import config
+from core.db import db_connect
+from core.http.request_log import bearer_token
+from core.http.responses import error_handler
+from core.integrations.discord import DiscordUnavailable
+from core.log import logger
+from modules.auth.access import decide, discord_directory, officer_guilds
+from modules.auth.decorators import auth_required
+from modules.auth.tokens import token_manager
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)
 CLIENT_ID = config.CLIENT_ID
@@ -76,8 +80,8 @@ def validToken():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
-    if tokenManager.is_token_valid(token):
+    token = bearer_token()
+    if token_manager.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
         return jsonify({"status": "error", "valid": False}), 401
@@ -128,28 +132,26 @@ def callback():
         user_info = user_response.json()
         user_id = user_info["id"]
         try:
-            officer_guilds = directory.check_officer(user_id, config.SUPERADMIN_USER_ID)
+            guilds = officer_guilds(directory, user_id)
         except DiscordUnavailable:
             logger.exception("Discord unavailable during /callback")
             return jsonify({"error": "Authentication service temporarily unavailable."}), 503
-        logger.debug(f"Officer guilds: {officer_guilds}")
-        if officer_guilds:  # If user is officer in at least one organization
+        logger.debug(f"Officer guilds: {guilds}")
+        if guilds:  # If user is officer in at least one organization
             # Server nickname in the first officer guild, else the Discord display name
             try:
-                name = directory.get_display_name(officer_guilds[0], user_id)
+                name = directory.get_display_name(guilds[0], user_id)
             except DiscordUnavailable:
                 name = None
             name = name or user_info.get("global_name") or user_info.get("username")
-            # Generate token pair with both access and refresh tokens
-            access_token, refresh_token = tokenManager.generate_token_pair(
+            access_token, refresh_token = token_manager.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
             )
-            # Store user info in session with officer guilds
             session["user"] = {
                 "username": name,
                 "discord_id": user_id,
                 "role": "officer",
-                "officer_guilds": officer_guilds,  # Store the list of guild IDs where user is officer
+                "officer_guilds": guilds,  # Store the list of guild IDs where user is officer
             }
             session["token"] = access_token
             session["refresh_token"] = refresh_token
@@ -176,8 +178,7 @@ def refresh_token():
 
         refresh_token = data["refresh_token"]
 
-        # Generate new access token
-        new_access_token = tokenManager.refresh_access_token(refresh_token)
+        new_access_token = token_manager.refresh_access_token(refresh_token)
 
         if new_access_token:
             return jsonify(
@@ -207,13 +208,10 @@ def revoke_token():
 
         refresh_token = data["refresh_token"]
 
-        # Revoke the refresh token
-        if tokenManager.revoke_refresh_token(refresh_token):
-            # Also blacklist the current access token
-            auth_header = request.headers.get("Authorization")
-            if auth_header:
-                current_token = auth_header.split(" ")[1]
-                tokenManager.delete_token(current_token)
+        if token_manager.revoke_refresh_token(refresh_token):
+            current_token = bearer_token()
+            if current_token:
+                token_manager.delete_token(current_token)
 
             return jsonify({"message": "Token revoked successfully"}), 200
         else:
@@ -228,9 +226,9 @@ def valid_token():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
-    if tokenManager.is_token_valid(token):
-        if tokenManager.is_token_expired(token):
+    token = bearer_token()
+    if token_manager.is_token_valid(token):
+        if token_manager.is_token_expired(token):
             logger.info("Token is valid but expired.")
             return jsonify({"status": "success", "valid": True, "expired": True}), 200
         else:
@@ -248,17 +246,17 @@ def get_app_token():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"error": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
+    token = bearer_token()
     appname = request.args.get("appname")
     if not appname:
         return jsonify({"error": "appname query parameter is required"}), 400
 
-    username = tokenManager.retrieve_username(token)
+    username = token_manager.retrieve_username(token)
     if not username:
         return jsonify({"error": "Invalid user token"}), 401
 
     logger.info(f"Generating app token for user {username}, app: {appname}")
-    app_token_value = tokenManager.generate_app_token(username, appname, tokenManager.retrieve_discord_id(token))
+    app_token_value = token_manager.generate_app_token(username, appname, token_manager.retrieve_discord_id(token))
     return jsonify({"app_token": app_token_value}), 200
 
 
@@ -268,9 +266,7 @@ def get_name():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"error": "No authorization header"}), 401
-    autorisation = auth_header.split(" ")[1]
-
-    return jsonify({"name": tokenManager.retrieve_username(autorisation)}), 200
+    return jsonify({"name": token_manager.retrieve_username(bearer_token())}), 200
 
 
 @auth_blueprint.route("/logout", methods=["POST"])
@@ -281,15 +277,12 @@ def logout():
     try:
         data = request.get_json()
         if data and "refresh_token" in data:
-            # Revoke refresh token
-            tokenManager.revoke_refresh_token(data["refresh_token"])
+            token_manager.revoke_refresh_token(data["refresh_token"])
 
-        # Also blacklist current access token if provided
-        if "Authorization" in request.headers:
-            token = request.headers["Authorization"].split(" ")[1]
-            tokenManager.delete_token(token)
+        token = bearer_token()
+        if token:
+            token_manager.delete_token(token)
 
-        # Clear session
         session.clear()
 
         return jsonify({"message": "Logged out successfully"}), 200
@@ -307,7 +300,6 @@ def success():
 def list_app_tokens():
     """App tokens the signed-in officer issued and has not revoked."""
     from modules.auth.models import AppToken
-    from shared import db_connect
 
     discord_id = _caller_discord_id()
     db = db_connect.SessionLocal()
@@ -341,7 +333,6 @@ def revoke_app_token(token_id):
 
     from modules.auth.access import is_superadmin
     from modules.auth.models import AppToken
-    from shared import db_connect
 
     discord_id = _caller_discord_id()
     db = db_connect.SessionLocal()
@@ -359,9 +350,8 @@ def revoke_app_token(token_id):
 def _caller_discord_id():
     token = session.get("token")
     if not token:
-        header = request.headers.get("Authorization", "")
-        token = header[7:].strip() if header.startswith("Bearer ") else None
-    return tokenManager.retrieve_discord_id(token) if token else None
+        token = bearer_token()
+    return token_manager.retrieve_discord_id(token) if token else None
 
 
 @auth_blueprint.route("/machine/whoami", methods=["GET"])
@@ -369,10 +359,8 @@ def machine_whoami():
     """What a machine token is: its org, name, kind and scopes. 401 for anything else."""
     from modules.auth import machine_tokens
     from modules.organizations.models import Organization
-    from shared import db_connect
 
-    header = request.headers.get("Authorization", "")
-    token = header[7:].strip() if header.startswith("Bearer ") else None
+    token = bearer_token()
     db = db_connect.SessionLocal()
     try:
         caller = machine_tokens.verify(db, token)

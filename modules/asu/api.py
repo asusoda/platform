@@ -4,9 +4,10 @@ from functools import partial
 
 from flask import Blueprint, jsonify
 
-from core import audit_http
-from modules.auth.decoraters import machine_scope_required
-from modules.auth.routes import json_body, machine_route
+from core.http import audit_hook
+from core.http.responses import json_body
+from modules.auth.decorators import machine_scope_required
+from modules.auth.routes import machine_route
 
 from . import service
 
@@ -14,7 +15,7 @@ asu_blueprint = Blueprint("asu", __name__)
 _route = partial(machine_route, asu_blueprint)
 
 # Live queries are reads sent as POST
-audit_http.SKIPPED_ROUTES.add("/api/asu/query")
+audit_hook.SKIPPED_ROUTES.add("/api/asu/query")
 
 
 @asu_blueprint.route("/queries", methods=["GET"])

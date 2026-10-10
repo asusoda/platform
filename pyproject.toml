@@ -65,6 +65,8 @@ dependencies = [
     "defusedxml>=0.7.1",
     "pyyaml>=6.0.3",
     "paramiko>=3.4",
+    "httpx>=0.28.1",
+    "uvicorn>=0.54.0",
 ]
 
 [tool.pytest.ini_options]
@@ -73,12 +75,9 @@ python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--verbose"
 
-[tool.hatch.build.targets.wheel]
-packages = ["modules"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+# An application, not a library: uv installs the dependencies only.
+[tool.uv]
+package = false
 
 [dependency-groups]
 dev = [
@@ -115,7 +114,7 @@ indent-style = "space"
 [tool.bandit]
 exclude_dirs = ["tests", "web", "node_modules", ".venv"]
 
-# Module boundaries, checked in CI by `lint-imports` (docs/roadmap.md, "Codebase layout").
+# Module boundaries, checked in CI by `lint-imports` (docs/writing-a-module.md).
 [tool.importlinter]
 root_packages = ["core", "modules"]
 include_external_packages = true
@@ -125,12 +124,6 @@ name = "core imports no module"
 type = "forbidden"
 source_modules = ["core"]
 forbidden_modules = ["modules"]
-# Existing exceptions, to be moved into core or behind a service function:
-ignore_imports = [
-    "core.db -> modules.storefront.models",
-    "core.TokenManager -> modules.auth.models",
-    "core.discord_directory -> modules.organizations.models",
-]
 
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
@@ -138,6 +131,10 @@ type = "forbidden"
 source_modules = [
     "modules.accounts.providers",
     "modules.accounts.service",
+    "modules.agents.conversations",
+    "modules.agents.memories",
+    "modules.agents.pending",
+    "modules.agents.profile",
     "modules.agents.service",
     "modules.alerts.hackathons",
     "modules.alerts.jobs_table",
@@ -145,8 +142,15 @@ source_modules = [
     "modules.alerts.types",
     "modules.agents.turns",
     "modules.asu.service",
+    "modules.auth.clerk",
     "modules.auth.machine_tokens",
+    "modules.auth.tokens",
+    "modules.calendar.clients",
+    "modules.calendar.dates",
+    "modules.calendar.events",
     "modules.calendar.service",
+    "modules.calendar.sync",
+    "modules.calendar.tracing",
     "modules.compute.cli_login",
     "modules.dashboard.ci",
     "modules.dashboard.service",
@@ -154,16 +158,23 @@ source_modules = [
     "modules.compute.schedule",
     "modules.compute.service",
     "modules.compute.ssh",
+    "modules.games.service",
     "modules.knowledge.crawl",
     "modules.knowledge.embedder",
     "modules.knowledge.extract",
     "modules.knowledge.fetch",
+    "modules.knowledge.search",
     "modules.knowledge.service",
     "modules.leetcode.daily",
     "modules.leetcode.service",
+    "modules.manifest",
     "modules.mcp.runtime",
     "modules.organizations.service",
+    "modules.points.csv_import",
     "modules.points.service",
     "modules.runpod.service",
+    "modules.storefront.service",
+    "modules.superadmin.service",
+    "modules.users.service",
 ]
 forbidden_modules = ["flask"]

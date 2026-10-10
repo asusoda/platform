@@ -1,5 +1,6 @@
 """Running alert feeds on their schedules and on request."""
 
+from core.db import db_connect
 from core.jobs import job
 
 
@@ -7,7 +8,6 @@ from core.jobs import job
 def run_due() -> None:
     """Run every enabled feed whose every_hours has passed since its last run."""
     from modules.alerts import service
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:
@@ -20,7 +20,6 @@ def run_due() -> None:
 def run_feed(org_id: int, key: str, post_existing: bool = False, org_prefix: str | None = None) -> None:
     """Run one feed now, on request."""
     from modules.alerts import service
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     try:

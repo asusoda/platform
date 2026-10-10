@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from modules.asu.params import choices, code
+from modules.asu.queries.params import choices, code
 from modules.asu.types import QueryParam, QuerySource
 
 # Path segment of each sport on thesundevils.com.

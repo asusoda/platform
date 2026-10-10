@@ -4,11 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from modules.asu import registry, service
+from core.db import db_connect
+from modules.asu import service
+from modules.asu.queries import registry
 from modules.asu.sources import SOURCES
 from modules.knowledge import crawl, fetch
 from modules.knowledge.models import KnowledgeSource
-from shared import db_connect
 
 
 def _issue(prefix, *scopes):

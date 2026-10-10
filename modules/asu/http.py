@@ -1,4 +1,4 @@
-"""Reading JSON, feeds and plain text for sources that answer from several endpoints."""
+"""Fetching for live queries: pages through the knowledge fetcher, and JSON, feeds and plain text."""
 
 from __future__ import annotations
 
@@ -14,13 +14,19 @@ from defusedxml import ElementTree as SafeET
 from defusedxml.common import DefusedXmlException
 
 from modules.asu.types import QueryError
-from modules.knowledge.fetch import fetch_http
+from modules.knowledge import fetch as knowledge_fetch
+from modules.knowledge.fetch import Fetched, fetch_http
 
 #: Arizona keeps UTC-7 all year.
 ARIZONA = ZoneInfo("America/Phoenix")
 
 _TAG = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")
+
+
+def fetch(url: str, *, needs_js: bool = False) -> Fetched:
+    """The page at url through the knowledge fetcher. needs_js pages need Firecrawl (FIRECRAWL_URL) to render."""
+    return knowledge_fetch.fetch(url)
 
 
 def get_text(url: str) -> str:

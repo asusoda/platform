@@ -12,7 +12,8 @@ from typing import Any, cast
 
 import paramiko
 
-from core.logging_config import get_logger
+from core.errors import ServiceError
+from core.log import get_logger
 
 logger = get_logger("compute.files")
 
@@ -22,11 +23,8 @@ CONNECT_TIMEOUT_SECONDS = 10
 COMMAND_TIMEOUT_SECONDS = 60
 
 
-class FilesError(Exception):
-    def __init__(self, message: str, status: int = 400):
-        super().__init__(message)
-        self.message = message
-        self.status = status
+class FilesError(ServiceError):
+    """A file operation on a pod failed or was refused."""
 
 
 def clean_path(path: object) -> str:

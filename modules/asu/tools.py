@@ -1,7 +1,8 @@
 """ASU live query tool."""
 
 from core.tools import tool
-from modules.asu import registry, service
+from modules.asu import service
+from modules.asu.queries import registry
 
 _LIST = "\n".join(
     f"- {q.key}: {q.description} Params: "

@@ -1,19 +1,15 @@
 """Apps deployed to RunPod pods, and their deployments."""
 
-import datetime
 import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
-from core.base import Base
+from core.db import Base
+from core.time import utcnow
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 class App(Base):
@@ -27,8 +23,8 @@ class App(Base):
     manifest_path = Column(String(200), nullable=True)
     pod_id = Column(String(64), nullable=True)  # set by the first deploy
     current_tag = Column(String(128), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
-    updated_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_runpod_app_name"),)
 
@@ -44,7 +40,7 @@ class AppDeployment(Base):
     manifest = Column(Text, nullable=True)  # JSON the deploy used, so a rollback reuses it
     manifest_ref = Column(String(100), nullable=True)  # git ref the manifest was read at
     error = Column(Text, nullable=True)
-    started_at = Column(DateTime, nullable=False, default=_now)
+    started_at = Column(DateTime, nullable=False, default=utcnow)
     finished_at = Column(DateTime, nullable=True)
 
     __table_args__ = (

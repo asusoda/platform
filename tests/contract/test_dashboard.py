@@ -5,9 +5,9 @@ import pytest
 
 @pytest.fixture
 def clean(app):
+    from core.db import db_connect
     from modules.alerts.models import AlertFeed
     from modules.dashboard import ci
-    from shared import db_connect
 
     ci.clear_cache()
     yield
@@ -19,9 +19,9 @@ def clean(app):
 
 
 def test_overview_covers_every_module(client, officer_headers, clean):
+    from core.db import db_connect
     from modules.alerts.models import AlertFeed
     from modules.organizations.models import Organization
-    from shared import db_connect
 
     db = db_connect.SessionLocal()
     org = db.query(Organization).filter_by(prefix="soda").one()

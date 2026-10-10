@@ -6,9 +6,9 @@ import uuid
 
 import pytest
 
+from core.db import db_connect
 from modules.knowledge import crawl, extract, fetch
 from modules.knowledge.models import KnowledgeSource
-from shared import db_connect
 
 
 def _issue(prefix, *scopes):

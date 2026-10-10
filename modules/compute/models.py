@@ -1,19 +1,15 @@
 """GPU and CPU pods an org runs for its members, and the SSH keys its pods trust."""
 
-import datetime
 import uuid
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
-from core.base import Base
+from core.db import Base
+from core.time import utcnow
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
-
-
-def _now() -> datetime.datetime:
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 class ComputePod(Base):
@@ -27,7 +23,7 @@ class ComputePod(Base):
     allowed_users = Column(JSON, nullable=False, default=list)  # Discord ids that may connect
     config = Column(JSON, nullable=False, default=dict)  # the create request, without secrets
     created_by = Column(String(32), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "pod_id", name="uq_compute_pod"),)
 
@@ -42,7 +38,7 @@ class ComputeKey(Base):
     kind = Column(String(20), nullable=False)
     public_key = Column(Text, nullable=False)
     private_key = Column(Text, nullable=False)  # encrypted with SECRETS_KEY
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (UniqueConstraint("organization_id", "kind", name="uq_compute_key"),)
 
@@ -61,6 +57,6 @@ class ComputeSession(Base):
     started = Column(Boolean, nullable=False, default=False)  # the session began while the job was watching
     finished = Column(Boolean, nullable=False, default=False)  # the window has passed and was handled
     created_by = Column(String(32), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_now)
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (Index("ix_compute_sessions_due", "finished", "start_at"),)

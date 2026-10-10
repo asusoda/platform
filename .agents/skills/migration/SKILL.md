@@ -20,7 +20,7 @@ Then edit the generated file:
 - Check every column type, nullability, default, foreign key and `ondelete` against the model.
 - Postgres specifics (pgvector columns, GIN or HNSW indexes) go behind a dialect check, as in the knowledge migration, so SQLite still upgrades.
 - A migration that rewrites data must work on both SQLite and Postgres and must be safe to run on SoDA's live database. Never drop a column or table that a live client reads; deprecate it first.
-- New tables must also be added to the model list in `alembic/env.py` and `tests/conftest.py`.
+- A new model module goes in `MODEL_MODULES` in `modules/manifest.py`. `alembic/env.py` and `tests/conftest.py` read that list.
 
 `make ci` runs `alembic check`, which fails when models and migrations disagree.
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from modules.asu.params import choices, code, text, url
+from modules.asu.queries.params import choices, code, text, url
 from modules.asu.types import QueryParam, QuerySource
 
 # Option values of the exposed filters on onsa.asu.edu/scholarships.

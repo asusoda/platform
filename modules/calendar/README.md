@@ -1,31 +1,24 @@
 # calendar
 
-Syncs an organization's Notion events database to its Google Calendar and serves the org's upcoming events. Each org brings its own Notion token and Google service account as org secrets.
+Syncs an org's Notion events database to its Google Calendar, and serves the org's upcoming events. Each org can use its own Notion token and Google service account as org secrets.
 
 ## Files
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Public events, officer sync and setup, sync of every org, and legacy endpoints that answer with errors |
-| `service.py` | `MultiOrgCalendarService` and `list_events`, `sync_organization`, `setup_calendar`, `sync_all`; declares the `calendar:read` scope and the `notion_api_key` and `google_service_account` secrets |
-| `clients.py` | `GoogleCalendarClient` and `NotionCalendarClient` |
-| `models.py` | `CalendarEventDTO` and the table linking Notion pages to Google events |
-| `utils.py` | `DateParser`, Notion property extraction, Sentry spans, batch helper |
-| `errors.py` | `APIErrorHandler`: logs Google and Notion API errors and reports them to Sentry |
-| `tools.py` | The `events.list` tool |
-| `jobs.py` | The sync job |
+| `api.py` | Open events, officer sync and setup, sync of all orgs, and legacy routes that return errors |
+| `service.py` | `MultiOrgCalendarService`, `list_events`, `sync_organization`, `setup_calendar`, `sync_all`; declares `calendar:read` and the `notion_api_key` and `google_service_account` secrets |
+| `clients/` | `GoogleCalendarClient` (`google.py`) and `NotionCalendarClient` (`notion.py`) |
+| `sync.py` | Makes a Google Calendar match the Notion events |
+| `events.py`, `dates.py` | `CalendarEventDTO` and Notion property reads; `DateParser` |
+| `errors.py`, `tracing.py` | `APIErrorHandler` for Google and Notion errors; Sentry spans |
+| `models.py`, `tools.py`, `jobs.py` | The event link table; the `events.list` tool; the sync job |
 
 ## Surface
 
-- Routes: `/api/calendar`, gated by the `calendar` switch. `/<org_prefix>/events` is public; `/<org_prefix>/sync` and `/<org_prefix>/setup` need an officer of that org; `/sync-all` needs a signed-in platform token; `/debug/organizations` needs an officer of any org.
-- Jobs: `calendar.sync_all`, cron from `CALENDAR_SYNC_CRON`, not scheduled when unset.
-- Tools: `events.list` (scope `calendar:read`, gated by `calendar`).
-- Tables: `calendar_event_links`.
+- Routes: `/api/calendar`, behind the `calendar` switch. `/<org_prefix>/events` is open. `/<org_prefix>/sync` and `/setup` need an officer of the org. `/sync-all` needs a platform token. `/debug/organizations` needs an officer of any org.
+- Jobs: `calendar.sync_all`, on the `CALENDAR_SYNC_CRON` schedule. No schedule if it is not set.
+- Tools: `events.list` (scope `calendar:read`).
+- Tables: `calendar_event_links` (not used by the sync).
 
-## Depends on
-
-`core.secrets`, `core.errors`, `core.jobs`, `core.tools`, `core.base`; `modules.auth` (decorators, access, scopes), `modules.organizations.models`; `shared` (config, Notion client, `db_connect`, logger).
-
-## More
-
-[docs/05-backend-modules.md](../../docs/05-backend-modules.md)
+See [docs/modules/calendar.md](../../docs/modules/calendar.md).

@@ -12,8 +12,8 @@ from datetime import UTC, datetime
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 
-from core.base import Base
-from core.logging_config import get_logger
+from core.db import Base
+from core.log import get_logger
 
 logger = get_logger("secrets")
 

@@ -2,7 +2,7 @@ from typing import Protocol
 
 import discord
 
-from modules.games.jeopardy.JeopardyQuestion import JeopardyQuestion
+from modules.games.jeopardy.question import JeopardyQuestion
 
 
 class GameCogProtocol(Protocol):

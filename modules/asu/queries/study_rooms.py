@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 
-from modules.asu.params import choices, code, text, url
+from modules.asu.queries.params import choices, code, text, url
 from modules.asu.text import form_page_text
 from modules.asu.types import QueryError, QueryParam, QuerySource
 
