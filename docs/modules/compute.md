@@ -1,6 +1,6 @@
 # Compute
 
-GPU and CPU pods on an org's own RunPod account that members connect to over SSH with a compute CLI. The reference CLI is `godfather` (`pip install godfather-cli`). Officers create pods and select who can use them. A member gets a certificate for their own SSH key that works on one pod for 12 hours.
+GPU and CPU pods on an org's own hosting provider account that members connect to over SSH with a compute CLI. RunPod is the only provider. The reference CLI is `godfather` (`pip install godfather-cli`). Officers create pods and select who can use them. A member gets a certificate for their own SSH key that works on one pod for 12 hours.
 
 ## Setup
 
@@ -24,7 +24,7 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 
 | Route | Does |
 | --- | --- |
-| `GET /pods` | Pods made here, with the live status from RunPod |
+| `GET /pods` | Pods made here, with `provider` and the live status from the provider |
 | `POST /pods` | Creates a pod. Body below. 201 |
 | `GET /pods/<pod_id>` | One pod |
 | `PUT /pods/<pod_id>` | `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}`, or both |
@@ -33,10 +33,11 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 | `GET /members?ids=<id>,<id>` | The display names of up to 50 ids. 503 when Discord does not answer |
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate"}`. `terminate` deletes the pod and its record |
 
-All fields of the create body are optional. Platform sends them to the RunPod v2 API. A GPU pod gets a volume when `volume_in_gb` is 10 or more. A CPU pod has no volume, and `vcpu_count` is a power of two. When RunPod refuses the request, the route answers 400 with RunPod's reason. When RunPod fails, it answers 424.
+All fields of the create body are optional. `provider` names the hosting provider, default `runpod`. An unknown name answers 400. Platform sends the other fields to the RunPod v2 API. A GPU pod gets a volume when `volume_in_gb` is 10 or more. A CPU pod has no volume, and `vcpu_count` is a power of two. When RunPod refuses the request, the route answers 400 with RunPod's reason. When RunPod fails, it answers 424.
 
 ```json
 {
+  "provider": "runpod",
   "name": "workshop",
   "image_name": "ghcr.io/theaisocietyasu/godfather-base:latest",
   "gpu_type_id": "NVIDIA RTX A4000",
@@ -115,6 +116,19 @@ These officer routes work on the files of a running pod over SFTP, as root with 
 A stopped pod returns 409. A failed SSH connection returns 502. Platform does not check pod host keys, because RunPod does not publish them.
 
 Officers manage pods on the Member pods tab of the dashboard Hosting page, `/<org>/hosting?tab=pods`. From it they create, start, stop, restart and terminate pods, change who can connect, add and remove sessions, and work with the files of a running pod.
+
+## Adding a hosting provider
+
+A hosting provider is the cloud that compute pods and apps run on. `core/hosting.py` has the interface and the registry. RunPod (`core/integrations/runpod.py`) is the only provider. `GET /api/dashboard/<org>/hosting/providers` lists the providers with `configured` for the org, and the dashboard shows them in its Provider selects.
+
+1. Write a client with the `HostingClient` calls: `list_pods`, `get_pod`, `create_pod`, `update_pod`, `start_pod`, `stop_pod` and `delete_pod`. Raise a `HostingError` subclass with the provider's HTTP status when a call fails. A missing pod gives `None` from `get_pod`.
+2. Write a provider class with `name`, `title` and `integration`, and the methods `configured`, `client`, `status`, `machine`, `ssh_address` and `proxy_url`. `status` returns `RUNNING` for a running pod and `GONE` for `None`.
+3. Register an integration for the provider's keys in `core/integrations/registry.py`, so officers connect it on Integrations.
+4. Call `hosting.register()` in the module, and add the module to `PROVIDER_MODULES` in `core/hosting.py`.
+5. The create bodies of compute (`pod_request` in `modules/compute/service.py`) and of app manifests follow the RunPod v2 API. Map them to the new provider's API in its client, or give the provider its own request builder.
+6. Show the provider's own fields in `dashboard/src/pages/compute/new-pod.tsx` when it is selected, as the RunPod hardware fields are.
+
+The `provider` column of `compute_pods` and `runpod_apps` keeps the name, so a rename breaks existing rows. The module names `runpod` and `compute` stay. A later change can rename `modules/runpod` to `modules/hosting`.
 
 ## Limits
 

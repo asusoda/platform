@@ -36,7 +36,9 @@ def get_app(db, org, name):
 @_route("/<string:name>", "apps:manage", ["PUT"])
 def put_app(db, org, name):
     data = json_body()
-    return service.put_app(db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"))
+    return service.put_app(
+        db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"), data.get("provider")
+    )
 
 
 @_route("/<string:name>", "apps:manage", ["DELETE"])

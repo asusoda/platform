@@ -11,7 +11,9 @@ class ComputePod(Base):
 
     id = Column(String(36), primary_key=True, default=new_uuid)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    pod_id = Column(String(64), nullable=False)  # RunPod's id
+    pod_id = Column(String(64), nullable=False)  # the provider's id
+    # The hosting provider the pod runs on, a name in core.hosting.PROVIDERS
+    provider = Column(String(32), nullable=False, default="runpod", server_default="runpod")
     name = Column(String(100), nullable=False)
     is_public = Column(Boolean, nullable=False, default=False)  # any member of the org may connect
     allowed_users = Column(JSON, nullable=False, default=list)  # Discord ids that may connect

@@ -128,6 +128,7 @@
 /api/dashboard/<string:org_prefix>/errors/reopen OPTIONS,POST dashboard.reopen_errors
 /api/dashboard/<string:org_prefix>/errors/report OPTIONS,POST dashboard.report_error
 /api/dashboard/<string:org_prefix>/errors/resolve OPTIONS,POST dashboard.resolve_errors
+/api/dashboard/<string:org_prefix>/hosting/providers GET,HEAD,OPTIONS dashboard.hosting_providers
 /api/dashboard/<string:org_prefix>/integrations GET,HEAD,OPTIONS dashboard.list_integrations
 /api/dashboard/<string:org_prefix>/integrations/<string:key> OPTIONS,PUT dashboard.save_integration
 /api/dashboard/<string:org_prefix>/integrations/<string:key>/oauth DELETE,OPTIONS dashboard.stop_oauth

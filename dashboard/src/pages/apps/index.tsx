@@ -8,6 +8,7 @@ import { useCurrentOrg } from '../../lib/org';
 import type { App, AppKind } from '../../lib/types';
 import { AppPanel } from './detail';
 import { RegisterApp } from './register';
+import { providerTitle, useProviders } from '../hosting/providers';
 import { AppTable } from './table';
 
 // Apps are grouped by what they are for; the host is a detail of each app.
@@ -31,6 +32,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
     refetchInterval: (q) => (q.state.data?.apps.some((a) => a.latest_deployment?.status === 'deploying') ? 10_000 : false),
   });
   const apps = list.data?.apps ?? [];
+  const providers = useProviders(prefix);
   const register = (
     <Button variant="primary" onClick={() => setRegistering(true)}>
       <Plus className="size-4" /> Register app
@@ -41,11 +43,11 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
     <>
       <PageHeader
         title="Hosting"
-        description="The org's bots, agents, sites and services on RunPod. Register a manifest, then deploy image tags here or from CI."
+        description="The org's bots, agents, sites and services on its hosting providers. Register a manifest, then deploy image tags here or from CI."
         action={register}
       />
       {tabs}
-      <IntegrationHint keys={['runpod']} />
+      {providers.data?.some((p) => p.configured) ? null : <IntegrationHint keys={providers.data?.map((p) => p.integration) ?? ['runpod']} />}
       {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
       {list.error ? (
         <div className="mb-4">
@@ -63,7 +65,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
             return (
               <Card key={k.kind}>
                 <CardHeader title={k.title} hint={`${k.hint} · ${group.length} ${group.length === 1 ? 'app' : 'apps'}`} />
-                <AppTable apps={group} onOpen={setOpen} />
+                <AppTable apps={group} providers={providers.data} onOpen={setOpen} />
               </Card>
             );
           })}
@@ -80,7 +82,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
         open={registering}
         onClose={() => setRegistering(false)}
         title="Register app"
-        description="Deploys use the RunPod account on Integrations. Set any app_ secrets in Settings first."
+        description="Deploys use the provider account on Integrations. Set any app_ secrets in Settings first."
         wide
       >
         <RegisterApp
@@ -109,7 +111,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
               setNotice(
                 podId ? (
                   <>
-                    Deleted {name}. The pod <Mono className="text-fg">{podId}</Mono> still runs and bills; terminate it in RunPod.
+                    Deleted {name}. The pod <Mono className="text-fg">{podId}</Mono> still runs and bills; terminate it on {providerTitle(providers.data, current?.provider)}.
                   </>
                 ) : (
                   `Deleted ${name}.`

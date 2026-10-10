@@ -21,7 +21,7 @@ The API does not need the bot. It reads Discord servers, roles and members over 
 
 ```
 main.py, bot_main.py, worker_main.py, mcp_main.py   the four entry points
-core/          shared code: config, database, jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients
+core/          shared code: config, database, jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients, hosting providers
 modules/       one folder per module, not nested; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
@@ -115,7 +115,7 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Discord | Sign-in, role and member checks, the bot | `core/integrations/discord.py`, `modules/auth`, `modules/bot` |
 | Clerk | Member sign-in on the public website storefront | `modules/auth/clerk.py` |
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
-| RunPod | Compute pods and app deploys | `core/integrations/runpod.py` |
+| RunPod | Compute pods and app deploys, through the hosting provider registry in `core/hosting.py` | `core/integrations/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
 | Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
 | Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to Discord webhooks | `core/webhooks.py`, `modules/dashboard/webhooks.py` |

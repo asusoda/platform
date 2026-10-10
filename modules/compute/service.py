@@ -1,9 +1,10 @@
-"""Pods an org runs on its own RunPod account for members to SSH into. No Flask here.
+"""Pods an org runs on its own hosting provider account for members to SSH into. No Flask here.
 
 Officers create, share, start, stop and terminate pods. Members list the
-running pods shared with them and get a short-lived certificate for their own SSH key. The org's
-RunPod key is the org secret runpod_api_key, shared with the runpod apps module. The default pod
-image is an org setting; without one, COMPUTE_POD_IMAGE in .env gives it.
+running pods shared with them and get a short-lived certificate for their own SSH key. Each pod
+keeps the name of its provider (core.hosting); RunPod is the only one, with the org secret
+runpod_api_key, shared with the runpod apps module. The default pod image is an org setting;
+without one, COMPUTE_POD_IMAGE in .env gives it.
 """
 
 import datetime
@@ -14,9 +15,9 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
-from core import secrets, webhooks
+from core import hosting, secrets, webhooks
 from core.errors import ServiceError
-from core.integrations import registry, runpod
+from core.integrations import registry
 from core.log import get_logger
 from core.time import utcnow
 from modules.auth import scopes
@@ -24,6 +25,7 @@ from modules.compute import ssh
 from modules.compute.models import ComputeConnection, ComputeKey, ComputePod
 from modules.organizations.models import Organization
 
+hosting.load()
 registry.use("runpod", "compute")
 
 logger = get_logger("compute")
@@ -73,15 +75,26 @@ def announce(org_id: int, name: str, pod_id: str, action: str, by: str) -> None:
     webhooks.emit(org_id, "pod.started" if started else "pod.stopped", message)
 
 
-def _client(db, org_id: int) -> runpod.RunPodClient:
-    key = secrets.get_secret(db, org_id, runpod.SECRET_NAME)
-    if not key:
-        raise ComputeError("This organization has no RunPod API key (org secret runpod_api_key)", 400)
-    return runpod.RunPodClient(key)
+def _provider(name: object) -> hosting.HostingProvider:
+    try:
+        return hosting.get(name)
+    except hosting.ProviderError as e:
+        raise ComputeError(e.message, e.status) from e
 
 
-def _error(e: runpod.RunPodError) -> ComputeError:
-    # 400 when RunPod refused the request, 424 when RunPod failed
+def _provider_of(row: ComputePod) -> hosting.HostingProvider:
+    return _provider(str(row.provider or hosting.DEFAULT))
+
+
+def _client(db, org_id: int, provider: str = hosting.DEFAULT) -> hosting.HostingClient:
+    try:
+        return _provider(provider).client(db, org_id)
+    except hosting.ProviderError as e:
+        raise ComputeError(e.message, e.status) from e
+
+
+def _error(e: hosting.HostingError) -> ComputeError:
+    # 400 when the provider refused the request, 424 when the provider failed
     status = 400 if e.status is not None and 400 <= e.status < 500 else 424
     return ComputeError(e.message, status)
 
@@ -89,8 +102,24 @@ def _error(e: runpod.RunPodError) -> ComputeError:
 def _call(fn, *args):
     try:
         return fn(*args)
-    except runpod.RunPodError as e:
+    except hosting.HostingError as e:
         raise _error(e) from e
+
+
+class _Clients:
+    """One client for each provider of an org, made on first use. A given client serves every provider."""
+
+    def __init__(self, db, org_id: int, client: hosting.HostingClient | None = None):
+        self._db, self._org_id, self._client = db, org_id, client
+        self._made: dict[str, hosting.HostingClient] = {}
+
+    def __call__(self, row: ComputePod) -> hosting.HostingClient:
+        if self._client is not None:
+            return self._client
+        name = str(row.provider or hosting.DEFAULT)
+        if name not in self._made:
+            self._made[name] = _client(self._db, self._org_id, name)
+        return self._made[name]
 
 
 def keypair(db, org_id: int, kind: str) -> tuple[str, str]:
@@ -121,53 +150,46 @@ def _find(db, org_id: int, pod_id: str) -> ComputePod:
     return row
 
 
-def _status(live: dict | None) -> str:
-    if live is None:
-        return "GONE"
-    return str(live.get("status") or live.get("desiredStatus") or "UNKNOWN")
+def _status(live: dict | None, provider: str = hosting.DEFAULT) -> str:
+    return _provider(provider).status(live)
 
 
-def _machine(live: dict | None) -> dict | None:
-    """The pod's hardware and data center, from the v2 pod fields."""
-    if not live:
-        return None
-    if isinstance(live.get("machine"), dict):
-        return live["machine"]
-    gpu, cpu = live.get("gpu") or {}, live.get("cpu") or {}
-    machine = {
-        "gpuTypeId": gpu.get("id") if isinstance(gpu, dict) else None,
-        "cpuTypeId": cpu.get("id") if isinstance(cpu, dict) else None,
-        "dataCenterId": live.get("dataCenterId"),
-    }
-    return {k: v for k, v in machine.items() if v} or None
+def _ssh_address(row: ComputePod, live: object) -> tuple[str, int]:
+    provider = _provider_of(row)
+    address = provider.ssh_address(cast(dict, live))
+    if address is None:
+        raise ComputeError(
+            f"{provider.title} has not given the pod an SSH address yet. Wait a minute and try again", 503
+        )
+    return address
 
 
 def _pod_dict(row: ComputePod, live: dict | None) -> dict:
+    provider = _provider_of(row)
     return {
         "id": row.pod_id,
         "name": row.name,
-        "status": _status(live),
+        "provider": provider.name,
+        "status": provider.status(live),
         "is_public": bool(row.is_public),
         "allowed_users": list(cast(list, row.allowed_users) or []),
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat() if row.created_at else None,
-        "machine": _machine(live),
+        "machine": provider.machine(live),
         "cost_per_hour": (live or {}).get("cost", (live or {}).get("costPerHr")),
     }
 
 
-def list_pods(db, org_id: int, client: runpod.RunPodClient | None = None) -> list[dict]:
-    """Every pod the org created here, with its live status."""
+def list_pods(db, org_id: int, client: hosting.HostingClient | None = None) -> list[dict]:
+    """Every pod the org created here, with its live status from its provider."""
     rows = db.query(ComputePod).filter_by(organization_id=org_id).order_by(ComputePod.created_at).all()
-    if not rows:
-        return []
-    client = client or _client(db, org_id)
-    return [_pod_dict(row, _call(client.get_pod, str(row.pod_id))) for row in rows]
+    clients = _Clients(db, org_id, client)
+    return [_pod_dict(row, _call(clients(row).get_pod, str(row.pod_id))) for row in rows]
 
 
-def get_pod(db, org_id: int, pod_id: str, client: runpod.RunPodClient | None = None) -> dict:
+def get_pod(db, org_id: int, pod_id: str, client: hosting.HostingClient | None = None) -> dict:
     row = _find(db, org_id, pod_id)
-    client = client or _client(db, org_id)
+    client = client or _client(db, org_id, str(row.provider))
     return _pod_dict(row, _call(client.get_pod, pod_id))
 
 
@@ -293,23 +315,28 @@ def create_pod(
     data: object,
     creator: str | None,
     image: str,
-    client: runpod.RunPodClient | None = None,
+    client: hosting.HostingClient | None = None,
 ) -> dict:
-    """Create a pod on the org's RunPod account and record it, from image unless the request names one. Commits."""
+    """Create a pod on the org's provider account and record it, from image unless the request names one. Commits.
+
+    provider names the hosting provider, runpod when missing. The create body follows the RunPod v2 API.
+    """
     if not isinstance(data, dict):
         raise ComputeError("Send a JSON object")
     data = cast(dict, data)
-    client = client or _client(db, org_id)
+    provider = _provider(data.get("provider", hosting.DEFAULT))
+    client = client or _client(db, org_id, provider.name)
     backend_public, _ = keypair(db, org_id, BACKEND_KEY)
     ca_public, _ = keypair(db, org_id, USER_CA_KEY)
     body, settings = pod_request(data, backend_public, ca_public, image)
     allowed = _users(data.get("allowed_users", []))
     created = _call(client.create_pod, body)
     if not isinstance(created, dict) or not created.get("id"):
-        raise ComputeError("RunPod did not return a pod id", 424)
+        raise ComputeError(f"{provider.title} did not return a pod id", 424)
     row = ComputePod(
         organization_id=org_id,
         pod_id=str(created["id"]),
+        provider=provider.name,
         name=settings["name"],
         is_public=bool(data.get("is_public", False)),
         allowed_users=allowed,
@@ -338,13 +365,13 @@ def update_pod(db, org_id: int, pod_id: str, data: object) -> dict:
     return _pod_dict(row, None) | {"status": None}
 
 
-def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClient | None = None) -> dict:
+def act(db, org_id: int, pod_id: str, action: object, client: hosting.HostingClient | None = None) -> dict:
     """Start, stop, restart or terminate a pod. Terminate also forgets it. Commits."""
     if action not in ACTIONS:
         raise ComputeError(f"action must be one of {', '.join(ACTIONS)}")
     row = _find(db, org_id, pod_id)
     name = str(row.name)
-    client = client or _client(db, org_id)
+    client = client or _client(db, org_id, str(row.provider))
     if action == "start":
         _call(client.start_pod, pod_id)
     elif action == "stop":
@@ -355,11 +382,11 @@ def act(db, org_id: int, pod_id: str, action: object, client: runpod.RunPodClien
     else:
         try:
             client.delete_pod(pod_id)
-        except runpod.RunPodError as e:
-            # A pod already deleted on RunPod is forgotten here too
+        except hosting.HostingError as e:
+            # A pod already deleted on the provider is forgotten here too
             if e.status != 404:
                 raise _error(e) from e
-            logger.info("compute pod already gone on RunPod org=%s pod=%s", org_id, pod_id)
+            logger.info("compute pod already gone on %s org=%s pod=%s", row.provider, org_id, pod_id)
         from modules.compute.schedule import delete_pod_sessions
 
         delete_pod_sessions(db, org_id, pod_id)
@@ -390,34 +417,18 @@ def _may_connect(row: ComputePod, discord_id: str) -> bool:
     return bool(row.is_public) or discord_id in (cast(list, row.allowed_users) or [])
 
 
-def accessible_pods(db, org_id: int, discord_id: str, client: runpod.RunPodClient | None = None) -> list[dict]:
+def accessible_pods(db, org_id: int, discord_id: str, client: hosting.HostingClient | None = None) -> list[dict]:
     """Running pods this member may connect to."""
     rows = [r for r in db.query(ComputePod).filter_by(organization_id=org_id) if _may_connect(r, discord_id)]
     if not rows:
         return []
-    client = client or _client(db, org_id)
+    clients = _Clients(db, org_id, client)
     found = []
     for row in rows:
-        live = _call(client.get_pod, str(row.pod_id))
-        if _status(live) == "RUNNING":
+        live = _call(clients(row).get_pod, str(row.pod_id))
+        if _status(live, str(row.provider)) == "RUNNING":
             found.append({"id": row.pod_id, "name": row.name, "status": "RUNNING", "is_public": bool(row.is_public)})
     return found
-
-
-def ssh_address(live: dict) -> tuple[str, int] | None:
-    """(host, port) of a running pod's SSH port, from either shape RunPod reports."""
-    mappings = live.get("portMappings")
-    if isinstance(mappings, dict) and live.get("publicIp") and mappings.get("22"):
-        return str(live["publicIp"]), int(mappings["22"])
-    direct = (live.get("ssh") or {}).get("direct")
-    if isinstance(direct, dict) and direct.get("host") and direct.get("port"):
-        return str(direct["host"]), int(direct["port"])
-    runtime = live.get("runtime") or {}
-    for port in runtime.get("ports") or []:
-        private = port.get("private", port.get("privatePort"))
-        if private == 22 and port.get("ip") and port.get("isIpPublic", True):
-            return str(port["ip"]), int(port.get("public") or port.get("publicPort") or 22)
-    return None
 
 
 def connect(
@@ -428,7 +439,7 @@ def connect(
     username: str,
     is_admin: bool,
     public_key: object,
-    client: runpod.RunPodClient | None = None,
+    client: hosting.HostingClient | None = None,
 ) -> dict:
     """SSH details and a certificate for the caller's own key. Officers get root."""
     if not ssh.is_valid_public_key(public_key):
@@ -436,13 +447,11 @@ def connect(
     row = _find(db, org_id, pod_id)
     if not is_admin and not _may_connect(row, discord_id):
         raise ComputeError("Pod not accessible", 403)
-    client = client or _client(db, org_id)
+    client = client or _client(db, org_id, str(row.provider))
     live = _call(client.get_pod, pod_id)
-    if _status(live) != "RUNNING":
+    if _status(live, str(row.provider)) != "RUNNING":
         raise ComputeError("Pod is not running", 409)
-    address = ssh_address(cast(dict, live))
-    if address is None:
-        raise ComputeError("RunPod has not given the pod an SSH address yet. Wait a minute and try again", 503)
+    address = _ssh_address(row, live)
     _, ca_private = keypair(db, org_id, USER_CA_KEY)
     user = ssh.safe_username(username or discord_id)
     certificate = ssh.sign_user_key(ca_private, cast(str, public_key), pod_id, discord_id, user, is_admin)
@@ -458,18 +467,16 @@ def connect(
     }
 
 
-def pod_files(db, org_id: int, pod_id: str, client: runpod.RunPodClient | None = None, opener=None):
+def pod_files(db, org_id: int, pod_id: str, client: hosting.HostingClient | None = None, opener=None):
     """An open SFTP session on a running pod, as root with the org's backend key."""
     from modules.compute.files import PodFiles
 
-    _find(db, org_id, pod_id)
-    client = client or _client(db, org_id)
+    row = _find(db, org_id, pod_id)
+    client = client or _client(db, org_id, str(row.provider))
     live = _call(client.get_pod, pod_id)
-    if _status(live) != "RUNNING":
+    if _status(live, str(row.provider)) != "RUNNING":
         raise ComputeError("Pod is not running", 409)
-    address = ssh_address(cast(dict, live))
-    if address is None:
-        raise ComputeError("RunPod has not given the pod an SSH address yet. Wait a minute and try again", 503)
+    address = _ssh_address(row, live)
     _, backend_private = keypair(db, org_id, BACKEND_KEY)
     return (opener or PodFiles.open)(address[0], address[1], backend_private)
 
@@ -538,7 +545,7 @@ def connected_now(
     org_id: int,
     pod_id: str,
     name_of: Callable[[str], str | None] | None = None,
-    client: runpod.RunPodClient | None = None,
+    client: hosting.HostingClient | None = None,
     reader: Callable[[str, int, str], list[dict]] | None = None,
 ) -> dict:
     """The live SSH sessions on a pod. state is known or unknown; an unknown state has a reason and no sessions.
@@ -547,12 +554,12 @@ def connected_now(
     """
     from modules.compute import presence
 
-    _find(db, org_id, pod_id)
+    row = _find(db, org_id, pod_id)
     try:
-        live = _call((client or _client(db, org_id)).get_pod, pod_id)
-        if _status(live) != "RUNNING":
+        live = _call((client or _client(db, org_id, str(row.provider))).get_pod, pod_id)
+        if _status(live, str(row.provider)) != "RUNNING":
             return {"pod_id": pod_id, "state": "unknown", "reason": "The pod is not running", "sessions": []}
-        address = ssh_address(cast(dict, live))
+        address = _provider_of(row).ssh_address(cast(dict, live))
         if address is None:
             return {"pod_id": pod_id, "state": "unknown", "reason": "The pod has no SSH address yet", "sessions": []}
         _, backend_private = keypair(db, org_id, BACKEND_KEY)

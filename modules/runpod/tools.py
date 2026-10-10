@@ -1,4 +1,4 @@
-"""RunPod app tools."""
+"""App tools. Apps run on a hosting provider; RunPod is the only one."""
 
 from core.tools import tool
 from modules.runpod import service
@@ -6,7 +6,7 @@ from modules.runpod import service
 
 @tool(
     "apps.list",
-    description="Apps the organization runs on RunPod: image tag, pod id and the latest deployment's status.",
+    description="Apps the organization runs: provider, image tag, pod id and the latest deployment's status.",
     scope="apps:read",
 )
 def apps_list(db, org, caller):
@@ -38,18 +38,19 @@ def apps_get(db, org, caller, name: str):
             "manifest": {"type": "object"},
             "repo": {"type": "string", "maxLength": 200},
             "manifest_path": {"type": "string", "maxLength": 200},
+            "provider": {"type": "string", "maxLength": 32},
         },
         "required": ["name"],
         "additionalProperties": False,
     },
 )
-def apps_register(db, org, caller, name: str, manifest=None, repo=None, manifest_path=None):
-    return service.put_app(db, int(org.id), name, manifest, repo, manifest_path)
+def apps_register(db, org, caller, name: str, manifest=None, repo=None, manifest_path=None, provider=None):
+    return service.put_app(db, int(org.id), name, manifest, repo, manifest_path, provider)
 
 
 @tool(
     "apps.delete",
-    description="Forget an app. Its pod keeps running until it is terminated in RunPod.",
+    description="Forget an app. Its pod keeps running until it is terminated on its provider.",
     scope="apps:manage",
     confirm=True,
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},

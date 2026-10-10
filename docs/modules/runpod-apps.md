@@ -1,6 +1,6 @@
 # RunPod apps
 
-Deploys an org's own apps (a Discord bot, an agent, a model server) to RunPod pods. An officer registers the app's manifest one time. Then the app's CI deploys each new image tag with a token that can do nothing else. Each org deploys with its own RunPod key and pays for its own pods.
+Deploys an org's own apps (a Discord bot, an agent, a model server) to pods on a hosting provider. RunPod is the only provider, and the manifest follows the RunPod v2 pod API. An officer registers the app's manifest one time. Then the app's CI deploys each new image tag with a token that can do nothing else. Each org deploys with its own RunPod key and pays for its own pods.
 
 ## Setup
 
@@ -12,6 +12,7 @@ Officers can do steps 1, 2 and 4 on the dashboard (Settings > Secrets, and the S
 4. Register the app in one of two ways:
    - From its repo: `PUT /api/apps/<name>` with `{"repo": "owner/name"}`, and `manifest_path` if the file is not `platform.app.yaml` at the root. Platform reads the file from the default branch now, and again at the `ref` of each deploy. A private repo needs the org secret `github_token` with read access to the repo contents.
    - Inline: `PUT /api/apps/<name>` with `{"manifest": {...}}`.
+   - Both forms take an optional `provider`, the name of a hosting provider. The default is `runpod`. An app that has a pod keeps its provider; a change answers 409.
 
 With a repo, a change to the pod's env, ports or disk is a pull request to the app, with the same review as its code. A person who can merge to the app's repo can already change what runs on the pod. Thus the deploy token gets no more access.
 
@@ -35,7 +36,7 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 }
 ```
 
-- `kind` is `bot`, `agent`, `site` or `service` (the default). `description` (200 characters or fewer) and `url` (https, the app's public address) are optional. The dashboard groups apps by `kind` and shows the other two. Deploys do not send these three fields to RunPod. App responses include `kind`, `description`, `url` and `host` (`runpod`).
+- `kind` is `bot`, `agent`, `site` or `service` (the default). `description` (200 characters or fewer) and `url` (https, the app's public address) are optional. The dashboard groups apps by `kind` and shows the other two. Deploys do not send these three fields to RunPod. App responses include `kind`, `description`, `url`, `provider` and `host`. `host` is the same as `provider` and stays for older clients.
 - `image` has no tag. The deploy gives the tag. Use `gpu` or `cpu` (`{"id": "cpu5c", "vcpuCount": 4}`), not both.
 - `gpu`, `cpu`, `cloud`, `dataCenterIds` and `mounts` apply when the pod is created. To change them, terminate the pod in RunPod, then `DELETE` and `PUT` the app again.
 - `env`, `disk`, `ports`, `args` and `registry` go with each deploy.
@@ -53,7 +54,7 @@ All routes are under `/api/apps`. They need a machine token, and the org is the 
 | `PUT /<name>` | `apps:manage` | Creates or replaces the manifest |
 | `DELETE /<name>` | `apps:manage` | Removes the app record. The pod continues to run |
 | `GET /<name>/deployments` | `apps:read` | The latest 20 deployments |
-| `GET /<name>/pod` | `apps:read` | The pod as RunPod shows it |
+| `GET /<name>/pod` | `apps:read` | The pod as its provider shows it |
 | `POST /<name>/deploy` | `apps:deploy` | `{"tag": "v1.2.0" or "sha256:...", "ref": "<git sha>", "dry_run": false}`. `ref` is only for apps with a repo; without it, Platform reads the default branch. A dry run returns the manifest and the RunPod request. 202 when the deploy starts |
 | `POST /<name>/rollback` | `apps:manage` | Deploys the newest healthy tag that is not the current tag, with the manifest of that deploy |
 

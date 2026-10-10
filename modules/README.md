@@ -36,8 +36,8 @@ The folders are not nested. `CATEGORIES` in `manifest.py` groups the modules bel
 
 | Module | Does | Org switch |
 | --- | --- | --- |
-| [compute](compute/README.md) | RunPod pods that members connect to over SSH | `compute` |
-| [runpod](runpod/README.md) | App deploys to RunPod | |
+| [compute](compute/README.md) | Pods on a hosting provider (RunPod) that members connect to over SSH | `compute` |
+| [runpod](runpod/README.md) | App deploys to a hosting provider (RunPod) | |
 
 ## Platform
 

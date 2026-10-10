@@ -165,7 +165,7 @@ function SecretsSection({ orgId, prefix }: { orgId: number; prefix: string }) {
         hint={
           <>
             Webhook URLs and app values, encrypted with the server's SECRETS_KEY. Values are never shown. Keys for Notion, Google,
-            GitHub and RunPod are on{' '}
+            GitHub and hosting providers such as RunPod are on{' '}
             <Link to={`/${prefix}/integrations`} className="underline underline-offset-2 hover:text-fg">
               Integrations
             </Link>

@@ -5,11 +5,13 @@ import { Badge, Button, Card, Dot, EmptyState, ErrorNote, Mono, SkeletonRows, Ta
 import { api } from '../../lib/api';
 import { deployTone, duration, podTone, timeAgo } from '../../lib/format';
 import type { App, AppDetail, RunPodPod } from '../../lib/types';
+import { providerTitle, useProviders } from '../hosting/providers';
 import { DeletePanel, DeployPanel, RollbackPanel } from './actions';
 import { ManifestSection } from './manifest';
 import { actorLabel, Fact, Label } from './shared';
 
 function PodStatus({ prefix, app }: { prefix: string; app: App }) {
+  const host = providerTitle(useProviders(prefix).data, app.provider);
   const pod = useQuery({
     queryKey: ['app-pod', prefix, app.name],
     queryFn: () => api<{ pod: RunPodPod | null }>(`/api/dashboard/${prefix}/apps/${app.name}/pod`),
@@ -26,7 +28,7 @@ function PodStatus({ prefix, app }: { prefix: string; app: App }) {
   if (!p) {
     return (
       <p className="text-sm text-muted">
-        RunPod has no pod <Mono>{app.pod_id}</Mono>. It was terminated; the next deploy creates a new one.
+        {host} has no pod <Mono>{app.pod_id}</Mono>. It was terminated; the next deploy creates a new one.
       </p>
     );
   }
