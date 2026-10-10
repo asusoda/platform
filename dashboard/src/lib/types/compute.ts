@@ -19,6 +19,7 @@ export type NewPod = {
   use_cpu_only: boolean;
   gpu_type_id?: string;
   cpu_flavor?: string;
+  vcpu_count?: number;
   cloud_type: 'COMMUNITY' | 'SECURE';
   volume_in_gb: number;
   container_disk_in_gb: number;

@@ -33,7 +33,7 @@ All routes are under `/api/compute/<org>` and need an officer of the org.
 | `GET /members?ids=<id>,<id>` | The display names of up to 50 ids. 503 when Discord does not answer |
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate"}`. `terminate` deletes the pod and its record |
 
-All fields of the create body are optional:
+All fields of the create body are optional. Platform sends them to the RunPod v2 API. A GPU pod gets a volume when `volume_in_gb` is 10 or more. A CPU pod has no volume, and `vcpu_count` is a power of two. When RunPod refuses the request, the route answers 400 with RunPod's reason. When RunPod fails, it answers 424.
 
 ```json
 {
@@ -42,9 +42,10 @@ All fields of the create body are optional:
   "gpu_type_id": "NVIDIA RTX A4000",
   "use_cpu_only": false,
   "cpu_flavor": "cpu3c",
+  "vcpu_count": 2,
   "cloud_type": "COMMUNITY",
-  "volume_in_gb": 1,
-  "container_disk_in_gb": 2,
+  "volume_in_gb": 0,
+  "container_disk_in_gb": 20,
   "volume_mount_path": "/workspace",
   "env": {"HF_HOME": "/workspace/hf"},
   "is_public": false,

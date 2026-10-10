@@ -1,9 +1,10 @@
-import time
+from typing import cast
 
 from flask import Blueprint, jsonify, request, session
 
 from core import jobs
 from core.db import db_connect
+from core.http.cached import cached_json, org_key
 from core.http.request_log import bearer_token
 from core.log import logger
 from modules.auth.access import awarded_by, decide
@@ -18,7 +19,8 @@ from modules.users.models import User, UserOrganizationMembership
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
 
 LEADERBOARD_CACHE_TTL = 300  # seconds
-leaderboard_cache = {}
+# Officer lists change through this process, which drops them at once, and through the bot, which this TTL covers
+OFFICER_LIST_TTL = 30  # seconds
 
 ORG_NOT_FOUND = "Organization not found"
 
@@ -285,41 +287,34 @@ def get_org_users(org_prefix):
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
-        memberships = (
-            db.query(UserOrganizationMembership).filter_by(organization_id=organization.id, is_active=True).all()
-        )
+        organization_id = organization.id
+        organization_json = {
+            "name": organization.name,
+            "prefix": organization.prefix,
+            "description": organization.description,
+        }
 
-        users_data = []
-        for membership in memberships:
-            user = db.query(User).filter_by(id=membership.user_id).first()
-            if user:
-                users_data.append(
-                    {
-                        "id": user.id,
-                        "uuid": user.uuid,
-                        "name": user.name,
-                        "username": user.username,
-                        "email": user.email,
-                        **users.legacy_member_fields(user),
-                        "major": user.major,
-                        "discord_linked": bool(user.discord_id),
-                        "points": service.total_points(db, user.id, organization.id) or 0,
-                        "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
-                        "created_at": user.created_at.isoformat() if user.created_at else None,
-                    }
-                )
+        def build():
+            totals = service.totals_by_user(db, organization_id)
+            users_data = [
+                {
+                    "id": user.id,
+                    "uuid": user.uuid,
+                    "name": user.name,
+                    "username": user.username,
+                    "email": user.email,
+                    **users.legacy_member_fields(user),
+                    "major": user.major,
+                    "discord_linked": bool(user.discord_id),
+                    "points": totals.get(cast(int, user.id)) or 0,
+                    "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                }
+                for membership, user in users.active_members(db, organization_id)
+            ]
+            return {"organization": organization_json, "total_users": len(users_data), "users": users_data}
 
-        return jsonify(
-            {
-                "organization": {
-                    "name": organization.name,
-                    "prefix": organization.prefix,
-                    "description": organization.description,
-                },
-                "total_users": len(users_data),
-                "users": users_data,
-            }
-        ), 200
+        return cached_json(org_key(org_prefix, "points", "users"), OFFICER_LIST_TTL, build)
 
     except Exception as e:
         logger.error(f"Error in uploadEventCSV: {e}", exc_info=True)
@@ -338,8 +333,13 @@ def get_org_points(org_prefix):
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
-        points = db.query(Points).filter_by(organization_id=organization.id).all()
-        return jsonify([service.point_json(point) for point in points]), 200
+        organization_id = organization.id
+
+        def build():
+            points = db.query(Points).filter_by(organization_id=organization_id).order_by(Points.id).all()
+            return [service.point_json(point) for point in points]
+
+        return cached_json(org_key(org_prefix, "points", "entries"), OFFICER_LIST_TTL, build)
 
     except Exception as e:
         logger.error(f"Error in getAllPointsRecords: {e}", exc_info=True)
@@ -370,20 +370,17 @@ def get_org_leaderboard(org_prefix):
     if refusal is not None:
         return refusal
 
-    cache_key = (org_prefix, show_email)
-    cache_entry = leaderboard_cache.get(cache_key)
-    if cache_entry and time.time() - cache_entry["timestamp"] < LEADERBOARD_CACHE_TTL:
-        return jsonify(cache_entry["data"]), 200
-
     db = next(db_connect.get_db())
     try:
         organization = _org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
-        response_payload = service.officer_leaderboard(db, organization, bool(show_email))
-        leaderboard_cache[cache_key] = {"timestamp": time.time(), "data": response_payload}
-        return jsonify(response_payload), 200
+        return cached_json(
+            org_key(org_prefix, "points", "leaderboard", bool(show_email)),
+            LEADERBOARD_CACHE_TTL,
+            lambda: service.officer_leaderboard(db, organization, bool(show_email)),
+        )
 
     except Exception as e:
         logger.error(f"Error in getLeaderboard: {e}", exc_info=True)

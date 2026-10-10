@@ -23,6 +23,21 @@ class RunPodError(RuntimeError):
         self.status = status
 
 
+def _detail(response: requests.Response) -> str:
+    """RunPod's reason for a refused request, from its error JSON or else the start of the body."""
+    try:
+        body = response.json()
+    except ValueError:
+        return response.text.strip()[:300]
+    if isinstance(body, dict):
+        found = body.get("error") or body.get("message") or body.get("detail") or body.get("errors")
+    else:
+        found = body
+    if isinstance(found, list):
+        found = "; ".join(str(item.get("message", item)) if isinstance(item, dict) else str(item) for item in found)
+    return str(found or "")[:300]
+
+
 class RunPodClient:
     def __init__(self, api_key: str, base_url: str = BASE_URL):
         self._api_key = api_key
@@ -40,10 +55,7 @@ class RunPodClient:
         except requests.RequestException as e:
             raise RunPodError("RunPod could not be reached") from e
         if response.status_code >= 400:
-            try:
-                detail = str(response.json().get("error") or response.json().get("message") or "")[:300]
-            except (ValueError, AttributeError):
-                detail = ""
+            detail = _detail(response)
             logger.warning("runpod %s %s failed status=%s %s", method, path, response.status_code, detail)
             raise RunPodError(f"RunPod answered {response.status_code}: {detail}".rstrip(": "), response.status_code)
         if not response.content:

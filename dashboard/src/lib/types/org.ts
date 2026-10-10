@@ -19,7 +19,16 @@ export type ModuleState = { name: string; description: string; enabled: boolean 
 export type SecretState = { name: string; description: string; set: boolean };
 
 // A connected service whose tools a token can get, with its scopes and the limits it takes.
-export type TokenIntegration = { key: string; title: string; connected: boolean; scopes: string[]; limits: string[] };
+export type TokenIntegration = {
+  key: string;
+  title: string;
+  connected: boolean;
+  // Scopes that give the integration's own tools
+  scopes: string[];
+  // Platform scopes that call the integration for the agent
+  through?: string[];
+  limits: string[];
+};
 
 export type MachineToken = {
   id: number;

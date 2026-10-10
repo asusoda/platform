@@ -203,23 +203,39 @@ def delete_secret(db, org_id: int, name: str) -> bool:
 
 
 def token_list(db, org_id: int) -> dict:
-    """The org's active machine tokens, the scopes a token can hold, and the integrations whose tools a scope gives."""
+    """The org's active machine tokens, the scopes a token can hold, and each integration with the scopes that reach it.
+
+    An integration's scopes give its own tools. Its through scopes are Platform scopes that call it for the agent.
+    """
     from core.integrations import registry
 
-    groups: dict[str, list[str]] = {}
+    direct: dict[str, list[str]] = {}
     for scope, integration in scopes.INTEGRATION_SCOPES.items():
-        groups.setdefault(integration, []).append(scope)
+        direct.setdefault(integration, []).append(scope)
+    through: dict[str, list[str]] = {}
+    for scope, keys in scopes.SCOPE_USES.items():
+        for key in keys:
+            through.setdefault(key, []).append(scope)
+    titles = {key: i.title for key, i in registry.INTEGRATIONS.items()}
+    keys = sorted(set(titles) | set(direct), key=lambda k: titles.get(k, k).lower())
     integrations = [
         {
             "key": key,
-            "title": registry.INTEGRATIONS[key].title if key in registry.INTEGRATIONS else key,
+            "title": titles.get(key, key),
             "connected": registry.connected(db, org_id, key),
-            "scopes": sorted(names),
+            "scopes": sorted(direct.get(key, [])),
+            "through": sorted(through.get(key, [])),
             "limits": sorted(machine_tokens.LIMIT_NAMES.get(key, ())),
         }
-        for key, names in sorted(groups.items())
+        for key in keys
     ]
-    return {"tokens": machine_tokens.list_active(db, org_id), "scopes": scopes.SCOPES, "integrations": integrations}
+    uses = {scope: [k for k in found if k in titles] for scope, found in scopes.SCOPE_USES.items()}
+    return {
+        "tokens": machine_tokens.list_active(db, org_id),
+        "scopes": scopes.SCOPES,
+        "integrations": integrations,
+        "uses": uses,
+    }
 
 
 def issue_token(db, org_id: int, data: dict, created_by: str | None) -> dict:

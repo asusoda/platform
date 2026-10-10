@@ -22,6 +22,8 @@ The top bar above each page shows where the page is: Org / Section / Group / Pag
 
 Lists that can be long (knowledge sources, points members and events, knowledge runs, store orders) show 100 rows, or 50 runs, and a button that shows more. A search field filters with `useDeferredValue`, so typing does not wait for the list. The audit log rows use `content-visibility: auto`.
 
+The dashboard has one React Query client, made in `dashboard/src/lib/query-client.ts`. An answer is fresh for 30 seconds and stays in memory for 10 minutes after no page shows it, so a page opened again shows its data at once. A window focus does not refetch; pages with live data poll with `refetchInterval`. A list with a filter keeps the previous rows while the next ones load (`keepPreviousData`). The cache is in memory only, because answers hold member details; sign out clears it. A page entry in `registry.tsx` can have `prefetch`: the sidebar calls it on hover or keyboard focus, and the shell calls it when the page opens, so a gated page does not wait for its module check before it asks for its data. When requests fail together on an expired access token, they wait for one refresh.
+
 | Page | Shows |
 | --- | --- |
 | Overview | A link to open notifications, module switches, members, points, pods, agent use, CI, services, alert feeds, sessions, recent changes and job runs |

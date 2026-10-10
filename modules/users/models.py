@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -51,7 +51,10 @@ class UserOrganizationMembership(Base):
     user = relationship("User", back_populates="memberships")
     organization = relationship("Organization", backref="memberships")
 
-    __table_args__ = (UniqueConstraint("user_id", "organization_id", name="unique_user_org"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "organization_id", name="unique_user_org"),
+        Index("ix_user_organization_memberships_organization_id", "organization_id"),
+    )
 
     def __repr__(self):
         return f"<UserOrganizationMembership(user_id={self.user_id}, org_id={self.organization_id})>"
