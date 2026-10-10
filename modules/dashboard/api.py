@@ -77,10 +77,16 @@ def reopen_notifications(db, org):
     return notices.reopen(db, org, json_body().get("ids"))
 
 
+@_route("/modules", ["GET"])
+def list_modules(db, org):
+    return service.modules(db, org)
+
+
 @_route("/integrations", ["GET"])
 def list_integrations(db, org):
+    unlocks = service.unlocks()
     return {
-        "integrations": integrations.status(db, _org_id(org)),
+        "integrations": [i | {"unlocks": unlocks.get(i["key"], [])} for i in integrations.status(db, _org_id(org))],
         "oauth": oauth.status(db, _org_id(org)),
         "asu": asu.status(db, _org_id(org)),
         "secrets_key": secrets.configured(),

@@ -231,6 +231,20 @@ function IntegrationCard({ prefix, i, canSave, oauth }: { prefix: string; i: Int
           })}
         </div>
       ) : null}
+      {i.unlocks?.length ? (
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 text-xs text-muted">
+          Unlocks
+          {i.unlocks.map((title) => (
+            <Link
+              key={title}
+              to={`/${prefix}/modules`}
+              className="rounded-md border border-line px-1.5 py-0.5 text-fg transition-colors hover:bg-panel-2"
+            >
+              {title}
+            </Link>
+          ))}
+        </div>
+      ) : null}
       {oauth ? <OAuthRow prefix={prefix} k={i.key} state={oauth} /> : null}
       {test.data ? (
         <div
