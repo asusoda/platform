@@ -56,6 +56,7 @@ Core modules are always on. The Modules page of the dashboard does not show them
 | --- | --- | --- |
 | [compute](compute/README.md) | Pods on a hosting provider (RunPod) that members connect to over SSH | `compute` |
 | [runpod](runpod/README.md) | App deploys to a hosting provider (RunPod). The dashboard calls it Hosting | |
+| [uptime](uptime/README.md) | Checks of sites and Hosting apps, with events when one goes down or up | `uptime` |
 
 ## Shared files
 

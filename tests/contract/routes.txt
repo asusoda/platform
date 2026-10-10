@@ -248,6 +248,13 @@
 /api/superadmin/update_officer_role/<int:org_id> OPTIONS,PUT superadmin.update_officer_role
 /api/tools GET,HEAD,OPTIONS tools.list_tools
 /api/tools/<string:name> OPTIONS,POST tools.call_tool
+/api/uptime/<string:org_prefix>/monitors GET,HEAD,OPTIONS uptime.list_monitors
+/api/uptime/<string:org_prefix>/monitors OPTIONS,POST uptime.create_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id> DELETE,OPTIONS uptime.delete_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id> GET,HEAD,OPTIONS uptime.get_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id> OPTIONS,PUT uptime.update_monitor
+/api/uptime/<string:org_prefix>/monitors/<int:monitor_id>/check OPTIONS,POST uptime.check_monitor
+/api/uptime/<string:org_prefix>/targets GET,HEAD,OPTIONS uptime.list_targets
 /api/users/ GET,HEAD,OPTIONS users.users_index
 /api/users/<string:org_prefix>/createUser OPTIONS,POST users.create_user_in_org
 /api/users/<string:org_prefix>/discord/roles GET,HEAD,OPTIONS users.discord_roles

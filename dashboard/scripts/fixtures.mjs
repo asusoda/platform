@@ -15,6 +15,7 @@ export const MODULES = [
   { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: true },
   { name: 'compute', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
   { name: 'alerts', description: 'Job and hackathon listings posted to Discord webhooks', enabled: true },
+  { name: 'uptime', description: 'Checks of sites and Hosting apps, with an event when one goes down or up', enabled: true },
 ];
 
 // The modules on the Modules page, as GET /api/dashboard/<org>/modules returns them. enabled comes from MODULES.
@@ -34,6 +35,7 @@ const CATALOG = [
   { name: 'calendar', title: 'Calendar sync', description: "Syncs a Notion events database to Google Calendar and serves the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], packs: [] },
   { name: 'compute', title: 'Member pods', description: "GPU and CPU pods on the org's RunPod account that members SSH into.", category: 'Infrastructure', switchable: true, needs: [need('runpod', 'RunPod', true)], packs: [] },
   { name: 'runpod', title: 'Hosting', description: "Deploys the org's own apps to a hosting provider, checks their health and rolls them back.", category: 'Infrastructure', switchable: false, needs: [need('runpod', 'RunPod', true), need('github', 'GitHub', true, { optional: true })], packs: [] },
+  { name: 'uptime', title: 'Uptime', description: "Checks the org's sites and Hosting apps on a schedule and sends an event when one goes down or up.", category: 'Infrastructure', switchable: true, needs: [], packs: [] },
 ];
 const CATEGORIES = ['Bots', 'AI and agents', 'Members', 'Automations', 'Infrastructure'];
 const PACKS = {
@@ -921,6 +923,8 @@ export function fixtures(now = Date.now()) {
     ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
     ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
     ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
+    ['monitor.down', 'Monitors down', 'An uptime monitor finds its address down.', 'uptime'],
+    ['monitor.up', 'Monitors up', 'An uptime monitor that was down finds its address up again.', 'uptime'],
     ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
   ].map(([key, label, description, module]) => ({ key, label, description, module }));
   const webhook = (id, name, hint, events, enabled, lastSent, lastError, created, by) => ({
@@ -940,6 +944,45 @@ export function fixtures(now = Date.now()) {
     webhook(2, 'Infra', '9027', ['pod.started', 'pod.stopped', 'app.deployed'], true, -2 * HOUR, null, -21 * DAY, 'daniel'),
     webhook(3, 'Store desk', '3315', ['order.created', 'member.joined'], true, -5 * DAY, 'Discord refused the message with status 404', -60 * DAY, 'maya'),
     webhook(4, 'Old ops channel', '7781', ['errors'], false, -45 * DAY, null, -120 * DAY, 'ava'),
+  ];
+
+  // Uptime monitors. down lists the bar slots (0 is the oldest of 30) whose check was down.
+  const monitor = (id, name, kind, target, every, enabled, latency, day, week, down = [], error = null) => {
+    const recent = Array.from({ length: 30 }, (_, i) => {
+      const up = !down.includes(i);
+      return {
+        checked_at: at(-(29 - i) * every * MINUTE - 20_000),
+        up,
+        status_code: up ? 200 : error ? 503 : null,
+        latency_ms: up ? latency + ((i * 37) % 23) - 11 : null,
+        error: up ? null : (error ?? 'No answer in 10 seconds'),
+      };
+    });
+    const last = recent[29];
+    return {
+      id,
+      name,
+      target_kind: kind,
+      target,
+      expected_status: '2xx',
+      timeout_seconds: 10,
+      interval_minutes: every,
+      enabled,
+      state: last.up ? 'up' : 'down',
+      state_since: at(-(last.up ? 3 * DAY : 4 * every * MINUTE)),
+      last_checked_at: last.checked_at,
+      last_check: last,
+      uptime_24h: day,
+      uptime_7d: week,
+      recent,
+    };
+  };
+  const monitors = [
+    monitor(3, 'Docs site', 'url', 'https://docs.robotics.example.org', 10, false, 98, 100, 100),
+    monitor(2, 'Match scout', 'app', 'match-scout', 5, true, 241, 99.31, 99.72, [11, 12]),
+    monitor(4, 'Parts inventory API', 'app', 'parts-inventory', 5, true, 310, 97.22, 99.1, [26, 27, 28, 29], 'Status 503, expected 2xx'),
+    monitor(5, 'Rover telemetry', 'app', 'rover-telemetry', 1, true, 187, 100, 99.98),
+    monitor(1, 'Website', 'url', 'https://robotics.example.org', 5, true, 122, 100, 99.95, [3]),
   ];
 
   const orgErrors = [
@@ -1194,6 +1237,8 @@ export function fixtures(now = Date.now()) {
     [`/api/dashboard/${ORG.prefix}/errors`]: { errors: orgErrors, open: orgErrors.length, events: orgErrors.reduce((n, e) => n + e.count, 0), webhook_set: true },
     '/api/superadmin/errors': { errors: [...orgErrors, ...serverErrors].sort((a, b) => b.last_seen.localeCompare(a.last_seen)) },
     [`/api/alerts/${ORG.prefix}/feeds`]: { feeds },
+    [`/api/uptime/${ORG.prefix}/monitors`]: { monitors },
+    [`/api/uptime/${ORG.prefix}/targets`]: { apps: appList.map((a) => ({ name: a.name, url: a.url })) },
     [`/api/dashboard/${ORG.prefix}/webhooks`]: {
       webhooks,
       events: webhookEvents,
