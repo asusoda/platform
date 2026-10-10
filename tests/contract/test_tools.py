@@ -25,11 +25,16 @@ def _names(client, headers):
 
 
 def test_tools_follow_scopes(client, token_for):
-    assert _names(client, token_for("org:read")) == ["org.branding", "org.info"]
+    org_read = ["batch", "leetcode.settings", "org.branding", "org.info", "org.settings"]
+    assert _names(client, token_for("org:read")) == org_read
     assert _names(client, token_for("org:read", "points:read", "calendar:read")) == [
+        "batch",
+        "calendar.settings",
         "events.list",
+        "leetcode.settings",
         "org.branding",
         "org.info",
+        "org.settings",
         "points.leaderboard",
     ]
 
@@ -103,8 +108,8 @@ def test_mcp_lists_and_calls_tools(mcp_client, token_for):
     listed = _rpc(mcp_client, headers, "tools/list")
     assert listed.status_code == 200, listed.text
     tools = listed.json()["result"]["tools"]
-    assert [t["name"] for t in tools] == ["org.branding", "org.info"]
-    assert tools[1]["annotations"] == {"readOnlyHint": True, "destructiveHint": False}
+    assert [t["name"] for t in tools] == ["batch", "leetcode.settings", "org.branding", "org.info", "org.settings"]
+    assert tools[3]["annotations"] == {"readOnlyHint": True, "destructiveHint": False}
     called = _rpc(mcp_client, headers, "tools/call", {"name": "org.info", "arguments": {}})
     result = called.json()["result"]
     assert result.get("isError") in (None, False)

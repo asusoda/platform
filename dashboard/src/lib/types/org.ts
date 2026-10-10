@@ -27,7 +27,7 @@ export type ModuleNeed = {
 
 export type ModulePack = { name: string; title: string; description: string };
 
-// A module on the Modules page. ready is false while a need that is not optional is not connected.
+// A module on Explore. ready is false while a need that is not optional is not connected.
 export type CatalogModule = {
   name: string;
   title: string;

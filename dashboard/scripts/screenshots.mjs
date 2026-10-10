@@ -77,7 +77,8 @@ const SCREENS = [
       await page.mouse.wheel(0, 200);
     },
   },
-  { name: 'notifications', path: 'notifications' },
+  { name: 'activity', path: 'activity' },
+  { name: 'explore', path: 'explore' },
   { name: 'settings', path: 'settings' },
   { name: 'webhooks', path: 'webhooks' },
   { name: 'uptime', path: 'uptime' },

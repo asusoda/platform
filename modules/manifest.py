@@ -170,6 +170,9 @@ TOOL_MODULES = [
     "modules.integrations.tools",
     "modules.accounts.tools",
     "modules.uptime.tools",
+    "modules.users.tools",
+    "modules.storefront.tools",
+    "modules.leetcode.tools",
     "packs.asu.signin.tools",
 ]
 

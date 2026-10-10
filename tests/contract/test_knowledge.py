@@ -215,3 +215,33 @@ def test_search_tool(client, writer):
 def test_rrf_prefers_items_ranked_by_both_lists():
     fused = search.rrf([["a", "b", "c"], ["b", "d"]])
     assert [item for item, _ in fused][0] == "b"
+
+
+def test_reembed_passages_written_before_the_service(client, writer, monkeypatch):
+    from core.db import db_connect
+    from modules.knowledge import reembed
+    from modules.organizations.models import Organization
+
+    monkeypatch.setattr(embedder_module, "configured", lambda: None)
+    key = f"late-{_word()}"
+    _put(client, writer, key, [{"content": "a cat sat"}, {"content": "a dog ran"}])
+
+    class Fake(embedder_module.Embedder):
+        def embed(self, texts):
+            return FakeEmbedder().embed(texts)
+
+    fake = Fake(url="http://embed.invalid/v1", model="fake")
+    monkeypatch.setattr(embedder_module, "configured", lambda: fake)
+    db = db_connect.SessionLocal()
+    try:
+        org_id = db.query(Organization.id).filter_by(prefix="soda").scalar()
+        before = reembed.status(db, org_id, fake)
+        assert before["model"] == "fake" and before["stale"] >= 2
+        result = reembed.run(db, org_id, fake)
+        assert result["passages"] >= 2 and result["failed"] == 0
+        after = reembed.status(db, org_id, fake)
+        assert after["stale"] == 0 and after["embedded"] == after["passages"]
+        assert reembed.run(db, org_id, fake)["sources"] == 0
+    finally:
+        db.close()
+    assert _search(client, writer, "kitten cat")[0]["content"] == "a cat sat"

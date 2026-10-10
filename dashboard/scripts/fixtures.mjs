@@ -598,7 +598,11 @@ export function fixtures(now = Date.now()) {
   const knowledgeSettings = {
     settings: { ...tuning, chunk_chars: 600, chunk_overlap: 60, window: 1 },
     defaults: tuning,
-    embeddings: { configured: true, model: 'Qwen3-Embedding-0.6B' },
+    embeddings: {
+      configured: true,
+      model: 'Qwen3-Embedding-0.6B',
+      status: { model: 'Qwen3-Embedding-0.6B', passages: 1840, embedded: 1612, stale: 228, models: [] },
+    },
   };
   const knowledgeRun = (id, key, kind, offset, rest = {}) => ({
     id,
@@ -880,7 +884,7 @@ export function fixtures(now = Date.now()) {
     },
   ];
 
-  const errorGroup = (id, source, org, kind, message, location, route, count, lastOffset, firstOffset, stack = null) => ({
+  const errorGroup = (id, source, org, kind, message, location, route, count, lastOffset, firstOffset, stack = null, context = {}) => ({
     id,
     source,
     org,
@@ -894,6 +898,7 @@ export function fixtures(now = Date.now()) {
     last_seen: at(lastOffset),
     resolved_at: null,
     resolved_by: null,
+    context,
   });
   const podStack = [
     'Traceback (most recent call last):',
@@ -902,7 +907,11 @@ export function fixtures(now = Date.now()) {
     '  File "modules/compute/service.py", line 214, in create_pod',
     '    pod = runpod.create_pod(key, spec)',
     '  File "core/integrations/runpod.py", line 61, in create_pod',
-    '    response.raise_for_status()',
+    '    response = requests.post(url, json=spec, timeout=30)',
+    '  File "/app/.venv/lib/python3.12/site-packages/requests/api.py", line 115, in post',
+    '    return request("post", url, data=data, json=json, **kwargs)',
+    '  File "/app/.venv/lib/python3.12/site-packages/requests/adapters.py", line 713, in send',
+    '    raise ReadTimeout(e, request=request)',
     'requests.exceptions.ReadTimeout: HTTPSConnectionPool(host=\'rest.runpod.io\', port=443): Read timed out. (read timeout=30)',
   ].join('\n');
   const asuSignedOut = {
@@ -986,7 +995,16 @@ export function fixtures(now = Date.now()) {
   ];
 
   const orgErrors = [
-    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack),
+    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack, {
+      request: 'POST /api/compute/robotics/pods',
+      logger: 'flask.app',
+      line: 'modules/compute/api.py:88',
+      release: '2710b68c4f1e',
+      host: 'soda-internal-api',
+      pid: 7,
+      thread: 'ThreadPoolExecutor-0_3',
+      python: '3.12.7',
+    }),
     errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/hosting (mutation)', '/robotics/hosting (mutation)', 4, -26 * MINUTE, -1 * DAY),
     errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
     errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),

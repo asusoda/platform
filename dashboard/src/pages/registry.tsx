@@ -1,12 +1,11 @@
 import {
   Activity,
-  Bell,
-  Blocks,
   BellRing,
   Cable,
   CalendarDays,
   CodeXml,
   Coins,
+  Compass,
   Database,
   HeartPulse,
   KeyRound,
@@ -26,14 +25,13 @@ import { ActivityPage } from './activity';
 import { AdminPage } from './admin';
 import { AlertsPage } from './alerts';
 import { CalendarPage } from './calendar';
+import { ExplorePage } from './explore';
 import { HostingPage } from './hosting';
 import { IntegrationsPage } from './integrations';
 import { KnowledgePage } from './knowledge';
 import { KnowledgeSourcePage } from './knowledge/source';
 import { LeetCodePage } from './leetcode';
 import { McpPage } from './mcp';
-import { ModulesPage } from './modules';
-import { NotificationsPage } from './notifications';
 import { OverviewPage } from './overview';
 import { PointsPage } from './points';
 import { prefetchPoints } from './points/shared';
@@ -95,7 +93,7 @@ const prefetchOverview = (client: QueryClient, prefix: string) => void client.pr
 // Every org page, in sidebar order. To add a page, write the page file and add one entry here.
 export const PAGES: PageEntry[] = [
   { path: '', label: 'Overview', icon: LayoutDashboard, section: 'top', page: OverviewPage, prefetch: prefetchOverview },
-  { path: 'notifications', label: 'Notifications', icon: Bell, section: 'top', page: NotificationsPage },
+  { path: 'explore', label: 'Explore', icon: Compass, section: 'top', page: ExplorePage },
   { path: 'points', label: 'Points', icon: Coins, section: 'members', module: 'points', gate: true, page: PointsPage, prefetch: prefetchPoints },
   { path: 'store', label: 'Store', icon: ShoppingBag, section: 'members', module: 'storefront', gate: true, page: StorePage, prefetch: prefetchStore },
   { path: 'webhooks', label: 'Webhooks', icon: Webhook, section: 'automations', group: 'webhooks', page: WebhooksPage },
@@ -109,7 +107,6 @@ export const PAGES: PageEntry[] = [
   { path: 'uptime', label: 'Uptime', icon: HeartPulse, section: 'infrastructure', module: 'uptime', gate: true, page: UptimePage },
   { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'infrastructure', page: TokensPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
-  { path: 'modules', label: 'Modules', icon: Blocks, section: 'bottom', page: ModulesPage },
   { path: 'integrations', label: 'Integrations', icon: Plug, section: 'bottom', page: IntegrationsPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },
@@ -118,6 +115,8 @@ export const PAGES: PageEntry[] = [
 // Old org paths that open another page. to is relative to the old path.
 export const REDIRECTS: { path: string; to: string }[] = [
   { path: 'ci', to: '../activity?tab=ci' },
+  { path: 'notifications', to: '../activity' },
+  { path: 'modules', to: '../explore' },
   { path: 'agents', to: '../mcp' },
   { path: 'apps', to: '../hosting?tab=services' },
   { path: 'compute', to: '../hosting?tab=pods' },

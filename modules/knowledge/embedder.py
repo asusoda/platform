@@ -125,6 +125,13 @@ def _test(db, org_id: int) -> str:
     return f"Connected. {embedder.model} returns {len(vector)} dimensions."
 
 
+def _queue_reembed(org_id: int) -> None:
+    """Embed the org's passages again with the service it saved. Passages already on its model are skipped."""
+    from core.jobs import defer
+
+    defer("knowledge.reembed", org_id=org_id)
+
+
 register(
     Integration(
         key="embeddings",
@@ -161,6 +168,7 @@ register(
         docs="modules/knowledge",
         deployment=lambda: configured() is not None,
         test=_test,
+        on_save=lambda db, org_id: _queue_reembed(org_id),
     )
 )
 use("embeddings", "knowledge")

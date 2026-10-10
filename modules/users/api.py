@@ -6,13 +6,13 @@ from sqlalchemy.exc import IntegrityError
 
 from core.db import db_connect
 from core.http.responses import error_handler
-from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from modules.auth import access
 from modules.auth.decorators import auth_required
 from modules.auth.routes import officer_route
 from modules.organizations import service as organizations
 from modules.points import service as points
+from modules.users import service as users
 from modules.users.models import User, UserOrganizationMembership
 from modules.users.service import (
     active_members,
@@ -21,9 +21,7 @@ from modules.users.service import (
     member_fields,
     member_input,
     merge_profile_fields,
-    sync_discord_members,
 )
-from modules.users.service import discord_roles as discord_role_list
 
 logger = get_logger(__name__)
 
@@ -475,42 +473,18 @@ def add_user_to_organization(org_prefix):
 
 # Members from the org's Discord server
 
-_NO_DIRECTORY = "Discord is not set up on the API, so the server cannot be read."
-_NO_MEMBERS_INTENT = (
-    "Discord refused the member list. Turn on Server Members Intent for the bot in the Discord Developer Portal "
-    "(Bot > Privileged Gateway Intents)."
-)
-
 
 @officer_route(users_blueprint, "/discord/roles", ["GET"])
 def discord_roles(db, org):
     """Server roles to filter members by."""
-    directory = access.discord_directory()
-    if directory is None or not directory.is_ready():
-        return {"error": _NO_DIRECTORY}, 503
-    try:
-        return {"roles": discord_role_list(directory, org.guild_id)}
-    except DiscordUnavailable as e:
-        logger.warning("role lookup failed for org %s: %s", org.id, e)
-        return {"error": "Discord did not answer the role list."}, 503
+    return {"roles": users.server_roles(access.discord_directory(), org.guild_id)}
 
 
 @officer_route(users_blueprint, "/discord/sync", ["POST"])
 def discord_sync(db, org):
     """Add the server's members to the org's members. Body: roles (ids; any of them, empty for all), dry_run."""
     data = request.get_json(silent=True) or {}
-    roles = data.get("roles") or []
-    if not isinstance(roles, list) or not all(isinstance(r, str) and r.isdigit() for r in roles):
-        return {"error": "roles must be a list of role ids"}, 400
     directory = access.discord_directory()
-    if directory is None or not directory.is_ready():
-        return {"error": _NO_DIRECTORY}, 503
-    try:
-        members = directory.list_members(org.guild_id)
-    except DiscordUnavailable as e:
-        logger.warning("member list failed for org %s: %s", org.id, e)
-        if "403" in str(e):
-            return {"error": _NO_MEMBERS_INTENT}, 503
-        return {"error": "Discord did not answer the member list. Try again shortly."}, 503
-    chosen = [m for m in members if not roles or set(roles) & set(m.get("roles", []))]
-    return sync_discord_members(db, int(org.id), chosen, dry_run=data.get("dry_run") is True)
+    return users.sync_from_discord(
+        db, int(org.id), org.guild_id, directory, data.get("roles") or [], data.get("dry_run") is True
+    )

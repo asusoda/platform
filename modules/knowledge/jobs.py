@@ -41,3 +41,16 @@ def reindex(org_id: int) -> None:
         crawl.logger.info("reindex org=%s %s", org_id, result)
     finally:
         db.close()
+
+
+@job("knowledge.reembed")
+def reembed(org_id: int, org_prefix: str | None = None) -> None:
+    """Embed every passage of the org that is not on the org's current embedding model."""
+    from modules.knowledge import embedder, reembed
+
+    db = db_connect.SessionLocal()
+    try:
+        result = reembed.run(db, org_id, embedder.for_org(db, org_id))
+        reembed.logger.info("re-embed org=%s %s", org_id, result)
+    finally:
+        db.close()

@@ -186,6 +186,7 @@ source_modules = [
     "modules.knowledge.extract",
     "modules.knowledge.fetch",
     "modules.knowledge.runs",
+    "modules.knowledge.reembed",
     "modules.knowledge.search",
     "modules.knowledge.settings",
     "modules.leetcode.client",

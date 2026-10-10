@@ -33,4 +33,4 @@ A sync occurs only when a caller starts it, with `POST /api/calendar/<org_prefix
 
 ## Events
 
-`GET /api/calendar/<org_prefix>/events` is open. It returns the org's events from Notion and keeps them in a cache for 5 minutes. The `events.list` tool returns the same events to agents with `calendar:read`.
+`GET /api/calendar/<org_prefix>/events` is open. It returns the org's events from Notion and keeps them in a cache for 5 minutes. The `events.list` tool returns the same events to agents with `calendar:read`. `calendar.settings` (scope `calendar:read`) and `calendar.update_settings`, `calendar.sync` and `calendar.setup` (scope `calendar:manage`) do what the Calendar page does.

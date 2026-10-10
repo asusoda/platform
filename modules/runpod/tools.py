@@ -1,7 +1,8 @@
 """App tools. Apps run on a hosting provider; RunPod is the only one."""
 
+from core import hosting
 from core.tools import tool
-from modules.runpod import service
+from modules.runpod import service, templates
 
 
 @tool(
@@ -98,3 +99,55 @@ def apps_deploy(db, org, caller, name: str, tag: str, ref: str | None = None):
 )
 def apps_rollback(db, org, caller, name: str):
     return service.rollback(db, int(org.id), str(org.prefix), name, caller.actor)
+
+
+@tool(
+    "apps.pod",
+    description="The live pod of an app on its provider: status, address and hardware.",
+    scope="apps:read",
+    input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
+)
+def apps_pod(db, org, caller, name: str):
+    return {"pod": service.pod(db, int(org.id), name)}
+
+
+@tool(
+    "apps.templates",
+    description="App templates to create an app from, with the inputs each one asks for.",
+    scope="apps:read",
+)
+def apps_templates(db, org, caller):
+    return {"templates": templates.list_templates()}
+
+
+@tool(
+    "hosting.providers",
+    description="The hosting providers that apps and pods run on, and whether the org set each one up.",
+    scope="apps:read",
+)
+def hosting_providers(db, org, caller):
+    return {"providers": hosting.listing(db, int(org.id))}
+
+
+@tool(
+    "apps.create_from_template",
+    description=(
+        "Register a new app from a template. values maps the template's input keys to text. secrets maps its "
+        "secret keys to values; they are saved as org secrets and never returned. Deploy it with apps.deploy."
+    ),
+    scope="apps:manage",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "template": {"type": "string", "minLength": 1, "maxLength": 64},
+            "name": NAME,
+            "values": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 2000}},
+            "secrets": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 20000}},
+            "provider": {"type": "string", "maxLength": 32},
+        },
+        "required": ["template", "name"],
+        "additionalProperties": False,
+    },
+)
+def apps_create_from_template(db, org, caller, template: str, name: str, values=None, secrets=None, provider=None):
+    return templates.create(db, int(org.id), template, name, values, secrets, provider, caller.actor)

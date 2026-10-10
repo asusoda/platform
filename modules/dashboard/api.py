@@ -19,7 +19,7 @@ from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
 from modules.integrations import oauth
-from modules.knowledge import crawl, documents, embedder, runs, settings
+from modules.knowledge import crawl, documents, embedder, reembed, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
@@ -76,6 +76,11 @@ def resolve_notifications(db, org):
 @_route("/notifications/reopen", ["POST"])
 def reopen_notifications(db, org):
     return notices.reopen(db, org, json_body().get("ids"))
+
+
+@_route("/notifications/delete", ["POST"])
+def delete_notifications(db, org):
+    return notices.delete(db, org, json_body().get("ids"))
 
 
 @_route("/modules", ["GET"])
@@ -189,6 +194,11 @@ def resolve_errors(db, org):
 @_route("/errors/reopen", ["POST"])
 def reopen_errors(db, org):
     return errors.reopen(db, org, json_body().get("ids"))
+
+
+@_route("/errors/delete", ["POST"])
+def delete_errors(db, org):
+    return errors.delete(db, org, json_body().get("ids"))
 
 
 @_route("/errors/report", ["POST"])
@@ -396,7 +406,8 @@ def _settings_body(db, org_id: int, values: dict) -> dict:
     return {
         "settings": values,
         "defaults": settings.defaults(),
-        "embeddings": {"configured": model is not None, "model": model.model if model else None},
+        "embeddings": {"configured": model is not None, "model": model.model if model else None}
+        | {"status": reembed.status(db, org_id, model)},
     }
 
 
@@ -407,6 +418,12 @@ def reindex(db, org):
 
     defer("knowledge.reindex", org_id=_org_id(org))
     return {"queued": True}, 202
+
+
+@_route("/knowledge/reembed", ["POST"])
+def reembed_passages(db, org):
+    """Start a job that embeds every passage that is not on the org's current embedding model."""
+    return reembed.queue(db, _org_id(org)), 202
 
 
 @_route("/knowledge/runs", ["GET"])

@@ -74,11 +74,13 @@ def register_request_logging(app: Flask, token_manager) -> None:
         # The error log tags errors of this request with its org and route
         error_log.current_org.set(org_from_request() if request.path.startswith("/api/") else None)
         error_log.current_route.set(request.url_rule.rule if request.url_rule else request.path)
+        error_log.current_request.set(f"{request.method} {request.path}")
 
     @app.teardown_request
     def _clear_error_context(_error):
         error_log.current_org.set(None)
         error_log.current_route.set(None)
+        error_log.current_request.set(None)
 
     @app.after_request
     def _log_request(response):

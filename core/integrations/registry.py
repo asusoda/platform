@@ -14,6 +14,9 @@ from typing import Any, cast
 
 from core import net, secrets
 from core.errors import ServiceError
+from core.log import get_logger
+
+logger = get_logger("integrations")
 
 
 class IntegrationError(ServiceError):
@@ -48,6 +51,8 @@ class Integration:
     # Connects with the org's keys, or the deployment default, and returns a short result
     test: Callable[[object, int], str] | None = None
     used_by: list[str] = field(default_factory=list)
+    # Called with the session and org id after the org's keys change
+    on_save: Callable[[object, int], None] | None = None
 
 
 INTEGRATIONS: dict[str, Integration] = {}
@@ -169,6 +174,11 @@ def save(db, org_id: int, key: str, values: object, actor: str | None) -> None:
                 secrets.set_secret(db, org_id, name, value, actor)
             except secrets.SecretsError as e:
                 raise IntegrationError(str(e)) from e
+    if integration.on_save is not None:
+        try:
+            integration.on_save(db, org_id)
+        except Exception:
+            logger.exception("on_save failed integration=%s org=%s", key, org_id)
 
 
 def _json_object(value: object) -> bool:

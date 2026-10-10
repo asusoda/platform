@@ -102,9 +102,9 @@ def _names(client, headers):
 
 def test_scopes_pick_read_and_write_tools(client, officer_headers, soda, github):
     reader = _token(client, officer_headers, soda, ["github:read"])
-    assert _names(client, reader) == ["github.list_issues", "github.search_code"]
+    assert _names(client, reader) == ["batch", "github.list_issues", "github.search_code"]
     writer = _token(client, officer_headers, soda, ["github:read", "github:write"])
-    assert _names(client, writer) == ["github.create_issue", "github.list_issues", "github.search_code"]
+    assert _names(client, writer) == ["batch", "github.create_issue", "github.list_issues", "github.search_code"]
     listed = client.get("/api/tools", headers=writer).get_json()["tools"]
     create = next(t for t in listed if t["name"] == "github.create_issue")
     assert (
@@ -128,7 +128,7 @@ def test_calls_pass_through_and_writes_need_confirm(client, officer_headers, sod
 def test_repo_and_tool_limits(client, officer_headers, soda, github):
     limits = {"github": {"repos": ["AIS/*"]}}
     headers = _token(client, officer_headers, soda, ["github:read", "github:write"], limits)
-    assert _names(client, headers) == ["github.create_issue", "github.list_issues"]
+    assert _names(client, headers) == ["batch", "github.create_issue", "github.list_issues"]
     other = client.post("/api/tools/github.list_issues", json={"owner": "soda", "repo": "x"}, headers=headers)
     assert other.status_code == 403
     assert (
@@ -136,7 +136,7 @@ def test_repo_and_tool_limits(client, officer_headers, soda, github):
         == 200
     )
     narrow = _token(client, officer_headers, soda, ["github:read"], {"github": {"tools": ["github.list_*"]}})
-    assert _names(client, narrow) == ["github.list_issues"]
+    assert _names(client, narrow) == ["batch", "github.list_issues"]
     assert client.post("/api/tools/github.search_code", json={"query": "x"}, headers=narrow).status_code == 404
     bad = {"name": "x", "kind": "agent", "scopes": ["github:read"], "limits": {"github": {"repos": ["no slash"]}}}
     assert client.post(f"/api/organizations/{soda}/tokens", json=bad, headers=officer_headers).status_code == 400

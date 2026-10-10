@@ -22,7 +22,7 @@ Terminate also forgets a pod that was already deleted on RunPod, such as one del
 
 - Routes: `/api/compute`, behind the `compute` switch. Officer routes need an officer of the org. Member routes need a Discord session or a CLI token with `compute:connect`.
 - Jobs: `compute.schedule`, schedule `*/5 * * * *`.
-- Tools: `compute.pods`, `compute.pod_members` and `compute.pod_action` (confirm), scope `compute:manage`. Tools marked confirm run only with `confirm=true`.
+- Tools, scope `compute:manage`: `compute.pods`, `compute.pod_members`, `compute.connected`, `compute.pod_action` (confirm), `compute.create_pod` (confirm), `compute.update_pod`, `compute.settings`, `compute.update_settings`, `compute.sessions`, `compute.add_session` (confirm), `compute.delete_session`, `compute.list_files`, `compute.read_file`, `compute.write_file` (confirm), `compute.make_folder`, `compute.move_file`, `compute.delete_file` (confirm). Tools marked confirm run only with `confirm=true`.
 - Webhook events: `pod.started` and `pod.stopped`, from `act()` and the session schedule. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `compute_pods`, `compute_keys`, `compute_sessions`, `compute_connections`. `connect()` writes a `compute_connections` row for each certificate and deletes the org's rows older than 90 days.
 

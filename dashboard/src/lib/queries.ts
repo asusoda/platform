@@ -55,11 +55,14 @@ export function useErrors(prefix: string, status: ErrorStatus) {
   });
 }
 
+export type ErrorAction = 'resolve' | 'reopen' | 'delete';
+
+// Resolve, reopen or delete error groups by id.
 export function useErrorChange(prefix: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ action, ids }: { action: 'resolve' | 'reopen'; ids: number[] }) =>
-      send<{ changed: number }>(`/api/dashboard/${prefix}/errors/${action}`, 'POST', { ids }),
+    mutationFn: ({ action, ids }: { action: ErrorAction; ids: number[] }) =>
+      send<{ changed?: number; deleted?: number }>(`/api/dashboard/${prefix}/errors/${action}`, 'POST', { ids }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['errors', prefix] }),
   });
 }
@@ -130,11 +133,13 @@ export function useNotifications(prefix: string) {
   });
 }
 
-// Resolve or reopen notifications by id. The answer is the new list, so the bell and the page update at once.
+export type NotificationAction = 'resolve' | 'reopen' | 'delete';
+
+// Resolve, reopen or delete notifications by id. The answer is the new list, so the bell and the page update at once.
 export function useNotificationChange(prefix: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ action, ids }: { action: 'resolve' | 'reopen'; ids: string[] }) =>
+    mutationFn: ({ action, ids }: { action: NotificationAction; ids: string[] }) =>
       send<NotificationList>(`/api/dashboard/${prefix}/notifications/${action}`, 'POST', { ids }),
     onSuccess: (list) => {
       client.setQueryData(['notifications', prefix], list);

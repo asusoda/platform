@@ -192,6 +192,17 @@ function IntegrationCard({ prefix, i, canSave, oauth }: { prefix: string; i: Int
     mutationFn: () => send<IntegrationTest>(`/api/dashboard/${prefix}/integrations/${i.key}/test`, 'POST'),
   });
   const saved = i.fields.filter((f) => f.set && f.updated_at).map((f) => f.updated_at as string);
+  // The modules that use the integration and the ones it unlocks, in one list. Explore opens a module that is off.
+  const users = [
+    ...i.used_by.map((m) => ({ label: MODULES[m]?.label ?? m, path: MODULES[m]?.path ?? 'explore' })),
+    ...(i.unlocks ?? []).map((title) => ({ label: title, path: 'explore' })),
+  ].filter((u, n, all) => all.findIndex((o) => o.label === u.label) === n);
+  const note = [
+    i.source === 'deployment' && i.editable ? "The deployment's key is in use. Save your own to replace it." : '',
+    saved.length ? `Saved ${timeAgo(saved.sort().at(-1) as string)}.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
     <Card className="flex flex-col">
       <div className="flex items-start gap-3 p-4">
@@ -201,46 +212,23 @@ function IntegrationCard({ prefix, i, canSave, oauth }: { prefix: string; i: Int
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold">{i.title}</h3>
-            <StateBadge i={i} />
+            <span title={note || undefined}>
+              <StateBadge i={i} />
+            </span>
           </div>
-          <p className="mt-1 text-sm text-pretty text-muted">{i.description}</p>
-          {i.source === 'deployment' && i.editable ? (
-            <p className="mt-1 text-xs text-muted">The deployment's key is in use. Save your own to replace it for this org.</p>
-          ) : null}
-          {saved.length ? <p className="mt-1 text-xs text-muted">Saved {timeAgo(saved.sort().at(-1) as string)}.</p> : null}
+          <p className="mt-1 line-clamp-2 text-sm text-pretty text-muted">{i.description}</p>
         </div>
       </div>
-      {i.used_by.length ? (
+      {users.length ? (
         <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 text-xs text-muted">
           Used by
-          {i.used_by.map((m) => {
-            const mod = MODULES[m] ?? { label: m };
-            return mod.path ? (
-              <Link
-                key={m}
-                to={`/${prefix}/${mod.path}`}
-                className="rounded-md border border-line px-1.5 py-0.5 text-fg transition-colors hover:bg-panel-2"
-              >
-                {mod.label}
-              </Link>
-            ) : (
-              <span key={m} className="rounded-md border border-line px-1.5 py-0.5">
-                {mod.label}
-              </span>
-            );
-          })}
-        </div>
-      ) : null}
-      {i.unlocks?.length ? (
-        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 text-xs text-muted">
-          Unlocks
-          {i.unlocks.map((title) => (
+          {users.map((u) => (
             <Link
-              key={title}
-              to={`/${prefix}/modules`}
+              key={u.label}
+              to={`/${prefix}/${u.path}`}
               className="rounded-md border border-line px-1.5 py-0.5 text-fg transition-colors hover:bg-panel-2"
             >
-              {title}
+              {u.label}
             </Link>
           ))}
         </div>

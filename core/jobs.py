@@ -7,6 +7,7 @@ queue: defer() runs the job in a thread of the calling process and periodic jobs
 thread in the API, which is how the platform behaved before the queue existed.
 """
 
+import contextvars
 import os
 import threading
 import time
@@ -50,6 +51,8 @@ class Job:
 
 
 JOBS: dict[str, Job] = {}
+# The name of the job that runs in this context, for the error log
+current_job: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_job", default=None)
 
 _app = None
 
@@ -105,6 +108,7 @@ def _execute(entry: Job, kwargs: dict) -> None:
     """Run a job, log it, and record it in the audit log. Re-raises so the queue can retry."""
     started = time.monotonic()
     status = "succeeded"
+    token = current_job.set(entry.name)
     try:
         entry.func(**kwargs)
         logger.info("job finished name=%s seconds=%.2f", entry.name, time.monotonic() - started)
@@ -114,6 +118,7 @@ def _execute(entry: Job, kwargs: dict) -> None:
         _send_failure(entry, kwargs, error)
         raise
     finally:
+        current_job.reset(token)
         if entry.audit:
             from core.audit import record
 

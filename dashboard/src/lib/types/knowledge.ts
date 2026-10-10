@@ -65,7 +65,16 @@ export type KnowledgeTuning = {
 export type KnowledgeSettings = {
   settings: KnowledgeTuning;
   defaults: KnowledgeTuning;
-  embeddings: { configured: boolean; model: string | null };
+  embeddings: { configured: boolean; model: string | null; status?: EmbeddingStatus };
+};
+
+// Passages of the org's sources by embedding model. stale passages are found by text search only.
+export type EmbeddingStatus = {
+  model: string | null;
+  passages: number;
+  embedded: number;
+  stale: number;
+  models: { model: string | null; passages: number }[];
 };
 
 export type KnowledgeRun = {

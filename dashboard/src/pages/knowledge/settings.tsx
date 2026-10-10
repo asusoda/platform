@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Badge, Button, CheckOption, Field, FormActions, Input, Select, SkeletonRows, Spinner } from '../../components/ui';
+import { Badge, Button, CheckOption, ErrorNote, Field, FormActions, Input, Select, SkeletonRows, Spinner } from '../../components/ui';
 import { api, send } from '../../lib/api';
-import type { KnowledgeMode, KnowledgeSettings, KnowledgeTuning } from '../../lib/types';
+import type { EmbeddingStatus, KnowledgeMode, KnowledgeSettings, KnowledgeTuning } from '../../lib/types';
 
 // Limits from modules/knowledge/settings.py.
 const LIMITS: Record<Exclude<keyof KnowledgeTuning, 'mode'>, [number, number]> = {
@@ -26,6 +26,30 @@ type Draft = Record<keyof KnowledgeTuning, string>;
 
 function toDraft(t: KnowledgeTuning): Draft {
   return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, String(v)])) as Draft;
+}
+
+// How many passages are on the current embedding model, and a button that embeds the rest from their stored text.
+function EmbeddingRow({ prefix, status }: { prefix: string; status: EmbeddingStatus }) {
+  const run = useMutation({ mutationFn: () => send(`/api/dashboard/${prefix}/knowledge/reembed`, 'POST') });
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-line px-3 py-2.5 text-xs">
+      <span className="min-w-0 flex-1 text-pretty text-muted">
+        {status.stale
+          ? `${status.embedded} of ${status.passages} passages use ${status.model}. Text search still finds the other ${status.stale}.`
+          : `All ${status.passages} passages use ${status.model}.`}
+      </span>
+      {status.stale ? (
+        run.isSuccess ? (
+          <span className="text-ok">Embedding in the background.</span>
+        ) : (
+          <Button type="button" disabled={run.isPending} onClick={() => run.mutate()}>
+            {run.isPending ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />} Embed {status.stale}
+          </Button>
+        )
+      ) : null}
+      {run.error ? <ErrorNote error={run.error} /> : null}
+    </div>
+  );
 }
 
 export function KnowledgeSettingsForm({ prefix, onDone }: { prefix: string; onDone: (message: string | null) => void }) {
@@ -132,6 +156,7 @@ function SettingsDraft({
             <Badge tone="warn">no embedding service</Badge>
           )}
         </div>
+        {data.embeddings.configured && data.embeddings.status ? <EmbeddingRow prefix={prefix} status={data.embeddings.status} /> : null}
         {!data.embeddings.configured ? (
           <p className="text-xs text-pretty text-muted">
             Without an embedding service, every mode searches on text only. Connect one in{' '}

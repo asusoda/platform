@@ -12,8 +12,17 @@ from modules.auth import machine_tokens, scopes
 from modules.manifest import NEW_ORG_MODULES
 from modules.organizations.models import Organization
 
-scopes.declare("org:read", "Read the org's name, description and enabled modules")
-scopes.declare("settings:write", "Turn modules on or off, change branding, and resolve notifications")
+scopes.declare("org:read", "Read the org's name, description, settings and enabled modules")
+scopes.declare(
+    "settings:write",
+    "Turn modules on or off; change the description, points settings, branding, CI repos and LeetCode post; "
+    "resolve and delete notifications and errors",
+)
+scopes.declare("secrets:manage", "List the names of the org's secrets, and set or delete them. Values are never read")
+scopes.declare(
+    "tokens:manage",
+    "List, make and revoke machine tokens. A token made with a tool gets only scopes that the calling token has",
+)
 
 # Modules an organization can turn off. Every other module is always on. A module missing from an org's config is
 # on, so existing orgs keep every feature until an officer turns one off. A new org starts with the modules in
@@ -38,6 +47,10 @@ class OrganizationError(ValueError):
 
 
 class BrandingError(ServiceError, ValueError):
+    pass
+
+
+class SettingsError(ServiceError, ValueError):
     pass
 
 
@@ -186,6 +199,41 @@ def set_branding(db, org: Organization, changes: object) -> dict:
     return branding(org)
 
 
+MAX_DESCRIPTION = 500
+SETTING_KEYS = ("description", "points_per_message", "points_cooldown")
+
+
+def settings(org: Organization) -> dict:
+    """The org's description, points for each message and the cooldown in seconds between them."""
+    return {
+        "name": org.name,
+        "prefix": org.prefix,
+        "description": org.description,
+        "points_per_message": org.points_per_message,
+        "points_cooldown": org.points_cooldown,
+    }
+
+
+def set_settings(db, org: Organization, changes: object) -> dict:
+    """Set the description and points settings that changes has. Commits."""
+    if not isinstance(changes, dict) or not changes or set(changes) - set(SETTING_KEYS):
+        raise SettingsError(f"Send an object with one or more of {', '.join(SETTING_KEYS)}")
+    changes = cast(dict, changes)
+    if "description" in changes:
+        value = changes["description"]
+        if value is not None and (not isinstance(value, str) or len(value.strip()) > MAX_DESCRIPTION):
+            raise SettingsError(f"description must be text of at most {MAX_DESCRIPTION} characters")
+        org.description = value.strip() if value else None
+    for key in ("points_per_message", "points_cooldown"):
+        if key in changes:
+            value = changes[key]
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise SettingsError(f"{key} must be a whole number of 0 or more")
+            setattr(org, key, value)
+    db.commit()
+    return settings(org)
+
+
 # Org secrets and machine tokens
 
 
@@ -278,3 +326,37 @@ def issue_token(db, org_id: int, data: dict, created_by: str | None) -> dict:
 def revoke_token(db, org_id: int, token_id: int) -> bool:
     """Revoke a machine token of the org. False when there is none."""
     return machine_tokens.revoke(db, org_id, token_id)
+
+
+def issue_child_token(db, caller: machine_tokens.MachineCaller, data: dict) -> dict:
+    """Issue a token for the caller's org with a subset of the caller's scopes and the caller's limits.
+
+    The value is in the result only. Raises SettingsError when the request asks for more than the caller has.
+    """
+    wanted = data.get("scopes")
+    if isinstance(wanted, list):
+        extra = sorted({str(s) for s in wanted} - set(caller.scopes))
+        if extra:
+            raise SettingsError(f"The calling token does not have these scopes: {', '.join(extra)}", 403)
+    request = {**data, "limits": dict(caller.limits) or None}
+    try:
+        return issue_token(db, caller.organization_id, request, caller.actor)
+    except machine_tokens.TokenError as e:
+        raise SettingsError(str(e)) from e
+
+
+def revoke_tokens(db, org_id: int, token_ids: list[int]) -> dict:
+    """Revoke the org's active tokens with these ids. If one id is not active, nothing changes."""
+    active = {t["id"] for t in machine_tokens.list_active(db, org_id)}
+    missing = sorted(set(token_ids) - active)
+    if missing:
+        raise SettingsError(f"No active tokens with ids {', '.join(str(i) for i in missing)}", 404)
+    for token_id in sorted(set(token_ids)):
+        machine_tokens.revoke(db, org_id, token_id)
+    return {"revoked": sorted(set(token_ids))}
+
+
+def delete_secrets(db, org_id: int, names: list[str]) -> dict:
+    """Delete org secrets by name. Returns the names deleted and the names that were not set."""
+    deleted = [name for name in dict.fromkeys(names) if secrets.delete_secret(db, org_id, name)]
+    return {"deleted": deleted, "not_set": [name for name in dict.fromkeys(names) if name not in deleted]}

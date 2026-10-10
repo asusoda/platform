@@ -23,7 +23,7 @@ export type Integration = {
   source: 'org' | 'deployment' | null;
   testable: boolean;
   used_by: string[];
-  // The titles of the modules on the Modules page that need the integration
+  // The titles of the modules on Explore that need the integration
   unlocks?: string[];
 };
 

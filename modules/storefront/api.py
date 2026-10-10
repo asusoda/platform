@@ -159,20 +159,7 @@ def update_product(org_prefix, product_id):
             return jsonify({"error": "Product not found"}), 404
 
         data = request.get_json()
-
-        if "name" in data:
-            product.name = data["name"]
-        if "description" in data:
-            product.description = data["description"]
-        if "price" in data:
-            product.price = float(data["price"])
-        if "stock" in data:
-            product.stock = int(data["stock"])
-        if "image_url" in data:
-            product.image_url = data["image_url"]
-        if "category" in data:
-            product.category = service.normalize_category(data["category"])
-
+        service.change_product(product, data)
         db.commit()
         return jsonify(
             {
@@ -421,16 +408,10 @@ def update_order_status(org_prefix, order_id):
             return jsonify({"error": "Order not found"}), 404
 
         data = request.get_json()
-
-        if "status" in data:
-            valid_statuses = ["pending", "processing", "shipped", "delivered", "cancelled"]
-            if data["status"] not in valid_statuses:
-                return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
-            order.status = data["status"]
-
-        if "message" in data:
-            order.message = data["message"]
-
+        try:
+            service.change_order(order, data)
+        except service.StoreError as e:
+            return jsonify({"error": e.message}), e.status
         db.commit()
         return jsonify(
             {
@@ -464,14 +445,7 @@ def delete_order(org_prefix, order_id):
         if not order:
             return jsonify({"error": "Order not found"}), 404
 
-        # Puts stock back unless the order is cancelled or delivered
-        if order.status not in ["cancelled", "delivered"]:
-            for item in order.items:
-                product = service.product(db, item.product_id, org.id)
-                if product:
-                    product.stock += item.quantity
-
-        db.delete(order)
+        service.remove_order(db, order, org.id)
         db.commit()
         return jsonify({"message": "Order deleted successfully"}), 200
     finally:

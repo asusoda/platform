@@ -11,6 +11,8 @@ import contextvars
 import hashlib
 import logging
 import os
+import platform
+import socket
 import sys
 import threading
 import traceback
@@ -19,10 +21,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
 
 from core.db import Base, session
-from core.jobs import job
+from core.jobs import current_job, job
 from core.log import get_logger
 
 logger = get_logger("error_log")
@@ -35,6 +37,8 @@ REPO_ROOT = str(Path(__file__).resolve().parent.parent)
 # The org and route of the current API request, set by core/http/request_log.py
 current_org: contextvars.ContextVar[str | None] = contextvars.ContextVar("error_log_org", default=None)
 current_route: contextvars.ContextVar[str | None] = contextvars.ContextVar("error_log_route", default=None)
+# The method and path of the current API request, without the query string
+current_request: contextvars.ContextVar[str | None] = contextvars.ContextVar("error_log_request", default=None)
 
 _new_group_handlers: list[Callable[[dict], None]] = []
 _org_resolver: list[Callable[[str | None], str | None]] = []
@@ -58,6 +62,7 @@ class ErrorGroup(Base):
     last_seen = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
     resolved_at = Column(DateTime, nullable=True)
     resolved_by = Column(String(255), nullable=True)
+    context = Column(JSON, nullable=True)  # where the last event ran: request, job, logger, line, host, release
 
     def to_dict(self, stack: bool = True) -> dict:
         return {
@@ -74,6 +79,7 @@ class ErrorGroup(Base):
             "last_seen": _iso(self.last_seen),
             "resolved_at": _iso(self.resolved_at),
             "resolved_by": self.resolved_by,
+            "context": self.context or {},
         }
 
 
@@ -105,6 +111,20 @@ def _repo_frame(tb: list[traceback.FrameSummary]) -> str | None:
     return f"{os.path.relpath(frame.filename, REPO_ROOT)}:{frame.name}"
 
 
+def _context(extra: dict | None) -> dict:
+    """The process facts of the current event, and extra. Values are short strings; empty values are left out."""
+    values = {
+        "request": current_request.get(),
+        "job": current_job.get(),
+        "host": socket.gethostname(),
+        "pid": os.getpid(),
+        "thread": threading.current_thread().name,
+        "release": (os.environ.get("GIT_COMMIT_HASH") or "")[:12],
+        "python": platform.python_version(),
+    } | (extra or {})
+    return {k: v if isinstance(v, int) else str(v)[:255] for k, v in values.items() if v not in (None, "")}
+
+
 def capture(
     *,
     source: str,
@@ -115,6 +135,7 @@ def capture(
     org: str | None = None,
     route: str | None = None,
     group_key: str | None = None,
+    context: dict | None = None,
 ) -> dict | None:
     """Add one error to its group and return the group, or None when the write fails. Never raises.
 
@@ -144,6 +165,7 @@ def capture(
             group.last_seen = now
             group.resolved_at = None
             group.resolved_by = None
+            group.context = _context(context)
             db.flush()
             result = group.to_dict()
         if fresh:
@@ -197,6 +219,10 @@ class ErrorLogHandler(logging.Handler):
                 org=current_org.get(),
                 route=current_route.get(),
                 group_key=group_key,
+                context={
+                    "logger": record.name,
+                    "line": f"{os.path.relpath(record.pathname, REPO_ROOT)}:{record.lineno}",
+                },
             )
         except Exception:
             self.handleError(record)
@@ -243,6 +269,16 @@ def set_resolved(db, ids: list[int], *, resolved: bool, actor: str | None, org: 
         changed += 1
     db.commit()
     return changed
+
+
+def delete_groups(db, ids: list[int], *, org: str | None = None) -> int:
+    """Delete groups by id. With org, only that org's groups go. Returns the number deleted."""
+    query = db.query(ErrorGroup).filter(ErrorGroup.id.in_(ids))
+    if org is not None:
+        query = query.filter(ErrorGroup.org == org)
+    deleted = query.delete(synchronize_session=False)
+    db.commit()
+    return deleted
 
 
 RETENTION_DAYS = int(os.environ.get("ERROR_RETENTION_DAYS", "90"))

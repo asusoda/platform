@@ -1,7 +1,7 @@
 """Knowledge tools."""
 
 from core.tools import tool
-from modules.knowledge import crawl, documents, embedder, runs, search, service, settings
+from modules.knowledge import crawl, documents, embedder, reembed, runs, search, service, settings
 from modules.packs import service as packs
 
 
@@ -216,6 +216,27 @@ def knowledge_reindex(db, org, caller):
 
     defer("knowledge.reindex", org_id=int(org.id))
     return {"queued": True}
+
+
+@tool(
+    "knowledge.embeddings",
+    description="Passages by embedding model, and how many are not on the org's current model.",
+    scope="knowledge:read",
+    input_schema=NO_ARGS,
+)
+def knowledge_embeddings(db, org, caller):
+    return reembed.status(db, int(org.id), embedder.for_org(db, int(org.id)))
+
+
+@tool(
+    "knowledge.reembed",
+    description="Embed every passage that is not on the org's current embedding model, from its stored text.",
+    scope="knowledge:write",
+    confirm=True,
+    input_schema=NO_ARGS,
+)
+def knowledge_reembed(db, org, caller):
+    return reembed.queue(db, int(org.id))
 
 
 @tool(
