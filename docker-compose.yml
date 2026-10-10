@@ -10,6 +10,13 @@ services:
     image: soda-internal-api:latest
     container_name: soda-internal-api
     restart: unless-stopped
+    # One worker with threads: SQLite takes one writer at a time, and login codes live in memory.
+    # Raise the worker count after the move to Postgres.
+    # Migrations run first; the schema comes from Alembic, not from create_all at startup.
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && exec gunicorn --workers 1 --threads 8 --timeout 120 --bind 0.0.0.0:8000 main:app
     ports:
       - "8000:8000"
     volumes:
@@ -22,6 +29,10 @@ services:
       # Turns off the Werkzeug debugger and reloader. docker-compose.dev.yml overrides this to
       # false for local hot reloading.
       - IS_PROD=true
+      # The bot runs in the bot service below, not in the API process
+      - RUN_BOT_IN_API=false
+      # One JSON object per log line
+      - LOG_FORMAT=json
     logging:
       driver: json-file
       options:
@@ -36,7 +47,80 @@ services:
     networks:
       - soda-network
 
+  bot:
+    # The Discord bot (LeetCode daily post, helper and game cogs), from the same image as the API
+    image: soda-internal-api:latest
+    container_name: soda-bot
+    restart: unless-stopped
+    command: ["python3", "bot_main.py"]
+    depends_on:
+      - api
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      - IS_PROD=true
+      - LOG_FORMAT=json
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - soda-network
+
+  worker:
+    # Background jobs (token cleanup, CSV imports, calendar sync). Postgres only: with SQLite
+    # the API runs jobs itself, so this service is under the postgres profile.
+    image: soda-internal-api:latest
+    container_name: soda-worker
+    restart: unless-stopped
+    profiles: ["postgres"]
+    command: ["python3", "worker_main.py"]
+    depends_on:
+      - api
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./google-secret.json:/app/google-secret.json:ro
+    environment:
+      - IS_PROD=true
+      - LOG_FORMAT=json
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - soda-network
+
+  mcp:
+    # MCP server for agents (streamable HTTP at :8001/mcp, machine tokens). Off unless started
+    # with --profile mcp.
+    image: soda-internal-api:latest
+    container_name: soda-mcp
+    restart: unless-stopped
+    profiles: ["mcp"]
+    command: ["python3", "mcp_main.py"]
+    depends_on:
+      - api
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      - IS_PROD=true
+      - LOG_FORMAT=json
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - soda-network
+
   web:
+    # The old officer app (web/), kept for admin.thesoda.io. The dashboard service is the new one.
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -64,6 +148,61 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - soda-network
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+      cache_from:
+        - soda-dashboard:latest
+      args:
+        # Required. Dockerfile.dashboard stops the build when it is empty.
+        - VITE_API_URL=${VITE_API_URL:-}
+        - VITE_SITE_URL=${VITE_SITE_URL:-}
+    image: soda-dashboard:latest
+    container_name: soda-dashboard
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    depends_on:
+      - api
+    environment:
+      - IS_PROD=true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - soda-network
+
+  # Postgres, off unless started with --profile postgres and DATABASE_URL points at it.
+  # See docs/operations.md, "Move to Postgres".
+  postgres:
+    # Postgres 16 with pgvector, for knowledge search
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    container_name: soda-postgres
+    restart: unless-stopped
+    profiles: ["postgres"]
+    environment:
+      - POSTGRES_DB=platform
+      - POSTGRES_USER=platform
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - soda-network
 

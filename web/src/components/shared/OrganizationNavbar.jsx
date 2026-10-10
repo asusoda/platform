@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Menu, MenuItem, HoveredLink } from '../ui/navbar-menu';
 import OrganizationSwitcher from '../OrganizationSwitcher';
+import useOrgModules from '../../hooks/useOrgModules';
 import { 
   FaUsers, 
   FaChartLine, 
@@ -17,7 +18,8 @@ import {
   FaRobot,
   FaStore,
   FaCalendarAlt,
-  FaDiscord
+  FaDiscord,
+  FaServer
 } from 'react-icons/fa';
 import Orb from '../ui/Orb';
 
@@ -25,6 +27,7 @@ const OrganizationNavbar = ({ children }) => {
   const { logout, currentOrg, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [activeNavItem, setActiveNavItem] = useState(null);
+  const { isEnabled } = useOrgModules();
 
   const goToDashboard = () => navigate(`/${currentOrg?.prefix}/dashboard`);
   const goToUsers = () => navigate(`/${currentOrg?.prefix}/users`);
@@ -39,6 +42,7 @@ const OrganizationNavbar = ({ children }) => {
   const goToTransactions = () => navigate(`/${currentOrg?.prefix}/transactions`);
   const goToMemberStore = () => window.open(`/store/${currentOrg?.prefix}`, '_blank');
   const goToCalendar = () => navigate(`/${currentOrg?.prefix}/calendar`);
+  const goToCompute = () => navigate(`/${currentOrg?.prefix}/compute`);
   const goToDiscordBots = () => navigate(`/${currentOrg?.prefix}/discord-bots`);
 
   return (
@@ -89,6 +93,8 @@ const OrganizationNavbar = ({ children }) => {
                         • Manage Users
                       </HoveredLink>
                     </li>
+                    {isEnabled('points') && (
+                      <>
                     <li>
                       <HoveredLink onClick={goToLeaderboard} className="block p-2 rounded hover:bg-blue-400/20 hover:text-blue-300 transition-all duration-200 text-sm text-gray-300">
                         • Leaderboard
@@ -99,10 +105,13 @@ const OrganizationNavbar = ({ children }) => {
                         • Add Points
                       </HoveredLink>
                     </li>
+                      </>
+                    )}
                   </ul>
                 </div>
 
                 {/* Store Front Category */}
+                {isEnabled('storefront') && (
                 <div>
                   <div className="text-sm font-semibold text-green-400 mb-4 flex items-center">
                     <FaStore className="mr-2 text-green-400" />
@@ -131,8 +140,10 @@ const OrganizationNavbar = ({ children }) => {
                     </li>
                   </ul>
                 </div>
+                )}
 
                 {/* Calendar System Category */}
+                {isEnabled('calendar') && (
                 <div>
                   <div className="text-sm font-semibold text-yellow-400 mb-4 flex items-center">
                     <FaCalendarAlt className="mr-2 text-yellow-400" />
@@ -151,6 +162,23 @@ const OrganizationNavbar = ({ children }) => {
                     </li>
                   </ul>
                 </div>
+                )}
+
+                {isEnabled('compute') && (
+                <div>
+                  <div className="text-sm font-semibold text-cyan-400 mb-4 flex items-center">
+                    <FaServer className="mr-2 text-cyan-400" />
+                    Compute
+                  </div>
+                  <ul className="space-y-2">
+                    <li>
+                      <HoveredLink onClick={goToCompute} className="block p-2 rounded hover:bg-cyan-400/20 hover:text-cyan-300 transition-all duration-200 text-sm text-gray-300">
+                        • Pods
+                      </HoveredLink>
+                    </li>
+                  </ul>
+                </div>
+                )}
 
                 {/* Discord Bots Category */}
                 <div>

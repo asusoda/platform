@@ -1,60 +1,68 @@
 name: CD
 
+# Deploys SoDA's production server. Runs only in asusoda/platform, never in forks,
+# and only after the Check workflow has passed on the same commit of main.
+
 on:
-  push:
+  workflow_run:
+    workflows: [Check]
+    types: [completed]
     branches: [main]
 
 concurrency:
   group: cd-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     name: Deploy to Production
+    if: github.repository == 'asusoda/platform' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     steps:
     - name: Deploy via SSH
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@v1
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USERNAME }}
         port: ${{ secrets.VPS_SSH_PORT }}
+        # A deploy key (VPS_SSH_KEY) is used when set; the password stays as a fallback until it is.
+        key: ${{ secrets.VPS_SSH_KEY }}
         password: ${{ secrets.VPS_SSH_PASSWORD }}
         script: |
-          set -e  # Exit on any error
-          
-          # Configuration
+          set -e
+
           PROJECT_DIR="${PROJECT_DIR:-/var/www/soda-internal-api}"
-          
-          # Check if project directory exists
           if [ ! -d "$PROJECT_DIR" ]; then
             echo "Error: Project directory $PROJECT_DIR not found"
             exit 1
           fi
-          
           cd "$PROJECT_DIR"
-          
-          # Discard any local changes to prevent merge conflicts
-          echo "Discarding local changes..."
-          make discard-local-changes || {
-            echo "Failed to discard local changes!"
-            exit 1
-          }
-          
-          # Run deployment using make
+
+          # Update the checkout first, so the next steps use the Makefile of this commit.
+          # DEPLOY_FROM gives make deploy the old commit, to find the changed files.
+          DEPLOY_FROM="$(git rev-parse HEAD)"
+          echo "Updating the checkout from $DEPLOY_FROM..."
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          echo "Backing up the database..."
+          make backup
+
           echo "Starting deployment..."
-          make deploy || {
-            echo "Deployment failed!"
-            make logs
+          if ! make deploy DEPLOY_FROM="$DEPLOY_FROM"; then
+            echo "Deployment failed, rolling back..."
+            make logs || true
+            make rollback || true
             exit 1
-          }
-          
-          # Verify deployment health
+          fi
+
           echo "Verifying deployment health..."
-          make health || {
-            echo "Health check failed!"
-            make status
+          if ! make health; then
+            echo "Health check failed, rolling back..."
+            make status || true
+            make rollback || true
             exit 1
-          }
-          
-          echo "✅ Deployment completed successfully!"
+          fi
+
+          echo "Deployment completed successfully."

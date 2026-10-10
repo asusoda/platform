@@ -1,0 +1,473 @@
+{
+  "assign-points": {
+    "caller": "web",
+    "request": "POST /api/points/soda/assign_points",
+    "shape": {
+      "message": "string",
+      "organization": {
+        "name": "string",
+        "prefix": "string"
+      },
+      "points": {
+        "awarded_by_officer": "string",
+        "event": "string",
+        "id": "number",
+        "last_updated": "string",
+        "organization_id": "number",
+        "points": "number",
+        "timestamp": "string",
+        "user_id": "number"
+      },
+      "user": {
+        "email": "string",
+        "name": "string"
+      }
+    },
+    "status": 201
+  },
+  "auth-name": {
+    "caller": "web",
+    "request": "GET /api/auth/name",
+    "shape": {
+      "name": "string"
+    },
+    "status": 200
+  },
+  "auth-valid-token": {
+    "caller": "web",
+    "request": "GET /api/auth/validToken",
+    "shape": {
+      "expired": "bool",
+      "status": "string",
+      "valid": "bool"
+    },
+    "status": 200
+  },
+  "calendar-events": {
+    "caller": "website",
+    "request": "GET /api/calendar/soda/events",
+    "shape": {
+      "events": [
+        {
+          "description": "string",
+          "end": "string",
+          "id": "string",
+          "location": "string",
+          "start": "string",
+          "title": "string"
+        }
+      ],
+      "organization_id": "number",
+      "organization_name": "string",
+      "status": "string",
+      "total_events": "number"
+    },
+    "status": 200
+  },
+  "calendar-settings": {
+    "caller": "web",
+    "request": "GET /api/organizations/1/calendar",
+    "shape": {
+      "calendar_sync_enabled": "bool",
+      "google_calendar_id": "null",
+      "last_sync_at": "null",
+      "notion_database_id": "string"
+    },
+    "status": 200
+  },
+  "checkout": {
+    "caller": "website",
+    "request": "POST /api/storefront/soda/checkout",
+    "shape": {
+      "id": "number",
+      "message": "string",
+      "order": {
+        "created_at": "string",
+        "id": "number",
+        "status": "string",
+        "total_amount": "number",
+        "user_id": "number"
+      },
+      "points_deducted": "number"
+    },
+    "status": 201
+  },
+  "health": {
+    "caller": "deploy",
+    "request": "GET /health",
+    "shape": {
+      "commit": "string",
+      "service": "string",
+      "started_at": "string",
+      "status": "string"
+    },
+    "status": 200
+  },
+  "leaderboard": {
+    "caller": "website",
+    "request": "GET /api/points/soda/leaderboard",
+    "shape": [
+      {
+        "identifier": "string",
+        "name": "string",
+        "points_details": [
+          {
+            "event": "string",
+            "points": "number",
+            "timestamp": "string"
+          }
+        ],
+        "total_points": "number"
+      }
+    ],
+    "status": 200
+  },
+  "leaderboard-unknown-org": {
+    "caller": "website",
+    "request": "GET /api/points/nope/leaderboard",
+    "shape": {
+      "error": "string"
+    },
+    "status": 404
+  },
+  "member-login": {
+    "caller": "website",
+    "request": "POST /api/points/soda/member_login",
+    "shape": {
+      "message": "string",
+      "organization": {
+        "id": "number",
+        "name": "string",
+        "prefix": "string"
+      },
+      "user": {
+        "asu_id": "string",
+        "discord_linked": "bool",
+        "email": "string",
+        "id": "number",
+        "name": "string",
+        "username": "string"
+      }
+    },
+    "status": 200
+  },
+  "member-orders": {
+    "caller": "web",
+    "request": "GET /api/storefront/soda/members/orders",
+    "shape": [
+      {
+        "created_at": "string",
+        "id": "number",
+        "items": [
+          {
+            "id": "number",
+            "price_at_time": "number",
+            "product_id": "number",
+            "product_name": "string",
+            "quantity": "number"
+          }
+        ],
+        "message": "null",
+        "status": "string",
+        "total_amount": "number",
+        "updated_at": "string"
+      }
+    ],
+    "status": 200
+  },
+  "member-profile": {
+    "caller": "web",
+    "request": "GET /api/points/soda/member_profile",
+    "shape": {
+      "error": "string"
+    },
+    "status": 401
+  },
+  "member-store-clerk": {
+    "caller": "website",
+    "request": "GET /api/storefront/soda/members/store",
+    "shape": {
+      "message": "string"
+    },
+    "status": 401
+  },
+  "member-store-session": {
+    "caller": "web",
+    "request": "GET /api/storefront/soda/members/store",
+    "shape": {
+      "organization": {
+        "description": "null",
+        "name": "string",
+        "prefix": "string"
+      },
+      "products": [
+        {
+          "created_at": "string",
+          "description": "string",
+          "id": "number",
+          "image_url": "null",
+          "name": "string",
+          "price": "number",
+          "stock": "number",
+          "updated_at": "string"
+        }
+      ],
+      "user_info": {
+        "discord_id": "string",
+        "is_member": "bool",
+        "user_id": "number"
+      }
+    },
+    "status": 200
+  },
+  "orders-by-email": {
+    "caller": "website",
+    "request": "GET /api/storefront/soda/orders/alice@asu.edu",
+    "shape": [
+      {
+        "created_at": "string",
+        "id": "number",
+        "items": [
+          {
+            "id": "number",
+            "price_at_time": "number",
+            "product_id": "number",
+            "product_name": "string",
+            "quantity": "number"
+          }
+        ],
+        "message": "null",
+        "status": "string",
+        "total_amount": "number",
+        "updated_at": "string"
+      }
+    ],
+    "status": 200
+  },
+  "orders-no-auth": {
+    "caller": "website",
+    "request": "GET /api/storefront/soda/orders/alice@asu.edu",
+    "shape": {
+      "message": "string"
+    },
+    "status": 401
+  },
+  "org-users": {
+    "caller": "web",
+    "request": "GET /api/points/soda/users",
+    "shape": {
+      "organization": {
+        "description": "null",
+        "name": "string",
+        "prefix": "string"
+      },
+      "total_users": "number",
+      "users": [
+        {
+          "academic_standing": "null",
+          "asu_id": "string",
+          "created_at": "string",
+          "discord_linked": "bool",
+          "email": "string",
+          "id": "number",
+          "joined_at": "string",
+          "major": "null",
+          "name": "string",
+          "points": "number",
+          "username": "string",
+          "uuid": "string"
+        }
+      ]
+    },
+    "status": 200
+  },
+  "org-users-no-auth": {
+    "caller": "web",
+    "request": "GET /api/points/soda/users",
+    "shape": {
+      "message": "string"
+    },
+    "status": 401
+  },
+  "organizations": {
+    "caller": "web",
+    "request": "GET /api/organizations/",
+    "shape": [
+      {
+        "calendar_sync_enabled": "bool",
+        "config": {},
+        "created_at": "string",
+        "description": "null",
+        "google_calendar_id": "null",
+        "guild_id": "string",
+        "icon_url": "null",
+        "id": "number",
+        "is_active": "bool",
+        "last_sync_at": "null",
+        "name": "string",
+        "notion_database_id": "string",
+        "officer_role_id": "string",
+        "points_cooldown": "number",
+        "points_per_message": "number",
+        "prefix": "string",
+        "updated_at": "string"
+      },
+      {
+        "calendar_sync_enabled": "bool",
+        "config": {},
+        "created_at": "string",
+        "description": "null",
+        "google_calendar_id": "null",
+        "guild_id": "string",
+        "icon_url": "null",
+        "id": "number",
+        "is_active": "bool",
+        "last_sync_at": "null",
+        "name": "string",
+        "notion_database_id": "null",
+        "officer_role_id": "string",
+        "points_cooldown": "number",
+        "points_per_message": "number",
+        "prefix": "string",
+        "updated_at": "string"
+      }
+    ],
+    "status": 200
+  },
+  "product": {
+    "caller": "website",
+    "request": "GET /api/storefront/soda/products/1",
+    "shape": {
+      "category": "null",
+      "created_at": "string",
+      "description": "string",
+      "id": "number",
+      "image_url": "null",
+      "name": "string",
+      "organization_id": "number",
+      "price": "number",
+      "stock": "number",
+      "updated_at": "string"
+    },
+    "status": 200
+  },
+  "products": {
+    "caller": "website",
+    "request": "GET /api/storefront/soda/products",
+    "shape": [
+      {
+        "category": "null",
+        "created_at": "string",
+        "description": "string",
+        "id": "number",
+        "image_url": "null",
+        "name": "string",
+        "organization_id": "number",
+        "price": "number",
+        "stock": "number",
+        "updated_at": "string"
+      }
+    ],
+    "status": 200
+  },
+  "public-leaderboard": {
+    "caller": "web",
+    "request": "GET /api/public/soda/leaderboard",
+    "shape": {
+      "leaderboard": [
+        {
+          "asu_id": "string",
+          "email": "string",
+          "name": "string",
+          "total_points": "number"
+        }
+      ],
+      "organization": {
+        "description": "null",
+        "name": "string",
+        "prefix": "string"
+      }
+    },
+    "status": 200
+  },
+  "store-orders": {
+    "caller": "web",
+    "request": "GET /api/storefront/soda/orders",
+    "shape": [
+      {
+        "created_at": "string",
+        "id": "number",
+        "items": [
+          {
+            "id": "number",
+            "price_at_time": "number",
+            "product_id": "number",
+            "quantity": "number"
+          }
+        ],
+        "message": "null",
+        "organization_id": "number",
+        "status": "string",
+        "total_amount": "number",
+        "updated_at": "string",
+        "user_email": "string",
+        "user_id": "number",
+        "user_name": "string"
+      }
+    ],
+    "status": 200
+  },
+  "superadmin-check": {
+    "caller": "web",
+    "request": "GET /api/superadmin/check",
+    "shape": {
+      "is_superadmin": "bool"
+    },
+    "status": 403
+  },
+  "user-points": {
+    "caller": "web",
+    "request": "GET /api/points/soda/users/alice@asu.edu/points",
+    "shape": {
+      "organization": {
+        "name": "string",
+        "prefix": "string"
+      },
+      "points_history": [
+        {
+          "awarded_by_officer": "string",
+          "event": "string",
+          "id": "number",
+          "last_updated": "string",
+          "points": "number",
+          "timestamp": "string"
+        }
+      ],
+      "total_points": "number",
+      "user": {
+        "email": "string",
+        "id": "number",
+        "name": "string",
+        "username": "string"
+      }
+    },
+    "status": 200
+  },
+  "wallet": {
+    "caller": "website",
+    "request": "GET /api/storefront/soda/wallet/alice@asu.edu",
+    "shape": {
+      "email": "string",
+      "points_breakdown": [
+        {
+          "awarded_by": "string",
+          "event": "string",
+          "points": "number",
+          "timestamp": "string"
+        }
+      ],
+      "total_points": "number"
+    },
+    "status": 200
+  }
+}

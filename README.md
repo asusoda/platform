@@ -1,73 +1,78 @@
-This project provides a modular internal API and Discord bots for the Software Developers Association (SoDA) at ASU. The server side is developed using Flask, handling API requests, Discord bot interactions, and data management across all modules.
+# Platform
 
-## Getting Started
+Platform is shared infrastructure for student orgs. One deployment serves many orgs. Each org is a Discord server and turns on only the modules it uses.
 
-### Prerequisites
+Each org route checks access. The audit log records each change that an officer or a token makes. Org secrets are encrypted in the database.
 
-- Podman and podman-compose
-- Make
-- uv
+## Modules
 
-### Development Setup
+| Module | Does |
+| --- | --- |
+| `points`, `users` | Members, event points, leaderboards, CSV imports |
+| `storefront` | A merch store paid in points, with prices checked on the server |
+| `calendar` | Notion events synced to Google Calendar, with the credentials of each org |
+| `leetcode`, `games` | The daily LeetCode post and Jeopardy in Discord |
+| `organizations`, `superadmin` | Orgs, officers, module switches, secrets and machine tokens |
+| `compute` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates |
+| `agents` | Conversations, memories and a profile graph for each member, for agents that talk to members |
+| `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
+| `packs` | Packs from `packs/`: campus pages and live queries added to knowledge, such as the ASU pack |
+| `accounts` | Canvas, Google and Outlook sign-in for a member, so that agents can act for them |
+| `alerts` | New job listings and hackathons posted to Discord webhooks |
+| `runpod` | Deploys of an org's apps to RunPod from a manifest, with health checks and rollback |
+| `uptime` | Checks of sites and Hosting apps on a schedule, with events when one goes down or up |
+| `dashboard` | One page for each org with problems, activity, jobs, CI runs and module state |
+| `mcp` | An MCP server and `/api/tools` that give agents the module tools through scoped machine tokens |
+| `auth`, `public`, `bot` | Discord sign-in, tokens and access checks; open reads for public pages; the Discord bot |
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/asusoda/platform.git
-   cd platform
-   ```
-  
-2. **Install dependencies & hooks:**
-   ```bash
-   uv sync
-   uv run pre-commit install
-   ```
+## Processes
 
-3. **Configure environment variables:**
-   ```bash
-   # Copy the template environment file
-   cp .env.template .env
-   
-   # Edit the .env file with your configuration values
-   # This includes API keys, Discord bot token, etc.
-   ```
+| Process | Entry point | Port |
+| --- | --- | --- |
+| API | `main.py` (gunicorn) | 8000 |
+| Discord bot | `bot_main.py` | |
+| Job worker | `worker_main.py` (Postgres only) | |
+| MCP server | `mcp_main.py` | 8001 |
+| Dashboard and member store | `dashboard/` | 5001 (5173 in dev) |
+| Old officer app, for admin.thesoda.io | `web/` | 5000 |
 
-4. **Start the development environment:**
-   ```bash
-   make dev
-   ```
+The database is Postgres, or SQLite for a small deployment. Alembic makes the schema.
 
-That's it! The application will be available at:
-- API: http://localhost:8000
-- Web Frontend: http://localhost:5000
+## Start
 
-
-## Common Commands
+You need Podman with podman-compose (or Docker), make and uv.
 
 ```bash
-# Start development environment (with logs)
+git clone https://github.com/asusoda/platform.git
+cd platform
+uv sync
+uv run pre-commit install
+cp .env.template .env      # Discord app, bot token, secrets
 make dev
-
-# Start services in background
-make up
-
-# Stop services
-make down
-
-# View logs
-make logs
-
-# Check container status
-make status
-
-# Run all checks (lint, format, typecheck, tests)
-make check
-
-# Open shell in API container
-make shell
-
-# Build images
-make build
-
-# Deploy to production
-make deploy
 ```
+
+The API is at http://localhost:8000 and the dashboard at http://localhost:5001. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
+
+## Commands
+
+```bash
+make dev       # start with logs
+make up        # start in the background
+make down      # stop
+make check     # fix lint and format, then type check, tests, migrations
+make ci        # the checks that CI runs, with no changes to files
+make shell     # shell in the API container
+make deploy    # deploy on the server
+```
+
+## Documentation
+
+[docs/](docs/README.md) has the guides. Each module folder has a `README.md`. [docs/roadmap.md](docs/roadmap.md) has the plan.
+
+## Deployments
+
+The Software Developers Association (SoDA) at ASU and AI Society at ASU run Platform. Their servers are the examples in these docs.
+
+## License
+
+BSD 3-Clause (modified for web attribution). Copyright The Software Developers Association at ASU. See [LICENSE](LICENSE).

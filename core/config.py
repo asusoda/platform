@@ -1,0 +1,96 @@
+import json
+import os
+
+from dotenv import load_dotenv
+
+from core.log import SentrySettings, get_logger
+
+logger = get_logger(__name__)
+
+
+def _rate(name: str, default: float) -> float:
+    """A sample rate from the environment, from 0 to 1. A bad value gives the default."""
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        logger.warning("%s is not a number; using %s", name, default)
+        return default
+    return min(max(value, 0.0), 1.0)
+
+
+class Config:
+    """Centralized configuration management for the application"""
+
+    def __init__(self) -> None:
+        load_dotenv()
+        try:
+            # Discord OAuth app and client URLs
+            self.CLIENT_ID = os.environ.get("CLIENT_ID", "test-client-id")
+            self.CLIENT_SECRET = os.environ.get("CLIENT_SECRET", "test-client-secret")
+            self.REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/callback")
+            self.CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:3000")
+            # Officer dashboard (dashboard/). Login sends officers back here when they start from it
+            self.DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "").rstrip("/")
+
+            self.DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/user.db")
+
+            self.BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+            # Clerk, for member sign-in on the website
+            self.CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY", "test-clerk-secret")
+            self.CLERK_AUTHORIZED_PARTIES = os.environ.get(
+                "CLERK_AUTHORIZED_PARTIES", "http://localhost:3000,http://localhost:5173"
+            )
+
+            # Google Calendar Integration
+            try:
+                with open("google-secret.json") as file:
+                    self.GOOGLE_SERVICE_ACCOUNT = json.load(file)
+                    logger.info("Google service account credentials loaded successfully")
+            except FileNotFoundError:
+                logger.warning("google-secret.json not found. Google Calendar features will be disabled.")
+                self.GOOGLE_SERVICE_ACCOUNT = None
+            except Exception as e:
+                logger.warning(f"Error loading Google credentials: {e}. Google Calendar features will be disabled.")
+                self.GOOGLE_SERVICE_ACCOUNT = None
+
+            self.NOTION_API_KEY = os.environ.get("NOTION_API_KEY", "")
+            self.TIMEZONE = os.environ.get("TIMEZONE", "America/Phoenix")
+
+            self.SENTRY_DSN = os.environ.get("SENTRY_DSN")
+            self.SENTRY = SentrySettings(
+                dsn=self.SENTRY_DSN,
+                environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+                release=os.environ.get("GIT_COMMIT_HASH") or None,
+                traces_sample_rate=_rate("SENTRY_TRACES_SAMPLE_RATE", 0.1),
+                profiles_sample_rate=_rate("SENTRY_PROFILES_SAMPLE_RATE", 0.0),
+                logs_level=os.environ.get("SENTRY_LOGS_LEVEL", "WARNING"),
+            )
+
+            # Superadmin config: the Discord user id in SYS_ADMIN
+            self.SUPERADMIN_USER_ID = os.environ.get("SYS_ADMIN")
+
+            # Path prefixes that answer 404 like an unknown route, comma-separated. Empty turns none off
+            self.DISABLED_ROUTES = tuple(
+                p.strip() for p in os.environ.get("DISABLED_ROUTES", "").split(",") if p.strip()
+            )
+
+            # Access checks (modules/auth/access.py): false logs refusals, true enforces them
+            self.ACCESS_ENFORCE = os.environ.get("ACCESS_ENFORCE", "false").lower() == "true"
+
+            # Compute (modules/compute): the CLI name members see in messages, and the default pod image
+            self.COMPUTE_CLI_NAME = os.environ.get("COMPUTE_CLI_NAME", "the compute CLI")
+            self.COMPUTE_POD_IMAGE = os.environ.get(
+                "COMPUTE_POD_IMAGE", "ghcr.io/theaisocietyasu/godfather-base:latest"
+            )
+
+            # LeetCode Daily Bot
+            self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")
+            self.LEETCODE_ROLE_PING = os.environ.get("LEETCODE_ROLE_PING")
+            self.LEETCODE_DAILY_TIME = os.environ.get("LEETCODE_DAILY_TIME", "09:00")
+
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Configuration error: {str(e)}") from e
+
+
+config = Config()

@@ -1,25 +1,77 @@
-import requests
-from flask import Blueprint, current_app, jsonify, redirect, request, session
+import secrets
+import time
+from urllib.parse import urlencode
 
-from modules.auth.decoraters import auth_required, error_handler
-from modules.utils.logging_config import logger
-from shared import config, tokenManager
+import requests
+from flask import Blueprint, jsonify, redirect, request, session
+
+from core.config import config
+from core.db import db_connect
+from core.http.request_log import bearer_token
+from core.http.responses import error_handler
+from core.integrations.discord import DiscordUnavailable
+from core.log import logger
+from modules.auth.access import decide, discord_directory, officer_guilds
+from modules.auth.decorators import auth_required
+from modules.auth.tokens import token_manager
 
 auth_blueprint = Blueprint("auth", __name__, template_folder=None, static_folder=None)
 CLIENT_ID = config.CLIENT_ID
 CLIENT_SECRET = config.CLIENT_SECRET
 REDIRECT_URI = config.REDIRECT_URI
-GUILD_ID = 762811961238618122
 
 logger.info(f"Auth API using CLIENT_ID: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
+
+
+# One-time login codes: the OAuth callback hands the browser a code, not the tokens, and the
+# client trades it for the tokens with POST /exchange. Held in memory, so this assumes one API
+# process (main.py runs one). Codes live LOGIN_CODE_SECONDS and work once.
+LOGIN_CODE_SECONDS = 60
+_login_codes: dict[str, tuple[float, str, str]] = {}
+
+
+def _issue_login_code(access_token: str, refresh_token: str) -> str:
+    now = time.monotonic()
+    for code in [c for c, entry in _login_codes.items() if entry[0] <= now]:
+        _login_codes.pop(code, None)
+    code = secrets.token_urlsafe(32)
+    _login_codes[code] = (now + LOGIN_CODE_SECONDS, access_token, refresh_token)
+    return code
+
+
+def _client_url(client: str | None) -> str:
+    """Where the browser goes after login: the dashboard when it started there and DASHBOARD_URL is set."""
+    dashboard = getattr(config, "DASHBOARD_URL", "")
+    return dashboard if client == "dashboard" and dashboard else config.CLIENT_URL
 
 
 @auth_blueprint.route("/login", methods=["GET"])
 def login():
     logger.info(f"Redirecting to Discord OAuth login for client_id: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
-    return redirect(
-        f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=identify%20guilds"
+    state = secrets.token_urlsafe(24)
+    session["oauth_state"] = state
+    session["oauth_client"] = "dashboard" if request.args.get("client") == "dashboard" else "web"
+    query = urlencode(
+        {
+            "client_id": CLIENT_ID,
+            "redirect_uri": REDIRECT_URI,
+            "response_type": "code",
+            "scope": "identify guilds",
+            "state": state,
+        }
     )
+    return redirect(f"https://discord.com/oauth2/authorize?{query}")
+
+
+@auth_blueprint.route("/exchange", methods=["POST"])
+def exchange_login_code():
+    """Trade a one-time login code from the OAuth callback for the token pair."""
+    data = request.get_json(silent=True) or {}
+    entry = _login_codes.pop(str(data.get("code", "")), None)
+    if entry is None or entry[0] <= time.monotonic():
+        return jsonify({"error": "Invalid or expired login code"}), 400
+    _, access_token, refresh_token = entry
+    return jsonify({"access_token": access_token, "refresh_token": refresh_token}), 200
 
 
 @auth_blueprint.route("/validToken", methods=["GET"])
@@ -28,8 +80,8 @@ def validToken():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
-    if tokenManager.is_token_valid(token):
+    token = bearer_token()
+    if token_manager.is_token_valid(token):
         return jsonify({"status": "success", "valid": True, "expired": False}), 200
     else:
         return jsonify({"status": "error", "valid": False}), 401
@@ -37,16 +89,22 @@ def validToken():
 
 @auth_blueprint.route("/callback", methods=["GET"])
 def callback():
-    # Get the auth bot from Flask app context (the one actually running in thread)
-    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-    if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
-        logger.error("Auth bot is not available or not ready for /callback")
+    directory = discord_directory()
+    if directory is None or not directory.is_ready():
+        logger.error("Discord directory is not configured for /callback")
         return jsonify({"error": "Authentication service temporarily unavailable. Bot not ready."}), 503
 
     code = request.args.get("code")
     if not code:
         logger.warning("No authorization code provided in /callback")
         return jsonify({"error": "No authorization code provided"}), 400
+
+    # The state must match the one /login stored, so a login started elsewhere is not accepted
+    expected_state = session.pop("oauth_state", None)
+    client_url = _client_url(session.pop("oauth_client", None))
+    if not expected_state or not secrets.compare_digest(expected_state, request.args.get("state", "")):
+        if decide("oauth_state_mismatch"):
+            return redirect(f"{client_url}/auth/?error=Login expired, please try again")
 
     logger.info("Received authorization code, exchanging for token.")
     token_response = requests.post(
@@ -73,28 +131,35 @@ def callback():
         user_response = requests.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=30)
         user_info = user_response.json()
         user_id = user_info["id"]
-        officer_guilds = auth_bot.check_officer(user_id, config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
-        logger.debug(f"Officer guilds: {officer_guilds}")
-        if officer_guilds:  # If user is officer in at least one organization
-            name = auth_bot.get_name(user_id)  # type: ignore[attr-defined]
-            # Generate token pair with both access and refresh tokens
-            access_token, refresh_token = tokenManager.generate_token_pair(
+        try:
+            guilds = officer_guilds(directory, user_id)
+        except DiscordUnavailable:
+            logger.exception("Discord unavailable during /callback")
+            return jsonify({"error": "Authentication service temporarily unavailable."}), 503
+        logger.debug(f"Officer guilds: {guilds}")
+        if guilds:  # If user is officer in at least one organization
+            # Server nickname in the first officer guild, else the Discord display name
+            try:
+                name = directory.get_display_name(guilds[0], user_id)
+            except DiscordUnavailable:
+                name = None
+            name = name or user_info.get("global_name") or user_info.get("username")
+            access_token, refresh_token = token_manager.generate_token_pair(
                 username=name, discord_id=user_id, access_exp_minutes=30, refresh_exp_days=7
             )
-            # Store user info in session with officer guilds
             session["user"] = {
                 "username": name,
                 "discord_id": user_id,
                 "role": "officer",
-                "officer_guilds": officer_guilds,  # Store the list of guild IDs where user is officer
+                "officer_guilds": guilds,  # Store the list of guild IDs where user is officer
             }
             session["token"] = access_token
             session["refresh_token"] = refresh_token
-            # Redirect to React frontend with both tokens
-            frontend_url = f"{config.CLIENT_URL}/auth/?access_token={access_token}&refresh_token={refresh_token}"
-            return redirect(frontend_url)
+            # Redirect to the React frontend with a one-time code; the tokens stay out of the URL
+            login_code = _issue_login_code(access_token, refresh_token)
+            return redirect(f"{client_url}/auth/?code={login_code}")
         else:
-            full_url = f"{config.CLIENT_URL}/auth/?error=Unauthorized Access"
+            full_url = f"{client_url}/auth/?error=Unauthorized Access"
             return redirect(full_url)
     else:
         logger.error(f"Failed to retrieve access token from Discord: {token_response_data}")
@@ -113,8 +178,7 @@ def refresh_token():
 
         refresh_token = data["refresh_token"]
 
-        # Generate new access token
-        new_access_token = tokenManager.refresh_access_token(refresh_token)
+        new_access_token = token_manager.refresh_access_token(refresh_token)
 
         if new_access_token:
             return jsonify(
@@ -144,13 +208,10 @@ def revoke_token():
 
         refresh_token = data["refresh_token"]
 
-        # Revoke the refresh token
-        if tokenManager.revoke_refresh_token(refresh_token):
-            # Also blacklist the current access token
-            auth_header = request.headers.get("Authorization")
-            if auth_header:
-                current_token = auth_header.split(" ")[1]
-                tokenManager.delete_token(current_token)
+        if token_manager.revoke_refresh_token(refresh_token):
+            current_token = bearer_token()
+            if current_token:
+                token_manager.delete_token(current_token)
 
             return jsonify({"message": "Token revoked successfully"}), 200
         else:
@@ -165,9 +226,9 @@ def valid_token():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"status": "error", "valid": False, "message": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
-    if tokenManager.is_token_valid(token):
-        if tokenManager.is_token_expired(token):
+    token = bearer_token()
+    if token_manager.is_token_valid(token):
+        if token_manager.is_token_expired(token):
             logger.info("Token is valid but expired.")
             return jsonify({"status": "success", "valid": True, "expired": True}), 200
         else:
@@ -185,17 +246,17 @@ def get_app_token():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"error": "No authorization header"}), 401
-    token = auth_header.split(" ")[1]
+    token = bearer_token()
     appname = request.args.get("appname")
     if not appname:
         return jsonify({"error": "appname query parameter is required"}), 400
 
-    username = tokenManager.retrieve_username(token)
+    username = token_manager.retrieve_username(token)
     if not username:
         return jsonify({"error": "Invalid user token"}), 401
 
     logger.info(f"Generating app token for user {username}, app: {appname}")
-    app_token_value = tokenManager.generate_app_token(username, appname)
+    app_token_value = token_manager.generate_app_token(username, appname, token_manager.retrieve_discord_id(token))
     return jsonify({"app_token": app_token_value}), 200
 
 
@@ -205,9 +266,7 @@ def get_name():
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         return jsonify({"error": "No authorization header"}), 401
-    autorisation = auth_header.split(" ")[1]
-
-    return jsonify({"name": tokenManager.retrieve_username(autorisation)}), 200
+    return jsonify({"name": token_manager.retrieve_username(bearer_token())}), 200
 
 
 @auth_blueprint.route("/logout", methods=["POST"])
@@ -218,15 +277,12 @@ def logout():
     try:
         data = request.get_json()
         if data and "refresh_token" in data:
-            # Revoke refresh token
-            tokenManager.revoke_refresh_token(data["refresh_token"])
+            token_manager.revoke_refresh_token(data["refresh_token"])
 
-        # Also blacklist current access token if provided
-        if "Authorization" in request.headers:
-            token = request.headers["Authorization"].split(" ")[1]
-            tokenManager.delete_token(token)
+        token = bearer_token()
+        if token:
+            token_manager.delete_token(token)
 
-        # Clear session
         session.clear()
 
         return jsonify({"message": "Logged out successfully"}), 200
@@ -237,3 +293,87 @@ def logout():
 @auth_blueprint.route("/success")
 def success():
     return "You have successfully logged in with Discord! (This is a generic success page)"
+
+
+@auth_blueprint.route("/appTokens", methods=["GET"])
+@auth_required
+def list_app_tokens():
+    """App tokens the signed-in officer issued and has not revoked."""
+    from modules.auth.models import AppToken
+
+    discord_id = _caller_discord_id()
+    db = db_connect.SessionLocal()
+    try:
+        tokens = (
+            db.query(AppToken)
+            .filter(AppToken.discord_id == discord_id, AppToken.revoked_at.is_(None))
+            .order_by(AppToken.created_at.desc())
+            .all()
+        )
+        return jsonify(
+            [
+                {
+                    "id": t.id,
+                    "app_name": t.app_name,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                    "expires_at": t.expires_at.isoformat(),
+                }
+                for t in tokens
+            ]
+        ), 200
+    finally:
+        db.close()
+
+
+@auth_blueprint.route("/appTokens/<int:token_id>", methods=["DELETE"])
+@auth_required
+def revoke_app_token(token_id):
+    """Revoke one of the signed-in officer's app tokens. The superadmin may revoke any."""
+    import datetime
+
+    from modules.auth.access import is_superadmin
+    from modules.auth.models import AppToken
+
+    discord_id = _caller_discord_id()
+    db = db_connect.SessionLocal()
+    try:
+        token = db.query(AppToken).filter(AppToken.id == token_id).first()
+        if token is None or (token.discord_id != discord_id and not is_superadmin(discord_id)):
+            return jsonify({"error": "App token not found"}), 404
+        token.revoked_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        db.commit()
+        return jsonify({"message": "App token revoked"}), 200
+    finally:
+        db.close()
+
+
+def _caller_discord_id():
+    token = session.get("token")
+    if not token:
+        token = bearer_token()
+    return token_manager.retrieve_discord_id(token) if token else None
+
+
+@auth_blueprint.route("/machine/whoami", methods=["GET"])
+def machine_whoami():
+    """What a machine token is: its org, name, kind and scopes. 401 for anything else."""
+    from modules.auth import machine_tokens
+    from modules.organizations.models import Organization
+
+    token = bearer_token()
+    db = db_connect.SessionLocal()
+    try:
+        caller = machine_tokens.verify(db, token)
+        if caller is None:
+            return jsonify({"error": "A valid machine token is required"}), 401
+        org = db.query(Organization).filter_by(id=caller.organization_id).first()
+        return jsonify(
+            {
+                "org": org.prefix if org else None,
+                "name": caller.name,
+                "kind": caller.kind,
+                "scopes": sorted(caller.scopes),
+            }
+        )
+    finally:
+        db.close()

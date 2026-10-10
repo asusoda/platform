@@ -1,181 +1,25 @@
-# Users Module
+# users
 
-The users module manages user accounts, profiles, and permissions in the SoDA Internal API.
+Members and their org memberships. Officer routes list, show, create and update an org's members and their profile fields, and add the members of the org's Discord server.
 
-## Structure
+## Files
 
-```
-users/
-├── api.py           # User API endpoints
-└── user_reader.py   # User data access utilities
-```
+| File | Holds |
+| --- | --- |
+| `api.py` | Member routes under `/<org_prefix>` |
+| `service.py` | Member lookup and create-or-update for points and storefront; the Discord member sync and role list; maps the deprecated `asu_id` and `academic_standing` keys to `student_id` and `class_standing`; merges the org's `profile_fields` |
+| `models.py` | Users and org memberships |
 
-## Features
+## Surface
 
-### User Management
-- User account creation
-- Profile management
-- Role assignment
-- Permission management
-- Account deletion
+- Routes: `/api/users`. Routes need an officer of the org, except the index and `/<org_prefix>/submit-form`.
+- Discord: `GET /<org_prefix>/discord/roles` lists the server roles. `POST /<org_prefix>/discord/sync` with `roles` (role ids; a member needs one of them; empty for everyone) and `dry_run` adds the server members to the org's members and returns `matched`, `new_users`, `joined` and `already`. A new user gets the Discord id, name and username; the username stays empty when another user has it. Bots are left out. The member list needs the Server Members intent on the bot.
+- Jobs: none.
+- Tools: none.
+- Webhook events: `member.joined`, when `manage_user_in_organization()` adds a membership. See [docs/webhooks.md](../../docs/webhooks.md).
+- Tables: `users`, `user_organization_memberships`.
 
-### Profile Features
-- Profile customization
-- Contact information
-- Preferences
-- Activity history
-- Achievement tracking
+## Known gaps
 
-### Access Control
-- Role-based permissions
-- Permission inheritance
-- Access level management
-- Resource protection
-- Audit logging
-
-## API Endpoints
-
-### User Management
-- `POST /users/create`
-  - Creates new user account
-  - Sets initial profile
-  - Assigns default role
-  - Sends welcome email
-
-- `POST /users/update`
-  - Updates user information
-  - Modifies profile
-  - Changes preferences
-  - Updates contact info
-
-- `DELETE /users/delete`
-  - Deactivates account
-  - Archives data
-  - Removes access
-  - Sends confirmation
-
-### Profile Management
-- `GET /users/profile`
-  - Returns user profile
-  - Shows preferences
-  - Displays activity
-  - Lists achievements
-
-- `PUT /users/profile`
-  - Updates profile
-  - Modifies preferences
-  - Changes settings
-  - Updates contact info
-
-### Role Management
-- `POST /users/roles`
-  - Assigns roles
-  - Updates permissions
-  - Manages access
-  - Tracks changes
-
-- `GET /users/roles`
-  - Lists user roles
-  - Shows permissions
-  - Displays hierarchy
-  - Includes metadata
-
-## Models
-
-### User
-- User ID
-- Username
-- Email
-- Password hash
-- Account status
-- Created date
-- Last login
-
-### Profile
-- Profile ID
-- User ID
-- Full name
-- Contact info
-- Preferences
-- Bio
-- Avatar
-
-### Role
-- Role ID
-- Role name
-- Permissions
-- Description
-- Created date
-- Updated date
-
-### Permission
-- Permission ID
-- Permission name
-- Description
-- Category
-- Created date
-- Updated date
-
-## Configuration
-
-Required environment variables:
-- `USER_DATABASE_URL`: Database connection URL
-- `USER_MIN_PASSWORD_LENGTH`: Minimum password length
-- `USER_MAX_LOGIN_ATTEMPTS`: Maximum login attempts
-- `USER_SESSION_TIMEOUT`: Session timeout duration
-
-## Usage Example
-
-```python
-from modules.users.api import create_user, update_profile
-
-# Create a new user
-user = await create_user(
-    username="john_doe",
-    email="john@example.com",
-    password="secure_password"
-)
-
-# Update user profile
-await update_profile(
-    user_id=user.id,
-    full_name="John Doe",
-    bio="Software Developer"
-)
-```
-
-## Error Handling
-
-The module handles various user-related errors:
-- Invalid input data
-- Duplicate accounts
-- Permission denied
-- Account locked
-- Database errors
-
-## Security Considerations
-
-1. **Account Security**
-   - Password hashing
-   - Account locking
-   - Session management
-   - Two-factor auth
-
-2. **Data Protection**
-   - Data encryption
-   - Access control
-   - Audit logging
-   - Backup systems
-
-3. **Privacy**
-   - Data minimization
-   - Consent management
-   - Data retention
-   - Privacy controls
-
-## Dependencies
-
-- `SQLAlchemy`: Database ORM
-- `bcrypt`: Password hashing
-- `python-jose`: JWT handling
-- `email-validator`: Email validation 
+- Views in `api.py` open their own session, query and commit. `service.py` has the lookups that points and storefront share.
+- `/<org_prefix>/submit-form` is not used. See Cleanup in `docs/roadmap.md`.
