@@ -132,7 +132,11 @@ def initialize_app():
     # (server) process. Starting the bot in both logs the same token in twice, so every scheduled
     # post -- the daily LeetCode question in particular -- goes out twice. Only the child, marked
     # by WERKZEUG_RUN_MAIN, owns the bot.
-    if not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    # In production the bot runs as its own process (bot_main.py) and RUN_BOT_IN_API is false.
+    run_bot = os.environ.get("RUN_BOT_IN_API", "true").lower() == "true"
+    if not run_bot:
+        logger.info("RUN_BOT_IN_API is false; the bot runs in its own process")
+    elif not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         auth_thread = threading.Thread(target=run_auth_bot_in_thread, name="AuthBotThread")
         auth_thread.daemon = True
         auth_thread.start()

@@ -292,7 +292,6 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 
 | Item | Where |
 |------|-------|
-| `bot` singleton | `shared.py:153` |
 | `Session` model, `sessions` table | `modules/auth/models.py:9` |
 | `Officer` model, `OrganizationConfig` model | `modules/organizations/models.py` — superseded by live Discord checks and the `config` JSON column |
 | `CalendarEventLink` table | created, but the sync path uses Google extendedProperties instead |
@@ -301,11 +300,12 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 | `/botstatus`, `/startbot`, `/stopbot` | commented out, `modules/bot/api.py:27-49` |
 | `web/src/components/GameTable.js` | zero-byte file |
 | Commented-out `BotFork.setup_game` | `bot.py:261+` |
-| Dependencies with no usage | `gunicorn`, `psycopg2-binary`, `pymongo`, `flask-socketio`, `python-socketio`, `flask-discord`, `selenium`, `webdriver-manager`, `gspread`, `oauth2client`, `anthropic`, `openai`, `google-genai`, `google-generativeai`, `dateparser`, `timefhuman` |
 | Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD` |
 
-That dependency list is worth a cleanup pass on its own — it inflates image size and the
-vulnerability surface that Dependabot reports against.
+The unused dependencies (`pymongo`, `selenium`, `webdriver-manager`, `gspread`, `oauth2client`,
+`anthropic`, `openai`, `google-genai`, `google-generativeai`, `flask-discord`, `flask-socketio` and
+its socket.io packages, `flask-sqlalchemy`, `dateparser`, `timefhuman`, `tenacity`, and the unrelated
+`pycord` package) were removed. `gunicorn` and `psycopg2-binary` are now used.
 
 ---
 

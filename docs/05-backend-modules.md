@@ -14,7 +14,7 @@ inside functions, to break cycles).
 | File | Contents |
 |------|----------|
 | `base.py` | Four lines: the single `Base = declarative_base()`. Every model inherits from this one object, which is what makes `create_all` and Alembic autogenerate work. |
-| `db.py` | `DBConnect`: creates the engine and `SessionLocal`, ensures `./data/` exists, calls `create_all`. Also carries a set of storefront CRUD helpers (`create_storefront_product`, `get_storefront_orders`, `update_storefront_product_stock`, …) that the storefront API calls into. |
+| `db.py` | `DBConnect`: creates the engine and `SessionLocal`, ensures `./data/` exists. It does not create tables; Alembic does. Also carries a set of storefront CRUD helpers (`create_storefront_product`, `get_storefront_orders`, `update_storefront_product_stock`, …) that the storefront API calls into. |
 | `config.py` | `Config`: reads `.env` via python-dotenv into ~40 attributes. Also loads `google-secret.json` from the repo root into `GOOGLE_SERVICE_ACCOUNT` (warns and sets `None` if absent). |
 | `logging_config.py` | `setup_logger()` builds a colorlog handler on the root logger at INFO. Use `get_logger(__name__)` in new code. **Never use `print()`** — the project instruction is explicit about this. |
 | `TokenManager.py` | RSA keypair management and all JWT issue/verify/refresh/revoke logic. See [Authentication](./04-authentication.md). |

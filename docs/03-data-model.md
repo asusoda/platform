@@ -205,13 +205,9 @@ do not write a migration, CI fails.** That is the guardrail.
    operations that are trivial on Postgres are expensive or impossible here.
 3. `DATABASE_URL` overrides the URL from `alembic.ini` when set.
 
-### The `create_all` overlap
+### No `create_all` at startup
 
-`DBConnect.check_and_create_tables()` and `shared.py` both call `Base.metadata.create_all()` on
-startup. On a **fresh** database that creates every table from the current models, and Alembic's
-version table is then empty — so `alembic upgrade head` would try to re-create existing tables.
-On an existing, migrated database `create_all` is a no-op (it only creates missing tables).
-
-Practical rule: **let Alembic own an existing database.** `create_all` is a convenience for a
-brand-new dev database. If you start fresh and then want migrations, stamp it:
-`uv run alembic stamp head`.
+Nothing calls `Base.metadata.create_all()` when the app starts. Alembic owns the schema on SQLite
+and Postgres alike; the API container runs `alembic upgrade head` before gunicorn. Tests build a
+fresh schema with `create_all` in `tests/conftest.py`, and CI runs `alembic check` so the models and
+migrations cannot drift.

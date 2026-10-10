@@ -50,8 +50,19 @@ Stage 2: node:18-alpine
 
 ## Compose
 
-`docker-compose.yml` defines both services on a `soda-network` bridge with `restart: unless-stopped`
-and JSON log rotation (10 MB × 3 files).
+`docker-compose.yml` defines three services on a `soda-network` bridge with `restart: unless-stopped`
+and JSON log rotation (10 MB × 3 files):
+
+- `api`: gunicorn serving `main:app` with one worker and 8 threads. One worker because SQLite takes
+  one writer at a time and login codes are held in memory; raise it after the move to Postgres.
+  `RUN_BOT_IN_API=false`.
+- `bot`: `python3 bot_main.py`, the Discord bot (LeetCode daily post, helper and game cogs), from the
+  same image. Exactly one must run, or scheduled posts go out more than once.
+- `web`: the static React bundle.
+
+The game control routes (`/api/bot/*`) call the bot's cogs directly, so with the bot in its own
+process they return 503. The web app's game screens already called the wrong paths. Phase 3 moves
+the games into their own module.
 
 The API container mounts three things from the host:
 
@@ -67,8 +78,10 @@ a missing bind-mount source.
 Healthchecks: API polls `curl -f http://localhost:8000/health`; web polls `wget --spider
 http://localhost:5000`. Both: 10s interval, 5s timeout, 5 retries, 10s start period.
 
-`docker-compose.dev.yml` overlays the API service with bind mounts for `modules/`, `main.py` and
-`shared.py`, and sets `IS_PROD=false` for hot reload.
+`docker-compose.dev.yml` runs the API with `python3 main.py` (Flask's reloader) instead of gunicorn,
+adds bind mounts for `modules/`, `main.py`, `shared.py` and `bot_main.py`, and sets `IS_PROD=false`.
+Running `python3 main.py` outside compose still starts the bot in a thread unless
+`RUN_BOT_IN_API=false`.
 
 ## CI — `.github/workflows/check.yml`
 
@@ -144,6 +157,28 @@ the web image, and **it does not roll back the database** — if the failed depl
 you must reverse that migration yourself (`uv run alembic downgrade -1`) or restore the copy that
 `make backup` wrote to `data/backups/` just before the deploy.
 
+## Moving to Postgres
+
+The app reads `DATABASE_URL` (default `sqlite:///./data/user.db`). The schema comes from Alembic
+migrations only: the API container runs `alembic upgrade head` before gunicorn starts, and nothing
+calls `create_all` at startup. CI runs the tests and `alembic check` on both SQLite and Postgres 16.
+
+Steps, rehearsed on staging first:
+
+1. Add `POSTGRES_PASSWORD` to `.env` and start the database: `docker compose --profile postgres up -d postgres`.
+2. Create the schema: `DATABASE_URL=postgresql://platform:<password>@localhost:5432/platform uv run alembic upgrade head`
+   (expose the port or run it inside the network).
+3. Stop writers: `docker compose stop api bot`.
+4. Copy and verify: `uv run python scripts/copy_sqlite_to_postgres.py sqlite:///./data/user.db <postgres url>`.
+   It refuses non-empty tables and exits non-zero if any table's row count or any org's points
+   total differs.
+5. Set `DATABASE_URL=postgresql://platform:<password>@postgres:5432/platform` in `.env` and
+   `docker compose up -d`.
+6. Keep `data/user.db` for at least two weeks. Rollback is removing `DATABASE_URL` and restarting.
+
+Keep gunicorn at one worker until the switch; afterwards raise `--workers` in `docker-compose.yml`
+once login codes move to the database (they are in memory today).
+
 ## Operational recipes
 
 ### Which build is live?
@@ -163,7 +198,10 @@ make logs           # last 50 lines, both services
 make logs-follow    # tail
 ```
 
-Logs are colour-formatted by `colorlog` at INFO. There is a lot of DEBUG-level detail in
+In compose, `LOG_FORMAT=json` makes every line a JSON object (`ts`, `level`, `logger`, `msg`, and
+for request and access lines their `key=value` fields, such as `route`, `status`, `org` and
+`reason`). Without it, logs are colour-formatted by `colorlog` at INFO; the dev override sets
+`LOG_FORMAT=text`. There is a lot of DEBUG-level detail in
 `decoraters.py` and `bot.py` that will not appear unless you lower the level in
 `modules/utils/logging_config.py`.
 

@@ -12,10 +12,9 @@ from modules.auth.decoraters import (
     org_officer_required,
 )
 from modules.storefront.models import Order, OrderItem, Product
-from modules.utils.db import DBConnect
+from shared import db_connect
 
 storefront_blueprint = Blueprint("storefront", __name__)
-db_connect = DBConnect()
 
 
 # Helper function to get organization by prefix
