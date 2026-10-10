@@ -65,6 +65,15 @@ class RunPodClient:
     def update_pod(self, pod_id: str, body: dict) -> dict:
         return self._request("PATCH", f"/pods/{quote(pod_id, safe='')}", body)
 
+    def start_pod(self, pod_id: str) -> Any:
+        return self._request("POST", f"/pods/{quote(pod_id, safe='')}/start")
+
+    def stop_pod(self, pod_id: str) -> Any:
+        return self._request("POST", f"/pods/{quote(pod_id, safe='')}/stop")
+
+    def delete_pod(self, pod_id: str) -> Any:
+        return self._request("DELETE", f"/pods/{quote(pod_id, safe='')}")
+
 
 def proxy_url(pod_id: str, port: int, path: str) -> str:
     """The public HTTPS address RunPod gives an http port of a pod."""

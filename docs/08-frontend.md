@@ -141,11 +141,11 @@ const { goToDashboard, goToUsers, goToLeaderboard, navigateToOrg, getOrgPath } =
 ## Switched-off modules
 
 `hooks/useOrgModules.js` reads `GET /api/organizations/<id>/modules` for the current org.
-`HomePage` and `OrganizationNavbar` hide points, storefront and calendar entries that the org has
+`HomePage` and `OrganizationNavbar` hide points, storefront, calendar and compute entries that the org has
 turned off. Until the answer arrives, or if the request fails, everything shows. Typing the URL
 of a hidden page still opens it; its API calls return 404.
 
-Run the hook's tests with `npx react-scripts test --watchAll=false src/hooks`.
+Run the web unit tests with `npx react-scripts test --watchAll=false src/hooks src/utils`.
 
 ## Component map
 
@@ -156,6 +156,7 @@ Run the hook's tests with `npx react-scripts test --watchAll=false src/hooks`.
 | Storefront | `editProductModal`, `UploadFileCard`, `ui/file-upload.jsx`, `constants/productCategories.js` |
 | Jeopardy | `GameBoard`, `GameCard`, `GameTable` (empty file), `QuestionPanel`, `RevealQuestion`, `AwardPanel`, `SetupButton` |
 | Points | `points/api.js` |
+| Compute | `pages/ComputePage.js`, `pages/PodFilesPage.js`, `PodSessions.js`, `utils/podPaths.js` (see docs/compute.md) |
 | UI primitives | `ui/InlineEdit`, `ui/Orb.jsx`, `ui/StarBorder.jsx`, `ui/ThemedLoading.jsx`, `ui/navbar-menu.jsx`, `ui/OrganizationCard.js`, `ToggleSwitch` |
 | Robustness | `ErrorBoundary`, `utils/errorSuppression.js`, `utils/resizeObserverFix.js` |
 

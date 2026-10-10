@@ -18,7 +18,8 @@ import {
   FaRobot,
   FaStore,
   FaCalendarAlt,
-  FaDiscord
+  FaDiscord,
+  FaServer
 } from 'react-icons/fa';
 import Orb from '../ui/Orb';
 
@@ -41,6 +42,7 @@ const OrganizationNavbar = ({ children }) => {
   const goToTransactions = () => navigate(`/${currentOrg?.prefix}/transactions`);
   const goToMemberStore = () => window.open(`/store/${currentOrg?.prefix}`, '_blank');
   const goToCalendar = () => navigate(`/${currentOrg?.prefix}/calendar`);
+  const goToCompute = () => navigate(`/${currentOrg?.prefix}/compute`);
   const goToDiscordBots = () => navigate(`/${currentOrg?.prefix}/discord-bots`);
 
   return (
@@ -156,6 +158,22 @@ const OrganizationNavbar = ({ children }) => {
                     <li>
                       <HoveredLink onClick={goToCalendar} className="block p-2 rounded hover:bg-yellow-400/20 hover:text-yellow-300 transition-all duration-200 text-sm text-gray-300">
                         • Sync Settings
+                      </HoveredLink>
+                    </li>
+                  </ul>
+                </div>
+                )}
+
+                {isEnabled('compute') && (
+                <div>
+                  <div className="text-sm font-semibold text-cyan-400 mb-4 flex items-center">
+                    <FaServer className="mr-2 text-cyan-400" />
+                    Compute
+                  </div>
+                  <ul className="space-y-2">
+                    <li>
+                      <HoveredLink onClick={goToCompute} className="block p-2 rounded hover:bg-cyan-400/20 hover:text-cyan-300 transition-all duration-200 text-sm text-gray-300">
+                        • Pods
                       </HoveredLink>
                     </li>
                   </ul>

@@ -22,6 +22,7 @@ import {
   FaStore,
   FaChevronDown,
   FaChevronUp,
+  FaServer,
 } from "react-icons/fa";
 
 const HomePage = () => {
@@ -46,6 +47,7 @@ const HomePage = () => {
     userManagement: true,
     storeFront: true,
     calendar: true,
+    compute: true,
     discordBots: true,
   });
 
@@ -150,6 +152,23 @@ const HomePage = () => {
           icon: FaCogs,
           color: "from-yellow-500 to-yellow-600",
           action: () => window.location.href = `/${currentOrg?.prefix}/calendar/settings`,
+        },
+      ],
+    },
+    {
+      id: "compute",
+      module: "compute",
+      title: "Compute",
+      icon: FaServer,
+      color: "from-cyan-500 to-cyan-600",
+      description: "GPU and CPU pods members SSH into",
+      features: [
+        {
+          title: "Pods",
+          description: "Create pods, choose who may connect, manage files",
+          icon: FaServer,
+          color: "from-cyan-500 to-cyan-600",
+          action: () => (window.location.href = `/${currentOrg?.prefix}/compute`),
         },
       ],
     },

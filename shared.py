@@ -33,6 +33,8 @@ CORS(
                 "http://127.0.0.1:5173",
                 "https://thesoda.io",
                 "https://admin.thesoda.io",
+                # Extra origins for other deployments, comma-separated
+                *[o.strip() for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()],
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Organization-ID", "X-Organization-Prefix"],
