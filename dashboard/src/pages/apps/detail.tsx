@@ -130,8 +130,19 @@ function Deployments({ app }: { app: AppDetail }) {
 
 type Panel = 'deploy' | 'rollback' | 'delete' | null;
 
-export function AppPanel({ prefix, name, onDeleted }: { prefix: string; name: string; onDeleted: (name: string, podId: string | null) => void }) {
-  const [panel, setPanel] = useState<Panel>(null);
+// deployTag, when set, opens the deploy form with that tag.
+export function AppPanel({
+  prefix,
+  name,
+  deployTag = null,
+  onDeleted,
+}: {
+  prefix: string;
+  name: string;
+  deployTag?: string | null;
+  onDeleted: (name: string, podId: string | null) => void;
+}) {
+  const [panel, setPanel] = useState<Panel>(deployTag === null ? null : 'deploy');
   const detail = useQuery({
     queryKey: ['app', prefix, name],
     queryFn: () => api<AppDetail>(`/api/dashboard/${prefix}/apps/${name}`),
@@ -177,7 +188,7 @@ export function AppPanel({ prefix, name, onDeleted }: { prefix: string; name: st
           <Trash2 className="size-4" /> Delete
         </Button>
       </div>
-      {panel === 'deploy' ? <DeployPanel prefix={prefix} app={app} onDone={close} /> : null}
+      {panel === 'deploy' ? <DeployPanel prefix={prefix} app={app} initialTag={deployTag ?? ''} onDone={close} /> : null}
       {panel === 'rollback' ? <RollbackPanel prefix={prefix} app={app} onDone={close} /> : null}
       {panel === 'delete' ? <DeletePanel prefix={prefix} app={app} onDone={close} onDeleted={onDeleted} /> : null}
 

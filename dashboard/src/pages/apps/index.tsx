@@ -1,6 +1,6 @@
 import { IntegrationHint } from '../../components/integration-hint';
 import { useQuery } from '@tanstack/react-query';
-import { Boxes, Plus } from 'lucide-react';
+import { Boxes, LayoutTemplate, Plus } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, Card, CardHeader, Dialog, EmptyState, ErrorNote, Mono, Notice, PageHeader, SkeletonRows } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -8,6 +8,7 @@ import { useCurrentOrg } from '../../lib/org';
 import type { App, AppKind } from '../../lib/types';
 import { AppPanel } from './detail';
 import { RegisterApp } from './register';
+import { TemplatePicker } from './templates';
 import { providerTitle, useProviders } from '../hosting/providers';
 import { AppTable } from './table';
 
@@ -23,7 +24,10 @@ const KINDS: { kind: AppKind; title: string; hint: string }[] = [
 export function ServicesTab({ tabs }: { tabs: ReactNode }) {
   const { prefix } = useCurrentOrg();
   const [registering, setRegistering] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  // The tag to put in the deploy form of an app just made from a template
+  const [deployTag, setDeployTag] = useState<string | null>(null);
   const [notice, setNotice] = useState<ReactNode>(null);
   const list = useQuery({
     queryKey: ['apps', prefix],
@@ -34,9 +38,14 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
   const apps = list.data?.apps ?? [];
   const providers = useProviders(prefix);
   const register = (
-    <Button variant="primary" onClick={() => setRegistering(true)}>
-      <Plus className="size-4" /> Register app
-    </Button>
+    <div className="flex gap-2">
+      <Button onClick={() => setPicking(true)}>
+        <LayoutTemplate className="size-4" /> Templates
+      </Button>
+      <Button variant="primary" onClick={() => setRegistering(true)}>
+        <Plus className="size-4" /> Register app
+      </Button>
+    </div>
   );
   const current = apps.find((a) => a.name === open);
   return (
@@ -73,7 +82,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
       ) : (
         <Card>
           <EmptyState icon={Boxes} title="No apps" action={register}>
-            Register a bot, agent, site or service with its manifest: what it is, the image, the GPU or CPU, ports, env and a health path.
+            Start from a template, or register a manifest.
           </EmptyState>
         </Card>
       )}
@@ -94,9 +103,27 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
         />
       </Dialog>
 
+      <Dialog open={picking} onClose={() => setPicking(false)} title="Templates" wide>
+        {picking ? (
+          <TemplatePicker
+            prefix={prefix}
+            onDone={(name, tag) => {
+              setPicking(false);
+              if (name) {
+                setDeployTag(tag ?? '');
+                setOpen(name);
+              }
+            }}
+          />
+        ) : null}
+      </Dialog>
+
       <Dialog
         open={open !== null}
-        onClose={() => setOpen(null)}
+        onClose={() => {
+          setOpen(null);
+          setDeployTag(null);
+        }}
         title={open ?? ''}
         description={current ? (current.repo ? `From ${current.repo}` : 'Inline manifest') : undefined}
         wide
@@ -106,6 +133,7 @@ export function ServicesTab({ tabs }: { tabs: ReactNode }) {
             key={open}
             prefix={prefix}
             name={open}
+            deployTag={deployTag}
             onDeleted={(name, podId) => {
               setOpen(null);
               setNotice(
