@@ -99,7 +99,8 @@ discard-local-changes:
 # web, dashboard and bot are created with --requires on the api container. When the api image changes,
 # all four are recreated together: recreating api alone makes podman-compose remove web and dashboard and
 # then fail to replace api ("has dependent containers"), which leaves the old api running. soda-mcp (profile
-# mcp) also requires api, so when it exists it is recreated with them and the mcp profile stays on.
+# mcp) also requires api, so when it exists it is recreated with them. Docker Compose gets --profile mcp;
+# podman-compose 1.0.6 has no --profile option and ignores profiles, so it gets the service name only.
 deploy:
 	@set -e; \
 		echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."; \
@@ -147,7 +148,8 @@ deploy:
 		if [ "$$BUILD_WEB" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD web"; fi; \
 		if [ "$$BUILD_DASHBOARD" -eq 1 ]; then SERVICES_TO_BUILD="$$SERVICES_TO_BUILD dashboard"; fi; \
 		MCP_ON=0; PROFILE_ARGS=""; \
-		if $(CONTAINER_CMD) inspect soda-mcp >/dev/null 2>&1; then MCP_ON=1; PROFILE_ARGS="--profile mcp"; fi; \
+		if $(CONTAINER_CMD) inspect soda-mcp >/dev/null 2>&1; then MCP_ON=1; fi; \
+		if [ "$$MCP_ON" -eq 1 ] && [ "$(COMPOSE_CMD)" != "podman-compose" ]; then PROFILE_ARGS="--profile mcp"; fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Setting up data directory permissions..."; \
 		mkdir -p data; \
 		chmod -R 755 data; \
