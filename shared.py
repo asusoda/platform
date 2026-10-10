@@ -61,7 +61,7 @@ else:
     logger.warning("SENTRY_DSN not found in environment. Sentry not initialized.")
 
 # Initialize database connections
-db_connect = DBConnect("sqlite:///./data/user.db")
+db_connect = DBConnect(os.environ.get("DATABASE_URL", "sqlite:///./data/user.db"))
 
 # Initialize TokenManager
 tokenManager = TokenManager()

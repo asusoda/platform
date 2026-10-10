@@ -72,36 +72,46 @@ http://localhost:5000`. Both: 10s interval, 5s timeout, 5 retries, 10s start per
 
 ## CI — `.github/workflows/check.yml`
 
-Runs on push to `main`/`master` and on every PR:
+Runs on push to `main`/`master`, on every PR, and on demand:
 
-1. `uv sync`
-2. `make check` — ruff lint (`--fix`), ruff format, `ty` type check, pytest, `alembic upgrade head`,
-   `alembic check`
-3. On PRs only: commits any auto-fixes back to the branch (`git-auto-commit-action`)
-4. `bandit -c pyproject.toml -r . -f json` — security scan
+1. `uv sync --frozen`
+2. `make ci` — ruff lint, ruff format check, `ty` type check, pytest (including the API contract
+   tests in `tests/contract/`), then `alembic upgrade head` and `alembic check` against a fresh
+   temporary database
+3. `bandit -c pyproject.toml -r .` — security scan
 
-Because step 3 pushes to your branch, expect a `style: auto-fix linting and formatting issues`
-commit to appear on your PR if you did not run `make check` locally.
+Nothing is fixed or committed by CI. Run `make check` locally to auto-fix lint and formatting before
+pushing. Make the Check workflow a required status check on `main` in the branch protection settings
+so a red run blocks the merge.
 
 Bandit exclusions are configured in `pyproject.toml` (`tests`, `web`, `node_modules`, `.venv`), and
 specific known-safe lines are annotated with `# nosec` comments plus a justification.
 
+The contract tests and the endpoints they guard are described in [API Contract](./api-contract.md).
+
+## Images — `.github/workflows/images.yml`
+
+Builds the API and web images on every PR, so a broken Dockerfile fails before merge. On `main` it
+pushes them to GHCR as `ghcr.io/<owner>/<repo>-api` and `-web`, tagged with the commit sha and `main`.
+The web image bakes in the repository variable `REACT_APP_API_URL`.
+
 ## CD — `.github/workflows/cd.yml`
 
-Runs on every push to `main`, with `concurrency: cd-production, cancel-in-progress: true` so only one
-deploy runs at a time.
+Runs only in `asusoda/platform` (never in forks), only after the Check workflow has passed on a push
+to `main`, one deploy at a time.
 
-It SSHes into the VPS (credentials in repo secrets `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_PORT`,
-`VPS_SSH_PASSWORD`) and runs:
+It SSHes into the VPS (repo secrets `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_PORT`, and `VPS_SSH_KEY`
+for a deploy key, with `VPS_SSH_PASSWORD` kept as a fallback until the key is set) and runs:
 
 ```bash
 cd /var/www/soda-internal-api
 make discard-local-changes     # git reset --hard
+make backup                    # copy data/user.db to data/backups/, keep the last 14
 make deploy
 make health
 ```
 
-If `make deploy` fails it dumps `make logs`; if `make health` fails it dumps `make status`.
+If `make deploy` or `make health` fails, it prints logs or status and runs `make rollback`.
 
 ### What `make deploy` actually does
 
@@ -131,7 +141,8 @@ make rollback
 Tags the current `soda-internal-api:latest` as `rollback-<timestamp>`, promotes
 `soda-internal-api:previous` back to `latest`, and re-ups. It **only rolls back the API image**, not
 the web image, and **it does not roll back the database** — if the failed deploy ran a migration,
-you must reverse that migration yourself (`uv run alembic downgrade -1`).
+you must reverse that migration yourself (`uv run alembic downgrade -1`) or restore the copy that
+`make backup` wrote to `data/backups/` just before the deploy.
 
 ## Operational recipes
 
