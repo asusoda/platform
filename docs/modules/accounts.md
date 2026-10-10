@@ -31,6 +31,24 @@ Other routes:
 - `GET /api/accounts/providers`: the providers that are on.
 - `GET /api/accounts/<org>/me` and `DELETE /api/accounts/<org>/me/<provider>`: a member signed in with Discord lists and removes their own connections.
 
+## Canvas tools
+
+Agents with the `canvas:read` scope read a member's own Canvas through six read-only tools. Each tool takes `discord_id`, the member. It uses only that member's Canvas grant in the org of the token. The tools show only when the Canvas provider is on.
+
+| Tool | Returns | Canvas route |
+| --- | --- | --- |
+| `canvas.courses` | Active courses: `id`, `name`, `code` | `GET /api/v1/courses?enrollment_state=active` |
+| `canvas.assignments` | Assignments to submit, soonest due first: `name`, `course`, `due_at`, `points`, `url` | `GET /api/v1/users/self/todo` |
+| `canvas.grades` | Current grade in each active course: `course`, `score`, `grade` | `GET /api/v1/courses?include[]=total_scores` |
+| `canvas.announcements` | Recent announcements in active courses: `title`, `course`, `posted_at`, `body` (240 characters, no HTML), `url` | `GET /api/v1/announcements` |
+| `canvas.calendar` | Upcoming events: `title`, `start_at`, `location`, `url` | `GET /api/v1/users/self/upcoming_events` |
+| `canvas.assignment_grades` | Each graded assignment: `course`, `name`, `score`, `points`, `grade` | `GET /api/v1/courses/<id>/assignments?include[]=submission` |
+
+- Each result also has `text`, a short summary for the agent. A result has 20 items or fewer. A list reads 5 pages or fewer, and follows the `Link` header only to the same Canvas.
+- The results are private to the member. The agent must show them only to that member, for example in a direct message. Platform does not log them, add them to knowledge or write them to the audit log. The audit log gets only the tool name.
+- If the token expires in less than one minute, Platform refreshes it first, as the `token` route does.
+- Errors: 409 when the member has not connected Canvas, the connection expired, or Canvas rejected the token. The message tells the agent to start a login with `POST /api/accounts/members/<discord_id>/canvas/login`. 502 when Canvas or the refresh does not answer.
+
 ## Settings
 
 | Variable | Does |
