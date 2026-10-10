@@ -85,5 +85,18 @@ export type ErrorGroup = {
   last_seen: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  // Where the last event ran. Each key is optional.
+  context: ErrorContext;
+};
+export type ErrorContext = {
+  request?: string;
+  job?: string;
+  logger?: string;
+  line?: string;
+  host?: string;
+  pid?: number;
+  thread?: string;
+  release?: string;
+  python?: string;
 };
 export type ErrorList = { errors: ErrorGroup[]; open: number; events: number; webhook_set: boolean };

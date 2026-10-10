@@ -119,6 +119,11 @@ def reopen(db, org: Organization, ids: object) -> dict:
     return {"changed": error_log.set_resolved(db, _ids(ids), resolved=False, actor=None, org=str(org.prefix))}
 
 
+def delete(db, org: Organization, ids: object) -> dict:
+    """Delete error groups of the org. A deleted error that happens again starts a new group."""
+    return {"deleted": error_log.delete_groups(db, _ids(ids), org=str(org.prefix))}
+
+
 def report(org: Organization, body: object) -> dict:
     """Record an error from the dashboard in the browser."""
     if not isinstance(body, dict):

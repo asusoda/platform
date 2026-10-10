@@ -32,7 +32,7 @@ An `app` target uses the health URL of the app's pod (`health.port` and `health.
 | `monitor.down` | The first check is down, or a check is down after an up check |
 | `monitor.up` | A check is up after a down check |
 
-Each event shows on the Notifications page and goes to the webhooks that take it. See [Webhooks](../webhooks.md).
+Each event shows in Activity > Notifications and goes to the webhooks that take it. See [Webhooks](../webhooks.md).
 
 ## Routes
 
@@ -48,4 +48,4 @@ All routes are under `/api/uptime/<org>`, for officers of the org. The `uptime` 
 | `POST /monitors/<id>/check` | Checks the monitor now and returns `check` and `monitor` |
 | `GET /targets` | The Hosting apps and the URL that a check of each reads |
 
-The `uptime.list` tool (scope `uptime:read`) returns the monitors without `recent`.
+The `uptime.list` tool (scope `uptime:read`) returns the monitors without `recent`. `uptime.get` and `uptime.targets` also need `uptime:read`. `uptime.save`, `uptime.check` and `uptime.delete` (confirm) need `uptime:manage`.

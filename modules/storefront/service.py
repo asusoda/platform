@@ -1,12 +1,23 @@
 """Product and order queries for the storefront. No Flask here."""
 
 from core import webhooks
+from core.errors import ServiceError
 from core.log import get_logger
+from modules.auth import scopes
 from modules.storefront.models import Order, Product
 
 logger = get_logger(__name__)
 
 webhooks.declare("order.created", "Store orders", "A member places an order in the store.", "storefront")
+scopes.declare("store:read", "Read the store's products and orders, with the name and email of each buyer")
+scopes.declare("store:write", "Add, change and delete products, and change the status of orders or delete them")
+
+ORDER_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"]
+MAX_IDS = 100
+
+
+class StoreError(ServiceError):
+    pass
 
 
 def normalize_category(value):
@@ -127,3 +138,136 @@ def delete_product(db, product_id, organization_id) -> bool:
         logger.error(f"Error deleting storefront product: {str(e)}")
         db.rollback()
         return False
+
+
+def product_dict(product: Product) -> dict:
+    """A product as the officer routes and tools return it."""
+    return {
+        "id": product.id,
+        "name": product.name,
+        "description": product.description,
+        "price": product.price,
+        "stock": product.stock,
+        "image_url": product.image_url,
+        "category": product.category,
+        "organization_id": product.organization_id,
+    }
+
+
+def order_dict(order: Order) -> dict:
+    """An order with its buyer and items, as the order list returns it."""
+    return {
+        "id": order.id,
+        "user_id": order.user_id,
+        "total_amount": order.total_amount,
+        "status": order.status,
+        "message": order.message,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+        "organization_id": order.organization_id,
+        "user_name": order.user.name if order.user else "Unknown User",
+        "user_email": order.user.email if order.user else None,
+        "items": [
+            {"id": i.id, "product_id": i.product_id, "quantity": i.quantity, "price_at_time": i.price_at_time}
+            for i in order.items
+        ],
+    }
+
+
+def change_product(product: Product, data: dict) -> None:
+    """Set the product fields that data has. The caller commits."""
+    if "name" in data:
+        product.name = data["name"]
+    if "description" in data:
+        product.description = data["description"]
+    if "price" in data:
+        product.price = float(data["price"])
+    if "stock" in data:
+        product.stock = int(data["stock"])
+    if "image_url" in data:
+        product.image_url = data["image_url"]
+    if "category" in data:
+        product.category = normalize_category(data["category"])
+
+
+def change_order(order: Order, data: dict) -> None:
+    """Set the status and message that data has. Raises StoreError for an unknown status. The caller commits."""
+    if "status" in data:
+        if data["status"] not in ORDER_STATUSES:
+            raise StoreError(f"Invalid status. Must be one of: {', '.join(ORDER_STATUSES)}")
+        order.status = data["status"]
+    if "message" in data:
+        order.message = data["message"]
+
+
+def remove_order(db, order: Order, organization_id) -> None:
+    """Delete an order. Its items go back in stock unless it is cancelled or delivered. The caller commits."""
+    if order.status not in ["cancelled", "delivered"]:
+        for item in order.items:
+            found = product(db, item.product_id, organization_id)
+            if found:
+                found.stock += item.quantity
+    db.delete(order)
+
+
+def _all(db, model, ids: list[int], organization_id, label: str) -> list:
+    rows = db.query(model).filter(model.id.in_(ids), model.organization_id == organization_id).all()
+    missing = sorted(set(ids) - {row.id for row in rows})
+    if missing:
+        raise StoreError(f"No {label} with ids {', '.join(str(i) for i in missing)}", 404)
+    return rows
+
+
+def save_product(db, organization_id, data: dict, product_id: int | None = None) -> dict:
+    """Add a product, or change the product with product_id. Commits."""
+    if product_id is None:
+        for key in ("name", "price", "stock"):
+            if data.get(key) in (None, ""):
+                raise StoreError(f"Product {key} is required")
+        row = Product(
+            name=data["name"],
+            description=data.get("description", ""),
+            price=float(data["price"]),
+            stock=int(data["stock"]),
+            image_url=data.get("image_url", ""),
+            category=normalize_category(data.get("category")),
+        )
+        return product_dict(create_product(db, row, organization_id))
+    found = product(db, product_id, organization_id)
+    if found is None:
+        raise StoreError("Product not found", 404)
+    change_product(found, data)
+    db.commit()
+    return product_dict(found)
+
+
+def delete_products(db, organization_id, ids: list[int]) -> dict:
+    """Delete products by id in one commit. If one id is missing, nothing changes."""
+    rows = _all(db, Product, ids, organization_id, "products")
+    for row in rows:
+        db.delete(row)
+    db.commit()
+    return {"deleted": sorted(ids)}
+
+
+def order_list(db, organization_id, status: str | None = None) -> list[dict]:
+    """The org's orders, newest first. status keeps the orders with that status."""
+    rows = [o for o in orders(db, organization_id) if status is None or o.status == status]
+    return [order_dict(o) for o in sorted(rows, key=lambda o: o.id, reverse=True)]
+
+
+def update_orders(db, organization_id, ids: list[int], data: dict) -> list[dict]:
+    """Set the status or message of orders in one commit. If one id is missing, nothing changes."""
+    rows = _all(db, Order, ids, organization_id, "orders")
+    for row in rows:
+        change_order(row, data)
+    db.commit()
+    return [order_dict(row) for row in rows]
+
+
+def delete_orders(db, organization_id, ids: list[int]) -> dict:
+    """Delete orders in one commit and put their items back in stock as remove_order does."""
+    for row in _all(db, Order, ids, organization_id, "orders"):
+        remove_order(db, row, organization_id)
+    db.commit()
+    return {"deleted": sorted(ids)}

@@ -129,6 +129,7 @@
 /api/dashboard/<string:org_prefix>/ci GET,HEAD,OPTIONS dashboard.ci_runs
 /api/dashboard/<string:org_prefix>/ci/repos OPTIONS,PUT dashboard.set_ci_repos
 /api/dashboard/<string:org_prefix>/errors GET,HEAD,OPTIONS dashboard.list_errors
+/api/dashboard/<string:org_prefix>/errors/delete OPTIONS,POST dashboard.delete_errors
 /api/dashboard/<string:org_prefix>/errors/reopen OPTIONS,POST dashboard.reopen_errors
 /api/dashboard/<string:org_prefix>/errors/report OPTIONS,POST dashboard.report_error
 /api/dashboard/<string:org_prefix>/errors/resolve OPTIONS,POST dashboard.resolve_errors
@@ -146,6 +147,7 @@
 /api/dashboard/<string:org_prefix>/knowledge/documents OPTIONS,POST dashboard.upload_documents
 /api/dashboard/<string:org_prefix>/knowledge/packs GET,HEAD,OPTIONS dashboard.list_packs
 /api/dashboard/<string:org_prefix>/knowledge/packs/<string:name>/sync OPTIONS,POST dashboard.sync_pack
+/api/dashboard/<string:org_prefix>/knowledge/reembed OPTIONS,POST dashboard.reembed_passages
 /api/dashboard/<string:org_prefix>/knowledge/reindex OPTIONS,POST dashboard.reindex
 /api/dashboard/<string:org_prefix>/knowledge/runs GET,HEAD,OPTIONS dashboard.knowledge_runs
 /api/dashboard/<string:org_prefix>/knowledge/search OPTIONS,POST dashboard.search
@@ -156,6 +158,7 @@
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> GET,HEAD,OPTIONS dashboard.read_source
 /api/dashboard/<string:org_prefix>/modules GET,HEAD,OPTIONS dashboard.list_modules
 /api/dashboard/<string:org_prefix>/notifications GET,HEAD,OPTIONS dashboard.list_notifications
+/api/dashboard/<string:org_prefix>/notifications/delete OPTIONS,POST dashboard.delete_notifications
 /api/dashboard/<string:org_prefix>/notifications/reopen OPTIONS,POST dashboard.reopen_notifications
 /api/dashboard/<string:org_prefix>/notifications/resolve OPTIONS,POST dashboard.resolve_notifications
 /api/dashboard/<string:org_prefix>/overview GET,HEAD,OPTIONS dashboard.overview

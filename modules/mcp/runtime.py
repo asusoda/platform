@@ -1,7 +1,8 @@
 """Lists and runs tools for a machine token. Shared by the MCP server and /api/tools. No Flask here.
 
 The tools are the modules' tools in core.tools.TOOLS and the tools of connected services that
-modules/integrations passes through to their MCP servers.
+modules/integrations passes through to their MCP servers. The batch tool runs up to MAX_BATCH of those
+calls in one request; each call gets its own scope check, confirm step and audit entry.
 """
 
 import time
@@ -10,6 +11,7 @@ from typing import Any
 import jsonschema
 
 from core import audit
+from core.cache import cache
 from core.errors import ServiceError
 from core.log import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec
@@ -19,6 +21,41 @@ from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
 logger = get_logger("tools")
+
+BATCH = "batch"
+MAX_BATCH = 25
+BATCH_SPEC = ToolSpec(
+    name=BATCH,
+    description=(
+        f"Run 1 to {MAX_BATCH} tool calls in order and get one result for each. Each call has the same scope "
+        "check, confirm step and audit entry as a single call. A confirm tool without confirm=true in its "
+        "arguments returns its preview. stop_on_error stops at the first call that fails. A batch cannot hold a batch."
+    ),
+    scope="",
+    func=lambda *args, **kwargs: None,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "calls": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": MAX_BATCH,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "tool": {"type": "string", "minLength": 1, "maxLength": 200},
+                        "arguments": {"type": "object"},
+                    },
+                    "required": ["tool"],
+                    "additionalProperties": False,
+                },
+            },
+            "stop_on_error": {"type": "boolean"},
+        },
+        "required": ["calls"],
+        "additionalProperties": False,
+    },
+)
 
 
 def _org(db, caller: MachineCaller) -> Organization:
@@ -40,7 +77,8 @@ def available(db, caller: MachineCaller) -> list[ToolSpec]:
     """Tools this token may call: its scopes allow them, its org has their module on and their service connected."""
     org = _org(db, caller)
     local = [spec for spec in TOOLS.values() if _usable(db, spec, org, caller)]
-    return sorted(local + remote.tools_for(db, caller.organization_id, caller), key=lambda s: s.name)
+    found = local + remote.tools_for(db, caller.organization_id, caller)
+    return sorted(found + [BATCH_SPEC] if found else found, key=lambda s: s.name)
 
 
 def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source: str) -> Any:
@@ -50,6 +88,8 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
     pending = False
     try:
         org = _org(db, caller)
+        if name == BATCH:
+            return _batch(db, caller, arguments, source)
         spec = TOOLS.get(name)
         if spec is not None and not _usable(db, spec, org, caller):
             spec = None
@@ -63,6 +103,11 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             jsonschema.validate(args, spec.input_schema)
         except jsonschema.ValidationError as e:
             raise ToolError(f"Invalid arguments: {e.message}", 400) from e
+        if name in TOOLS and "additionalProperties" not in spec.input_schema:
+            # A module tool takes only the arguments its schema names
+            unknown = sorted(set(args) - set(spec.input_schema.get("properties") or {}))
+            if unknown:
+                raise ToolError(f"Invalid arguments: unknown {', '.join(unknown)}", 400)
         confirmed = args.pop("confirm", False) is True
         if spec.confirm and not confirmed:
             pending = True
@@ -70,15 +115,22 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             if spec.preview is not None:
                 result["preview"] = spec.preview(db, org, caller, **args)
             return result
-        return spec.func(db, org, caller, **args)
+        result = spec.func(db, org, caller, **args)
+        if not spec.read_only:
+            # Drops the cached org reads of this process, as an HTTP write does
+            cache.invalidate("org")
+        return result
     except ToolError as e:
         status = e.status
+        db.rollback()
         raise
     except ServiceError as e:
         status = e.status
+        db.rollback()
         raise ToolError(e.message, e.status) from e
     except Exception:
         status = 500
+        db.rollback()
         logger.exception("tool failed name=%s", name)
         raise ToolError("Tool failed", 500) from None
     finally:
@@ -91,6 +143,28 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             status=status,
             details={"ms": round((time.monotonic() - started) * 1000)} | ({"confirm": "pending"} if pending else {}),
         )
+
+
+def _batch(db, caller: MachineCaller, arguments: dict | None, source: str) -> dict:
+    """Run each call of a batch with call() and collect the results. A failed call stops the rest only with stop_on_error."""
+    args = dict(arguments or {})
+    try:
+        jsonschema.validate(args, BATCH_SPEC.input_schema)
+    except jsonschema.ValidationError as e:
+        raise ToolError(f"Invalid arguments: {e.message}", 400) from e
+    results = []
+    for item in args["calls"]:
+        name = item["tool"]
+        try:
+            if name == BATCH:
+                raise ToolError("A batch cannot hold a batch", 400)
+            result = call(db, caller, name, item.get("arguments"), source=source)
+            results.append({"tool": name, "ok": True, "result": result, "status": 200})
+        except ToolError as e:
+            results.append({"tool": name, "ok": False, "error": e.message, "status": e.status})
+            if args.get("stop_on_error") is True:
+                break
+    return {"results": results}
 
 
 def _preview(spec: ToolSpec, args: dict) -> dict:

@@ -97,6 +97,18 @@ Each org sets these on the Knowledge page (`GET` and `PUT /api/dashboard/<org>/k
 
 A new passage size applies when a source is indexed again. `POST /api/dashboard/<org>/knowledge/reindex` starts the `knowledge.reindex` job, which crawls every crawled source of the org with `force`. Upload a document again to split it again.
 
+## Embeddings
+
+Platform embeds a source when it writes the source: a crawl, an upload, a pack sync or a `PUT`. Each version keeps the name of the model, and each passage keeps the text it was embedded from. Vector search uses only passages of the org's current model. A passage of another model, or with no vector, is found by text search only.
+
+So when an org adds an embedding service after it has sources, or changes the model, the old passages are not in the vector search. `knowledge.reembed` embeds them again from the stored text, with no new fetch:
+
+- Saving the Embeddings integration starts the job for the org.
+- The search settings on the Knowledge page show how many passages use the current model, and **Embed** starts the job (`POST /api/dashboard/<org>/knowledge/reembed`).
+- The tools `knowledge.embeddings` (counts) and `knowledge.reembed` (confirm) do the same over MCP.
+
+The job commits one source at a time. A source that fails keeps its old vectors. A change to the deployment default in `.env` starts no job; start it from the Knowledge page. Public sources of other orgs keep the model of the org that wrote them.
+
 ## Packs
 
 A [pack](./packs.md) is a set of crawled pages and live queries that an org adds in one step, such as the ASU pack. The pack owns the org's sources whose keys start with `<pack>/`. The Knowledge page of the dashboard lists the packs (`GET /api/dashboard/<org>/knowledge/packs`) and syncs one (`POST /api/dashboard/<org>/knowledge/packs/<name>/sync`), which also starts the crawl job.

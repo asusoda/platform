@@ -121,7 +121,8 @@ def test_upload_refusals(client, officer_headers, folder):
 def test_settings_change_chunking_and_search(client, officer_headers, folder, reset_settings):
     got = client.get(f"{BASE}/settings", headers=officer_headers).get_json()
     assert got["settings"] == got["defaults"] and got["settings"]["mode"] == "hybrid"
-    assert got["embeddings"] == {"configured": False, "model": None}
+    assert got["embeddings"]["configured"] is False and got["embeddings"]["model"] is None
+    assert got["embeddings"]["status"]["stale"] == 0
 
     for bad in ({"chunk_chars": 50}, {"mode": "magic"}, {"max_distance": 3}, {"nope": 1}, {"chunk_overlap": 900}, {}):
         assert client.put(f"{BASE}/settings", json=bad, headers=officer_headers).status_code == 400, bad

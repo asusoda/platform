@@ -81,22 +81,34 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 
 | Tools | Scope | Module |
 | --- | --- | --- |
-| `org.info`, `org.branding` | `org:read` | organizations |
-| `org.set_modules` (confirm), `org.set_branding` | `settings:write` | organizations |
-| `org.overview`, `org.trends`, `notifications.list`, `errors.list`, `activity.log` | `activity:read` | dashboard |
-| `notifications.resolve`, `notifications.reopen`, `errors.resolve` | `settings:write` | dashboard |
-| `integrations.list`, `integrations.save` (confirm), `integrations.test` | `integrations:manage` | dashboard |
-| `events.list` | `calendar:read` | calendar |
+| `batch`: 1 to 25 calls of other tools, each checked as a single call | the scope of each call | mcp |
+| `org.info`, `org.branding`, `org.settings`, `leetcode.settings` | `org:read` | organizations, leetcode |
+| `org.set_modules` (confirm), `org.set_branding`, `org.update_settings`, `leetcode.update_settings`, `ci.set_repos` | `settings:write` | organizations, leetcode, dashboard |
+| `secrets.list`, `secrets.set` (confirm), `secrets.delete` (confirm) | `secrets:manage` | organizations |
+| `tokens.list`, `tokens.create` (confirm), `tokens.revoke` (confirm) | `tokens:manage` | organizations |
+| `org.overview`, `org.trends`, `notifications.list`, `errors.list`, `activity.log`, `ci.runs` | `activity:read` | dashboard |
+| `notifications.resolve`, `notifications.reopen`, `notifications.delete` (confirm), `errors.resolve`, `errors.reopen`, `errors.delete` (confirm) | `settings:write` | dashboard |
+| `integrations.list`, `integrations.save` (confirm), `integrations.test`, `integrations.disconnect` (confirm) | `integrations:manage` | dashboard |
+| `webhooks.list`, `webhooks.save`, `webhooks.test`, `webhooks.delete` (confirm) | `webhooks:manage` | dashboard |
+| `events.list`, `calendar.settings` | `calendar:read` | calendar |
+| `calendar.update_settings`, `calendar.sync`, `calendar.setup` | `calendar:manage` | calendar |
 | `points.leaderboard` | `points:read` | points |
+| `points.entries`, `points.history`, `members.list`, `members.discord_roles` | `members:read` | points, users |
+| `points.award`, `points.import_csv`, `points.delete` (confirm) | `points:write` | points |
+| `members.add`, `members.update`, `members.discord_sync` (confirm) | `members:write` | users |
+| `store.products`, `store.orders` | `store:read` | storefront |
+| `store.save_product`, `store.update_orders`, `store.delete_products` (confirm), `store.delete_orders` (confirm) | `store:write` | storefront |
 | `knowledge.search`, `knowledge.sources`, `knowledge.read_source`, `knowledge.packs`, `knowledge.settings`, `knowledge.runs` | `knowledge:read` | knowledge |
 | `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_pack`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
 | `packs.query` | `knowledge:read` | packs |
-| `apps.list`, `apps.get` | `apps:read` | runpod |
-| `apps.register`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
+| `apps.list`, `apps.get`, `apps.pod`, `apps.templates`, `hosting.providers` | `apps:read` | runpod |
+| `apps.register`, `apps.create_from_template`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
 | `apps.deploy` (confirm) | `apps:deploy` | runpod |
 | `alerts.list`, `alerts.presets`, `alerts.history`, `alerts.save`, `alerts.run`, `alerts.delete` (confirm) | `alerts:manage` | alerts |
-| `compute.pods`, `compute.pod_members`, `compute.pod_action` (confirm) | `compute:manage` | compute |
-| `uptime.list` | `uptime:read` | uptime |
+| `compute.pods`, `compute.pod_members`, `compute.connected`, `compute.settings`, `compute.sessions`, `compute.list_files`, `compute.read_file`, `compute.update_pod`, `compute.update_settings`, `compute.delete_session`, `compute.make_folder`, `compute.move_file` | `compute:manage` | compute |
+| `compute.pod_action`, `compute.create_pod`, `compute.add_session`, `compute.write_file`, `compute.delete_file` (each confirm) | `compute:manage` | compute |
+| `uptime.list`, `uptime.get`, `uptime.targets` | `uptime:read` | uptime |
+| `uptime.save`, `uptime.check`, `uptime.delete` (confirm) | `uptime:manage` | uptime |
 | `github.*`: the read-only tools of GitHub's MCP server | `github:read` | integrations |
 | `github.*`: the other tools of GitHub's MCP server (confirm) | `github:write` | integrations |
 | `runpod.*`: the read-only tools of RunPod's MCP server | `runpod:read` | integrations |
@@ -116,7 +128,9 @@ Both need a machine token: `Authorization: Bearer plat_...`. A caller sees only 
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 
-No tool reads a secret value, makes or revokes a token, or changes points or the store. Officers do those in the dashboard.
+No tool returns a secret value or a webhook URL. `tokens.create` returns the new token once. It gives only the scopes and limits of the calling token. A write tool that takes `ids` changes up to 100 rows in one commit; if one id is missing, nothing changes. To send many calls in one request, use `batch` with `{"calls": [{"tool", "arguments"}], "stop_on_error"}`. Its result has one entry for each call: `tool`, `ok`, `result` or `error`, and `status`.
+
+The flows that need a browser have no tool: the OAuth sign-in to an integration, the ASU sign-in, file upload and download on a pod, and the compute CLI sign-in. Superadmin routes and member routes have no tool.
 
 Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`, `source=mcp` or `api`, and the token as the actor. A call that waits for confirm has `details.confirm=pending`. The MCP server keeps no session state, so you can run more than one. Start it with `docker compose --profile mcp up -d mcp`.
 

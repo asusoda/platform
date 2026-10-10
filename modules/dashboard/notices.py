@@ -5,7 +5,7 @@ or a crawled knowledge source whose last fetch failed. Its id is a hash of the m
 message, so a new error on the same subject is a new notification. An event is one webhook event of the org
 (core/webhooks.py saves each one): an error, a failed job, a pod started or stopped, a deploy, a store order,
 a new member. Its id is event-<row id>. Resolved ids are in the org config key dashboard.resolved. When a
-problem goes away or an event is dropped, its id is removed at the next resolve or reopen.
+problem goes away or an event is dropped or deleted, its id is removed at the next resolve or reopen.
 """
 
 import hashlib
@@ -177,6 +177,17 @@ def resolve(db, org: Organization, ids: object, actor: str) -> dict:
     for i in wanted & ids:
         kept.setdefault(i, {"id": i, "by": actor, "at": at})
     _save(db, org, kept, ids)
+    return listing(db, org)
+
+
+def delete(db, org: Organization, ids: object) -> dict:
+    """Delete events by id. A problem cannot be deleted, so its id is ignored; resolve it instead."""
+    rows = [int(i[6:]) for i in _ids(ids) if i.startswith("event-") and i[6:].isdigit()]
+    if rows:
+        db.query(webhooks.Notification).filter(
+            webhooks.Notification.organization_id == org.id, webhooks.Notification.id.in_(rows)
+        ).delete(synchronize_session=False)
+        db.commit()
     return listing(db, org)
 
 

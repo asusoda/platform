@@ -1,62 +1,76 @@
-import { Bug, CheckCheck } from 'lucide-react';
+import { Bug, CheckCheck, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ErrorList } from '../../components/error-list';
-import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, Select, SkeletonRows } from '../../components/ui';
+import { SelectionBar, useSelection } from '../../components/selection';
+import { Button, Card, EmptyState, ErrorNote, Select, SkeletonRows } from '../../components/ui';
 import { useCurrentOrg } from '../../lib/org';
-import { type ErrorStatus, useErrorChange, useErrors } from '../../lib/queries';
+import { type ErrorAction, type ErrorStatus, useErrorChange, useErrors } from '../../lib/queries';
 
-// The org's errors from the Platform error log. Shown on the Activity page. The Webhooks page sets where new errors go.
+// The org's errors from the Platform error log, with resolve, reopen and delete for the selected rows.
 export function ErrorsTab() {
   const { prefix } = useCurrentOrg();
   const [status, setStatus] = useState<ErrorStatus>('open');
   const list = useErrors(prefix, status);
   const change = useErrorChange(prefix);
   const errors = list.data?.errors ?? [];
-  const run = (action: 'resolve' | 'reopen', ids: number[]) => change.mutate({ action, ids });
+  const pick = useSelection(errors.map((e) => e.id));
+  const run = (action: ErrorAction, ids: number[]) => change.mutate({ action, ids }, { onSuccess: pick.clear });
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-4">
+      {list.error ? <ErrorNote error={list.error} /> : null}
+      {change.error ? <ErrorNote error={change.error} /> : null}
       <Card>
-        <CardHeader
-          title={
-            <span className="inline-flex items-center gap-2">
-              Errors
-              {list.data ? <Badge tone={list.data.open ? 'bad' : 'ok'}>{list.data.open} open</Badge> : null}
-            </span>
+        <SelectionBar
+          count={pick.count}
+          total={errors.length}
+          all={pick.all}
+          some={pick.some}
+          onToggleAll={pick.toggleAll}
+          onClear={pick.clear}
+          noun={status === 'open' ? 'open errors' : 'resolved errors'}
+          extra={
+            <Select value={status} onChange={(e) => setStatus(e.target.value as ErrorStatus)} aria-label="Status" className="h-8 w-32! text-xs">
+              <option value="open">Open</option>
+              <option value="resolved">Resolved</option>
+            </Select>
           }
-          hint="Errors of the API, bot, jobs, MCP server and this dashboard. Repeats add to one row. A resolved error opens again when it happens again."
-          action={
-            <div className="flex items-center gap-2">
-              {status === 'open' && errors.length ? (
-                <Button disabled={change.isPending} onClick={() => run('resolve', errors.map((e) => e.id))}>
-                  <CheckCheck className="size-4" /> Resolve all
-                </Button>
-              ) : null}
-              <Select value={status} onChange={(e) => setStatus(e.target.value as ErrorStatus)} aria-label="Status" className="h-8 w-32! text-xs">
-                <option value="open">Open</option>
-                <option value="resolved">Resolved</option>
-              </Select>
-            </div>
-          }
-        />
-        {list.error ? (
-          <div className="p-4">
-            <ErrorNote error={list.error} />
-          </div>
-        ) : null}
-        {change.error ? (
-          <div className="p-4">
-            <ErrorNote error={change.error} />
-          </div>
-        ) : null}
+        >
+          {status === 'open' ? (
+            <Button disabled={change.isPending} onClick={() => run('resolve', pick.ids)}>
+              <CheckCheck className="size-4" /> Resolve
+            </Button>
+          ) : (
+            <Button disabled={change.isPending} onClick={() => run('reopen', pick.ids)}>
+              <RotateCcw className="size-4" /> Reopen
+            </Button>
+          )}
+          <Button
+            variant="danger"
+            disabled={change.isPending}
+            onClick={() => {
+              if (confirm(`Delete ${pick.count} ${pick.count === 1 ? 'error' : 'errors'}? An error that happens again starts a new row.`)) {
+                run('delete', pick.ids);
+              }
+            }}
+          >
+            <Trash2 className="size-4" /> Delete
+          </Button>
+        </SelectionBar>
         {list.isLoading ? (
           <SkeletonRows rows={5} />
         ) : errors.length ? (
-          <ErrorList errors={errors} onChange={run} busy={change.isPending} />
+          <ErrorList
+            errors={errors}
+            onChange={(action, ids) => run(action, ids)}
+            busy={change.isPending}
+            isSelected={pick.has}
+            onSelect={pick.toggle}
+          />
         ) : (
           <EmptyState icon={Bug} title={status === 'open' ? 'No open errors' : 'Nothing resolved'}>
-            {status === 'open' ? 'Errors show here as they happen.' : 'Resolved errors show here until they are deleted after 90 days.'}
+            {status === 'open' ? 'Errors of the API, bot, jobs, MCP server and dashboard show here.' : 'Resolved errors stay here for 90 days.'}
           </EmptyState>
         )}
       </Card>

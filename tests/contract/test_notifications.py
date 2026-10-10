@@ -88,3 +88,27 @@ def test_webhook_events_are_notifications(client, officer_headers, sent, monkeyp
         db.query(webhooks.Notification).delete()
         db.commit()
         db.close()
+
+
+def test_delete_events_in_a_batch(client, officer_headers, sent, failing_source):
+    from core import webhooks
+    from core.db import db_connect
+
+    _, source = failing_source
+    for title in ("one", "two", "three"):
+        webhooks.emit("ais", "pod.started", webhooks.Message(title=f"pod {title}"))
+    try:
+        body = client.get(BASE, headers=officer_headers).get_json()
+        events = [n["id"] for n in body["notifications"] if n["kind"] == "event"]
+        [problem] = _mine(body, source.key)
+        assert len(events) == 3
+        after = client.post(f"{BASE}/delete", json={"ids": events[:2] + [problem["id"]]}, headers=officer_headers)
+        ids = [n["id"] for n in after.get_json()["notifications"]]
+        assert events[2] in ids and not set(events[:2]) & set(ids)
+        assert problem["id"] in ids
+        assert client.post(f"{BASE}/delete", json={"ids": []}, headers=officer_headers).status_code == 400
+    finally:
+        db = db_connect.SessionLocal()
+        db.query(webhooks.Notification).delete()
+        db.commit()
+        db.close()

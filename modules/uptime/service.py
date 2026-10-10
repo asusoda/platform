@@ -30,7 +30,8 @@ from .models import UptimeCheck, UptimeMonitor
 
 logger = get_logger(__name__)
 
-scopes.declare("uptime:read", "List uptime monitors, their state, uptime and last check")
+scopes.declare("uptime:read", "List uptime monitors, their state, uptime, checks and the apps they can check")
+scopes.declare("uptime:manage", "Add, change and delete uptime monitors, and check them now")
 webhooks.declare("monitor.down", "Monitors down", "An uptime monitor finds its address down.", "uptime")
 webhooks.declare("monitor.up", "Monitors up", "An uptime monitor that was down finds its address up again.", "uptime")
 
@@ -252,6 +253,16 @@ def delete_monitor(db, org_id: int, monitor_id: int) -> None:
     db.query(UptimeCheck).filter_by(monitor_id=monitor.id).delete()
     db.delete(monitor)
     db.commit()
+
+
+def delete_monitors(db, org_id: int, monitor_ids: list[int]) -> dict:
+    """Delete monitors and their checks in one commit. If one id is missing, nothing changes."""
+    monitors = [_find(db, org_id, monitor_id) for monitor_id in dict.fromkeys(monitor_ids)]
+    for monitor in monitors:
+        db.query(UptimeCheck).filter_by(monitor_id=monitor.id).delete()
+        db.delete(monitor)
+    db.commit()
+    return {"deleted": [cast(int, m.id) for m in monitors]}
 
 
 def _app_url(app: App) -> tuple[str | None, str | None]:

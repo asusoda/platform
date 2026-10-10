@@ -41,7 +41,7 @@ Officers of the org can use every route except the leaderboard and member routes
 
 ## For agents
 
-The MCP tool `points.leaderboard` (scope `points:read`) returns the leaderboard.
+The MCP tool `points.leaderboard` (scope `points:read`) returns the leaderboard. `points.entries` and `points.history` (scope `members:read`) return point entries. `points.award`, `points.delete` (confirm) and `points.import_csv` (scope `points:write`) change them. `points.award` gives the same points to up to 100 members in one commit; if one is not a member, nothing changes.
 
 ## Tables
 

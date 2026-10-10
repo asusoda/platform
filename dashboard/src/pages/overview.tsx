@@ -42,7 +42,7 @@ export function OverviewPage() {
 
       {open.length ? (
         <Link
-          to={`/${prefix}/notifications`}
+          to={`/${prefix}/activity`}
           className="mb-6 flex animate-in items-center gap-3 rounded-lg border border-bad/30 bg-bad/5 px-4 py-3 text-sm transition-colors hover:bg-bad/10"
         >
           <AlertTriangle className="size-4 shrink-0 text-bad" />
@@ -55,7 +55,7 @@ export function OverviewPage() {
             </span>
           </span>
           <span className="flex items-center gap-1 text-xs text-muted">
-            Notifications <ArrowRight className="size-3.5" />
+            Activity <ArrowRight className="size-3.5" />
           </span>
         </Link>
       ) : null}
@@ -90,7 +90,7 @@ export function OverviewPage() {
             title="Modules"
             hint={`${enabled} of ${data.modules.length} on for this org`}
             action={
-              <Link to="modules" className={quietLink}>
+              <Link to="explore" className={quietLink}>
                 Change
               </Link>
             }

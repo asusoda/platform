@@ -1,5 +1,3 @@
-from typing import cast
-
 from flask import Blueprint, jsonify, request, session
 
 from core import jobs
@@ -256,17 +254,9 @@ def add_points_to_org(org_prefix):
         if not user:
             return jsonify({"error": "User does not exist"}), 404
 
-        point = Points(
-            points=data["points"],
-            user_id=user.id,
-            organization_id=organization.id,
-            event=data.get("event"),
-            awarded_by_officer=awarded_by(data.get("awarded_by_officer")),
+        point = service.add_entry(
+            db, organization.id, user, data["points"], data.get("event"), awarded_by(data.get("awarded_by_officer"))
         )
-        db.add(point)
-        db.commit()
-        db.refresh(point)
-
         return jsonify(service.point_json(point)), 201
 
     except Exception as e:
@@ -295,23 +285,7 @@ def get_org_users(org_prefix):
         }
 
         def build():
-            totals = service.totals_by_user(db, organization_id)
-            users_data = [
-                {
-                    "id": user.id,
-                    "uuid": user.uuid,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    **users.legacy_member_fields(user),
-                    "major": user.major,
-                    "discord_linked": bool(user.discord_id),
-                    "points": totals.get(cast(int, user.id)) or 0,
-                    "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
-                    "created_at": user.created_at.isoformat() if user.created_at else None,
-                }
-                for membership, user in users.active_members(db, organization_id)
-            ]
+            users_data = service.members_with_points(db, organization_id)
             return {"organization": organization_json, "total_users": len(users_data), "users": users_data}
 
         return cached_json(org_key(org_prefix, "points", "users"), OFFICER_LIST_TTL, build)
@@ -509,16 +483,14 @@ def assign_points_to_org(org_prefix):
         if not users.active_membership(db, user.id, organization.id):
             return jsonify({"error": "User is not a member of this organization"}), 400
 
-        point = Points(
-            points=float(data["points"]),
-            user_id=user.id,
-            organization_id=organization.id,
-            event=data.get("event"),
-            awarded_by_officer=awarded_by(data.get("awarded_by_officer")),
+        point = service.add_entry(
+            db,
+            organization.id,
+            user,
+            float(data["points"]),
+            data.get("event"),
+            awarded_by(data.get("awarded_by_officer")),
         )
-        db.add(point)
-        db.commit()
-        db.refresh(point)
 
         return jsonify(
             {
@@ -551,18 +523,10 @@ def delete_points_by_event(org_prefix):
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
-        user = db.query(User).filter_by(email=data["user_email"]).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        points_entry = (
-            db.query(Points).filter_by(user_id=user.id, organization_id=organization.id, event=data["event"]).first()
-        )
-        if not points_entry:
-            return jsonify({"error": "Points entry not found"}), 404
-
-        db.delete(points_entry)
-        db.commit()
+        try:
+            points_entry = service.delete_event_entry(db, organization.id, data["user_email"], data["event"])
+        except service.PointsError as e:
+            return jsonify({"error": e.message}), e.status
 
         return jsonify(
             {
@@ -597,38 +561,12 @@ def update_user_fields_endpoint(org_prefix, user_identifier):
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
-        user = users.find_by_identifier(db, user_identifier)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        membership = users.active_membership(db, user.id, organization.id)
-        if not membership:
-            return jsonify({"error": "User is not a member of this organization"}), 400
-
-        updated_fields = []
-        errors = []
-
-        for field_name, field_value in data.items():
-            if field_name == "user_identifier":
-                continue
-            column = users.LEGACY_MEMBER_KEYS.get(field_name, field_name)
-            if column != field_name and column in data:
-                continue  # the column name sent alongside wins
-
-            if column == "profile_fields":
-                error = users.merge_profile_fields(membership, field_value)
-                if error:
-                    errors.append(f"{field_name}: {error}")
-                    continue
-                db.commit()
-                updated_fields.append(field_name)
-                continue
-
-            success, message = users.update_user_field(db, user, column, field_value, organization.id)
-            if success:
-                updated_fields.append(field_name)
-            else:
-                errors.append(f"{field_name}: {message}")
+        try:
+            result = users.update_member(db, organization.id, user_identifier, data)
+        except users.MemberError as e:
+            return jsonify({"error": e.message}), e.status
+        user, membership = result["user"], result["membership"]
+        updated_fields, errors = result["updated_fields"], result["errors"]
 
         if errors:
             return jsonify({"error": "Some fields failed to update", "details": errors}), 400

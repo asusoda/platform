@@ -42,11 +42,18 @@ def test_write_tools_need_their_scope(client):
     assert _call(client, headers, "integrations.list").status_code == 404
     names = [t["name"] for t in client.get("/api/tools", headers=_issue("settings:write")).get_json()["tools"]]
     assert names == [
+        "batch",
+        "ci.set_repos",
+        "errors.delete",
+        "errors.reopen",
         "errors.resolve",
+        "leetcode.update_settings",
+        "notifications.delete",
         "notifications.reopen",
         "notifications.resolve",
         "org.set_branding",
         "org.set_modules",
+        "org.update_settings",
     ]
 
 

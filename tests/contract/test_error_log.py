@@ -150,3 +150,20 @@ def test_superadmin_sees_every_org(client, monkeypatch, app):
 
 def test_officers_only(client):
     assert client.get(BASE).status_code in (401, 403)
+
+
+def test_error_context_and_delete(client, officer_headers):
+    marker = uuid.uuid4().hex
+    _raise(marker)
+    group = _mine(_open(client, officer_headers), marker)[0]
+    assert group["context"]["logger"] == "tests.error_log"
+    assert group["context"]["line"].startswith("tests/contract/test_error_log.py:")
+    assert group["context"]["pid"] > 0
+
+    other = uuid.uuid4().hex
+    _raise(other, "soda")
+    soda_id = error_log.list_groups(_db(), org="soda", limit=200)[0]["id"]
+    body = client.post(f"{BASE}/delete", json={"ids": [group["id"], soda_id]}, headers=officer_headers).get_json()
+    assert body == {"deleted": 1}
+    assert not _mine(client.get(f"{BASE}?status=all", headers=officer_headers).get_json(), marker)
+    assert client.post(f"{BASE}/delete", json={"ids": []}, headers=officer_headers).status_code == 400

@@ -22,7 +22,12 @@ from .tracing import operation_span
 
 logger = get_logger(__name__)
 
-scopes.declare("calendar:read", "Read the org's upcoming events", uses=("notion",))
+scopes.declare("calendar:read", "Read the org's upcoming events and calendar settings", uses=("notion",))
+scopes.declare(
+    "calendar:manage",
+    "Change the calendar settings, make the org's Google Calendar, and sync Notion to it now",
+    uses=("notion", "google"),
+)
 
 # Events per org for the website, kept 5 minutes
 _FRONTEND_CACHE = TTLCache(maxsize=100, ttl=300)
@@ -396,3 +401,25 @@ def setup_calendar(db, org: Organization, transaction=None) -> str | None:
 def sync_all(transaction=None) -> dict[str, Any]:
     """Sync every active org with calendar sync turned on."""
     return get_service().sync_all_organizations(transaction)
+
+
+def calendar_settings(org: Organization) -> dict[str, Any]:
+    """The org's Notion database, Google Calendar, sync switch and last sync time."""
+    return {
+        "notion_database_id": org.notion_database_id,
+        "calendar_sync_enabled": org.calendar_sync_enabled,
+        "google_calendar_id": org.google_calendar_id,
+        "last_sync_at": org.last_sync_at.isoformat() if org.last_sync_at else None,
+    }
+
+
+def save_calendar_settings(db, org: Organization, data: dict) -> dict[str, Any]:
+    """Set the keys that data has. An empty id clears it. Commits."""
+    if "notion_database_id" in data:
+        org.notion_database_id = data["notion_database_id"].strip() if data["notion_database_id"] else None
+    if "calendar_sync_enabled" in data:
+        org.calendar_sync_enabled = bool(data["calendar_sync_enabled"])
+    if "google_calendar_id" in data:
+        org.google_calendar_id = data["google_calendar_id"].strip() if data["google_calendar_id"] else None
+    db.commit()
+    return calendar_settings(org)

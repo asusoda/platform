@@ -5,6 +5,7 @@ import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import { useNotificationChange, useNotifications } from '../lib/queries';
 import type { Notification } from '../lib/types';
+import { Checkbox } from './selection';
 import { Tooltip } from './tooltip';
 import { Badge, Button, cx, Mono, Spinner } from './ui';
 
@@ -23,15 +24,38 @@ const MODULE_LABELS: Record<string, string> = {
 export const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module;
 
 // One notification: the module, the subject, the message, a link to the page that fixes it, and resolve or reopen.
-export function NotificationItem({ n, compact = false, onOpen }: { n: Notification; compact?: boolean; onOpen?: () => void }) {
+// With onSelect, a checkbox takes the place of the dot.
+export function NotificationItem({
+  n,
+  compact = false,
+  onOpen,
+  selected = false,
+  onSelect,
+}: {
+  n: Notification;
+  compact?: boolean;
+  onOpen?: () => void;
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
   const { prefix } = useCurrentOrg();
   const change = useNotificationChange(prefix);
   const resolved = Boolean(n.resolved_at);
   const error = n.level !== 'info';
   const busy = change.isPending;
   return (
-    <li className={cx('group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-panel-2/40', resolved && 'opacity-70')}>
-      <span className={cx('mt-1.5 size-1.5 shrink-0 rounded-full', resolved ? 'bg-muted/50' : error ? 'bg-bad' : 'bg-info')} aria-hidden />
+    <li
+      className={cx(
+        'group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-panel-2/40',
+        resolved && 'opacity-70',
+        selected && 'bg-panel-2/60',
+      )}
+    >
+      {onSelect ? (
+        <Checkbox checked={selected} onChange={onSelect} label={`Select ${n.subject}`} className="mt-0.5" />
+      ) : (
+        <span className={cx('mt-1.5 size-1.5 shrink-0 rounded-full', resolved ? 'bg-muted/50' : error ? 'bg-bad' : 'bg-info')} aria-hidden />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <Badge tone={resolved ? 'muted' : error ? 'bad' : 'active'}>{moduleLabel(n.module)}</Badge>
@@ -158,7 +182,7 @@ export function NotificationsBell() {
             </div>
           )}
           <Link
-            to={`/${prefix}/notifications`}
+            to={`/${prefix}/activity`}
             className="block border-t border-line px-4 py-2.5 text-center text-xs text-muted transition-colors hover:bg-panel-2/60 hover:text-fg"
           >
             {list.length > PREVIEW ? `View all ${list.length}` : 'View all notifications'}

@@ -1,5 +1,6 @@
 """Member lookup, upsert and the member field helpers. No Flask here."""
 
+import functools
 import uuid
 from collections.abc import Mapping
 from typing import Any, cast
@@ -7,11 +8,23 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 
 from core import webhooks
+from core.config import config
 from core.db import db_connect
+from core.errors import ServiceError
+from core.integrations.discord import DiscordDirectory, DiscordUnavailable
 from core.log import get_logger
+from modules.auth import scopes
 from modules.users.models import User, UserOrganizationMembership
 
 logger = get_logger(__name__)
+
+scopes.declare("members:read", "Read the org's members with emails, student IDs, profile fields and points history")
+scopes.declare("members:write", "Add and change the org's members, and add the members of its Discord server")
+
+
+class MemberError(ServiceError):
+    pass
+
 
 webhooks.declare(
     "member.joined",
@@ -115,6 +128,56 @@ def update_user_field(db, user, field_name, field_value, organization_id=None):
     except Exception as e:
         db.rollback()
         return False, str(e)
+
+
+def member_dict(user: User, membership: UserOrganizationMembership | None = None) -> dict[str, Any]:
+    """A member as the member tools return it."""
+    return {
+        "id": user.id,
+        "uuid": user.uuid,
+        "name": user.name,
+        "username": user.username,
+        "email": user.email,
+        **member_fields(user, membership),
+        "major": user.major,
+        "discord_id": user.discord_id,
+        "joined_at": membership.joined_at.isoformat() if membership is not None and membership.joined_at else None,
+    }
+
+
+def update_member(db, organization_id, user_identifier, data: Mapping[str, Any]) -> dict[str, Any]:
+    """Update the fields sent for an active member. Legacy keys name their columns. Commits each field.
+
+    Returns user, membership, updated_fields and errors. A field that fails is in errors; the others are saved.
+    """
+    user = find_by_identifier(db, user_identifier)
+    if not user:
+        raise MemberError("User not found", 404)
+    membership = active_membership(db, user.id, organization_id)
+    if not membership:
+        raise MemberError("User is not a member of this organization", 400)
+    updated_fields: list[str] = []
+    errors: list[str] = []
+    for field_name, field_value in data.items():
+        if field_name == "user_identifier":
+            continue
+        column = LEGACY_MEMBER_KEYS.get(field_name, field_name)
+        if column != field_name and column in data:
+            continue  # the column name sent alongside wins
+        if column == "profile_fields":
+            error = merge_profile_fields(membership, field_value)
+            if error:
+                errors.append(f"{field_name}: {error}")
+                continue
+            db.commit()
+            updated_fields.append(field_name)
+            continue
+        success, message = update_user_field(db, user, column, field_value, organization_id)
+        if success:
+            updated_fields.append(field_name)
+        else:
+            errors.append(f"{field_name}: {message}")
+    return {"user": user, "membership": membership, "updated_fields": updated_fields, "errors": errors}
 
 
 def _find_for_upsert(db, user_data, discord_id, user_identifier):
@@ -348,6 +411,47 @@ def get_or_create_user_from_clerk(db, organization_id, clerk_user, email):
 # Members from the org's Discord server
 
 SYNC_CHUNK = 500
+NO_DIRECTORY = "Discord is not set up on the API, so the server cannot be read."
+NO_MEMBERS_INTENT = (
+    "Discord refused the member list. Turn on Server Members Intent for the bot in the Discord Developer Portal "
+    "(Bot > Privileged Gateway Intents)."
+)
+
+
+@functools.cache
+def bot_directory() -> DiscordDirectory:
+    """A DiscordDirectory with the bot token, for callers that have no Flask app, such as tools."""
+    return DiscordDirectory(config.BOT_TOKEN)
+
+
+def _ready(directory) -> Any:
+    if directory is None or not directory.is_ready():
+        raise MemberError(NO_DIRECTORY, 503)
+    return directory
+
+
+def server_roles(directory, guild_id) -> list[dict]:
+    """The server roles that a member sync can filter by. Raises MemberError when Discord cannot answer."""
+    try:
+        return discord_roles(_ready(directory), guild_id)
+    except DiscordUnavailable as e:
+        logger.warning("role lookup failed for guild %s: %s", guild_id, e)
+        raise MemberError("Discord did not answer the role list.", 503) from e
+
+
+def sync_from_discord(db, organization_id: int, guild_id, directory, roles: object, dry_run: bool) -> dict:
+    """Add the server members that hold one of roles (all members when roles is empty) to the org's members."""
+    if not isinstance(roles, list) or not all(isinstance(r, str) and r.isdigit() for r in roles):
+        raise MemberError("roles must be a list of role ids")
+    try:
+        members = _ready(directory).list_members(guild_id)
+    except DiscordUnavailable as e:
+        logger.warning("member list failed for org %s: %s", organization_id, e)
+        if "403" in str(e):
+            raise MemberError(NO_MEMBERS_INTENT, 503) from e
+        raise MemberError("Discord did not answer the member list. Try again shortly.", 503) from e
+    chosen = [m for m in members if not roles or set(roles) & set(m.get("roles", []))]
+    return sync_discord_members(db, organization_id, chosen, dry_run=dry_run)
 
 
 def discord_roles(directory, guild_id) -> list[dict]:

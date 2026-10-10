@@ -178,14 +178,9 @@ def update_organization_calendar_settings(org_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        if "notion_database_id" in data:
-            org.notion_database_id = data["notion_database_id"].strip() if data["notion_database_id"] else None
-        if "calendar_sync_enabled" in data:
-            org.calendar_sync_enabled = bool(data["calendar_sync_enabled"])
-        if "google_calendar_id" in data:
-            org.google_calendar_id = data["google_calendar_id"].strip() if data["google_calendar_id"] else None
+        from modules.calendar import service as calendar
 
-        db.commit()
+        calendar.save_calendar_settings(db, org, data)
         return jsonify({"message": "Calendar settings updated successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -204,14 +199,9 @@ def get_organization_calendar_settings(org_id):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        calendar_settings = {
-            "notion_database_id": org.notion_database_id,
-            "calendar_sync_enabled": org.calendar_sync_enabled,
-            "google_calendar_id": org.google_calendar_id,
-            "last_sync_at": org.last_sync_at.isoformat() if org.last_sync_at else None,
-        }
+        from modules.calendar import service as calendar
 
-        return jsonify(calendar_settings)
+        return jsonify(calendar.calendar_settings(org))
     except Exception:
         logger.exception("Error while fetching organization calendar settings for org_id=%s", org_id)
         return jsonify({"error": "Internal server error"}), 500

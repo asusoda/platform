@@ -7,16 +7,16 @@ Keeps the org record (Discord server, URL prefix, officer role, config) and the 
 | File | Holds |
 | --- | --- |
 | `api.py` | Officer routes under `/<org_id>` |
-| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `new_org_switches`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`, org secrets and machine tokens; declares `org:read` |
+| `service.py` | `OPTIONAL_MODULES`, `module_enabled`, `set_modules`, `new_org_switches`, `branding`, `set_branding`, `find_by_prefix`, `create_organization`, org secrets and machine tokens; the description and points settings; declares `org:read`, `settings:write`, `secrets:manage` and `tokens:manage` |
 | `config.py` | `OrganizationSettings`, the default config of a new org |
 | `models.py` | Orgs, and the unused org config and officer tables |
-| `tools.py` | The `org.*` tools: org info, branding and module switches |
+| `tools.py` | The `org.*`, `secrets.*` and `tokens.*` tools |
 
 ## Surface
 
 - Routes: `/api/organizations`. Each route needs an officer of the org in the URL. The list shows only the caller's orgs.
 - Jobs: none.
-- Tools: `org.info`, `org.branding` (scope `org:read`); `org.set_modules` (confirm), `org.set_branding` (scope `settings:write`). Tools marked confirm run only with `confirm=true`.
+- Tools: `org.info`, `org.branding`, `org.settings` (scope `org:read`); `org.set_modules` (confirm), `org.set_branding`, `org.update_settings` (scope `settings:write`); `secrets.list`, `secrets.set` (confirm), `secrets.delete` (confirm) (scope `secrets:manage`; values are never returned); `tokens.list`, `tokens.create` (confirm), `tokens.revoke` (confirm) (scope `tokens:manage`). `tokens.create` gives only scopes and limits that the calling token has, and returns the new value once. Tools marked confirm run only with `confirm=true`.
 - Tables: `organizations`, `organization_configs`, `officers`.
 
 Config keys: `modules` (a module name set to false for each module that is off; a new org has an entry for each optional module, on only for `NEW_ORG_MODULES` in `modules/manifest.py`; migration `c4d6e8f0a2b4` turns off compute, alerts and uptime for existing orgs that have no data for them), `branding` (`logo_url`, `accent_color` and `website_url`), `leetcode`, `dashboard`.

@@ -13,7 +13,7 @@ import { SecretRow } from './secrets';
 type Section = { id: string; label: string };
 
 // Sections that moved to their own pages, for links made before the move.
-const MOVED: Record<string, string> = { '#calendar': 'calendar', '#leetcode': 'leetcode', '#modules': 'modules' };
+const MOVED: Record<string, string> = { '#calendar': 'calendar', '#leetcode': 'leetcode', '#modules': 'explore' };
 
 // The id of the section nearest the top of the viewport.
 function useActiveSection(ids: string[]): string | undefined {
@@ -112,10 +112,10 @@ function ModulesSection({ prefix, modules }: { prefix: string; modules: ReturnTy
     <Card>
       <CardHeader
         title="Modules"
-        hint="Add or remove modules for this org on the Modules page."
+        hint="Add or remove modules for this org on Explore."
         action={
-          <Link to={`/${prefix}/modules`} className={quietLink}>
-            Open Modules
+          <Link to={`/${prefix}/explore`} className={quietLink}>
+            Open Explore
           </Link>
         }
       />
