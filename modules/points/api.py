@@ -358,8 +358,8 @@ def _leaderboard_show_email():
             return True, None
         if token_manager.is_token_expired(token):
             return None, (jsonify({"message": "Token is expired!"}), 403)
-    except Exception as e:
-        return None, (jsonify({"message": str(e)}), 401)
+    except Exception:
+        return None, (jsonify({"message": "Token is invalid!"}), 401)
     return False, None
 
 
