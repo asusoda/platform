@@ -3,6 +3,7 @@ import re
 
 from flask import Blueprint, jsonify, request
 
+from modules.auth.access import visible_org_filter
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization
 from shared import db_connect
@@ -17,6 +18,9 @@ def get_organizations():
     try:
         db = next(db_connect.get_db())
         organizations = db.query(Organization).filter_by(is_active=True).all()
+        visible = visible_org_filter()
+        if visible is not None:
+            organizations = [org for org in organizations if str(org.guild_id) in visible]
 
         return jsonify([org.to_dict() for org in organizations])
     except Exception:

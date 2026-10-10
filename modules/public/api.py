@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, send_from_directory
 from sqlalchemy import and_, case, func
 
+from modules.auth.access import member_details_allowed
 from modules.auth.decoraters import error_handler
 from modules.points.models import Points, User
 from shared import db_connect
@@ -68,16 +69,13 @@ def get_leaderboard(org_prefix):
         )
 
         # Format leaderboard data
+        show_details = member_details_allowed(org)
         leaderboard_data = []
         for name, email, asu_id, total_points in leaderboard_query:
-            leaderboard_data.append(
-                {
-                    "name": name,
-                    "email": email,
-                    "asu_id": asu_id,
-                    "total_points": float(total_points) if total_points else 0.0,
-                }
-            )
+            entry = {"name": name, "total_points": float(total_points) if total_points else 0.0}
+            if show_details:
+                entry.update({"email": email, "asu_id": asu_id})
+            leaderboard_data.append(entry)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -182,21 +180,24 @@ def get_organization_users(org_prefix):
             .all()
         )
 
+        show_details = member_details_allowed(org)
+        users = []
+        for user in users_query:
+            entry = {
+                "id": user.id,
+                "name": user.name,
+                "username": user.username,
+                "discord_linked": bool(user.discord_id),
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+            }
+            if show_details:
+                entry.update({"email": user.email, "asu_id": user.asu_id})
+            users.append(entry)
+
         return jsonify(
             {
                 "organization": {"name": org.name, "prefix": org.prefix, "description": org.description},
-                "users": [
-                    {
-                        "id": user.id,
-                        "name": user.name,
-                        "email": user.email,
-                        "asu_id": user.asu_id,
-                        "username": user.username,
-                        "discord_linked": bool(user.discord_id),
-                        "created_at": user.created_at.isoformat() if user.created_at else None,
-                    }
-                    for user in users_query
-                ],
+                "users": users,
             }
         ), 200
 

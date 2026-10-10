@@ -23,7 +23,7 @@ NOTION_PAGE = {
 
 
 class FakeBot:
-    """Stands in for the Discord bot: every caller is a member and an officer."""
+    """Stands in for the Discord directory: every caller is a member and an officer."""
 
     def is_ready(self):
         return True
@@ -40,8 +40,19 @@ class FakeBot:
     def check_role(self, guild_id, role_id, user_id):
         return True
 
+    def list_guilds(self):
+        return [{"id": "1001", "name": "SoDA", "icon_url": None}, {"id": "1003", "name": "New Club", "icon_url": None}]
+
+    def get_guild(self, guild_id):
+        return next((g for g in self.list_guilds() if g["id"] == str(guild_id)), None)
+
     def get_guild_roles(self, guild_id):
-        return [{"id": "2001", "name": "Officer"}]
+        return [
+            {"id": "2001", "name": "Officer", "color": "#000000", "position": 1, "permissions": 0, "managed": False}
+        ]
+
+    def get_display_name(self, guild_id, user_id):
+        return "officer"
 
 
 def _seed(db_connect):
@@ -105,6 +116,7 @@ def app():
 
     _seed(db_connect)
     setattr(main.app, "auth_bot", FakeBot())  # noqa: B010
+    setattr(main.app, "discord_directory", FakeBot())  # noqa: B010
     main.app.config["TESTING"] = True
     return main.app
 

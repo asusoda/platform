@@ -253,14 +253,15 @@ class TokenManager:
 
     def cleanup_expired_refresh_tokens(self):
         """
-        Remove expired refresh tokens from the database.
+        Remove expired refresh tokens, and revocations of tokens that have expired anyway.
         """
-        from modules.auth.models import RefreshToken
+        from modules.auth.models import RefreshToken, RevokedToken
 
         db = self._get_db_session()
         try:
             current_time = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
             deleted = db.query(RefreshToken).filter(RefreshToken.expires_at < current_time).delete()
+            db.query(RevokedToken).filter(RevokedToken.expires_at < current_time).delete()
             db.commit()
             if deleted:
                 logger.info(f"Cleaned up {deleted} expired refresh tokens")
@@ -325,10 +326,27 @@ class TokenManager:
         if token in self.blacklist:
             return False
         try:
-            self.decode_token(token)
-            return True
+            claims = self.decode_token(token)
         except jwt.InvalidTokenError:
             return False
+        return not self._is_revoked(token, claims)
+
+    def _is_revoked(self, token, claims):
+        """Revocations live in the database so they survive restarts and are shared by every process."""
+        from modules.auth.models import AppToken, RevokedToken
+
+        db = self._get_db_session()
+        try:
+            if db.query(RevokedToken.id).filter(RevokedToken.token_hash == self._hash_token(token)).first():
+                self.blacklist.add(token)
+                return True
+            if claims.get("type") == "app" and claims.get("jti"):
+                app_token = db.query(AppToken).filter(AppToken.jti == claims["jti"]).first()
+                if app_token is None or app_token.revoked_at is not None:
+                    return True
+            return False
+        finally:
+            db.close()
 
     def is_token_expired(self, token):
         try:
@@ -342,13 +360,57 @@ class TokenManager:
         discord_id = self.retrieve_discord_id(token)
         return self.generate_token(username, discord_id)
 
-    def generate_app_token(self, name, app_name):
+    def generate_app_token(self, name, app_name, discord_id=None):
+        from modules.auth.models import AppToken
+
+        expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=120)
+        jti = secrets.token_urlsafe(16)
         payload = {
-            "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=120),
+            "exp": expires_at,
             "name": name,
             "app_name": app_name,
+            "type": "app",
+            "jti": jti,
         }
+        # The issuing officer, so the app is scoped to that officer's organizations
+        if discord_id:
+            payload["discord_id"] = str(discord_id)
+
+        # Recorded so officers can list and revoke their app tokens
+        db = self._get_db_session()
+        try:
+            db.add(
+                AppToken(
+                    jti=jti,
+                    name=name,
+                    app_name=app_name,
+                    discord_id=str(discord_id) if discord_id else None,
+                    expires_at=expires_at.replace(tzinfo=None),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
         return jwt.encode(payload, self.private_key, algorithm=self.algorithm)
 
     def delete_token(self, token):
+        """Revoke a token until it expires, for every process and across restarts."""
+        from modules.auth.models import RevokedToken
+
         self.blacklist.add(token)
+        try:
+            claims = jwt.decode(token, self.public_key, algorithms=[self.algorithm], options={"verify_exp": False})
+        except jwt.InvalidTokenError:
+            return
+        expires_at = datetime.datetime.fromtimestamp(claims.get("exp", 0), datetime.UTC).replace(tzinfo=None)
+        token_hash = self._hash_token(token)
+        db = self._get_db_session()
+        try:
+            if not db.query(RevokedToken.id).filter(RevokedToken.token_hash == token_hash).first():
+                db.add(RevokedToken(token_hash=token_hash, expires_at=expires_at))
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error storing token revocation: {e}")
+        finally:
+            db.close()

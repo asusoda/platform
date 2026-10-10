@@ -2,9 +2,16 @@ import functools
 import logging
 from functools import wraps
 
-from flask import current_app, jsonify, request, session
+from flask import jsonify, request, session
 
-from shared import config, tokenManager
+from modules.auth.access import (
+    discord_directory,
+    is_superadmin,
+    officer_guild_ids,
+    org_officer_denial,
+    superadmin_denial,
+)
+from shared import tokenManager
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +117,10 @@ def auth_required(f):
                 elif tokenManager.is_token_expired(session["token"]):
                     session.pop("token", None)
                     return jsonify({"message": "Session token has expired!"}), 401
-                return f(*args, **kwargs)
             except Exception:
                 session.pop("token", None)
                 return jsonify({"message": "Session authentication failed!"}), 401
+            return _with_org_scope(f, *args, **kwargs)
 
         # If no session, check Authorization header (for API calls)
         token = None
@@ -130,11 +137,30 @@ def auth_required(f):
             elif tokenManager.is_token_expired(token):
                 logger.debug("Token is expired")
                 return jsonify({"message": "Token is expired!"}), 403
-            return f(*args, **kwargs)
         except Exception as e:
             return jsonify({"message": str(e)}), 401
+        return _with_org_scope(f, *args, **kwargs)
 
     return wrapper
+
+
+def org_officer_required(f):
+    """For routes behind dual_auth_required that only officers use: refuse members and other orgs' officers."""
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return _with_org_scope(f, *args, **kwargs)
+
+    return wrapper
+
+
+def _with_org_scope(f, *args, **kwargs):
+    """Run an authenticated route, refusing callers who are not officers of the org in its URL."""
+    denial = org_officer_denial()
+    if denial:
+        message, status = denial
+        return jsonify({"message": message}), status
+    return f(*args, **kwargs)
 
 
 def superadmin_required(f):
@@ -214,91 +240,22 @@ def superadmin_required(f):
 
             logger.debug("Token decoded successfully")
 
-            # Try to get discord_id directly from token (more secure)
+            # Every token issued at login carries discord_id; tokens without it are refused
             discord_id = token_data.get("discord_id")
-            if discord_id:
-                logger.debug("Found discord_id in token")
-                # Direct lookup using discord_id (secure and efficient)
-                try:
-                    # Get the auth bot from Flask app context
-                    logger.debug("Getting auth bot from Flask app context...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-                    if not auth_bot:
-                        logger.debug("Auth bot not found in Flask app context!")
-                        return jsonify({"message": "Bot not available for verification!"}), 503
+            if not discord_id:
+                logger.debug("Token missing discord_id")
+                return jsonify({"message": "Token missing user identification!"}), 401
 
-                    if not auth_bot.is_ready():  # type: ignore[attr-defined]
-                        logger.debug("Auth bot is not ready!")
-                        return jsonify({"message": "Bot not available for verification!"}), 503
+            officer_guilds = officer_guild_ids(str(discord_id))
+            if officer_guilds is None:
+                return jsonify({"message": "Bot not available for verification!"}), 503
+            if not officer_guilds and not is_superadmin(str(discord_id)):
+                logger.debug("User is not an officer in any organization!")
+                return jsonify({"message": "Superadmin access required!"}), 403
 
-                    logger.debug("Auth bot is ready, checking officer status...")
-                    logger.debug("Checking if user is officer in any guild...")
-                    officer_guilds = auth_bot.check_officer(str(discord_id), config.SUPERADMIN_USER_ID)  # type: ignore[attr-defined]
-                    logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
-
-                    if not officer_guilds:  # If user is not officer in any organization
-                        logger.debug("User is not an officer in any organization!")
-                        return jsonify({"message": "Superadmin access required!"}), 403
-
-                    logger.debug(f"User is an officer in {len(officer_guilds)} guild(s)!")
-                except Exception as e:
-                    logger.error(f"Error verifying superadmin status: {e}")
-                    import traceback
-
-                    traceback.print_exc()
-                    return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
-            else:
-                logger.debug("No discord_id in token, trying username lookup...")
-                # Fallback to username lookup for older tokens (less secure)
-                username = token_data.get("username")
-                if not username:
-                    logger.debug("Token missing both discord_id and username!")
-                    return jsonify({"message": "Token missing user identification!"}), 401
-
-                logger.debug("Using username for lookup")
-                # Find the user's discord_id by looking through the bot's guild members
-                # This is a reverse lookup: username -> discord_id (less secure)
-                user_discord_id = None
-                try:
-                    # Get the auth bot from Flask app context
-                    logger.debug("Getting auth bot for username lookup...")
-                    auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
-                    if not auth_bot or not auth_bot.is_ready():  # type: ignore[attr-defined]
-                        logger.debug("Auth bot not available for username lookup!")
-                        return jsonify({"message": "Bot not available for verification!"}), 503
-
-                    logger.debug("Searching through guild members for username")
-                    for guild in auth_bot.guilds:  # type: ignore[attr-defined]
-                        logger.debug(f"Checking guild: {guild.name}")
-                        for member in guild.members:
-                            display_name = member.nick if member.nick else member.name
-                            if display_name == username:
-                                user_discord_id = member.id
-                                logger.debug(f"Found user in guild {guild.name}")
-                                break
-                        if user_discord_id:
-                            break
-
-                    if not user_discord_id:
-                        logger.debug("User not found in any Discord guild!")
-                        return jsonify({"message": "User not found in Discord!"}), 401
-
-                    logger.debug("Checking officer status for user")
-                    # Check if user is still an officer using the bot's check_officer method
-                    officer_guilds = auth_bot.check_officer(str(user_discord_id))  # type: ignore[attr-defined]
-                    logger.debug(f"Officer guilds result: {bool(officer_guilds)}")
-                    if not officer_guilds:  # If user is not officer in any organization
-                        logger.debug("User is not an officer in any organization!")
-                        return jsonify({"message": "Superadmin access required!"}), 403
-
-                    logger.debug(f"User is an officer in {len(officer_guilds)} guild(s)!")
-
-                except Exception as e:
-                    logger.error(f"Error in username lookup: {e}")
-                    import traceback
-
-                    traceback.print_exc()
-                    return jsonify({"message": f"Error verifying superadmin status: {str(e)}"}), 401
+            denial = superadmin_denial(str(discord_id))
+            if denial:
+                return jsonify({"message": denial[0]}), denial[1]
 
             logger.debug("Superadmin authentication successful!")
             return f(*args, **kwargs)
@@ -368,16 +325,15 @@ def member_required(f):
 
             # Check if user is a member using the bot (same pattern as auth_required)
             try:
-                auth_bot = current_app.auth_bot if hasattr(current_app, "auth_bot") else None
+                directory = discord_directory()
 
-                if not auth_bot:
-                    logger.debug("Discord bot not available")
+                if directory is None or not directory.is_ready():
+                    logger.debug("Discord directory not available")
                     return jsonify({"message": "Discord bot not available"}), 503
 
                 logger.debug("Checking if user is member of guild")
 
-                # Use bot's method to check membership
-                is_member = auth_bot.check_user_membership(int(user_discord_id), int(organization.guild_id))  # type: ignore[attr-defined]
+                is_member = directory.check_user_membership(int(user_discord_id), int(organization.guild_id))
                 if not is_member:
                     logger.debug("User is not a member of guild")
                     return jsonify(

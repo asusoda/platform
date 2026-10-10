@@ -2,6 +2,7 @@
 from flask import Blueprint, current_app, jsonify  # Add current_app
 from sentry_sdk import set_tag, start_transaction
 
+from modules.auth.access import any_officer_denial
 from modules.auth.decoraters import auth_required
 from modules.organizations.models import Organization
 
@@ -21,6 +22,9 @@ calendar_blueprint = Blueprint("calendar", __name__)
 @calendar_blueprint.route("/debug/organizations", methods=["GET"])
 def debug_organizations():
     """Debug endpoint to list all organizations."""
+    denial = any_officer_denial()
+    if denial:
+        return jsonify({"message": denial[0]}), denial[1]
     try:
         with next(db_connect.get_db()) as session:
             orgs = session.query(Organization).filter(Organization.is_active).all()

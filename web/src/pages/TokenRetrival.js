@@ -15,8 +15,9 @@ const TokenRetrival = () => {
   useEffect(() => {
     const handleTokenRetrival = async () => {
       const query = new URLSearchParams(location.search);
-      const accessToken = query.get('access_token');
-      const refreshToken = query.get('refresh_token');
+      const loginCode = query.get('code');
+      let accessToken = query.get('access_token');
+      let refreshToken = query.get('refresh_token');
       const error = query.get('error');
 
       // Handle error from OAuth callback
@@ -24,6 +25,21 @@ const TokenRetrival = () => {
         console.error('OAuth error:', error);
         navigate('/login');
         return;
+      }
+
+      // The API redirects with a one-time code; trade it for the tokens
+      if (loginCode) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        try {
+          setStatus('Exchanging login code...');
+          const exchange = await axios.post(`${config.apiUrl}/api/auth/exchange`, { code: loginCode });
+          accessToken = exchange.data.access_token;
+          refreshToken = exchange.data.refresh_token;
+        } catch (exchangeError) {
+          console.error('Login code exchange failed:', exchangeError);
+          navigate('/login');
+          return;
+        }
       }
 
       // Handle successful OAuth callback with token pair

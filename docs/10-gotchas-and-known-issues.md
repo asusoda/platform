@@ -102,31 +102,29 @@ pattern.
 
 ## C. Security-relevant
 
-### C1. `/api/bot/*` is entirely unauthenticated
+### C1. `/api/bot/*` needs an officer
 
-Every route in `modules/bot/api.py` — ~16 endpoints including `startactivegame`, `endactivegame`,
-`uploadgame`, `awardpoints`, `cleanactivegame` — has **no auth decorator at all**. Anyone who can
-reach the API can create Discord channels and roles in the guild, start and end games, and award
-points. Since the API is publicly reachable at `api.thesoda.io`, this is exposed.
+Every route in `modules/bot/api.py` (start and end games, upload games, award points) had no auth.
+A `before_request` hook now requires an officer of any org, as does `/api/calendar/debug/organizations`.
+In report mode the call goes through and logs `reason=no_platform_credential` or `reason=not_officer`.
 
-### C2. Tokens travel in the URL query string
+### C2. Login tokens no longer travel in the URL
 
-`modules/auth/api.py:94` redirects to
-`{CLIENT_URL}/auth/?access_token=…&refresh_token=…`. Access and refresh tokens end up in browser
-history, in the `Referer` header of any subsequent request, and in every proxy and CDN access log
-on the path. A POST body or a `HttpOnly` cookie would avoid this.
+`/api/auth/callback` redirects with a one-time code that the web app trades at
+`POST /api/auth/exchange`. The OAuth `state` parameter is checked. See
+[Authentication](./04-authentication.md).
 
-### C3. `FLASK_SECRET_KEY` defaults to `"dev-secret-key"`
+### C3. Session key
 
-`main.py:23`. Sessions are signed with it. If it is not set in production, anyone can forge a
-session cookie.
+`main.py` signs sessions with `FLASK_SECRET_KEY`, else `SECRET_KEY`, else a random key per start.
+It used to default to `"dev-secret-key"`.
 
-### C4. The token blacklist is in-memory and per-process
+### C4. Token revocations are in the database
 
-`TokenManager.blacklist` is a plain `set()` (`modules/utils/TokenManager.py:22`). `delete_token()`
-adds to it. It is wiped on every restart, so "revoked" access tokens become valid again after a
-deploy — until they expire naturally (30 min). Refresh-token revocation *is* persistent (DB-backed),
-so the practical blast radius is one access-token lifetime.
+`TokenManager.delete_token()` writes a `revoked_tokens` row (a hash of the token and its expiry), so
+a revoked access token stays revoked across restarts and for every process. App tokens get a `jti`
+and an `app_tokens` row; officers list theirs with `GET /api/auth/appTokens` and revoke one with
+`DELETE /api/auth/appTokens/<id>`. The hourly cleanup drops revocations of tokens that have expired.
 
 ### C5. `DELETE /api/superadmin/remove_org/<id>` has no cascade
 
@@ -142,6 +140,9 @@ no confirmation step and no soft-delete (`is_active=False`) alternative wired up
 inserts the negative row and commits. Nothing locks the user's rows between the read and the write.
 Two concurrent checkouts can both pass the balance check and overdraw the account. SQLite's
 single-writer model makes this hard to hit but does not prevent it.
+
+Prices and totals also came from the client. `price_mismatch()` now compares them with the catalog
+(`reason=checkout_price_mismatch`, 409 when enforcing), and quantities below 1 are refused.
 
 ### C7. `@error_handler` leaks exception text
 
@@ -185,16 +186,10 @@ game state. Any move to gunicorn has to solve that first.
 
 `.env.template` and `docker-compose.yml` set `IS_PROD`. `PROD` is dead.
 
-### D4. `SYS_ADMIN` vs `ADMIN_USER_ID` — crossed wires
+### D4. `SYS_ADMIN` names the superadmin
 
-```python
-self.SYS_ADMIN            = os.environ.get("ADMIN_USER_ID")   # config.py:74
-self.SUPERADMIN_USER_ID   = os.environ.get("SYS_ADMIN")       # config.py:80
-```
-
-The attribute named `SYS_ADMIN` reads the env var `ADMIN_USER_ID`, and the attribute used for
-superadmin checks reads the env var `SYS_ADMIN`. **Set `SYS_ADMIN` in `.env`.** `config.SYS_ADMIN`
-is unused.
+`config.SUPERADMIN_USER_ID` reads the env var `SYS_ADMIN`. **Set `SYS_ADMIN` in `.env`.** The unused
+`config.SYS_ADMIN` attribute (which read `ADMIN_USER_ID`) was removed.
 
 ### D5. Database URL config is fiction
 
@@ -307,7 +302,7 @@ If you are adding logic to checkout, points, or auth, you are the first person t
 | `web/src/components/GameTable.js` | zero-byte file |
 | Commented-out `BotFork.setup_game` | `bot.py:261+` |
 | Dependencies with no usage | `gunicorn`, `psycopg2-binary`, `pymongo`, `flask-socketio`, `python-socketio`, `flask-discord`, `selenium`, `webdriver-manager`, `gspread`, `oauth2client`, `anthropic`, `openai`, `google-genai`, `google-generativeai`, `dateparser`, `timefhuman` |
-| Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD`, `SYS_ADMIN` (the attribute) |
+| Config values with no usage | `AVERY_BOT_TOKEN`, `AUTH_BOT_TOKEN`, `TNAY_API_URL`, `ONEUP_*`, `OPEN_ROUTER_CLAUDE_API_KEY`, `DISCORD_*_WEBHOOK_URL`, `GEMINI_API_KEY`, all `DB_*`, `PROD` |
 
 That dependency list is worth a cleanup pass on its own — it inflates image size and the
 vulnerability surface that Dependabot reports against.

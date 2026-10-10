@@ -1,5 +1,6 @@
 import asyncio
 import os
+import secrets
 import subprocess  # nosec B404 - subprocess needed for git commit hash retrieval
 import threading
 from datetime import UTC, datetime
@@ -17,11 +18,19 @@ from modules.public.api import public_blueprint
 from modules.storefront.api import storefront_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.users.api import users_blueprint
+from modules.utils.discord_directory import DiscordDirectory
 from modules.utils.request_log import register_request_logging
 from shared import app, config, create_auth_bot, logger, tokenManager
 
-# Set a secret key for session management
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
+# Session cookies are signed with this key. A known default would let anyone forge a session,
+# so without FLASK_SECRET_KEY or SECRET_KEY a random key is used and sessions end on restart.
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY")
+if not app.secret_key:
+    logger.warning("FLASK_SECRET_KEY is not set; using a random session key until restart")
+    app.secret_key = secrets.token_hex(32)
+
+# Officer, member and guild lookups go to Discord's REST API, so the API does not need the bot
+app.discord_directory = DiscordDirectory(config.BOT_TOKEN)
 
 # Initialize multi-organization calendar service
 multi_org_calendar_service = MultiOrgCalendarService(logger)
