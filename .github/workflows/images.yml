@@ -1,6 +1,6 @@
 name: Images
 
-# Builds the API and dashboard images on every PR so a broken Dockerfile is caught before merge.
+# Builds the API, web and dashboard images on every PR so a broken Dockerfile is caught before merge.
 # On main, pushes them to GHCR tagged with the commit sha and "main".
 
 on:
@@ -24,6 +24,8 @@ jobs:
         include:
           - name: api
             dockerfile: Dockerfile.api
+          - name: web
+            dockerfile: Dockerfile.web
           - name: dashboard
             dockerfile: Dockerfile.dashboard
     steps:
@@ -43,6 +45,7 @@ jobs:
       id: image
       run: echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
 
+    # Dockerfile.dashboard stops on an empty VITE_API_URL. With no repository variable, the image calls localhost.
     - name: Build and push
       uses: docker/build-push-action@v6
       with:
@@ -51,8 +54,9 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         build-args: |
           COMMIT_HASH=${{ github.sha }}
-          VITE_API_URL=${{ vars.VITE_API_URL }}
+          VITE_API_URL=${{ vars.VITE_API_URL || 'http://localhost:8000' }}
           VITE_SITE_URL=${{ vars.VITE_SITE_URL }}
+          REACT_APP_API_URL=${{ vars.REACT_APP_API_URL }}
         tags: |
           ${{ steps.image.outputs.ref }}:${{ github.sha }}
           ${{ steps.image.outputs.ref }}:main
