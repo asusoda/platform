@@ -42,18 +42,21 @@ The database is Postgres, or SQLite for a small deployment. Alembic makes the sc
 
 ## Start
 
-You need Podman with podman-compose (or Docker), make and uv.
+You need Podman with podman-compose (or Docker), make, uv and the Doppler CLI. `deploy/install-doppler.sh` installs the Doppler CLI.
 
 ```bash
 git clone https://github.com/asusoda/platform.git
 cd platform
 uv sync
 uv run pre-commit install
-cp .env.template .env      # Discord app, bot token, secrets
+deploy/install-doppler.sh ~/.local/bin   # the Doppler CLI, if you do not have it
+export PATH="$HOME/.local/bin:$PATH"
+doppler login && doppler setup   # the settings: Discord app, bot token, secrets
+doppler configs tokens create local --plain | doppler configure set token --scope "$PWD"
 make dev
 ```
 
-The API is at http://localhost:8000 and the dashboard at http://localhost:5001. Create an org with `flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
+The API is at http://localhost:8000 and the dashboard at http://localhost:5001. Create an org with `doppler run -- uv run flask --app main org create`. [Getting started](docs/getting-started.md) has the settings and the steps to run Platform on one RunPod pod.
 
 ## Commands
 
@@ -63,7 +66,7 @@ make up        # start in the background
 make down      # stop
 make check     # fix lint and format, then type check, tests, migrations
 make ci        # the checks that CI runs, with no changes to files
-make shell     # shell in the API container
+make shell     # shell in the API container, with the settings from Doppler
 make deploy    # deploy on the server
 ```
 

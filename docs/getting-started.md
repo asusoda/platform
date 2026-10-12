@@ -10,6 +10,7 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
 | Podman and podman-compose, or Docker | The containers. The Makefile finds the one you have |
 | make | Every command |
 | Node 26 (`.nvmrc`) | Only to run `dashboard/` or `site/` outside a container |
+| Doppler CLI | The settings. `deploy/install-doppler.sh ~/.local/bin` installs it. `~/.local/bin` must be on `PATH` |
 
 ## Run it on your machine
 
@@ -20,23 +21,33 @@ This page tells you how to run Platform on your machine, and on one RunPod pod w
    uv run pre-commit install
    ```
 
-2. Copy `.env.template` to `.env`. Set the values in the table below.
-3. Start the containers with `make dev`. The API is at http://localhost:8000, and the dashboard at http://localhost:5001.
-4. Create an org:
+2. Get the settings from Doppler:
 
    ```bash
-   flask --app main org create --name "Robotics Club" --prefix robotics --guild-id <server id> --officer-role-id <role id>
+   doppler login
+   doppler setup      # select the Platform project and your development config
+   doppler configs tokens create local --plain | doppler configure set token --scope "$PWD"
+   ```
+
+   `make up` and `make dev` give the Doppler token to the containers, so they accept only a service token. The last command makes a read-only service token for your config and keeps it for this folder. Your account token then cannot go into a container.
+
+3. In that config, set the values in the table below.
+4. Start the containers with `make dev`. The API is at http://localhost:8000, and the dashboard at http://localhost:5001.
+5. Create an org:
+
+   ```bash
+   doppler run -- uv run flask --app main org create --name "Robotics Club" --prefix robotics --guild-id <server id> --officer-role-id <role id>
    ```
 
    The optional modules of a new org start off. Add them on the dashboard Explore page, or with `--on points,storefront`.
 
 `make dev` adds `docker-compose.dev.yml`. It runs `python3 main.py` with the Flask reloader and mounts the source, so a Python change does not need a rebuild. The bot runs in the `bot` container.
 
-To run the API with no container, run `uv run alembic upgrade head`, then `uv run python main.py`. In this mode the API also starts the bot in a thread. Set `RUN_BOT_IN_API=false` to stop that.
+To run the API with no container, run `doppler run -- uv run alembic upgrade head`, then `doppler run -- uv run python main.py`. In this mode the API also starts the bot in a thread. Set `RUN_BOT_IN_API=false` to stop that.
 
 ## Settings
 
-`core/config.py` reads `.env`. `.env.template` lists every setting with a comment. A module page lists the settings of its module.
+Doppler holds the settings. `core/config.py` reads them from the environment, and `doppler run` and the container entrypoint set it. Platform reads no `.env` file. `.env.template` lists every setting with a comment. A module page lists the settings of its module. See [Operations](./operations.md#settings) for a server.
 
 | Variable | Use |
 | --- | --- |
@@ -51,6 +62,7 @@ To run the API with no container, run `uv run alembic upgrade head`, then `uv ru
 | `MCP_PUBLIC_URL` | Only when the MCP server has its own host: its public URL, such as `https://<pod id>-8001.proxy.runpod.net/mcp`. The default is `<ACCOUNTS_BASE_URL>/mcp`. MCP clients can connect with OAuth at this URL. See [Authentication](./authentication.md#oauth-for-mcp-clients) |
 | `FORWARDED_ALLOW_IPS` | Only when the reverse proxy in front of the MCP server connects from an address other than this computer or the default gateway. The MCP server reads the client IP from `X-Forwarded-For` of these addresses, for the OAuth rate limits. Never `*` |
 | `ACCESS_ENFORCE` | `false` logs refused requests and lets them through. `true` refuses them. See [Authentication](./authentication.md) |
+| `GOOGLE_SERVICE_ACCOUNT` | The JSON key of the default Google service account for Google Calendar. If it is not set, only orgs that save their own Google key on the Integrations page have Google Calendar |
 
 ### Discord apps
 
@@ -69,7 +81,7 @@ make down      # stop
 make logs      # last 50 log lines
 make status    # container status
 make health    # container health
-make shell     # shell in the API container
+make shell     # shell in the API container, with the settings from Doppler
 make check     # fix lint and format, then type check, tests, migrations
 make ci        # the same checks with no changes to files; CI runs this
 ```
@@ -87,8 +99,8 @@ This diagram shows what the script does at each start.
 ```mermaid
 flowchart TD
   start["deploy/runpod/start.sh"] --> fetch["Get the head of PLATFORM_BRANCH"]
-  fetch --> keys["Read /workspace/data/keys.env, or make it"]
-  keys --> build["uv sync and the dashboard build"]
+  fetch --> doppler["Install the Doppler CLI and run again in doppler run"]
+  doppler --> build["uv sync and the dashboard build"]
   build --> migrate["alembic upgrade head"]
   migrate --> org["Create the org on the first start"]
   org --> dash["Dashboard on port 5000"]
@@ -97,7 +109,9 @@ flowchart TD
   org --> api["API on port 8000"]
 ```
 
-Caution: keep `/workspace/data/keys.env`. It holds `SECRET_KEY` and `SECRETS_KEY`. If you lose it, the stored org secrets cannot be read.
+The settings come from Doppler. Set `SECRET_KEY` and `SECRETS_KEY` in the Doppler config of the pod. Keep `SECRETS_KEY`: if it changes, the stored org secrets cannot be read.
+
+Caution: older versions of the script wrote the keys to `/workspace/data/keys.env`. If that file is on the volume, copy its `SECRET_KEY` and `SECRETS_KEY` to Doppler. If the `SECRETS_KEY` values in Doppler do not include the key of the file, the pod does not start.
 
 1. Create a network volume and mount it at `/workspace`.
 2. Create a pod from the image `nikolaik/python-nodejs:python3.12-nodejs26` with the ports `8000/http`, `5000/http` and `8001/http`.
@@ -107,14 +121,15 @@ Caution: keep `/workspace/data/keys.env`. It holds `SECRET_KEY` and `SECRETS_KEY
    bash -c "curl -fsSL https://raw.githubusercontent.com/theaisocietyasu/bedrock/$PLATFORM_BRANCH/deploy/runpod/start.sh | bash"
    ```
 
-4. Set the pod environment from the table below.
+4. Set the pod environment from the table below. Set the other settings in Doppler.
 5. Add `<API_URL>/api/auth/callback` as a redirect in the Discord app. For Godfather CLI sign-in, also add `<API_URL>/api/compute/cli/callback`.
 
 | Variable | Value |
 | --- | --- |
+| `DOPPLER_TOKEN` | A Doppler service token for the config of the pod. Required |
 | `PLATFORM_BRANCH` | The branch to run |
 | `ORG_PREFIX`, `ORG_NAME`, `ORG_GUILD_ID`, `ORG_OFFICER_ROLE_ID`, `ORG_MODULES_OFF` | The org that the script creates on the first start |
-| `CLIENT_ID`, `CLIENT_SECRET`, `BOT_TOKEN`, `SYS_ADMIN` | As in the settings above |
+| `CLIENT_ID`, `CLIENT_SECRET`, `BOT_TOKEN`, `SYS_ADMIN` | As in the settings above. Set them in Doppler |
 | `RUN_BOT` | `false` to not start the bot process. The API still uses `BOT_TOKEN` |
 | `API_URL`, `WEB_URL` | Only for a custom domain. The defaults are the pod proxy URLs, `https://<pod id>-8000.proxy.runpod.net` and `-5000` |
 

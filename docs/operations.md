@@ -1,6 +1,6 @@
 # Operations
 
-This page tells you how to deploy Platform, roll it back, move it to Postgres, run org apps on the server, and turn off routes. To run Platform on one RunPod pod, see [Getting started](./getting-started.md).
+This page tells you how to set the settings in Doppler, deploy Platform, roll it back, move it to Postgres, run org apps on the server, and turn off routes. To run Platform on one RunPod pod, see [Getting started](./getting-started.md).
 
 ## Compose services
 
@@ -18,15 +18,45 @@ This page tells you how to deploy Platform, roll it back, move it to Postgres, r
 
 The `api` and `mcp` ports bind only `127.0.0.1`, so a client reaches them only through the reverse proxy and its TLS. Nginx Proxy Manager forwards the API host to `127.0.0.1:8000` and its `/mcp` location to `127.0.0.1:8001`.
 
-The API mounts `./data` (SQLite database and JWT keys), `./.env` and `./google-secret.json`.
-
-Caution: make sure that `google-secret.json` is on the host, also if it is empty. If it is not there, the API container does not start.
+The API mounts only `./data` (SQLite database and JWT keys). The settings come from Doppler. See [Settings](#settings).
 
 The API uses one gunicorn worker because the one-time sign-in codes are in process memory. Increase `--workers` only after those codes move to the database.
 
+## Settings
+
+Doppler holds the settings of Platform. Platform reads no `.env` file and no key file. `.env.template` lists each setting with a comment.
+
+- The `api`, `bot`, `worker` and `mcp` containers start with `deploy/docker-entrypoint.sh`. It runs the command in `doppler run`, which gets the settings with `DOPPLER_TOKEN`.
+- `IS_PROD`, `RUN_BOT_IN_API`, `LOG_FORMAT`, `FLASK_ENV`, `FLASK_DEBUG` and `GIT_COMMIT_HASH` come from the image or `docker-compose.yml`. Each one replaces a Doppler value of the same name. Doppler sets all other values.
+- `make` runs Compose and Alembic on the host in `doppler run`. Compose reads the build args, `POSTGRES_PASSWORD` and the container caps from Doppler. Alembic reads `DATABASE_URL`.
+- `make` gives `DOPPLER_TOKEN` to the containers. It reads the token from the environment, or from the Doppler CLI configuration of the project folder. For `make deploy`, the project folder is `PROJECT_DIR`.
+- `make up`, `make dev`, `make deploy` and `make rollback` give the token to the containers, so they accept only a service token (`dp.st.`). A personal or CLI token can read every project, so it must not go into a container.
+- `doppler run` uses `--no-fallback`, so it writes no copy of the settings to the disk. If Doppler is not available, a container does not start and `make deploy` stops.
+- If a container with `IS_PROD=true` has no `DOPPLER_TOKEN`, it stops with an error.
+- `GOOGLE_SERVICE_ACCOUNT` holds the JSON key of the Google service account. It replaces `google-secret.json`.
+
+A container reads the settings each time it starts. To use a changed setting, restart the container, for example `docker compose restart api`.
+
+Set up a server:
+
+1. Install the Doppler CLI: `sudo deploy/install-doppler.sh`.
+2. In Doppler, make a service token with read access for the config of this server.
+3. In the project folder, as the user that runs `make`, keep the token in the Doppler CLI: `read -rs T; echo "$T" | doppler configure set token --scope "$PWD"; unset T`. Paste the token, then push Enter.
+4. Run `make doppler-check`. It must show no error.
+
+Caution: copy `SECRETS_KEY` exactly. If it changes, Platform cannot read the stored org secrets.
+
+Move a server from `.env` to Doppler:
+
+1. In the Doppler dashboard, open the config of the server and import the text of `.env`.
+2. Add the secret `GOOGLE_SERVICE_ACCOUNT`. Its value is the text of `google-secret.json`.
+3. Run `make deploy`, then `make health`.
+4. Run `flask --app main config check` in the API container (`make shell`). It must show no `FAIL`.
+5. Remove `.env` and `google-secret.json` from the server.
+
 ## Container limits
 
-Each container has a memory and a CPU cap, so one process cannot take the whole server. The values come from `.env`, with these defaults:
+Each container has a memory and a CPU cap, so one process cannot take the whole server. The values come from Doppler, with these defaults:
 
 | Service | Memory | CPUs | Settings |
 | --- | --- | --- | --- |
@@ -141,12 +171,12 @@ flowchart TD
 2. Select the changed images. A change in `dashboard/` or `Dockerfile.dashboard` selects `dashboard`. A change in `site/`, `docs/` or `Dockerfile.site` selects `site`. A change in a compose file or the `Makefile` selects all three. A change in `.github/` or another `.md` file selects nothing. All other changes select `api`.
 3. Tag the current images as `:previous`.
 4. Pull each changed image from GHCR as `$(IMAGE_REPO)-<service>:<commit>` and tag it with the local `:latest` name, for example `soda-internal-api:latest`. `IMAGE_REPO` defaults to `ghcr.io/asusoda/platform`. If a pull fails, build that image on the server. With `IMAGE_SOURCE=build`, build all of them on the server. The old containers keep running during this step.
-5. Run `uv run alembic upgrade head` on the host. If it fails, the deploy stops and the old containers keep running.
+5. Run `uv run alembic upgrade head` on the host in `doppler run`. If it fails, the deploy stops and the old containers keep running.
 6. If the `soda-web` container of the removed `web` service exists, remove it. Remove the `soda-web` images if they exist. If this deploy changed `api` or `dashboard`, recreate `api`, `bot` and `dashboard` together with `up -d --force-recreate`, and `mcp` and `worker` too when their containers exist. podman-compose 1.0.6 recreates a container only when the compose config hash changes, and a pulled image does not change the hash. Docker Compose gets `--remove-orphans`, so a container of a removed service does not keep a port. podman-compose 1.0.6 does not get that flag, because its `--remove-orphans` removes every project container this command did not name, including `soda-site`. Then wait up to 60 seconds for each container to be healthy. When the app answers on its host port, the deploy runs `podman healthcheck run`, so the container does not wait for the next health check. Check that each container runs the new image. They are recreated together because `dashboard`, `bot`, `mcp` and `worker` require the `api` container. podman-compose 1.0.6 recreates a service's dependencies with it. It cannot replace `api` while other containers require it.
 7. If this deploy changed `site`, and `soda-site:latest` or the `soda-site` container exists, recreate `site` alone with `up -d --no-deps --force-recreate`. If this deploy did not change `site` and `soda-site:latest` exists, start `soda-site` with `up -d --no-deps`. `site` does not require `api`, so the other containers keep running.
 8. If an image did not change and its container exists, that container must run the `:latest` tag. Copy the current SHA to `.deploy/rollback-sha` when it differs from the new commit. Write the new commit to `.deploy/deployed-sha`. Each write replaces the file in one step.
 
-Caution: set `VITE_API_URL` in `.env` before you deploy. If it is empty, the `dashboard` container stops and the deploy fails.
+Caution: set `VITE_API_URL` in Doppler before you deploy. If it is empty, the `dashboard` container stops and the deploy fails.
 
 Caution: when the `soda-worker` container exists, the deploy fails if `worker` stops. The worker stops at once on SQLite. On a SQLite server, remove it with `podman rm -f soda-worker`.
 
@@ -167,7 +197,7 @@ Do the first deploy after a large upgrade by hand. For an upgrade from `asusoda/
 1. Pause CD, or do the deploy before the next push to `main`.
 2. Run `make backup`. If the old `Makefile` has no `backup` target, copy `data/user.db` to `data/user.db.pre-upgrade`. Keep `data/jwt_*.pem`.
 3. Run `uv run alembic current`. The result must be `a1b2c3d4e5f6`, the last SoDA migration.
-4. Add `VITE_API_URL` to `.env`, for example `https://api.thesoda.io`.
+4. Add `VITE_API_URL` to Doppler, for example `https://api.thesoda.io`.
 5. If the database has no `alembic_version` table (`create_all` made it), run `uv run alembic stamp a1b2c3d4e5f6`. If you do not, `alembic upgrade head` stops with "table already exists".
 6. Keep the current commit for a rollback: `OLD=$(git rev-parse HEAD)`.
 7. Run `git fetch origin main`, then `git reset --hard origin/main`.
@@ -193,11 +223,11 @@ Caution: `make rollback` alone does not work across the upgrade from `a1b2c3d4e5
 
 The API reads `DATABASE_URL`. CI runs the tests on SQLite and Postgres 16. Do these steps on a staging server first.
 
-1. Add `POSTGRES_PASSWORD` to `.env`. Start the database: `docker compose --profile postgres up -d postgres`.
+1. Add `POSTGRES_PASSWORD` to Doppler. Start the database: `doppler run -- docker compose --profile postgres up -d postgres`.
 2. Make the schema: `DATABASE_URL=postgresql://platform:<password>@localhost:5432/platform uv run alembic upgrade head`.
 3. Stop the writers: `docker compose stop api bot`.
 4. Copy the data: `uv run python deploy/copy_sqlite_to_postgres.py sqlite:///./data/user.db <postgres url>`. The script refuses tables that have rows. It stops with an error if a row count or an org's points total is different.
-5. Set `DATABASE_URL=postgresql://platform:<password>@postgres:5432/platform` in `.env`. Run `docker compose --profile postgres up -d`. The `worker` service starts and runs the jobs.
+5. Set `DATABASE_URL=postgresql://platform:<password>@postgres:5432/platform` in Doppler. Run `doppler run -- docker compose --profile postgres up -d`. The `worker` service starts and runs the jobs.
 6. Keep `data/user.db` for two weeks or more. To go back, remove `DATABASE_URL` and restart.
 
 ## Host the docs site
@@ -211,7 +241,7 @@ After this, `make deploy` pulls a new site image when `site/` or `docs/` changes
 
 ## Command-line tools
 
-Run these in the API container (`make shell`) or on your machine with the same `.env`:
+Run these in the API container (`make shell`), or on your machine in `doppler run`, for example `doppler run -- uv run flask --app main org list`:
 
 ```bash
 flask --app main config check                    # settings, database and migrations; exits non-zero on a fault
@@ -231,8 +261,8 @@ flask --app main jobs run points.import_event_csv -a org_prefix=robotics -a even
 
 Caution: end a folder prefix with `/`. If you do not, `/api/bot` also turns off `/api/botstatus`.
 
-1. Set `DISABLED_ROUTES` in the server's `.env`.
-2. Restart the API: `docker compose restart api`. The API reads `.env` when it starts.
+1. Set `DISABLED_ROUTES` in the Doppler config of the server.
+2. Restart the API: `docker compose restart api`. The API reads its settings from Doppler when it starts.
 3. Make sure that a turned-off path returns 404: `curl -i https://<api host>/api/public/getnextevent`.
 
 The example AIS server sets these prefixes, because the routes are broken:
@@ -254,7 +284,7 @@ DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
 - If `SENTRY_DSN` is set, the API, bot, job worker and MCP server send errors to Sentry, with a `service` tag (`api`, `bot`, `worker`, `mcp`) and the commit as the release. They also send log lines at `SENTRY_LOGS_LEVEL` (default `WARNING`) and above, and traces for `SENTRY_TRACES_SAMPLE_RATE` of requests (default `0.1`). `SENTRY_PROFILES_SAMPLE_RATE` (default `0`) turns on profiles. `SENTRY_ENVIRONMENT` (default `production`) names the environment.
 - Platform keeps its own error log, with no outside service. Each process (`api`, `bot`, `worker`, `mcp`) records every log line at ERROR or above in the `error_groups` table, with the stack trace, the org and the route. Each group also keeps the context of its last event: the request method and path (no query string), the job name, the logger and line, the host, process, thread, release (`GIT_COMMIT_HASH`) and Python version. The dashboard sends browser errors and API calls that got no answer or a status of 500 or more. Repeats of one error add to one group.
 - Officers see their org's errors on Activity, Errors, and resolve or delete them there, one at a time or as a selection. A resolved error opens again when it happens again. A deleted error that happens again starts a new group. The superadmin page shows the errors of every org and the errors with no org, such as a failed job.
-- Discord alerts: an officer adds a destination with the Errors event on the Alerts page. See [Webhooks](./webhooks.md). `ERROR_WEBHOOK_URL` in `.env` gets every new error of every org and of the server. Each new or returning error posts one message, at most 30 for each process in an hour.
+- Discord alerts: an officer adds a destination with the Errors event on the Alerts page. See [Webhooks](./webhooks.md). `ERROR_WEBHOOK_URL` in Doppler gets every new error of every org and of the server. Each new or returning error posts one message, at most 30 for each process in an hour.
 - Sentry is optional. Set `SENTRY_DSN` only if you want Sentry in addition to the error log.
 
 Caution: do not delete `data/jwt_private.pem` or `data/jwt_public.pem`. If you delete them, every officer must sign in again.

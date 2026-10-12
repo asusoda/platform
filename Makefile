@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell clean deploy dev prod rollback status health discard-local-changes check ci backup migrate
+.PHONY: help doppler-check doppler-check-service build up down logs shell clean deploy dev prod rollback status health discard-local-changes check ci backup migrate
 
 # Use bash as the shell for all commands
 SHELL := /usr/bin/env bash
@@ -28,6 +28,21 @@ endef
 COMPOSE_CMD := $(shell if command -v podman-compose > /dev/null 2>&1; then echo "podman-compose"; elif docker compose version > /dev/null 2>&1; then echo "docker compose"; else echo "docker-compose"; fi)
 CONTAINER_CMD := $(shell if command -v podman > /dev/null 2>&1; then echo "podman"; else echo "docker"; fi)
 
+# Settings come from Doppler. See docs/operations.md, "Settings".
+# On the host, Compose reads the build args, POSTGRES_PASSWORD and the container caps from Doppler, and Alembic
+# reads DATABASE_URL. Each container gets DOPPLER_TOKEN and reads its settings itself (deploy/docker-entrypoint.sh).
+# DOPPLER_TOKEN comes from the environment, or from the Doppler CLI configuration of this directory. For deploy it
+# comes from the configuration of PROJECT_DIR. Targets that start containers accept only a service token
+# (doppler-check-service).
+ifndef DOPPLER_TOKEN
+doppler_token = $(shell command -v doppler > /dev/null 2>&1 && doppler configure get token --plain --scope "$(1)" 2>/dev/null)
+DOPPLER_TOKEN := $(call doppler_token,$(CURDIR))
+deploy: DOPPLER_TOKEN := $(call doppler_token,$(PROJECT_DIR))
+endif
+export DOPPLER_TOKEN
+WITH_SETTINGS := doppler run --no-fallback --no-check-version --
+COMPOSE_SET := $(WITH_SETTINGS) $(COMPOSE_CMD)
+
 # Colors for output
 RED := \033[0;31m
 GREEN := \033[0;32m
@@ -54,29 +69,44 @@ help:
 	@echo "  make ci                     - Run the same checks without changing files (what CI runs)"
 	@echo "  make backup                 - Copy the SQLite database to data/backups (keeps the last 14)"
 	@echo "  make migrate                - Run alembic database migrations"
+	@echo "  make doppler-check          - Check that the Doppler CLI and a Doppler token are available"
+
+# Stop with a message when the settings cannot come from Doppler
+doppler-check:
+	@command -v doppler > /dev/null 2>&1 || { \
+		echo -e "$(RED)[ERROR]$(NC) The Doppler CLI is not installed. Run deploy/install-doppler.sh."; exit 1; }
+	@[ -n "$$DOPPLER_TOKEN" ] || { \
+		echo -e "$(RED)[ERROR]$(NC) No Doppler token. Run doppler setup in this directory, or set DOPPLER_TOKEN. See docs/operations.md."; exit 1; }
+
+# The containers get DOPPLER_TOKEN, so it must be a service token, which reads only one config
+doppler-check-service: doppler-check
+	@case "$$DOPPLER_TOKEN" in dp.st.*) ;; *) \
+		echo -e "$(RED)[ERROR]$(NC) This target gives DOPPLER_TOKEN to the containers, so it needs a Doppler service token (dp.st.)."; \
+		echo "See docs/getting-started.md (your machine) or docs/operations.md, \"Settings\" (a server)."; \
+		exit 1 ;; esac
 
 # Build container images
-build:
+build: doppler-check
 	@echo -e "$(GREEN)[INFO]$(NC) Building container images with BuildKit..."
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build
+		DOCKER_BUILDKIT=1 $(COMPOSE_SET) build
 
 # Build only API
-build-api:
+build-api: doppler-check
 	@echo -e "$(GREEN)[INFO]$(NC) Building API image..."
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build api
+		DOCKER_BUILDKIT=1 $(COMPOSE_SET) build api
 
 # Build only the dashboard
-build-dashboard:
+build-dashboard: doppler-check
 	@echo -e "$(GREEN)[INFO]$(NC) Building dashboard image..."
-	@DOCKER_BUILDKIT=1 $(COMPOSE_CMD) build dashboard
+	@DOCKER_BUILDKIT=1 $(COMPOSE_SET) build dashboard
 
 # Start services in development mode
-up:
+up: doppler-check-service
 	@echo -e "$(GREEN)[INFO]$(NC) Starting services..."
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		$(COMPOSE_CMD) up -d
+		$(COMPOSE_SET) up -d
 
 # Stop services
 down:
@@ -93,7 +123,7 @@ logs-follow:
 
 # Open shell in API container
 shell:
-	@$(COMPOSE_CMD) exec api /bin/bash
+	@$(COMPOSE_CMD) exec api docker-entrypoint.sh /bin/bash
 
 # Clean up everything
 clean:
@@ -129,7 +159,7 @@ discard-local-changes:
 # .deploy/deployed-sha stores the last commit that finished this target.
 # .deploy/rollback-sha stores that commit when a later deploy finishes, so rollback can restore it.
 # .deploy/rollback-api and .deploy/rollback-site record that this deploy tagged that image as previous.
-deploy:
+deploy: doppler-check-service
 	@set -e; \
 		echo -e "$(GREEN)[INFO]$(NC) Starting deployment process..."; \
 		if [ "$$(pwd)" != "$(PROJECT_DIR)" ]; then \
@@ -245,7 +275,7 @@ deploy:
 		build_images() { \
 			echo -e "$(GREEN)[INFO]$(NC) Building on this server:$$*"; \
 			export COMMIT_HASH="$$NEW_HEAD"; \
-			BUILDAH_LAYERS=true DOCKER_BUILDKIT=1 $(COMPOSE_CMD) -f docker-compose.yml $$SITE_PROFILE_ARGS build "$$@"; \
+			BUILDAH_LAYERS=true DOCKER_BUILDKIT=1 $(COMPOSE_SET) -f docker-compose.yml $$SITE_PROFILE_ARGS build "$$@"; \
 		}; \
 		if [ -n "$$SERVICES_TO_BUILD" ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Getting changed service images:$$SERVICES_TO_BUILD"; \
@@ -256,7 +286,7 @@ deploy:
 			if [ -n "$$LOCAL_BUILDS" ]; then build_images $$LOCAL_BUILDS; fi; \
 		fi; \
 		echo -e "$(GREEN)[INFO]$(NC) Running database migrations..."; \
-		uv run alembic upgrade head || { echo -e "$(RED)[ERROR]$(NC) Database migration failed!"; exit 1; }; \
+		$(WITH_SETTINGS) uv run alembic upgrade head || { echo -e "$(RED)[ERROR]$(NC) Database migration failed!"; exit 1; }; \
 		if $(CONTAINER_CMD) inspect soda-web >/dev/null 2>&1; then \
 			echo -e "$(GREEN)[INFO]$(NC) Removing the soda-web container of the removed web service..."; \
 			$(CONTAINER_CMD) rm -f soda-web; \
@@ -268,7 +298,7 @@ deploy:
 			if [ "$$MCP_ON" -eq 1 ]; then SERVICES_TO_START="$$SERVICES_TO_START mcp"; fi; \
 			if [ "$$WORKER_ON" -eq 1 ]; then SERVICES_TO_START="$$SERVICES_TO_START worker"; fi; \
 			echo -e "$(GREEN)[INFO]$(NC) Recreating changed services:$$SERVICES_TO_START"; \
-			$(COMPOSE_CMD) -f docker-compose.yml $$PROFILE_ARGS up -d --force-recreate $$ORPHAN_ARGS $$SERVICES_TO_START; \
+			$(COMPOSE_SET) -f docker-compose.yml $$PROFILE_ARGS up -d --force-recreate $$ORPHAN_ARGS $$SERVICES_TO_START; \
 		else \
 			echo -e "$(YELLOW)[WARNING]$(NC) No deploy-impacting service changes detected. Skipping build/restart."; \
 		fi; \
@@ -340,12 +370,12 @@ deploy:
 				write_file .deploy/rollback-site site; \
 			fi; \
 			pull_image site || build_images site; \
-			$(COMPOSE_CMD) -f docker-compose.yml $$SITE_PROFILE_ARGS up -d --no-deps --force-recreate site; \
+			$(COMPOSE_SET) -f docker-compose.yml $$SITE_PROFILE_ARGS up -d --no-deps --force-recreate site; \
 			wait_for_health soda-site 90 http://127.0.0.1:3010; \
 			check_image soda-site soda-site:latest; \
 		elif [ "$$SITE_IMAGE" -eq 1 ]; then \
 			echo -e "$(GREEN)[INFO]$(NC) Starting the site..."; \
-			$(COMPOSE_CMD) -f docker-compose.yml $$SITE_PROFILE_ARGS up -d --no-deps site; \
+			$(COMPOSE_SET) -f docker-compose.yml $$SITE_PROFILE_ARGS up -d --no-deps site; \
 			wait_for_health soda-site 90 http://127.0.0.1:3010; \
 			check_image soda-site soda-site:latest; \
 		elif [ "$$SITE_ON" -eq 1 ]; then \
@@ -378,16 +408,16 @@ deploy:
 		echo -e "$(GREEN)[INFO]$(NC) Deployment completed successfully!"
 
 # Development environment
-dev:
+dev: doppler-check-service
 	@echo -e "$(GREEN)[INFO]$(NC) Starting development environment with hot reloading..."
 	@export COMMIT_HASH=$$(git rev-parse HEAD 2>/dev/null || echo "unknown") && \
-		$(COMPOSE_CMD) -f docker-compose.yml -f docker-compose.dev.yml up
+		$(COMPOSE_SET) -f docker-compose.yml -f docker-compose.dev.yml up
 
 
 # Rollback to previous version
 # It recreates only the services that make deploy recreates. podman-compose 1.0.6 ignores profiles, so a
 # bare `up -d` also starts worker and postgres.
-rollback:
+rollback: doppler-check-service
 	@echo -e "$(YELLOW)[WARNING]$(NC) Rolling back to previous version..."
 	@set -e; \
 	ROLLED=0; \
@@ -419,7 +449,7 @@ rollback:
 			SERVICES="$$SERVICES worker"; \
 			if [ "$(COMPOSE_CMD)" != "podman-compose" ]; then PROFILE_ARGS="$$PROFILE_ARGS --profile postgres"; fi; \
 		fi; \
-		$(COMPOSE_CMD) -f docker-compose.yml $$PROFILE_ARGS up -d --force-recreate $$SERVICES; \
+		$(COMPOSE_SET) -f docker-compose.yml $$PROFILE_ARGS up -d --force-recreate $$SERVICES; \
 	fi; \
 	if [ -f .deploy/rollback-site ] && $(CONTAINER_CMD) image inspect soda-site:previous >/dev/null 2>&1; then \
 		echo -e "$(GREEN)[INFO]$(NC) Found previous site image, rolling back..."; \
@@ -428,7 +458,7 @@ rollback:
 		ROLLED=1; \
 		SITE_PROFILE_ARGS=""; \
 		if [ "$(COMPOSE_CMD)" != "podman-compose" ]; then SITE_PROFILE_ARGS="--profile site"; fi; \
-		$(COMPOSE_CMD) -f docker-compose.yml $$SITE_PROFILE_ARGS up -d --no-deps --force-recreate site; \
+		$(COMPOSE_SET) -f docker-compose.yml $$SITE_PROFILE_ARGS up -d --no-deps --force-recreate site; \
 	fi; \
 	if [ "$$ROLLED" -eq 0 ]; then \
 		echo -e "$(RED)[ERROR]$(NC) No previous version found for rollback"; \
@@ -444,9 +474,9 @@ status:
 	@$(COMPOSE_CMD) ps
 
 # Run database migrations
-migrate:
+migrate: doppler-check
 	@echo -e "$(GREEN)[INFO]$(NC) Running database migrations..."
-	@uv run alembic upgrade head
+	@$(WITH_SETTINGS) uv run alembic upgrade head
 	@echo -e "$(GREEN)[INFO]$(NC) Database migrations complete!"
 
 # Run lint (with auto-fix), format, type check, and tests

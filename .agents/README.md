@@ -8,7 +8,7 @@ same instructions and skills. `settings.json` holds the Claude Code permissions.
 the `SKILL.md` files directly.
 
 `setup` prepares a new Amp orb. It installs the Node version in `.nvmrc`, Python 3.12, the uv
-environment and the npm dependencies of `dashboard/` and `site/`.
+environment, the Doppler CLI and the npm dependencies of `dashboard/` and `site/`.
 
 ## Skills
 

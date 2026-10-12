@@ -16,7 +16,7 @@ for (const spec of names) {
   if (value) {
     config[name] = value;
   } else if (flag === 'required') {
-    console.error(`${name} is not set. Set it in .env (for example https://api.thesoda.io) and recreate the container.`);
+    console.error(`${name} is not set. Set it in Doppler (for example https://api.thesoda.io) and recreate the container.`);
     process.exit(1);
   }
 }
