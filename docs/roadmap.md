@@ -42,7 +42,6 @@ flowchart LR
 - [ ] Sync cursors, so that a sync continues from where the last run stopped. `knowledge_runs` and `alert_runs` already log each run and its error.
 - [ ] Webhooks that start jobs, at `/api/webhooks/<module>/<name>`.
 - [ ] Dashboard pages for job history and retry.
-- [ ] A member page for Godfather, so that members can see their pods and sessions without the CLI.
 - [ ] Shared tracing for agents on Platform (OpenTelemetry, with a self-hosted viewer).
 
 ## Modules

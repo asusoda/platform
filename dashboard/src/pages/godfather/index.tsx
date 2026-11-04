@@ -1,4 +1,4 @@
-import { CalendarClock, Cpu, KeyRound, Plus, Settings2 } from 'lucide-react';
+import { CalendarClock, Cpu, ExternalLink, KeyRound, Plus, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -130,6 +130,14 @@ export function GodfatherPage() {
         docs="modules/godfather"
         action={
           <div className="flex gap-2">
+            <Link
+              to={`/godfather/${encodeURIComponent(prefix)}`}
+              target="_blank"
+              title="The page members open to see their pods. Share its link."
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium shadow-xs hover:bg-panel-2"
+            >
+              <ExternalLink className="size-4" /> <span className="hidden sm:inline">Member page</span>
+            </Link>
             <Button onClick={() => setEditing(true)} aria-label="Pod settings">
               <Settings2 className="size-4" /> <span className="hidden sm:inline">Settings</span>
             </Button>

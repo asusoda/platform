@@ -50,12 +50,17 @@ def login():
     logger.info(f"Redirecting to Discord OAuth login for client_id: {CLIENT_ID} and REDIRECT_URI: {REDIRECT_URI}")
     # An officer login that follows an unfinished store login must not return to the store
     session.pop("store_login_org", None)
+    session.pop("store_login_page", None)
     return _discord_redirect("identify guilds")
+
+
+# Member pages that store_login may return to, as /<page>/<org>. Another or no ?page= returns to the store.
+MEMBER_PAGES = ("store", "godfather")
 
 
 @auth_blueprint.route("/store_login", methods=["GET"])
 def store_login():
-    """Start a member's Discord sign-in for the store of the org in ?org. The callback returns to the store."""
+    """Start a member's Discord sign-in for the org in ?org. The callback returns to the member page in ?page."""
     from modules.organizations.service import find_by_prefix
 
     with db_connect.SessionLocal() as db:
@@ -63,6 +68,8 @@ def store_login():
     if not organization:
         return jsonify({"error": "Organization not found"}), 404
     session["store_login_org"] = organization.prefix
+    page = request.args.get("page", "")
+    session["store_login_page"] = page if page in MEMBER_PAGES else "store"
     return _discord_redirect("identify")
 
 
@@ -123,7 +130,8 @@ def callback():
     expected_state = session.pop("oauth_state", None)
     client_url = _client_url(session.pop("oauth_client", None))
     store_org = session.pop("store_login_org", None)
-    store_url = f"{client_url}/store/{store_org}"
+    store_page = session.pop("store_login_page", None)
+    store_url = f"{client_url}/{store_page if store_page in MEMBER_PAGES else 'store'}/{store_org}"
     if not expected_state or not secrets.compare_digest(expected_state, request.args.get("state", "")):
         # A store login is new, so it refuses a wrong state in report mode too
         if store_org:

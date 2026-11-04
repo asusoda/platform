@@ -30,9 +30,15 @@ export type CartLine = { product: StoreProduct; quantity: number };
 
 export const storePath = (prefix: string) => `/store/${encodeURIComponent(prefix)}`;
 
-// Starts the member's Discord sign-in. The API returns the browser to the store, with ?error= when it fails.
-export const storeLoginUrl = (prefix: string) =>
-  `${API_URL}/api/auth/store_login?org=${encodeURIComponent(prefix)}&client=dashboard`;
+// Member pages that the API returns to after sign-in, at /<page>/<prefix>.
+export type MemberPage = 'store' | 'godfather';
+
+// Starts the member's Discord sign-in. The API returns the browser to the page, with ?error= when it fails.
+// The store is the API's default page, so its URL has no page parameter.
+export const memberLoginUrl = (prefix: string, page: MemberPage) =>
+  `${API_URL}/api/auth/store_login?org=${encodeURIComponent(prefix)}${page === 'store' ? '' : `&page=${page}`}&client=dashboard`;
+
+export const storeLoginUrl = (prefix: string) => memberLoginUrl(prefix, 'store');
 
 // The cart lines with current product details: missing or sold-out products go, quantities stop at stock.
 export function freshCart(lines: CartLine[], products: StoreProduct[]): CartLine[] {

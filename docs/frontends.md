@@ -1,6 +1,6 @@
 # Frontends
 
-Platform has one frontend, `dashboard/`. Officers use it to see and control what each org runs. Members use its store pages, `/store/<org>`. SoDA serves it at admin.thesoda.io.
+Platform has one frontend, `dashboard/`. Officers use it to see and control what each org runs. Members use its store pages, `/store/<org>`, and the Godfather member page, `/godfather/<org>`. SoDA serves it at admin.thesoda.io.
 
 This diagram shows the API routes that each part of the dashboard calls and the credential it sends.
 
@@ -156,5 +156,9 @@ The member store is two open pages of `dashboard/`, outside the officer pages:
 
 - `/store/<org>` shows the products in stock. A signed-in member also sees a cart, their points and their orders, and can place an order or sign out.
 - `/store/<org>/login` signs a member in with Discord at `GET /api/auth/store_login?org=<org>&client=dashboard`. The API returns the member to `/store/<org>` on `DASHBOARD_URL`. If `DASHBOARD_URL` is not set, it returns them to `CLIENT_URL`.
+
+## Godfather member page
+
+`/godfather/<org>` lists the member's pods, next sessions, recent connections and the CLI commands, from `GET /api/compute/<org>/me`. When the member is not signed in, it links to `GET /api/auth/store_login?org=<org>&page=godfather&client=dashboard`, which returns them to `/godfather/<org>`.
 
 These pages use the API session cookie, not the officer token. The order routes (`/api/storefront/<org>/members/...`) need the Discord session that the sign-in starts. The browser sends the cookie only when the dashboard and the API are on the same site.

@@ -206,6 +206,22 @@ _NO_MEMBERS_INTENT = (
 )
 
 
+CLI = {"package": "godfather-cli", "install": "pip install godfather-cli"}
+
+
+@_member_route("", ["GET"])
+def me(db, org, discord_id):
+    """The member page: the member's pods in any state, upcoming sessions, recent connections and the CLI."""
+    org_id = _org_id(org)
+    return {
+        "organization": {"name": org.name, "prefix": org.prefix},
+        "pods": service.member_pods(db, org_id, discord_id),
+        "sessions": schedule.member_sessions(db, org_id, discord_id),
+        "connections": service.member_connections(db, org_id, discord_id),
+        "cli": CLI,
+    }
+
+
 @_member_route("/pods", ["GET"])
 def my_pods(db, org, discord_id):
     return {"pods": service.accessible_pods(db, _org_id(org), discord_id)}

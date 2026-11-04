@@ -52,7 +52,7 @@ Officer pages send the platform JWT from login. The member store pages (`/store/
 
 | Area | Endpoints |
 |---|---|
-| Auth | GET /api/auth/login, GET /api/auth/store_login (the member store), GET /api/auth/callback (redirects to /auth/?code=…, or to /store/<org> after a store sign-in), POST /api/auth/exchange, GET and DELETE /api/auth/appTokens (new, no client yet), POST /api/auth/refresh, POST /api/auth/logout |
+| Auth | GET /api/auth/login, GET /api/auth/store_login (the member store; `page=godfather` for the Godfather member page), GET /api/auth/callback (redirects to /auth/?code=…, or to /store/<org> or /godfather/<org> after a member sign-in), POST /api/auth/exchange, GET and DELETE /api/auth/appTokens (new, no client yet), POST /api/auth/refresh, POST /api/auth/logout |
 | Organizations | GET /api/organizations/, PUT /api/organizations/{id}/settings, GET and PUT /api/organizations/{id}/calendar |
 | Points | GET and POST /api/points/{org}/users, PUT /api/points/{org}/users/{user}, GET /api/points/{org}/users/{user}/points, POST /api/points/{org}/assign_points, DELETE /api/points/{org}/delete_points, DELETE /api/points/{org}/entries/{id}, POST /api/points/{org}/uploadEventCSV, POST /api/points/{org}/member_login, GET /api/points/{org}/member_profile |
 | Calendar | GET /api/calendar/{org}/events |
