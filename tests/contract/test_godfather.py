@@ -1075,3 +1075,116 @@ def test_an_empty_minimum_turns_the_image_check_off(client, officer_headers, run
     answer = _create(client, officer_headers, image_name="nvidia/cuda:12.0")
     assert answer.status_code == 201 and runpod.calls[0][1]["image"] == "nvidia/cuda:12.0"
     assert answer.get_json()["pod"]["image_current"] is True
+
+
+NEW_IMAGE = "ghcr.io/theaisocietyasu/godfather-base:2.4.0"
+SETUP = {"repo": "https://github.com/example/workshop.git", "script": "pip install --user -r workshop/requirements.txt"}
+
+
+class FakePodFiles:
+    """PodFiles.open stand-in that records each member setup sent to a pod."""
+
+    sent: list = []
+    fail = False
+
+    def __init__(self, host, port, private_key):
+        from modules.godfather.files import FilesError
+
+        if FakePodFiles.fail:
+            raise FilesError("Could not connect to the pod", 502)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    def put_member_setup(self, setup):
+        FakePodFiles.sent.append(setup)
+
+
+@pytest.fixture
+def pod_files(monkeypatch):
+    from modules.godfather.files import PodFiles
+
+    FakePodFiles.sent, FakePodFiles.fail = [], False
+    monkeypatch.setattr(PodFiles, "open", FakePodFiles)
+    return FakePodFiles
+
+
+def test_member_setup_is_checked_and_needs_image_2_4(client, officer_headers, runpod):
+    old = _create(client, officer_headers, member_setup=SETUP)
+    assert old.status_code == 422 and "2.4.0" in old.get_json()["error"] and runpod.calls == []
+    for bad in (
+        {"repo": "http://github.com/example/workshop.git"},
+        {"repo": "file:///etc/passwd"},
+        {"repo": "https://github.com/example/work shop"},
+        {"repo": "https://github.com/example/$(id)"},
+        {"script": "x" * 20_001},
+        {"other": "x"},
+        "text",
+    ):
+        assert _create(client, officer_headers, image_name=NEW_IMAGE, member_setup=bad).status_code == 400
+    created = _create(client, officer_headers, image_name=NEW_IMAGE, member_setup=SETUP)
+    assert created.status_code == 201 and created.get_json()["pod"]["member_setup"] == SETUP
+    empty = _create(client, officer_headers, image_name=NEW_IMAGE, member_setup={"repo": " ", "script": "\n"})
+    assert empty.get_json()["pod"]["member_setup"] is None
+    assert "member_setup" not in str(runpod.calls)
+
+
+def test_member_setup_is_sent_to_the_pod_on_each_connection(client, member_client, officer_headers, runpod, pod_files):
+    _create(client, officer_headers, image_name=NEW_IMAGE, is_public=True)
+    key = {"public_key": _user_key()}
+    assert member_client.post("/api/compute/soda/me/pods/pod1/connect", json=key).status_code == 200
+    assert pod_files.sent == []
+
+    saved = client.put("/api/compute/soda/pods/pod1", json={"member_setup": SETUP}, headers=officer_headers)
+    assert saved.get_json()["pod"]["member_setup"] == SETUP
+    member_client.post("/api/compute/soda/me/pods/pod1/connect", json=key)
+    member_client.post("/api/compute/soda/me/pods/pod1/connect", json=key)
+    assert pod_files.sent == [SETUP, SETUP]
+
+    pod_files.fail = True
+    assert member_client.post("/api/compute/soda/me/pods/pod1/connect", json=key).status_code == 200
+    pod_files.fail = False
+
+    cleared = client.put("/api/compute/soda/pods/pod1", json={"member_setup": None}, headers=officer_headers)
+    assert cleared.get_json()["pod"]["member_setup"] is None
+    member_client.post("/api/compute/soda/me/pods/pod1/connect", json=key)
+    member_client.post("/api/compute/soda/me/pods/pod1/connect", json=key)
+    assert pod_files.sent == [SETUP, SETUP, None]
+
+
+def test_member_setup_on_an_old_pod_and_after_recreate(client, officer_headers, runpod, monkeypatch):
+    from core.config import config
+
+    _create(client, officer_headers)
+    refused = client.put("/api/compute/soda/pods/pod1", json={"member_setup": SETUP}, headers=officer_headers)
+    assert refused.status_code == 422 and "Recreate" in refused.get_json()["error"]
+
+    monkeypatch.setattr(config, "GODFATHER_POD_IMAGE", NEW_IMAGE)
+    _create(client, officer_headers, image_name=NEW_IMAGE, member_setup=SETUP)
+    done = client.post("/api/compute/soda/pods/pod2/action", json={"action": "recreate"}, headers=officer_headers)
+    assert done.status_code == 200
+    pod = client.get(f"/api/compute/soda/pods/{done.get_json()['id']}", headers=officer_headers).get_json()["pod"]
+    assert pod["member_setup"] == SETUP
+
+
+def test_put_member_setup_writes_and_removes_the_files():
+    from modules.godfather.files import MEMBER_SETUP_DIR, PodFiles
+
+    commands: list[str] = []
+    written: dict[str, str] = {}
+
+    class Recorded(PodFiles):
+        def _run(self, command: str) -> None:
+            commands.append(command)
+
+        def write_text(self, path: object, content: object) -> None:
+            written[str(path)] = str(content)
+
+    pod = Recorded(None, None)
+    pod.put_member_setup({"repo": "https://github.com/example/workshop.git", "script": ""})
+    assert written == {f"{MEMBER_SETUP_DIR}/repo": "https://github.com/example/workshop.git\n"}
+    assert commands[0].startswith(f"mkdir -p {MEMBER_SETUP_DIR} && chmod 700 /workspace/.godfather ")
+    assert commands[1] == f"rm -f -- {MEMBER_SETUP_DIR}/script"

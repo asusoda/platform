@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { CalendarClock, FolderOpen, KeyRound, Play, RefreshCcw, RotateCw, ShieldCheck, Square, Trash2, Users } from 'lucide-react';
+import { CalendarClock, FilePlus2, FolderOpen, KeyRound, Play, RefreshCcw, RotateCw, ShieldCheck, Square, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useConfirm } from '../../components/confirm';
 import {
@@ -36,7 +36,7 @@ import {
 } from './shared';
 import { UsersEditor } from './members';
 
-export type PodDialog = { kind: 'access' | 'members' | 'sessions' | 'files' | 'terminate'; pod: Pod };
+export type PodDialog = { kind: 'access' | 'members' | 'sessions' | 'files' | 'setup' | 'terminate'; pod: Pod };
 
 export function AccessBadge({ pod }: { pod: Pod }) {
   if (pod.is_public) return <Badge tone="ok">All members</Badge>;
@@ -190,6 +190,9 @@ function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; op
                   </MenuItem>
                   <MenuItem icon={ShieldCheck} onClick={pick(() => open({ kind: 'access', pod }))}>
                     Access
+                  </MenuItem>
+                  <MenuItem icon={FilePlus2} onClick={pick(() => open({ kind: 'setup', pod }))}>
+                    Member setup
                   </MenuItem>
                   <MenuItem
                     icon={RotateCw}

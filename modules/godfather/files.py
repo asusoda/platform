@@ -21,6 +21,8 @@ MAX_READ_BYTES = 1_000_000
 MAX_TRANSFER_BYTES = 100_000_000
 CONNECT_TIMEOUT_SECONDS = 10
 COMMAND_TIMEOUT_SECONDS = 60
+# godfather-login in godfather-base 2.4.0 and later reads repo and script from here
+MEMBER_SETUP_DIR = "/workspace/.godfather/member-setup"
 
 
 class FilesError(ServiceError):
@@ -108,16 +110,30 @@ class PodFiles:
         except (OSError, paramiko.SSHException) as e:
             raise FilesError(f"The pod refused: {e}", 409) from e
 
-    def _remove(self, target: str) -> None:
-        command = f"rm -rf -- {shlex.quote(target)}"
+    def _run(self, command: str) -> None:
+        """Run a command on the pod as root. Every argument in command is quoted with shlex."""
         try:
-            # The only argument is quoted with shlex
             _, stdout, stderr = self._client.exec_command(command, timeout=COMMAND_TIMEOUT_SECONDS)  # nosec B601
             status = stdout.channel.recv_exit_status()
         except (paramiko.SSHException, OSError) as e:
             raise FilesError("The command on the pod failed", 502) from e
         if status != 0:
             raise FilesError(stderr.read().decode("utf-8", "replace").strip()[:300] or "The command failed", 409)
+
+    def _remove(self, target: str) -> None:
+        self._run(f"rm -rf -- {shlex.quote(target)}")
+
+    def put_member_setup(self, setup: dict | None) -> None:
+        """Write the member setup files, or remove the ones setup leaves empty. The folder is root only."""
+        folder = shlex.quote(MEMBER_SETUP_DIR)
+        self._run(f"mkdir -p {folder} && chmod 700 {shlex.quote(posixpath.dirname(MEMBER_SETUP_DIR))} {folder}")
+        for name in ("repo", "script"):
+            value = (setup or {}).get(name)
+            path = f"{MEMBER_SETUP_DIR}/{name}"
+            if value:
+                self.write_text(path, value if value.endswith("\n") else value + "\n")
+            else:
+                self._run(f"rm -f -- {shlex.quote(path)}")
 
     def list(self, path: object) -> list[dict]:
         """Entries of a directory, directories first."""

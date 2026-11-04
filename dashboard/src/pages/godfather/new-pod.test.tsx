@@ -64,5 +64,6 @@ describe('new pod GPU picker', () => {
     await user.click(screen.getByRole('button', { name: 'Create pod' }));
     await waitFor(() => expect(created).toHaveLength(1));
     expect((created[0] as { gpu_type_id: string }).gpu_type_id).toBe('NVIDIA RTX A4500');
+    expect(created[0]).not.toHaveProperty('member_setup');
   });
 });

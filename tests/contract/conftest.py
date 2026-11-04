@@ -132,6 +132,7 @@ def app():
 POD_IMAGES = {
     "ghcr.io/theaisocietyasu/godfather-base:latest": "2.3.0",
     "ghcr.io/theaisocietyasu/godfather-base:2.1.0": "2.1.0",
+    "ghcr.io/theaisocietyasu/godfather-base:2.4.0": "2.4.0",
     "ghcr.io/example/custom:1": "2.2.0",
     "nvidia/cuda:12.0": None,
     "example/pod:1": "2.2.0",
