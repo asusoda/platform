@@ -35,6 +35,17 @@ All routes are under `/api/agents/members/<discord_id>`.
 | `PUT /pending/<uuid>` | write | Holds an action: `action`, `payload_hash`, `ttl_seconds` (default 600) |
 | `POST /pending/<uuid>/claim` | write | `approved: bool`. Returns the action one time. 404 if it is unknown, expired, answered or for a different member |
 
+## Export
+
+An agent that moves conversations and memories to its own store reads the whole org once, in pages, with `agents:read`. Rows come in id order; pass `next` as `after` until `next` is `null`. `limit` is 100 by default and 500 at most.
+
+| Route | Scope | Does |
+| --- | --- | --- |
+| `GET /api/agents/export/conversations?after=&limit=` | read | `conversations`: each with `discord_id`, `channel_id`, `visibility`, times, and `messages` (`seq`, `role`, `content`, `covers_seq`, `created_at`) in seq order |
+| `GET /api/agents/export/memories?after=&limit=` | read | `memories`: each with `discord_id`, `kind`, `content` in clear, `sensitivity`, `confidence`, times. A sensitive memory that does not open is left out and logged |
+
+SparkyAI reads these with `engine import-platform`.
+
 ## Turns
 
 An agent makes two calls for each turn, under `/api/agents/members/<discord_id>/turn`. Both ask Discord if the member is in the org's server. They return 403 if not, and 503 if Discord is not set up or does not answer.

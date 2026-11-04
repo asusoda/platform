@@ -13,7 +13,7 @@ from modules.auth.routes import machine_route, member_view
 from modules.knowledge import embedder
 from modules.organizations.models import Organization
 
-from . import conversations, memories, pending, profile, service, turns
+from . import conversations, export, memories, pending, profile, service, turns
 
 agents_blueprint = Blueprint("agents", __name__)
 
@@ -129,6 +129,24 @@ def write_memory(db, who):
 @_agent_route("/memories/<string:memory_id>", "agents:write", ["DELETE"])
 def delete_memory(db, who, memory_id):
     return {"deleted": memories.forget_memory(db, who, memory_id)}
+
+
+# Export, for an agent that moves conversations and memories to its own store
+
+
+def _cursor() -> str | None:
+    after = request.args.get("after")
+    return after or None
+
+
+@machine_route(agents_blueprint, "/export/conversations", "agents:read", ["GET"], module="agents")
+def export_conversations(db, org):
+    return export.conversations_page(db, org.id, _cursor(), _int_arg("limit"))
+
+
+@machine_route(agents_blueprint, "/export/memories", "agents:read", ["GET"], module="agents")
+def export_memories(db, org):
+    return export.memories_page(db, org.id, _cursor(), _int_arg("limit"))
 
 
 # Profile graph

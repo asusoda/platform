@@ -14,6 +14,8 @@
 /api/agents/<string:org_prefix>/me DELETE,OPTIONS agents.delete_my_agent_data
 /api/agents/<string:org_prefix>/me GET,HEAD,OPTIONS agents.my_agent_data
 /api/agents/<string:org_prefix>/me/conversations/<string:conversation_id> DELETE,OPTIONS agents.delete_my_conversation
+/api/agents/export/conversations GET,HEAD,OPTIONS agents.export_conversations
+/api/agents/export/memories GET,HEAD,OPTIONS agents.export_memories
 /api/agents/members/<string:discord_id>/channels/<string:channel_id>/end OPTIONS,POST agents.end_conversations
 /api/agents/members/<string:discord_id>/channels/<string:channel_id>/latest GET,HEAD,OPTIONS agents.latest_conversation
 /api/agents/members/<string:discord_id>/conversations/<string:conversation_id> GET,HEAD,OPTIONS agents.get_conversation
