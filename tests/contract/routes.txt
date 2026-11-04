@@ -102,6 +102,7 @@
 /api/compute/<string:org_prefix>/pods/<string:pod_id> GET,HEAD,OPTIONS godfather.get_pod
 /api/compute/<string:org_prefix>/pods/<string:pod_id> OPTIONS,PUT godfather.update_pod
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/action OPTIONS,POST godfather.pod_action
+/api/compute/<string:org_prefix>/pods/<string:pod_id>/admin OPTIONS,PUT godfather.pod_admin
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files GET,HEAD,OPTIONS godfather.list_files
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/delete OPTIONS,POST godfather.delete_file
 /api/compute/<string:org_prefix>/pods/<string:pod_id>/files/download OPTIONS,POST godfather.download_file

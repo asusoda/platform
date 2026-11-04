@@ -12,6 +12,16 @@ export type Pod = {
   created_at: string | null;
   machine: Record<string, unknown> | null;
   cost_per_hour: number | string | null;
+  // The image the pod was created from and its godfather-base version. image_current false: members cannot
+  // connect until an officer recreates the pod.
+  image: string | null;
+  image_version: string | null;
+  image_current: boolean;
+  // Pod admin: officers may ask for root. Only the owner or the superadmin changes it (can_change_admin).
+  admin_enabled: boolean;
+  admin_enabled_by: string | null;
+  owner: string | null;
+  can_change_admin?: boolean;
 };
 
 // The create body. The hardware fields follow the RunPod v2 API.

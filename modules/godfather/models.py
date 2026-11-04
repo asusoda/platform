@@ -25,6 +25,13 @@ class ComputePod(Base):
     config: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    # Pod admin: officers may ask for root on this pod. The pod owner turns it on.
+    admin_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    admin_enabled_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    admin_enabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # The image the pod was created from, pinned by digest. A pod with no version predates the image check.
+    image_digest: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    image_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     __table_args__ = (UniqueConstraint("organization_id", "pod_id", name="uq_compute_pod"),)
 

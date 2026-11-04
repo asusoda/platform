@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { CalendarClock, FolderOpen, Play, RotateCw, ShieldCheck, Square, Trash2, Users } from 'lucide-react';
+import { CalendarClock, FolderOpen, KeyRound, Play, RefreshCcw, RotateCw, ShieldCheck, Square, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useConfirm } from '../../components/confirm';
 import {
@@ -54,9 +54,27 @@ export function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
+function usePodAdmin(prefix: string, podId: string) {
+  const refresh = useRefreshGodfather(prefix);
+  return useMutation({
+    mutationFn: (enabled: boolean) => send(`${podPath(prefix, podId)}/admin`, 'PUT', { enabled }),
+    onSuccess: refresh,
+  });
+}
+
 function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; open: (d: PodDialog) => void; providers?: HostingProvider[] }) {
   const action = usePodAction(prefix, pod.id);
+  const admin = usePodAdmin(prefix, pod.id);
   const confirm = useConfirm();
+  const recreate = () => {
+    void confirm(
+      `Recreate ${pod.name} from the current image? The pod and its disk are deleted, so members lose every file on it. ` +
+        'Sharing and sessions move to the new pod. Env values are not copied.',
+      'Recreate',
+    ).then((yes) => {
+      if (yes) action.mutate('recreate');
+    });
+  };
   const running = pod.status === 'RUNNING';
   const gone = pod.status === 'GONE';
   const machine = machineLabel(pod.machine);
@@ -75,7 +93,17 @@ function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; op
         <div className="mt-0.5 hidden truncate text-xs text-muted sm:block">
           {pod.created_at ? `created ${timeAgo(pod.created_at)}` : null}
         </div>
-        {action.error ? <div className="mt-1 truncate text-xs text-bad">{(action.error as Error).message}</div> : null}
+        {pod.image_current ? null : (
+          <div className="mt-1 flex items-center gap-2">
+            <Badge tone="warn">Old image</Badge>
+            <button type="button" className="text-xs font-medium text-fg underline-offset-2 hover:underline" onClick={recreate}>
+              Recreate
+            </button>
+          </div>
+        )}
+        {action.error || admin.error ? (
+          <div className="mt-1 truncate text-xs text-bad">{((action.error ?? admin.error) as Error).message}</div>
+        ) : null}
       </Td>
       <Td className="hidden whitespace-nowrap sm:table-cell">
         <Mono>{pod.id}</Mono>
@@ -91,7 +119,10 @@ function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; op
       </Td>
       <Td className="hidden text-right text-xs whitespace-nowrap text-muted tabular-nums lg:table-cell">{cost ?? '-'}</Td>
       <Td className="hidden whitespace-nowrap lg:table-cell">
-        <AccessBadge pod={pod} />
+        <div className="flex items-center gap-1">
+          <AccessBadge pod={pod} />
+          {pod.admin_enabled ? <Badge tone="warn">Pod admin</Badge> : null}
+        </div>
       </Td>
       <Td className="py-2 pr-2 pl-0 sm:pl-4">
         <div className="flex items-center justify-end gap-1">
@@ -170,6 +201,24 @@ function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; op
                     })}
                   >
                     Restart
+                  </MenuItem>
+                  <MenuItem
+                    icon={KeyRound}
+                    disabled={!pod.can_change_admin || admin.isPending}
+                    onClick={pick(() => {
+                      const on = !pod.admin_enabled;
+                      const text = on
+                        ? `Turn on pod admin for ${pod.name}? Any officer can then get a one-hour root certificate with godfather connect --admin. Each one shows on Activity.`
+                        : `Turn off pod admin for ${pod.name}? Root certificates already issued expire within the hour.`;
+                      void confirm(text, on ? 'Turn on' : 'Turn off').then((yes) => {
+                        if (yes) admin.mutate(on);
+                      });
+                    })}
+                  >
+                    {pod.admin_enabled ? 'Turn off pod admin' : 'Turn on pod admin'}
+                  </MenuItem>
+                  <MenuItem icon={RefreshCcw} disabled={action.isPending} onClick={pick(recreate)}>
+                    Recreate
                   </MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={Trash2} danger onClick={pick(() => open({ kind: 'terminate', pod }))}>

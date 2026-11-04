@@ -86,9 +86,16 @@ def _caller() -> str | None:
     return principal.discord_id if principal else None
 
 
+def _with_owner(pod: dict) -> dict:
+    """The pod with can_change_admin: the caller is its owner or the superadmin."""
+    caller = _caller()
+    allowed = bool(caller) and (pod.get("owner") == caller or access.is_superadmin(str(caller)))
+    return pod | {"can_change_admin": allowed}
+
+
 @_officer_route("/pods", ["GET"])
 def list_pods(db, org):
-    return {"pods": service.list_pods(db, _org_id(org))}
+    return {"pods": [_with_owner(p) for p in service.list_pods(db, _org_id(org))]}
 
 
 @_officer_route("/pods", ["POST"])
@@ -109,7 +116,7 @@ def put_settings(db, org):
 
 @_officer_route("/pods/<string:pod_id>", ["GET"])
 def get_pod(db, org, pod_id):
-    return {"pod": service.get_pod(db, _org_id(org), pod_id)}
+    return {"pod": _with_owner(service.get_pod(db, _org_id(org), pod_id))}
 
 
 @_officer_route("/pods/<string:pod_id>", ["PUT"])
@@ -120,7 +127,20 @@ def update_pod(db, org, pod_id):
 @_officer_route("/pods/<string:pod_id>/action", ["POST"])
 def pod_action(db, org, pod_id):
     data = _body()
-    return service.act(db, _org_id(org), pod_id, data.get("action") if isinstance(data, dict) else None)
+    image = service.pod_image(db, _org_id(org), config.GODFATHER_POD_IMAGE)
+    action = data.get("action") if isinstance(data, dict) else None
+    return service.act(db, _org_id(org), pod_id, action, default_image=image)
+
+
+@_officer_route("/pods/<string:pod_id>/admin", ["PUT"])
+def pod_admin(db, org, pod_id):
+    data = _body()
+    enabled = data.get("enabled") if isinstance(data, dict) else None
+    caller = _caller()
+    pod = service.set_pod_admin(
+        db, _org_id(org), pod_id, enabled, caller, bool(caller) and access.is_superadmin(str(caller))
+    )
+    return {"pod": _with_owner(pod)}
 
 
 def _name_lookup(org):
@@ -212,10 +232,17 @@ def _username(org, discord_id: str) -> str:
 @_member_route("/pods/<string:pod_id>/connect", ["POST"])
 def connect(db, org, discord_id, pod_id):
     data = _body()
-    public_key = data.get("public_key") if isinstance(data, dict) else None
+    data = data if isinstance(data, dict) else {}
     return {
         "ssh_info": service.connect(
-            db, _org_id(org), pod_id, discord_id, _username(org, discord_id), _is_officer(org, discord_id), public_key
+            db,
+            _org_id(org),
+            pod_id,
+            discord_id,
+            _username(org, discord_id),
+            _is_officer(org, discord_id),
+            data.get("admin") is True,
+            data.get("public_key"),
         )
     }
 

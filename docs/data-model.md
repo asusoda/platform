@@ -108,7 +108,7 @@ erDiagram
 | agents | `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions` |
 | knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload). A source and its chunks belong to an org, or with no org to a shared submodule (`submodule_id`) |
 | submodules | `submodules` (one row for each submodule), `submodule_subscriptions` (the orgs that subscribe to each) |
-| godfather | `compute_pods`, `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days), `compute_cli_codes` (one-time CLI sign-in codes, 2 minutes) |
+| godfather | `compute_pods` (with pod admin and the image digest and version), `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days), `compute_cli_codes` (one-time CLI sign-in codes, 2 minutes) |
 | runpod | `runpod_apps` (with no org for a shared app), `runpod_deployments`, `shared_app_subscriptions` (the orgs that use a shared app, and whom Platform invited) |
 | feeds | `alert_feeds`, `alert_posts`, `alert_runs` (one row for each feed run) |
 | mcp | `oauth_clients` (MCP clients that registered themselves, secret encrypted with `SECRETS_KEY`, and cached Client ID Metadata Documents with `cache_until`), `oauth_requests` (open OAuth requests and codes, hash only, with the scopes and limits that the officer chose), `oauth_grants` (approved connections: the machine token of kind `oauth`, the refresh token hash, and the last officer check), `oauth_assertions` (the `jti` hash of each used client assertion, until it expires) |

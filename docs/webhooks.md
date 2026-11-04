@@ -21,6 +21,7 @@ The Alerts page has two cards. Destinations lists each destination with its stat
 | `job.failed` | Failed job runs | `core/jobs.py` | A job with an `org_id` or `org_prefix` argument fails. Jobs for the whole server do not send it |
 | `pod.started` | Pods started | `modules/godfather/service.py`, `schedule.py` | An officer or a tool starts or restarts a pod, or the session schedule starts it |
 | `pod.stopped` | Pods stopped | `modules/godfather/service.py`, `schedule.py` | An officer or a tool stops or terminates a pod, or the session schedule stops it |
+| `pod.root_access` | Root on a pod | `modules/godfather/service.py` | An officer gets a one-hour root certificate for a pod with pod admin on |
 | `app.deployed` | App deploys | `modules/runpod/service.py` | A deploy of an org's app, on RunPod or This server, becomes healthy or fails. A shared app has no org, so its deploys show only on the Superadmin page |
 | `order.created` | Store orders | `modules/storefront/service.py` | A member places an order |
 | `member.joined` | New members | `modules/users/service.py` | A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it |

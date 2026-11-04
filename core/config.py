@@ -95,6 +95,8 @@ class Config:
                 or os.environ.get("COMPUTE_POD_IMAGE")
                 or "ghcr.io/theaisocietyasu/godfather-base:latest"
             )
+            # The lowest godfather-base version Platform creates pods from and connects to. Empty turns the check off.
+            self.GODFATHER_MIN_IMAGE_VERSION = os.environ.get("GODFATHER_MIN_IMAGE_VERSION", "2.2.0").strip()
 
             # LeetCode Daily Bot
             self.LEETCODE_CHANNEL_ID = os.environ.get("LEETCODE_CHANNEL_ID")
