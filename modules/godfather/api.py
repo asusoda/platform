@@ -407,6 +407,9 @@ def cli_callback():
     return _page(f"Signed in to {org_name}.", token)
 
 
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
 @godfather_blueprint.route("/<string:org_prefix>/cli/token", methods=["POST"])
 def cli_token(org_prefix):
     """Trade a code from the loopback sign-in and its PKCE verifier for a CLI token."""
@@ -416,13 +419,13 @@ def cli_token(org_prefix):
     try:
         org = organizations.find_by_prefix(db, org_prefix, active_only=True)
         if org is None:
-            return jsonify({"error": "Organization not found"}), 404
+            return jsonify({"error": "Organization not found"}), 404, _NO_STORE
         try:
             token, discord_id = cli_login.redeem(db, _org_id(org), data.get("code"), data.get("code_verifier"))
         except ServiceError as e:
             db.rollback()
-            return jsonify({"error": e.message}), e.status, {"Cache-Control": "no-store"}
+            return jsonify({"error": e.message}), e.status, _NO_STORE
     finally:
         db.close()
     audit.record("godfather cli token issued", source="http", org=org_prefix, actor_kind="member", actor_id=discord_id)
-    return jsonify({"token": token, "expires_days": cli_login.EXPIRES_DAYS}), 200, {"Cache-Control": "no-store"}
+    return jsonify({"token": token, "expires_days": cli_login.EXPIRES_DAYS}), 200, _NO_STORE
