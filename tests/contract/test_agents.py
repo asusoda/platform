@@ -223,3 +223,48 @@ def test_prune_removes_idle_conversations(client, agent, member):
         assert db.query(AgentConversation).filter_by(id=cid).first() is None
     finally:
         db.close()
+
+
+def test_export_pages_conversations_and_opened_memories(client, agent, member, monkeypatch):
+    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
+    first = _conversation(client, agent, member)
+    second = _conversation(client, agent, member, channel="chan-2")
+    messages = [{"role": "user", "content": {"text": "hi"}}, {"role": "assistant", "content": {"text": "hello"}}]
+    seqs = client.post(f"{member}/conversations/{first}/messages", json={"messages": messages}, headers=agent)
+    covers = seqs.get_json()["seqs"][0]
+    summary = {"content": {"text": "said hi"}, "covers": covers}
+    assert client.post(f"{member}/conversations/{first}/summary", json=summary, headers=agent).status_code == 201
+    secret = {"kind": "profile", "content": "lives in Tempe", "sensitivity": "sensitive"}
+    assert client.post(f"{member}/memories", json=secret, headers=agent).status_code == 201
+
+    seen: dict[str, dict] = {}
+    after = ""
+    while True:
+        page = client.get(f"/api/agents/export/conversations?limit=1&after={after}", headers=agent)
+        assert page.status_code == 200, page.get_json()
+        body = page.get_json()
+        seen.update({c["id"]: c for c in body["conversations"]})
+        if body["next"] is None:
+            break
+        after = body["next"]
+    assert {first, second} <= set(seen)
+    exported = seen[first]
+    assert exported["discord_id"] == member.rsplit("/", 1)[1]
+    assert [m["role"] for m in exported["messages"]] == ["user", "assistant", "summary"]
+    assert exported["messages"][2]["covers_seq"] == covers
+    assert seen[second]["channel_id"] == "chan-2"
+
+    memories = client.get("/api/agents/export/memories?limit=500", headers=agent).get_json()
+    assert memories["next"] is None
+    mine = [m for m in memories["memories"] if m["discord_id"] == member.rsplit("/", 1)[1]]
+    assert [(m["content"], m["sensitivity"]) for m in mine] == [("lives in Tempe", "sensitive")]
+
+
+def test_export_needs_agents_read_and_stays_in_the_token_org(client, agent, member):
+    cid = _conversation(client, agent, member)
+    writer = _issue("soda", "agents:write")
+    assert client.get("/api/agents/export/conversations", headers=writer).status_code == 403
+    ais = _issue("ais", "agents:read")
+    page = client.get("/api/agents/export/conversations?limit=500", headers=ais)
+    assert page.status_code == 200
+    assert cid not in {c["id"] for c in page.get_json()["conversations"]}

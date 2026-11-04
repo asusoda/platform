@@ -145,6 +145,7 @@ source_modules = [
     "modules.accounts.canvas",
     "modules.accounts.providers",
     "modules.agents.conversations",
+    "modules.agents.export",
     "modules.agents.memories",
     "modules.agents.pending",
     "modules.agents.profile",

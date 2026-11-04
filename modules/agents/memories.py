@@ -21,7 +21,7 @@ def _seal(text: str) -> str:
     return sealed
 
 
-def _open(row: AgentMemory) -> str | None:
+def open_content(row: AgentMemory) -> str | None:
     if row.sensitivity != "sensitive":
         return str(row.content)
     return secrets.decrypt(str(row.content))
@@ -97,7 +97,7 @@ def recall(db, who: Owner, kinds: object = None, limit: object = None) -> list[d
     )
     out = []
     for row in rows:
-        content = _open(row)
+        content = open_content(row)
         if content is not None:
             out.append(memory_dict(row, content))
     return out

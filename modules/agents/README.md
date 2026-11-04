@@ -11,12 +11,13 @@ Agent memory. Keeps what an org's agents know about the members they talk to: co
 | `conversations.py`, `memories.py`, `pending.py` | Conversations with messages and summaries; memories (sensitive ones encrypted); actions held for confirmation |
 | `profile.py` | The profile graph, nearest nodes by embedding, and deletes of a member's data |
 | `turns.py` | The turn context an agent reads before its model call, and the turn commit in one transaction |
+| `export.py` | Pages of the org's conversations and opened memories, for an agent that moves them to its own store |
 | `models.py` | Conversations, messages, memories, profile nodes and edges, pending actions |
 | `jobs.py` | The prune job |
 
 ## Surface
 
-- Routes: `/api/agents`. Agent routes need a machine token with `agents:read` or `agents:write` and act on the token's org. `/<org_prefix>/me` routes need a member's Discord session. Officers have no route to agent data.
+- Routes: `/api/agents`. Agent routes need a machine token with `agents:read` or `agents:write` and act on the token's org. `/<org_prefix>/me` routes need a member's Discord session. `/export/conversations` and `/export/memories` page through the whole org with `agents:read` (`after` cursor, `limit` up to 500). Officers have no route to agent data.
 - Jobs: `agents.prune`, schedule `15 4 * * *`.
 - Tools: none.
 - Tables: `agent_conversations`, `agent_messages`, `agent_memories`, `agent_profile_nodes`, `agent_profile_edges`, `agent_pending_actions`.
