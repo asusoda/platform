@@ -141,6 +141,29 @@ def test_member_sees_and_connects_to_shared_running_pods(client, member_client, 
     assert stopped.status_code == 409
 
 
+def test_member_page_lists_the_members_pods_sessions_and_connections(
+    client, member_client, officer_headers, runpod, monkeypatch
+):
+    from modules.godfather import api
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    _create(client, officer_headers, allowed_users=[MEMBER_DISCORD_ID])
+    _create(client, officer_headers, name="private")
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "stop"}, headers=officer_headers)
+    assert client.get("/api/compute/soda/me").status_code == 401
+
+    page = member_client.get("/api/compute/soda/me").get_json()
+    assert page["organization"]["prefix"] == "soda"
+    assert [(p["id"], p["status"], p["image_current"]) for p in page["pods"]] == [("pod1", "EXITED", True)]
+    assert page["sessions"] == [] and page["connections"] == []
+    assert page["cli"] == {"package": "godfather-cli", "install": "pip install godfather-cli"}
+
+    client.post("/api/compute/soda/pods/pod1/action", json={"action": "start"}, headers=officer_headers)
+    member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()})
+    connections = member_client.get("/api/compute/soda/me").get_json()["connections"]
+    assert [(c["pod_id"], c["is_admin"]) for c in connections] == [("pod1", False)]
+
+
 def _cert(info):
     cert = load_ssh_public_identity(info["ssh_info"]["certificate"].encode())
     assert isinstance(cert, SSHCertificate)

@@ -568,6 +568,52 @@ def accessible_pods(db, org_id: int, discord_id: str, client: hosting.HostingCli
     return found
 
 
+MEMBER_CONNECTIONS = 10
+
+
+def member_pods(db, org_id: int, discord_id: str, client: hosting.HostingClient | None = None) -> list[dict]:
+    """Every pod this member may connect to, in any state. A provider error gives the pod status UNKNOWN."""
+    rows = [r for r in db.query(ComputePod).filter_by(organization_id=org_id) if _may_connect(r, discord_id)]
+    clients = _Clients(db, org_id, client)
+    pods = []
+    for row in sorted(rows, key=lambda r: str(r.name)):
+        try:
+            status = _status(_call(clients(row).get_pod, str(row.pod_id)), str(row.provider))
+        except GodfatherError:
+            status = "UNKNOWN"
+        pods.append(
+            {
+                "id": row.pod_id,
+                "name": row.name,
+                "status": status,
+                "is_public": bool(row.is_public),
+                "image_current": image_current(row),
+            }
+        )
+    return pods
+
+
+def member_connections(db, org_id: int, discord_id: str) -> list[dict]:
+    """The member's last MEMBER_CONNECTIONS certificates in this org, newest first."""
+    rows = (
+        db.query(ComputeConnection)
+        .filter_by(organization_id=org_id, discord_id=discord_id)
+        .order_by(ComputeConnection.created_at.desc(), ComputeConnection.id.desc())
+        .limit(MEMBER_CONNECTIONS)
+        .all()
+    )
+    names = {str(r.pod_id): r.name for r in db.query(ComputePod).filter_by(organization_id=org_id)}
+    return [
+        {
+            "pod_id": row.pod_id,
+            "pod_name": names.get(str(row.pod_id)),
+            "is_admin": bool(row.is_admin),
+            "created_at": cast(datetime.datetime, row.created_at).replace(tzinfo=datetime.UTC).isoformat(),
+        }
+        for row in rows
+    ]
+
+
 def connect(
     db,
     org_id: int,

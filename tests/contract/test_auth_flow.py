@@ -129,6 +129,15 @@ def test_store_login_signs_the_member_in_and_returns_to_the_store(client, member
     assert profile.get_json()["user"]["email"] == MEMBER_EMAIL
 
 
+@pytest.mark.parametrize(("page", "returns_to"), [("godfather", "godfather"), ("admin", "store"), ("", "store")])
+def test_store_login_returns_to_the_member_page_in_page(client, member_discord, page, returns_to):
+    from core.config import config
+
+    state = _query(client.get(f"/api/auth/store_login?org=soda&page={page}"))["state"][0]
+    response = client.get(f"/api/auth/callback?code=abc&state={state}")
+    assert response.headers["Location"] == f"{config.CLIENT_URL}/{returns_to}/soda"
+
+
 def test_store_login_needs_an_active_org(client):
     assert client.get("/api/auth/store_login?org=nope").status_code == 404
     assert client.get("/api/auth/store_login").status_code == 404

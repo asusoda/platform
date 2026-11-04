@@ -64,12 +64,17 @@ All fields of the create body are optional. `provider` names the hosting provide
 }
 ```
 
+## Member page
+
+`/godfather/<org>` on the dashboard is open to members. After a Discord sign-in (`GET /api/auth/store_login?org=<org>&page=godfather`), it shows the member's pods with their state, the next sessions, the last 10 connections and the CLI commands. The Godfather page links to it with Member page, for officers to share.
+
 ## Member routes
 
 These routes need a Discord session, or the CLI token as `Authorization: Bearer plat_...`. Each request checks that the caller is a member of the org's server.
 
 | Route | Does |
 | --- | --- |
+| `GET /api/compute/<org>/me` | The member page: `organization`, `pods` the member may connect to in any state (`id`, `name`, `status`, `is_public`, `image_current`; `status` is `UNKNOWN` when the provider does not answer), `sessions` as in `me/sessions`, the member's last 10 `connections` (`pod_id`, `pod_name`, `is_admin`, `created_at`) and `cli` (`package`, `install`) |
 | `GET /api/compute/<org>/me/pods` | Running pods that are public or that list the member in `allowed_users` |
 | `POST /api/compute/<org>/me/pods/<pod_id>/connect` | `{"public_key": "ssh-ed25519 ...", "admin": false}`. Returns host, port, `user_folder`, `is_admin` and a certificate |
 | `GET /api/compute/<org>/me/sessions` | Up to 20 upcoming sessions of the pods the member may connect to, running or not: `pod_id`, `pod_name`, `title`, `start_at`, `stop_at` and `pod_starts_at` (10 minutes before `start_at`) |
@@ -177,5 +182,5 @@ The `provider` column of `compute_pods` and `runpod_apps` keeps the name, so a r
 
 ## Limits
 
-- Members have no web page to connect. They use the Godfather CLI or the routes above.
+- Members connect with the Godfather CLI. The member page at `/godfather/<org>` on the dashboard shows their pods, sessions and connections; it does not connect.
 - The RunPod field names follow RunPod's REST API and are tested against a fake. Check them with a real key before you use the module in production.
