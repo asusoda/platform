@@ -93,6 +93,7 @@
 /api/calendar/sync-all OPTIONS,POST calendar.sync_all_organizations
 /api/compute/<string:org_prefix>/cli/login GET,HEAD,OPTIONS godfather.cli_sign_in
 /api/compute/<string:org_prefix>/cli/token OPTIONS,POST godfather.cli_token
+/api/compute/<string:org_prefix>/gpu-types GET,HEAD,OPTIONS godfather.gpu_types
 /api/compute/<string:org_prefix>/me GET,HEAD,OPTIONS godfather.me
 /api/compute/<string:org_prefix>/me/pods GET,HEAD,OPTIONS godfather.my_pods
 /api/compute/<string:org_prefix>/me/pods/<string:pod_id>/connect OPTIONS,POST godfather.connect

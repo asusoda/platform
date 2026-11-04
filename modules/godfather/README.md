@@ -8,7 +8,7 @@ Terminate also forgets a pod that was already deleted on RunPod, such as one del
 
 | File | Holds |
 | --- | --- |
-| `api.py` | Officer routes under `/<org_prefix>/pods` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me` (the member page, pods, connect, sessions), and the CLI sign-in through Discord (`cli/login`, `cli/token`) |
+| `api.py` | Officer routes under `/<org_prefix>/pods`, the GPU stock at `/<org_prefix>/gpu-types` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me` (the member page, pods, connect, sessions), and the CLI sign-in through Discord (`cli/login`, `cli/token`) |
 | `tools.py` | The `godfather.*` tools for agents |
 | `service.py` | Pods on their provider, sharing and member connect |
 | `ssh.py` | The org's SSH keys and short-lived certificates |
