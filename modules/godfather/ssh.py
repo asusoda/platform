@@ -1,8 +1,9 @@
 """SSH keys and short-lived user certificates for pod access. No Flask and no ssh-keygen here.
 
 Pods built from an image that implements the pod contract (GODFATHER_POD_IMAGE) trust the org's
-user CA and accept a certificate whose principal is gf-<pod id>. A member certificate carries a forced command that drops the member into
-their own account; an officer certificate is root.
+user CA and accept a certificate whose principal is gf-<pod id>. A member certificate carries a forced command
+that drops the member into their own account. A root certificate goes to an officer who asks for it on a pod
+with pod admin on.
 """
 
 import datetime
@@ -16,6 +17,7 @@ from cryptography.hazmat.primitives.serialization import SSHCertificateBuilder, 
 LOGIN_COMMAND = "/usr/local/bin/godfather-login"
 CERT_BEFORE = datetime.timedelta(minutes=5)
 CERT_AFTER = datetime.timedelta(hours=12)
+ADMIN_CERT_AFTER = datetime.timedelta(hours=1)
 ALLOWED_KEY_TYPES = (
     "ssh-ed25519",
     "ssh-rsa",
@@ -70,7 +72,11 @@ def sign_user_key(
     is_admin: bool,
     now: datetime.datetime | None = None,
 ) -> str:
-    """A certificate for a member's own public key, valid for one pod for twelve hours."""
+    """A certificate for a caller's own public key, valid for one pod.
+
+    A member certificate lasts twelve hours and forces godfather-login. A root certificate lasts one hour,
+    has no forced command and allows agent forwarding. Both allow port forwarding, which VS Code Remote-SSH needs.
+    """
     if not is_valid_public_key(public_key):
         raise ValueError("Invalid SSH public key")
     ca = serialization.load_ssh_private_key(ca_private_key.encode(), password=None)
@@ -86,10 +92,10 @@ def sign_user_key(
         SSHCertificateBuilder()
         .public_key(subject)
         .type(SSHCertificateType.USER)
-        .key_id(f"discord:{discord_id}:{username}".encode())
+        .key_id(f"discord:{discord_id}:{username}{':admin' if is_admin else ''}".encode())
         .valid_principals([pod_principal(pod_id).encode()])
         .valid_after(int((now - CERT_BEFORE).timestamp()))
-        .valid_before(int((now + CERT_AFTER).timestamp()))
+        .valid_before(int((now + (ADMIN_CERT_AFTER if is_admin else CERT_AFTER)).timestamp()))
         .add_extension(b"permit-pty", b"")
         .add_extension(b"permit-port-forwarding", b"")
     )

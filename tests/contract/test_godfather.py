@@ -1,5 +1,6 @@
 """Pods on an org's RunPod account: officers manage them, members connect with short-lived certificates."""
 
+import datetime
 from types import TracebackType
 
 import pytest
@@ -83,7 +84,7 @@ def test_officer_creates_and_lists_a_pod(client, officer_headers, runpod):
     assert response.get_json()["pod"]["status"] == "RUNNING"
     _, body = runpod.calls[0]
     assert body["gpu"] == {"id": "NVIDIA A40", "count": 1} and body["cloud"] == "COMMUNITY"
-    assert body["image"] == "ghcr.io/theaisocietyasu/godfather-base:latest" and body["ports"] == ["22/tcp"]
+    assert body["image"].startswith("ghcr.io/theaisocietyasu/godfather-base@sha256:") and body["ports"] == ["22/tcp"]
     assert body["disk"] == 20 and "mounts" not in body
     assert body["env"]["HF_HOME"] == "/workspace/hf"
     assert body["env"]["GODFATHER_SSH_CA_PUBLIC_KEY"].startswith("ssh-ed25519 ")
@@ -140,12 +141,65 @@ def test_member_sees_and_connects_to_shared_running_pods(client, member_client, 
     assert stopped.status_code == 409
 
 
-def test_officers_get_root_certificates(client, member_client, officer_headers, runpod):
-    _create(client, officer_headers)
-    info = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()}).get_json()
+def _cert(info):
     cert = load_ssh_public_identity(info["ssh_info"]["certificate"].encode())
     assert isinstance(cert, SSHCertificate)
+    return cert
+
+
+def test_officers_get_a_member_certificate_by_default(client, member_client, officer_headers, runpod):
+    _create(client, officer_headers)
+    info = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()}).get_json()
+    cert = _cert(info)
+    assert info["ssh_info"]["is_admin"] is False
+    assert list(cert.critical_options) == [b"force-command"]
+    assert set(cert.extensions) == {b"permit-pty", b"permit-port-forwarding"}
+    assert cert.valid_before - cert.valid_after == (12 * 60 + 5) * 60
+
+
+def test_root_needs_admin_an_officer_and_pod_admin(client, member_client, officer_headers, runpod, monkeypatch):
+    from modules.godfather import api
+
+    sent = []
+    monkeypatch.setattr(service_module().webhooks, "emit", lambda org, event, message: sent.append(event))
+    _create(client, officer_headers)
+    url = "/api/compute/soda/me/pods/pod1/connect"
+    body = {"public_key": _user_key(), "admin": True}
+    refused = member_client.post(url, json=body)
+    assert refused.status_code == 403 and "pod admin" in refused.get_json()["error"]
+
+    turned_on = client.put("/api/compute/soda/pods/pod1/admin", json={"enabled": True}, headers=officer_headers)
+    assert turned_on.status_code == 200 and turned_on.get_json()["pod"]["admin_enabled"] is True
+    info = member_client.post(url, json=body).get_json()
+    cert = _cert(info)
     assert info["ssh_info"]["is_admin"] is True and cert.critical_options == {}
+    assert b"permit-agent-forwarding" in cert.extensions and cert.key_id.endswith(b":admin")
+    assert cert.valid_before - cert.valid_after == 65 * 60
+    assert sent == ["pod.root_access"]
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    assert member_client.post(url, json=body).status_code == 403
+
+
+def test_only_the_owner_changes_pod_admin(client, officer_headers, runpod):
+    from core.db import db_connect
+    from modules.godfather.models import ComputePod
+
+    _create(client, officer_headers)
+    db = db_connect.SessionLocal()
+    db.query(ComputePod).update({"created_by": "someone-else"})
+    db.commit()
+    db.close()
+    url = "/api/compute/soda/pods/pod1/admin"
+    answer = client.put(url, json={"enabled": True}, headers=officer_headers)
+    assert answer.status_code == 403 and "owner" in answer.get_json()["error"]
+    assert client.put(url, json={"enabled": "yes"}, headers=officer_headers).status_code == 400
+
+
+def service_module():
+    from modules.godfather import service
+
+    return service
 
 
 def test_actions_and_terminate(client, officer_headers, runpod):
@@ -674,7 +728,7 @@ def test_cli_messages_and_pod_image_come_from_config(app, client, officer_header
     assert token and "run gf auth and paste it" in page.get_data(as_text=True)
 
     assert _create(client, officer_headers).status_code == 201
-    assert runpod.calls[0][1]["image"] == "example/pod:1"
+    assert runpod.calls[0][1]["image"].startswith("example/pod@sha256:")
     assert set(runpod.calls[0][1]["env"]) >= {"GODFATHER_SSH_PUBLIC_KEY", "GODFATHER_SETUP"}
 
 
@@ -866,3 +920,73 @@ def test_presence_script_finds_member_and_officer_sessions():
         {"username": "alice", "is_admin": False, "seconds": 340},
         {"username": "bob", "is_admin": True, "seconds": 25},
     ]
+
+
+@pytest.mark.parametrize(
+    "image_name", ["ghcr.io/theaisocietyasu/godfather-base:2.1.0", "nvidia/cuda:12.0", "nope/missing:1"]
+)
+def test_pods_need_a_current_godfather_base_image(client, officer_headers, runpod, image_name):
+    answer = _create(client, officer_headers, image_name=image_name)
+    assert answer.status_code == 422 and runpod.calls == []
+    saved = client.put("/api/compute/soda/settings", json={"pod_image": image_name}, headers=officer_headers)
+    assert saved.status_code == 422
+
+
+def test_an_image_built_from_godfather_base_passes(client, officer_headers, runpod):
+    answer = _create(client, officer_headers, image_name="ghcr.io/example/custom:1")
+    assert answer.status_code == 201
+    pod = answer.get_json()["pod"]
+    assert pod["image_version"] == "2.2.0" and pod["image_current"] is True and pod["admin_enabled"] is False
+
+
+def test_a_pod_from_before_the_check_must_be_recreated(client, member_client, officer_headers, runpod):
+    from core.db import db_connect
+    from modules.godfather.models import ComputePod, ComputeSession
+
+    _create(client, officer_headers, is_public=True, allowed_users=[MEMBER_DISCORD_ID])
+    db = db_connect.SessionLocal()
+    db.query(ComputePod).update({"image_version": None, "image_digest": None, "admin_enabled": True})
+    row = db.query(ComputePod).one()
+    db.add(
+        ComputeSession(
+            organization_id=row.organization_id,
+            pod_id="pod1",
+            title="workshop",
+            start_at=datetime.datetime(2099, 1, 1),
+            stop_at=datetime.datetime(2099, 1, 1, 2),
+        )
+    )
+    db.commit()
+    db.close()
+    listed = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"][0]
+    assert listed["image_current"] is False
+    refused = member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()})
+    assert refused.status_code == 409 and "recreate" in refused.get_json()["error"]
+
+    done = client.post("/api/compute/soda/pods/pod1/action", json={"action": "recreate"}, headers=officer_headers)
+    assert done.status_code == 200
+    new_id = done.get_json()["id"]
+    assert done.get_json()["replaced"] == "pod1" and new_id != "pod1"
+    assert ("delete", "pod1") in runpod.calls
+    db = db_connect.SessionLocal()
+    row = db.query(ComputePod).one()
+    assert (row.pod_id, row.is_public, row.allowed_users, row.admin_enabled) == (
+        new_id,
+        True,
+        [MEMBER_DISCORD_ID],
+        False,
+    )
+    assert row.image_version == "2.3.0" and str(row.image_digest).startswith("sha256:")
+    assert [s.pod_id for s in db.query(ComputeSession).all()] == [new_id]
+    db.close()
+    ok = member_client.post(f"/api/compute/soda/me/pods/{new_id}/connect", json={"public_key": _user_key()})
+    assert ok.status_code == 200
+
+
+def test_an_empty_minimum_turns_the_image_check_off(client, officer_headers, runpod, monkeypatch):
+    from core.config import config
+
+    monkeypatch.setattr(config, "GODFATHER_MIN_IMAGE_VERSION", "")
+    answer = _create(client, officer_headers, image_name="nvidia/cuda:12.0")
+    assert answer.status_code == 201 and runpod.calls[0][1]["image"] == "nvidia/cuda:12.0"
+    assert answer.get_json()["pod"]["image_current"] is True

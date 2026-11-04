@@ -8,7 +8,10 @@ from . import files, schedule, service
 
 @tool(
     "godfather.pods",
-    description="The org's Godfather pods with their live status, hardware and who may connect.",
+    description=(
+        "The org's Godfather pods with their live status, hardware, who may connect, the image version, "
+        "image_current (false: members cannot connect until the pod is recreated) and pod admin."
+    ),
     scope="godfather:manage",
     module="godfather",
 )
@@ -18,7 +21,10 @@ def godfather_pods(db, org, caller):
 
 @tool(
     "godfather.pod_action",
-    description="Start, stop, restart or terminate a pod. Terminate deletes the pod and its volume.",
+    description=(
+        "Start, stop, restart, terminate or recreate a pod. Terminate deletes the pod and its volume. Recreate "
+        "replaces the pod with a new one from the default image and deletes the old pod and its disk."
+    ),
     scope="godfather:manage",
     module="godfather",
     confirm=True,
@@ -33,7 +39,8 @@ def godfather_pods(db, org, caller):
     },
 )
 def godfather_pod_action(db, org, caller, pod_id: str, action: str):
-    return service.act(db, int(org.id), pod_id, action)
+    image = service.pod_image(db, int(org.id), config.GODFATHER_POD_IMAGE)
+    return service.act(db, int(org.id), pod_id, action, default_image=image)
 
 
 @tool(

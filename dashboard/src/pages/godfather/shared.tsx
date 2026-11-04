@@ -29,7 +29,7 @@ export function useRefreshGodfather(prefix: string) {
   };
 }
 
-export type PodAction = 'start' | 'stop' | 'restart' | 'terminate';
+export type PodAction = 'start' | 'stop' | 'restart' | 'terminate' | 'recreate';
 
 export function usePodAction(prefix: string, podId: string) {
   const refresh = useRefreshGodfather(prefix);

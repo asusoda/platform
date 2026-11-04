@@ -16,13 +16,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 from core import hosting, limits, secrets, webhooks
+from core.config import config
 from core.errors import ServiceError
 from core.integrations import registry
 from core.log import get_logger
 from core.time import utcnow
 from modules.auth import scopes
-from modules.godfather import ssh
-from modules.godfather.models import ComputeConnection, ComputeKey, ComputePod
+from modules.godfather import image, ssh
+from modules.godfather.models import ComputeConnection, ComputeKey, ComputePod, ComputeSession
 from modules.organizations.models import Organization
 
 hosting.load()
@@ -48,8 +49,12 @@ webhooks.declare(
 webhooks.declare(
     "pod.stopped", "Pods stopped", "A pod stops or is terminated, by an officer, a tool or its schedule.", "godfather"
 )
+webhooks.declare(
+    "pod.root_access", "Root on a pod", "An officer gets a one-hour root certificate for a pod.", "godfather"
+)
 
-ACTIONS = ("start", "stop", "restart", "terminate")
+ACTIONS = ("start", "stop", "restart", "terminate", "recreate")
+OLD_IMAGE = "This pod runs an old image. An officer must recreate it."
 CLOUD_TYPES = ("COMMUNITY", "SECURE")
 # RunPod v2 gives a GPU pod a persistent volume of at least this size. A CPU pod has none.
 MIN_VOLUME_GB = 10
@@ -79,8 +84,14 @@ class GodfatherError(ServiceError):
 
 def announce(org_id: int, name: str, pod_id: str, action: str, by: str) -> None:
     """Send the pod.started or pod.stopped webhook event for an action on a pod."""
-    started = action in ("start", "restart")
-    verb = {"start": "started", "stop": "stopped", "restart": "restarted", "terminate": "terminated"}[action]
+    started = action in ("start", "restart", "recreate")
+    verb = {
+        "start": "started",
+        "stop": "stopped",
+        "restart": "restarted",
+        "terminate": "terminated",
+        "recreate": "recreated",
+    }[action]
     message = webhooks.Message(
         title=f"Pod {name} {verb}",
         fields=(("Pod", pod_id), ("By", by)),
@@ -194,7 +205,28 @@ def _pod_dict(row: ComputePod, live: dict | None) -> dict:
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "machine": provider.machine(live),
         "cost_per_hour": (live or {}).get("cost", (live or {}).get("costPerHr")),
+        "image": (cast(dict, row.config) or {}).get("image_name"),
+        "image_version": row.image_version,
+        "image_current": image_current(row),
+        "admin_enabled": bool(row.admin_enabled),
+        "admin_enabled_by": row.admin_enabled_by,
+        "owner": row.created_by,
     }
+
+
+def image_current(row: ComputePod) -> bool:
+    """True when the pod was created from godfather-base at or above GODFATHER_MIN_IMAGE_VERSION."""
+    return image.is_current(row.image_version, config.GODFATHER_MIN_IMAGE_VERSION)
+
+
+def _checked_image(reference: str) -> image.ImageInfo | None:
+    """The resolved image when the check is on, None when GODFATHER_MIN_IMAGE_VERSION is empty."""
+    minimum = config.GODFATHER_MIN_IMAGE_VERSION
+    if not minimum:
+        return None
+    info = image.resolve(reference)
+    image.check(info, minimum)
+    return info
 
 
 def list_pods(db, org_id: int, client: hosting.HostingClient | None = None) -> list[dict]:
@@ -316,11 +348,13 @@ def update_godfather_settings(db, org_id: int, data: object, deployment_image: s
     value = (value or "").strip()
     if len(value) > 200 or any(c.isspace() for c in value):
         raise GodfatherError("pod_image must be an image name of at most 200 characters, with no spaces")
+    if value:
+        _checked_image(value)
     org = _org(db, org_id)
-    config = dict(cast(dict, org.config) or {})
-    current = {k: v for k, v in (config.get(CONFIG_KEY) or {}).items() if k != "pod_image"}
-    config[CONFIG_KEY] = current | ({"pod_image": value} if value else {})
-    org.config = config
+    saved = dict(cast(dict, org.config) or {})
+    current = {k: v for k, v in (saved.get(CONFIG_KEY) or {}).items() if k != "pod_image"}
+    saved[CONFIG_KEY] = current | ({"pod_image": value} if value else {})
+    org.config = saved
     flag_modified(org, "config")
     db.commit()
     return godfather_settings(db, org_id, deployment_image)
@@ -346,8 +380,28 @@ def create_pod(
     client = client or _client(db, org_id, provider.name)
     backend_public, _ = keypair(db, org_id, BACKEND_KEY)
     ca_public, _ = keypair(db, org_id, USER_CA_KEY)
-    body, settings = pod_request(data, backend_public, ca_public, image)
     allowed = _users(data.get("allowed_users", []))
+    row, created = _create(db, org_id, provider, client, data, image)
+    row.is_public = bool(data.get("is_public", False))
+    row.allowed_users = allowed
+    row.created_by = creator
+    db.add(row)
+    db.commit()
+    logger.info("Godfather pod created org=%s pod=%s by=%s", org_id, row.pod_id, creator)
+    return _pod_dict(row, created)
+
+
+def _create(
+    db, org_id: int, provider: hosting.HostingProvider, client: hosting.HostingClient, data: dict, default_image: str
+) -> tuple[ComputePod, dict]:
+    """Check the image, create the pod on the provider pinned to the image digest, and return a new row."""
+    backend_public, _ = keypair(db, org_id, BACKEND_KEY)
+    ca_public, _ = keypair(db, org_id, USER_CA_KEY)
+    body, settings = pod_request(data, backend_public, ca_public, default_image)
+    info = _checked_image(settings["image_name"])
+    if info is not None:
+        body["image"] = info.reference
+        settings["image_digest"] = info.digest
     created = _call(client.create_pod, body)
     if not isinstance(created, dict) or not created.get("id"):
         raise GodfatherError(f"{provider.title} did not return a pod id", 424)
@@ -356,15 +410,71 @@ def create_pod(
         pod_id=str(created["id"]),
         provider=provider.name,
         name=settings["name"],
-        is_public=bool(data.get("is_public", False)),
-        allowed_users=allowed,
         config=settings,
-        created_by=creator,
+        image_digest=info.digest if info else None,
+        image_version=info.version if info else None,
     )
+    return row, created
+
+
+# The settings of a pod that a recreate sends again. Env values are not stored, so env is not copied.
+RECREATE_KEYS = (
+    "name",
+    "cloud_type",
+    "use_cpu_only",
+    "volume_in_gb",
+    "container_disk_in_gb",
+    "volume_mount_path",
+    "cpu_flavor",
+    "vcpu_count",
+    "gpu_type_id",
+)
+
+
+def recreate(db, org_id: int, pod_id: str, default_image: str, client: hosting.HostingClient | None = None) -> dict:
+    """Replace a pod with a new one from the default image. The old pod and its disk are deleted. Commits.
+
+    The new pod keeps the name, sharing, owner and sessions. Pod admin starts off. Env values are not kept.
+    """
+    old = _find(db, org_id, pod_id)
+    provider = _provider_of(old)
+    client = client or _client(db, org_id, provider.name)
+    saved = cast(dict, old.config) or {}
+    data = {k: saved[k] for k in RECREATE_KEYS if k in saved}
+    row, created = _create(db, org_id, provider, client, data, default_image)
+    row.is_public = bool(old.is_public)
+    row.allowed_users = list(cast(list, old.allowed_users) or [])
+    row.created_by = old.created_by
     db.add(row)
+    db.query(ComputeSession).filter_by(organization_id=org_id, pod_id=pod_id).update(
+        {"pod_id": row.pod_id}, synchronize_session=False
+    )
+    db.query(ComputeConnection).filter_by(organization_id=org_id, pod_id=pod_id).delete()
+    db.delete(old)
     db.commit()
-    logger.info("Godfather pod created org=%s pod=%s by=%s", org_id, row.pod_id, creator)
-    return _pod_dict(row, created)
+    try:
+        client.delete_pod(pod_id)
+    except hosting.HostingError as e:
+        if e.status != 404:
+            logger.warning("Godfather recreate left the old pod org=%s pod=%s: %s", org_id, pod_id, e.message)
+    logger.info("Godfather pod recreated org=%s old=%s new=%s", org_id, pod_id, row.pod_id)
+    announce(org_id, str(row.name), str(row.pod_id), "recreate", "an officer or a tool")
+    return {"id": row.pod_id, "replaced": pod_id, "env_not_copied": list(saved.get("env_names") or [])}
+
+
+def set_pod_admin(db, org_id: int, pod_id: str, enabled: object, caller: str | None, is_superadmin: bool) -> dict:
+    """Turn pod admin on or off. Only the pod owner or the superadmin may. Commits."""
+    if not isinstance(enabled, bool):
+        raise GodfatherError("enabled must be true or false")
+    row = _find(db, org_id, pod_id)
+    if not is_superadmin and (caller is None or caller != row.created_by):
+        raise GodfatherError("Only the pod owner can change pod admin", 403)
+    row.admin_enabled = enabled
+    row.admin_enabled_by = caller if enabled else None
+    row.admin_enabled_at = utcnow() if enabled else None
+    db.commit()
+    logger.info("Godfather pod admin org=%s pod=%s enabled=%s by=%s", org_id, pod_id, enabled, caller)
+    return _pod_dict(row, None) | {"status": None}
 
 
 def update_pod(db, org_id: int, pod_id: str, data: object) -> dict:
@@ -383,10 +493,19 @@ def update_pod(db, org_id: int, pod_id: str, data: object) -> dict:
     return _pod_dict(row, None) | {"status": None}
 
 
-def act(db, org_id: int, pod_id: str, action: object, client: hosting.HostingClient | None = None) -> dict:
-    """Start, stop, restart or terminate a pod. Terminate also forgets it. Commits."""
+def act(
+    db,
+    org_id: int,
+    pod_id: str,
+    action: object,
+    client: hosting.HostingClient | None = None,
+    default_image: str | None = None,
+) -> dict:
+    """Start, stop, restart, terminate or recreate a pod. Terminate also forgets it. Commits."""
     if action not in ACTIONS:
         raise GodfatherError(f"action must be one of {', '.join(ACTIONS)}")
+    if action == "recreate":
+        return recreate(db, org_id, pod_id, default_image or config.GODFATHER_POD_IMAGE, client)
     row = _find(db, org_id, pod_id)
     name = str(row.name)
     client = client or _client(db, org_id, str(row.provider))
@@ -455,16 +574,28 @@ def connect(
     pod_id: str,
     discord_id: str,
     username: str,
-    is_admin: bool,
+    is_officer: bool,
+    want_admin: bool,
     public_key: object,
     client: hosting.HostingClient | None = None,
 ) -> dict:
-    """SSH details and a certificate for the caller's own key. Officers get root."""
+    """SSH details and a certificate for the caller's own key.
+
+    Root only when the caller asks for it, is an officer, and the pod has pod admin on. Everyone else,
+    officers included, gets a member certificate.
+    """
     if not ssh.is_valid_public_key(public_key):
         raise GodfatherError("A valid SSH public key is required")
     row = _find(db, org_id, pod_id)
-    if not is_admin and not _may_connect(row, discord_id):
+    if want_admin and not is_officer:
+        raise GodfatherError("Only officers can ask for root", 403)
+    if want_admin and not row.admin_enabled:
+        raise GodfatherError("The pod owner has not turned on pod admin", 403)
+    is_admin = want_admin
+    if not is_officer and not _may_connect(row, discord_id):
         raise GodfatherError("Pod not accessible", 403)
+    if not image_current(row):
+        raise GodfatherError(OLD_IMAGE, 409)
     client = client or _client(db, org_id, str(row.provider))
     live = _call(client.get_pod, pod_id)
     if _status(live, str(row.provider)) != "RUNNING":
@@ -474,6 +605,16 @@ def connect(
     user = ssh.safe_username(username or discord_id)
     certificate = ssh.sign_user_key(ca_private, cast(str, public_key), pod_id, discord_id, user, is_admin)
     record_connection(db, org_id, pod_id, discord_id, user, is_admin)
+    if is_admin:
+        webhooks.emit(
+            org_id,
+            "pod.root_access",
+            webhooks.Message(
+                title=f"Root on pod {row.name}",
+                fields=(("Pod", pod_id), ("Officer", user), ("Valid for", "1 hour")),
+                color=webhooks.AMBER,
+            ),
+        )
     logger.info("godfather certificate org=%s pod=%s discord_id=%s admin=%s", org_id, pod_id, discord_id, is_admin)
     return {
         "host": address[0],

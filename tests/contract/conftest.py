@@ -128,14 +128,42 @@ def app():
     return main.app
 
 
+# Pod images the stand-in registry knows: reference -> godfather-base version (None: no version label).
+POD_IMAGES = {
+    "ghcr.io/theaisocietyasu/godfather-base:latest": "2.3.0",
+    "ghcr.io/theaisocietyasu/godfather-base:2.1.0": "2.1.0",
+    "ghcr.io/example/custom:1": "2.2.0",
+    "nvidia/cuda:12.0": None,
+    "example/pod:1": "2.2.0",
+    "org/image:1": "2.2.0",
+}
+
+
+def fake_registry(reference):
+    """image.resolve without the network: a made-up digest and the version from POD_IMAGES."""
+    import hashlib
+
+    from modules.godfather import image
+
+    if reference not in POD_IMAGES:
+        raise image.ImageError(f"{reference} was not found, or the image is private. Make it public.")
+    digest = "sha256:" + hashlib.sha256(reference.encode()).hexdigest()
+    return image.ImageInfo(image.parse(reference).pinned(digest), digest, POD_IMAGES[reference])
+
+
 @pytest.fixture(autouse=True)
 def stubs(app, monkeypatch):
-    """Replace Clerk and Notion with local stand-ins so no test reaches the network. Each test starts with no cache."""
+    """Replace Clerk, Notion and the image registry with local stand-ins so no test reaches the network.
+
+    Each test starts with no cache.
+    """
     from core.cache import cache
     from modules.auth import clerk
     from modules.calendar import service as calendar_service
+    from modules.godfather import image
 
     monkeypatch.setattr(clerk, "verify_clerk_token", lambda token: (MEMBER_EMAIL, {"id": "user_clerk_1"}))
+    monkeypatch.setattr(image, "resolve", fake_registry)
     monkeypatch.setattr(calendar_service.get_service().notion_client, "fetch_events", lambda *a, **k: [NOTION_PAGE])
     cache.clear()
 

@@ -166,6 +166,7 @@ source_modules = [
     "modules.calendar.sync",
     "modules.calendar.tracing",
     "modules.godfather.cli_login",
+    "modules.godfather.image",
     "modules.godfather.files",
     "modules.godfather.presence",
     "modules.godfather.schedule",
