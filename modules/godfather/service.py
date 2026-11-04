@@ -8,6 +8,8 @@ without one, GODFATHER_POD_IMAGE in .env gives it.
 """
 
 import datetime
+import posixpath
+import re
 import secrets as random
 from collections.abc import Callable
 from typing import Any, cast
@@ -60,6 +62,12 @@ CLOUD_TYPES = ("COMMUNITY", "SECURE")
 # RunPod v2 gives a GPU pod a persistent volume of at least this size. A CPU pod has none.
 MIN_VOLUME_GB = 10
 MAX_ALLOWED_USERS = 500
+# Member setup: a repo to clone and a script to run in each member's folder. godfather-base 2.4.0 reads it.
+MEMBER_SETUP_VERSION = "2.4.0"
+MAX_SETUP_SCRIPT = 20_000
+MAX_REPO_URL = 300
+REPO_URL = re.compile(r"https://[A-Za-z0-9._~:/?#@!&+,;=%-]+")
+REPO_NAME = re.compile(r"[A-Za-z0-9._-]+")
 CONFIG_KEY = "godfather"
 # Connections older than this are deleted when a new one is recorded.
 CONNECTION_KEEP_DAYS = 90
@@ -212,6 +220,7 @@ def _pod_dict(row: ComputePod, live: dict | None) -> dict:
         "admin_enabled": bool(row.admin_enabled),
         "admin_enabled_by": row.admin_enabled_by,
         "owner": row.created_by,
+        "member_setup": (cast(dict, row.config) or {}).get("member_setup"),
     }
 
 
@@ -266,6 +275,36 @@ def _text(data: dict, key: str, default: str, limit: int = 200) -> str:
     return value.strip()
 
 
+def member_setup(value: object) -> dict | None:
+    """A pod's member setup from a request: repo, a public https git URL, and script. None when both are empty."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or set(value) - {"repo", "script"}:
+        raise GodfatherError("member_setup must be an object with repo and script")
+    repo, script = value.get("repo") or "", value.get("script") or ""
+    if not isinstance(repo, str) or not isinstance(script, str):
+        raise GodfatherError("repo and script must be text")
+    repo, script = repo.strip(), script.replace("\r\n", "\n")
+    name = posixpath.basename(repo.rstrip("/")).removesuffix(".git")
+    if repo and (
+        len(repo) > MAX_REPO_URL or not REPO_URL.fullmatch(repo) or not REPO_NAME.fullmatch(name) or name in (".", "..")
+    ):
+        raise GodfatherError("repo must be a public https git URL, such as https://github.com/org/workshop.git")
+    if len(script) > MAX_SETUP_SCRIPT:
+        raise GodfatherError(f"script must be at most {MAX_SETUP_SCRIPT} characters")
+    if not repo and not script.strip():
+        return None
+    return {"repo": repo, "script": script}
+
+
+def _setup_supported(version: str | None) -> bool:
+    """True when the image runs member setup, or when the image check is off."""
+    return not config.GODFATHER_MIN_IMAGE_VERSION or image.is_current(version, MEMBER_SETUP_VERSION)
+
+
+SETUP_NEEDS_IMAGE = f"Member setup needs godfather-base {MEMBER_SETUP_VERSION} or later"
+
+
 def pod_request(data: dict, backend_public: str, ca_public: str, image: str) -> tuple[dict, dict]:
     """The RunPod create body and the settings recorded with the pod, from an officer's request.
 
@@ -293,6 +332,9 @@ def pod_request(data: dict, backend_public: str, ca_public: str, image: str) -> 
         "volume_mount_path": _text(data, "volume_mount_path", "/workspace"),
         "env_names": sorted(env),
     }
+    setup = member_setup(data.get("member_setup"))
+    if setup:
+        settings["member_setup"] = setup
     body: dict[str, Any] = {
         "name": settings["name"],
         "image": settings["image_name"],
@@ -400,6 +442,8 @@ def _create(
     ca_public, _ = keypair(db, org_id, USER_CA_KEY)
     body, settings = pod_request(data, backend_public, ca_public, default_image)
     info = _checked_image(settings["image_name"])
+    if settings.get("member_setup") and info is not None and not _setup_supported(info.version):
+        raise GodfatherError(f"{SETUP_NEEDS_IMAGE}. Pick a newer image.", 422)
     if info is not None:
         body["image"] = info.reference
         settings["image_digest"] = info.digest
@@ -429,6 +473,7 @@ RECREATE_KEYS = (
     "cpu_flavor",
     "vcpu_count",
     "gpu_type_id",
+    "member_setup",
 )
 
 
@@ -479,9 +524,12 @@ def set_pod_admin(db, org_id: int, pod_id: str, enabled: object, caller: str | N
 
 
 def update_pod(db, org_id: int, pod_id: str, data: object) -> dict:
-    """Change who may connect: is_public and allowed_users. Commits."""
-    if not isinstance(data, dict) or not ({"is_public", "allowed_users"} & set(data)):
-        raise GodfatherError("Send is_public or allowed_users")
+    """Change who may connect (is_public, allowed_users) and the member setup. Commits.
+
+    The pod gets a changed member setup on the next member connection.
+    """
+    if not isinstance(data, dict) or not ({"is_public", "allowed_users", "member_setup"} & set(data)):
+        raise GodfatherError("Send is_public, allowed_users or member_setup")
     data = cast(dict, data)
     row = _find(db, org_id, pod_id)
     if "is_public" in data:
@@ -490,6 +538,15 @@ def update_pod(db, org_id: int, pod_id: str, data: object) -> dict:
         row.is_public = data["is_public"]
     if "allowed_users" in data:
         row.allowed_users = _users(data["allowed_users"])
+    if "member_setup" in data:
+        setup = member_setup(data["member_setup"])
+        if setup and not _setup_supported(row.image_version):
+            raise GodfatherError(f"{SETUP_NEEDS_IMAGE}. Recreate the pod first.", 422)
+        saved = {k: v for k, v in (cast(dict, row.config) or {}).items() if k != "member_setup"}
+        # member_setup_clear asks the next connection to remove the files from the pod
+        saved |= {"member_setup": setup} if setup else {"member_setup_clear": True}
+        row.config = saved
+        flag_modified(row, "config")
     db.commit()
     return _pod_dict(row, None) | {"status": None}
 
@@ -686,6 +743,7 @@ def connect(
     if _status(live, str(row.provider)) != "RUNNING":
         raise GodfatherError("Pod is not running", 409)
     address = _ssh_address(row, live)
+    _send_member_setup(db, org_id, row, address)
     _, ca_private = keypair(db, org_id, USER_CA_KEY)
     user = ssh.safe_username(username or discord_id)
     certificate = ssh.sign_user_key(ca_private, cast(str, public_key), pod_id, discord_id, user, is_admin)
@@ -709,6 +767,29 @@ def connect(
         "is_admin": is_admin,
         "certificate": certificate,
     }
+
+
+def _send_member_setup(db, org_id: int, row: ComputePod, address: tuple[str, int]) -> None:
+    """Write the pod's member setup to the pod before a connection, so godfather-login finds the current one.
+
+    A failure is logged and the connection goes on.
+    """
+    from modules.godfather.files import PodFiles
+
+    saved = cast(dict, row.config) or {}
+    setup = saved.get("member_setup")
+    if not setup and not saved.get("member_setup_clear"):
+        return
+    _, backend_private = keypair(db, org_id, BACKEND_KEY)
+    try:
+        with PodFiles.open(address[0], address[1], backend_private) as pod:
+            pod.put_member_setup(setup)
+    except ServiceError as e:
+        logger.warning("godfather member setup not sent org=%s pod=%s: %s", org_id, row.pod_id, e.message)
+        return
+    if not setup:
+        row.config = {k: v for k, v in saved.items() if k != "member_setup_clear"}
+        flag_modified(row, "config")
 
 
 def pod_files(db, org_id: int, pod_id: str, client: hosting.HostingClient | None = None, opener=None):

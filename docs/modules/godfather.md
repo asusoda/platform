@@ -34,7 +34,7 @@ All routes are under `/api/compute/<org>` and need an officer of the org. The pr
 | `GET /pods` | Pods made here, with `provider` and the live status from the provider |
 | `POST /pods` | Creates a pod. Body below. 201 |
 | `GET /pods/<pod_id>` | One pod |
-| `PUT /pods/<pod_id>` | `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}`, or both |
+| `PUT /pods/<pod_id>` | Any of `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}` and `{"member_setup": {"repo", "script"}}`. `"member_setup": null` turns member setup off |
 | `GET /members?q=&role=&limit=` | Server members for `allowed_users`, sorted by name, bots left out: `members` (`id`, `name`, `username`, `avatar`, `roles`) and `total`. `q` searches usernames and server nicknames that start with it. Without `q` the whole member list is read, which needs the Server Members intent on the bot. `role` keeps the holders of one role. `limit` is 1 to 500, default 50 |
 | `GET /gpu-types?cloud=COMMUNITY` | RunPod GPU types offered on that cloud (`COMMUNITY` or `SECURE`), from RunPod's catalog with the org's key: `id`, `name`, `memory`, `price` (per hour for one GPU) and `availability` (`HIGH`, `MEDIUM`, `LOW` or `NONE`), in stock first, then cheapest. Cached for 60 seconds. The New pod form lists them and blocks types with `NONE` |
 | `GET /members/roles` | Server roles to filter by, highest first, without the everyone role and roles that bots manage: `id`, `name`, `color` |
@@ -42,7 +42,7 @@ All routes are under `/api/compute/<org>` and need an officer of the org. The pr
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate" \| "recreate"}`. `terminate` deletes the pod and its record. `recreate` answers `{"id", "replaced", "env_not_copied"}` |
 | `PUT /pods/<pod_id>/admin` | `{"enabled": true}` turns pod admin on. Only the pod owner (`owner`, who created it) or the superadmin. Others get 403 |
 
-A pod in `GET /pods` has `image`, `image_version`, `image_current`, `admin_enabled`, `admin_enabled_by`, `owner` and `can_change_admin` (the caller may change pod admin).
+A pod in `GET /pods` has `image`, `image_version`, `image_current`, `admin_enabled`, `admin_enabled_by`, `owner`, `can_change_admin` (the caller may change pod admin) and `member_setup` (`null` when off).
 
 All fields of the create body are optional. `provider` names the hosting provider, default `runpod`. An unknown name answers 400. Platform sends the other fields to the RunPod v2 API. A GPU pod gets a volume when `volume_in_gb` is 10 or more. A CPU pod has no volume, and `vcpu_count` is a power of two. When RunPod refuses the request, the route answers 400 with RunPod's reason. When RunPod fails, it answers 424.
 
@@ -61,9 +61,19 @@ All fields of the create body are optional. `provider` names the hosting provide
   "volume_mount_path": "/workspace",
   "env": {"HF_HOME": "/workspace/hf"},
   "is_public": false,
-  "allowed_users": []
+  "allowed_users": [],
+  "member_setup": {"repo": "https://github.com/org/workshop.git", "script": "pip install --user -r workshop/requirements.txt"}
 }
 ```
+
+### Member setup
+
+Member setup puts the same files in each member's folder, for example a workshop repo. It is off unless an officer sets it for the pod, on New pod or with Member setup in the pod menu. It has two optional parts:
+
+- `repo`: a public https git URL, at most 300 characters. It is cloned into the member's folder, unless a folder of that name exists.
+- `script`: shell, at most 20,000 characters. It runs with `bash` as the member, in the member's folder, after the clone.
+
+Before each member connection, Platform writes `repo` and `script` to `/workspace/.godfather/member-setup` on the pod over SFTP (mode 700, root only). If the write fails, Platform logs it and the connection goes on. On the pod, `godfather-login` runs the setup once for each member and each version of the files. A changed setup runs again for each member on their next connection. Each step stops after 300 seconds. The output goes to `~/godfather-setup.log` in the member's home. Member setup needs godfather-base 2.4.0 or later; on an older image, create and `PUT` answer 422. Recreate keeps it.
 
 ## Member page
 

@@ -35,6 +35,7 @@ const pod = (overrides: Partial<Pod>): Pod => ({
   cost_per_hour: null,
   image: 'ghcr.io/theaisocietyasu/godfather-base:latest',
   image_version: '2.3.0',
+  member_setup: null,
   image_current: true,
   admin_enabled: false,
   admin_enabled_by: null,

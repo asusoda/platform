@@ -10,10 +10,10 @@ Terminate also forgets a pod that was already deleted on RunPod, such as one del
 | --- | --- |
 | `api.py` | Officer routes under `/<org_prefix>/pods`, the GPU stock at `/<org_prefix>/gpu-types` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me` (the member page, pods, connect, sessions), and the CLI sign-in through Discord (`cli/login`, `cli/token`) |
 | `tools.py` | The `godfather.*` tools for agents |
-| `service.py` | Pods on their provider, sharing and member connect |
+| `service.py` | Pods on their provider, sharing, member setup and member connect |
 | `ssh.py` | The org's SSH keys and short-lived certificates |
 | `image.py` | The image check: the godfather-base version label and digest from the registry |
-| `files.py` | File operations on a pod over SFTP, as root with the org's backend key |
+| `files.py` | File operations on a pod over SFTP, as root with the org's backend key, and the member setup files |
 | `presence.py` | Live SSH sessions on a pod, read with `ps` over the same root connection |
 | `schedule.py` | Sessions: start a pod before a session and stop it after |
 | `cli_login.py` | The CLI machine token (kind `cli`, scope `godfather:connect`) for a member, and the one-time codes of the browser return sign-in |

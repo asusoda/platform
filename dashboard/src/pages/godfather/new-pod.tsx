@@ -3,8 +3,9 @@ import { Cpu, Gpu, Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, cx, Dialog, Field, FormActions, Input, Select, Switch } from '../../components/ui';
 import { api, send } from '../../lib/api';
-import type { GpuType, NewPod } from '../../lib/types';
+import type { GpuType, MemberSetup, NewPod } from '../../lib/types';
 import { firstConfigured, ProviderField, providerTitle, useProviders } from '../hosting/providers';
+import { MemberSetupFields, NO_SETUP, setupBody } from './member-setup';
 import { UsersEditor } from './members';
 import { godfatherPath, useGodfatherSettings, useRefreshGodfather } from './shared';
 
@@ -108,6 +109,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [nextKey, setNextKey] = useState(1);
+  const [setup, setSetup] = useState<MemberSetup>(NO_SETUP);
   const refresh = useRefreshGodfather(prefix);
   const defaults = useGodfatherSettings(prefix);
   const providers = useProviders(prefix);
@@ -144,6 +146,8 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
       }
       if (draft.name.trim()) body.name = draft.name.trim();
       if (draft.image.trim()) body.image_name = draft.image.trim();
+      const memberSetup = setupBody(setup);
+      if (memberSetup) body.member_setup = memberSetup;
       if (!runpod) return send(`${godfatherPath(prefix)}/pods`, 'POST', body);
       if (draft.cpu) {
         body.cpu_flavor = draft.flavor.trim() || DEFAULT_CPU;
@@ -326,6 +330,12 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
           <p className={cx('mt-1.5 text-xs', problem ? 'text-bad' : 'text-muted')}>
             {problem ?? `Values are passed to the pod as is. Names starting with ${RESERVED_PREFIX} are reserved.`}
           </p>
+        </fieldset>
+
+        <fieldset className="space-y-3 border-t border-line pt-5">
+          <legend className="text-sm font-medium">Member setup</legend>
+          <p className="text-xs text-muted">Optional. Each member gets it once, on their first connection. Needs image 2.4.0 or later.</p>
+          <MemberSetupFields value={setup} onChange={setSetup} />
         </fieldset>
 
         <div className="space-y-4 border-t border-line pt-5">

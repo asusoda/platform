@@ -22,7 +22,11 @@ export type Pod = {
   admin_enabled_by: string | null;
   owner: string | null;
   can_change_admin?: boolean;
+  // A repo and a script for each member's folder. null: off.
+  member_setup: MemberSetup | null;
 };
+
+export type MemberSetup = { repo: string; script: string };
 
 // The create body. The hardware fields follow the RunPod v2 API.
 // A RunPod GPU type with its pod stock and hourly price for one GPU on the chosen cloud.
@@ -49,6 +53,7 @@ export type NewPod = {
   env: Record<string, string>;
   is_public: boolean;
   allowed_users: string[];
+  member_setup?: MemberSetup | null;
 };
 
 export type PodSession = {
