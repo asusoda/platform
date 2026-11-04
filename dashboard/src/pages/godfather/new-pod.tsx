@@ -1,9 +1,9 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Cpu, Gpu, Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, cx, Dialog, Field, FormActions, Input, Select, Switch } from '../../components/ui';
-import { send } from '../../lib/api';
-import type { NewPod } from '../../lib/types';
+import { api, send } from '../../lib/api';
+import type { GpuType, NewPod } from '../../lib/types';
 import { firstConfigured, ProviderField, providerTitle, useProviders } from '../hosting/providers';
 import { UsersEditor } from './members';
 import { godfatherPath, useGodfatherSettings, useRefreshGodfather } from './shared';
@@ -27,6 +27,23 @@ const GPUS = [
 const CPUS = ['cpu3c', 'cpu3g', 'cpu3m', 'cpu5c', 'cpu5g', 'cpu5m'];
 
 type EnvRow = { key: number; name: string; value: string };
+
+const STOCK: Record<GpuType['availability'], string> = { HIGH: 'in stock', MEDIUM: 'in stock', LOW: 'low stock', NONE: 'none free' };
+
+export function gpuLabel(g: GpuType): string {
+  const parts = [g.name, g.memory ? `${g.memory} GB` : null, g.price != null ? `$${g.price.toFixed(2)}/hr` : null, STOCK[g.availability]];
+  return parts.filter(Boolean).join(' · ');
+}
+
+// RunPod's GPU types for the cloud, with stock. Types with none free stay listed but cannot be picked.
+function useGpuTypes(prefix: string, cloud: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['godfather', prefix, 'gpu-types', cloud],
+    queryFn: () => api<{ gpu_types: GpuType[] }>(`${godfatherPath(prefix)}/gpu-types?cloud=${cloud}`).then((r) => r.gpu_types),
+    enabled,
+    staleTime: 60_000,
+  });
+}
 
 type Draft = {
   name: string;
@@ -100,6 +117,14 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   // The hardware, cloud and volume fields follow the RunPod v2 API, so they show for RunPod only
   const runpod = provider === 'runpod';
   const connected = providers.data ? Boolean(providers.data.find((p) => p.name === provider)?.configured) : true;
+  const gpus = useGpuTypes(prefix, draft.cloud ?? 'COMMUNITY', runpod && !draft.cpu);
+  const inStock = (gpus.data ?? []).filter((g) => g.availability !== 'NONE');
+  const firstInStock = inStock[0]?.id;
+  const chosenInStock = inStock.some((g) => g.id === draft.gpu);
+  // Moves the choice to the first GPU in stock when the chosen one has none free on this cloud
+  useEffect(() => {
+    if (firstInStock && !chosenInStock) setDraft((d) => ({ ...d, gpu: firstInStock }));
+  }, [firstInStock, chosenInStock]);
   const set = (k: keyof Draft) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
   const problem = envProblem(env);
   const create = useMutation({
@@ -186,8 +211,30 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
                   </Field>
                 </div>
               ) : (
-                <Field label="GPU type" hint="A RunPod GPU type id">
-                  <Input value={draft.gpu} onChange={set('gpu')} list="gpu-types" />
+                <Field
+                  label="GPU type"
+                  hint={
+                    gpus.data
+                      ? inStock.length
+                        ? `${inStock.length} of ${gpus.data.length} types in stock on this cloud now`
+                        : 'No GPU is free on this cloud now. Try the other cloud or CPU only.'
+                      : gpus.isLoading
+                        ? 'Checking RunPod stock'
+                        : 'A RunPod GPU type id'
+                  }
+                >
+                  {gpus.data?.length ? (
+                    <Select value={draft.gpu} onChange={set('gpu')} aria-label="GPU type">
+                      {gpus.data.some((g) => g.id === draft.gpu) ? null : <option value={draft.gpu}>{draft.gpu}</option>}
+                      {gpus.data.map((g) => (
+                        <option key={g.id} value={g.id} disabled={g.availability === 'NONE'}>
+                          {gpuLabel(g)}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <Input value={draft.gpu} onChange={set('gpu')} list="gpu-types" />
+                  )}
                 </Field>
               )}
               <Field label="Cloud" hint="Secure cloud costs more and runs in data centers">

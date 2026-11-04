@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 from core import hosting, limits, secrets, webhooks
+from core.cache import cache
 from core.config import config
 from core.errors import ServiceError
 from core.integrations import registry
@@ -566,6 +567,44 @@ def accessible_pods(db, org_id: int, discord_id: str, client: hosting.HostingCli
         if _status(live, str(row.provider)) == "RUNNING":
             found.append({"id": row.pod_id, "name": row.name, "status": "RUNNING", "is_public": bool(row.is_public)})
     return found
+
+
+CLOUDS = ("COMMUNITY", "SECURE")
+STOCK = ("HIGH", "MEDIUM", "LOW", "NONE")
+GPU_TYPES_SECONDS = 60
+
+
+def gpu_types(db, org_id: int, cloud: str, client: hosting.HostingClient | None = None) -> list[dict]:
+    """RunPod GPU types offered on cloud, with stock and price for one GPU. In stock first, then cheapest first.
+
+    Results are cached for GPU_TYPES_SECONDS by org and cloud.
+    """
+    if cloud not in CLOUDS:
+        raise GodfatherError(f"cloud must be one of {', '.join(CLOUDS)}", 400)
+    runpod = client or _client(db, org_id, "runpod")
+    read = getattr(runpod, "gpu_types", None)
+    if read is None:
+        return []
+
+    def fetch() -> list[dict]:
+        side = cloud.lower()
+        found = []
+        for gpu in _call(read, cloud):
+            if not gpu.get(side) or gpu.get("manufacturer") == "UNKNOWN":
+                continue
+            stock = str(gpu.get("availability") or "NONE").upper()
+            found.append(
+                {
+                    "id": gpu.get("id"),
+                    "name": gpu.get("name") or gpu.get("id"),
+                    "memory": gpu.get("memory"),
+                    "price": (gpu.get("price") or {}).get(side),
+                    "availability": stock if stock in STOCK else "NONE",
+                }
+            )
+        return sorted(found, key=lambda g: (STOCK.index(g["availability"]), g["price"] or 0, str(g["name"])))
+
+    return cache.get_or_compute(("godfather.gpu_types", org_id, cloud), GPU_TYPES_SECONDS, fetch)
 
 
 MEMBER_CONNECTIONS = 10

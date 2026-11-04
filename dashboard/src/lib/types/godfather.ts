@@ -25,6 +25,15 @@ export type Pod = {
 };
 
 // The create body. The hardware fields follow the RunPod v2 API.
+// A RunPod GPU type with its pod stock and hourly price for one GPU on the chosen cloud.
+export type GpuType = {
+  id: string;
+  name: string;
+  memory: number | null;
+  price: number | null;
+  availability: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+};
+
 export type NewPod = {
   provider: string;
   name?: string;

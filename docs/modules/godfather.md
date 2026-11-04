@@ -36,6 +36,7 @@ All routes are under `/api/compute/<org>` and need an officer of the org. The pr
 | `GET /pods/<pod_id>` | One pod |
 | `PUT /pods/<pod_id>` | `{"is_public": true}`, `{"allowed_users": ["<discord id>", ...]}`, or both |
 | `GET /members?q=&role=&limit=` | Server members for `allowed_users`, sorted by name, bots left out: `members` (`id`, `name`, `username`, `avatar`, `roles`) and `total`. `q` searches usernames and server nicknames that start with it. Without `q` the whole member list is read, which needs the Server Members intent on the bot. `role` keeps the holders of one role. `limit` is 1 to 500, default 50 |
+| `GET /gpu-types?cloud=COMMUNITY` | RunPod GPU types offered on that cloud (`COMMUNITY` or `SECURE`), from RunPod's catalog with the org's key: `id`, `name`, `memory`, `price` (per hour for one GPU) and `availability` (`HIGH`, `MEDIUM`, `LOW` or `NONE`), in stock first, then cheapest. Cached for 60 seconds. The New pod form lists them and blocks types with `NONE` |
 | `GET /members/roles` | Server roles to filter by, highest first, without the everyone role and roles that bots manage: `id`, `name`, `color` |
 | `GET /members?ids=<id>,<id>` | The display names of up to 50 ids. 503 when Discord does not answer |
 | `POST /pods/<pod_id>/action` | `{"action": "start" \| "stop" \| "restart" \| "terminate" \| "recreate"}`. `terminate` deletes the pod and its record. `recreate` answers `{"id", "replaced", "env_not_copied"}` |

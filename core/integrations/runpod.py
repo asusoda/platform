@@ -93,6 +93,11 @@ class RunPodClient:
     def delete_pod(self, pod_id: str) -> Any:
         return self._request("DELETE", f"/pods/{quote(pod_id, safe='')}")
 
+    def gpu_types(self, cloud: str) -> list[dict]:
+        """RunPod's GPU types with their pod stock for one GPU on cloud (SECURE or COMMUNITY)."""
+        query = f"include=AVAILABILITY&product=POD&count=1&cloud={quote(cloud, safe='')}"
+        return (self._request("GET", f"/catalog/gpus?{query}") or {}).get("gpus") or []
+
 
 def proxy_url(pod_id: str, port: int, path: str) -> str:
     """The public HTTPS address RunPod gives an http port of a pod."""

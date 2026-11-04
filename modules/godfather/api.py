@@ -104,6 +104,11 @@ def create_pod(db, org):
     return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), image)}, 201
 
 
+@_officer_route("/gpu-types", ["GET"])
+def gpu_types(db, org):
+    return {"gpu_types": service.gpu_types(db, _org_id(org), request.args.get("cloud", "COMMUNITY").upper())}
+
+
 @_officer_route("/settings", ["GET"])
 def get_settings(db, org):
     return {"settings": service.godfather_settings(db, _org_id(org), config.GODFATHER_POD_IMAGE)}

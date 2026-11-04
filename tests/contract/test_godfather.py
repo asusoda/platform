@@ -31,6 +31,52 @@ class FakeRunPod:
     def get_pod(self, pod_id):
         return self.pods.get(pod_id)
 
+    def gpu_types(self, cloud):
+        self.calls.append(("gpu_types", cloud))
+        return [
+            {
+                "id": "NVIDIA RTX A4000",
+                "name": "RTX A4000",
+                "memory": 16,
+                "community": True,
+                "secure": True,
+                "manufacturer": "NVIDIA",
+                "availability": "NONE",
+                "price": {"community": 0.17, "secure": 0.25},
+            },
+            {
+                "id": "NVIDIA RTX A6000",
+                "name": "RTX A6000",
+                "memory": 48,
+                "community": True,
+                "secure": True,
+                "manufacturer": "NVIDIA",
+                "availability": "LOW",
+                "price": {"community": 0.33, "secure": 0.59},
+            },
+            {
+                "id": "NVIDIA RTX A4500",
+                "name": "RTX A4500",
+                "memory": 20,
+                "community": True,
+                "secure": True,
+                "manufacturer": "NVIDIA",
+                "availability": "LOW",
+                "price": {"community": 0.19, "secure": 0.25},
+            },
+            {
+                "id": "NVIDIA L4",
+                "name": "L4",
+                "memory": 24,
+                "community": False,
+                "secure": True,
+                "manufacturer": "NVIDIA",
+                "availability": "HIGH",
+                "price": {"community": 0.44, "secure": 0.59},
+            },
+            {"id": "unknown", "name": "unknown", "community": True, "secure": True, "manufacturer": "UNKNOWN"},
+        ]
+
     def start_pod(self, pod_id):
         self.calls.append(("start", pod_id))
         self.pods[pod_id]["status"] = "RUNNING"
@@ -162,6 +208,22 @@ def test_member_page_lists_the_members_pods_sessions_and_connections(
     member_client.post("/api/compute/soda/me/pods/pod1/connect", json={"public_key": _user_key()})
     connections = member_client.get("/api/compute/soda/me").get_json()["connections"]
     assert [(c["pod_id"], c["is_admin"]) for c in connections] == [("pod1", False)]
+
+
+def test_gpu_types_list_stock_for_the_chosen_cloud(client, officer_headers, runpod):
+    answer = client.get("/api/compute/soda/gpu-types?cloud=COMMUNITY", headers=officer_headers)
+    gpus = answer.get_json()["gpu_types"]
+    assert [(g["id"], g["availability"], g["price"]) for g in gpus] == [
+        ("NVIDIA RTX A4500", "LOW", 0.19),
+        ("NVIDIA RTX A6000", "LOW", 0.33),
+        ("NVIDIA RTX A4000", "NONE", 0.17),
+    ]
+    secure = client.get("/api/compute/soda/gpu-types?cloud=secure", headers=officer_headers).get_json()
+    assert secure["gpu_types"][0]["id"] == "NVIDIA L4"
+    client.get("/api/compute/soda/gpu-types?cloud=COMMUNITY", headers=officer_headers)
+    assert [c for c in runpod.calls if c[0] == "gpu_types"] == [("gpu_types", "COMMUNITY"), ("gpu_types", "SECURE")]
+    assert client.get("/api/compute/soda/gpu-types?cloud=MOON", headers=officer_headers).status_code == 400
+    assert client.get("/api/compute/soda/gpu-types").status_code == 401
 
 
 def _cert(info):
