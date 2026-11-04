@@ -5,12 +5,14 @@ import html
 import io
 import secrets
 from typing import cast
+from urllib.parse import urlencode
 
 from flask import Blueprint, jsonify, redirect, request, send_file, session
 
 from core import audit
 from core.config import config
 from core.db import db_connect
+from core.errors import ServiceError
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from modules.accounts import providers
@@ -189,6 +191,11 @@ def my_pods(db, org, discord_id):
     return {"pods": service.accessible_pods(db, _org_id(org), discord_id)}
 
 
+@_member_route("/sessions", ["GET"])
+def my_sessions(db, org, discord_id):
+    return {"sessions": schedule.member_sessions(db, _org_id(org), discord_id)}
+
+
 def _is_officer(org, discord_id: str) -> bool:
     if access.is_superadmin(discord_id):
         return True
@@ -309,7 +316,8 @@ def delete_session(db, org, pod_id, session_id):
     return {"deleted": session_id}
 
 
-# Godfather CLI sign-in: Discord login in the browser, then a page with a token to paste.
+# Godfather CLI sign-in: Discord login in the browser. The token goes back to a CLI that listens on
+# 127.0.0.1 as a one-time code, or shows on a page to paste.
 
 
 def _sign_in_again() -> str:
@@ -342,8 +350,17 @@ def _callback_url() -> str:
 def cli_sign_in(org_prefix):
     if not providers.base_url():
         return _page("This server has no ACCOUNTS_BASE_URL, so Discord sign-in is not set up.", status=503)
+    try:
+        cli = cli_login.loopback(
+            request.args.get("port"),
+            request.args.get("state"),
+            request.args.get("code_challenge"),
+            request.args.get("code_challenge_method"),
+        )
+    except ServiceError as e:
+        return _page(f"{e.message}. {_sign_in_again()}", status=400)
     state = secrets.token_urlsafe(24)
-    session["godfather_cli_login"] = {"state": state, "org_prefix": org_prefix}
+    session["godfather_cli_login"] = {"state": state, "org_prefix": org_prefix, "cli": cli}
     return redirect(providers.discord_consent_url(config.CLIENT_ID, state, _callback_url()))
 
 
@@ -371,6 +388,12 @@ def cli_callback():
         org_name = str(org.name)
         if not membership:
             return _page(f"You need to be in the {org_name} Discord server to use its pods.", status=403)
+        cli = started.get("cli")
+        if cli:
+            code = cli_login.start_code(db, _org_id(org), discord_id, cli["code_challenge"])
+            # The host is fixed, so the redirect only reaches the member's own machine.
+            query = urlencode({"code": code, "state": cli["state"]})
+            return redirect(f"http://127.0.0.1:{int(cli['port'])}/callback?{query}")
         token = cli_login.issue(db, _org_id(org), discord_id)
     finally:
         db.close()
@@ -382,3 +405,27 @@ def cli_callback():
         actor_id=discord_id,
     )
     return _page(f"Signed in to {org_name}.", token)
+
+
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
+@godfather_blueprint.route("/<string:org_prefix>/cli/token", methods=["POST"])
+def cli_token(org_prefix):
+    """Trade a code from the loopback sign-in and its PKCE verifier for a CLI token."""
+    data = _body()
+    data = data if isinstance(data, dict) else {}
+    db = db_connect.SessionLocal()
+    try:
+        org = organizations.find_by_prefix(db, org_prefix, active_only=True)
+        if org is None:
+            return jsonify({"error": "Organization not found"}), 404, _NO_STORE
+        try:
+            token, discord_id = cli_login.redeem(db, _org_id(org), data.get("code"), data.get("code_verifier"))
+        except ServiceError as e:
+            db.rollback()
+            return jsonify({"error": e.message}), e.status, _NO_STORE
+    finally:
+        db.close()
+    audit.record("godfather cli token issued", source="http", org=org_prefix, actor_kind="member", actor_id=discord_id)
+    return jsonify({"token": token, "expires_days": cli_login.EXPIRES_DAYS}), 200, _NO_STORE

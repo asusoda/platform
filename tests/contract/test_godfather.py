@@ -51,7 +51,7 @@ class FakeRunPod:
 def runpod(app, monkeypatch):
     from core.db import db_connect
     from modules.godfather import service
-    from modules.godfather.models import ComputeConnection, ComputeKey, ComputePod, ComputeSession
+    from modules.godfather.models import ComputeCliCode, ComputeConnection, ComputeKey, ComputePod, ComputeSession
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     fake = FakeRunPod()
@@ -62,6 +62,7 @@ def runpod(app, monkeypatch):
     db.query(ComputeConnection).delete()
     db.query(ComputePod).delete()
     db.query(ComputeKey).delete()
+    db.query(ComputeCliCode).delete()
     db.commit()
     db.close()
 
@@ -504,6 +505,143 @@ def test_cli_token_follows_server_membership(app, client, officer_headers, runpo
     assert client.get("/api/compute/soda/me/pods", headers=bearer).status_code == 403
     monkeypatch.setattr(api, "_is_member", lambda org, discord_id: None)
     assert client.get("/api/compute/soda/me/pods", headers=bearer).status_code == 503
+
+
+def _loopback_sign_in(app, monkeypatch, verifier="v" * 43, discord_id=MEMBER_DISCORD_ID):
+    from urllib.parse import parse_qs, urlparse
+
+    from modules.accounts import providers
+    from modules.godfather import cli_login
+
+    monkeypatch.setenv("ACCOUNTS_BASE_URL", "https://platform.example")
+    monkeypatch.setattr(providers, "discord_user_id", lambda *args, **kwargs: discord_id)
+    browser = app.test_client()
+    query = (
+        f"port=53682&state=cli-state-123&code_challenge={cli_login.challenge_for(verifier)}&code_challenge_method=S256"
+    )
+    assert browser.get(f"/api/compute/soda/cli/login?{query}").status_code == 302
+    with browser.session_transaction() as session:
+        state = session["godfather_cli_login"]["state"]
+    back = browser.get(f"/api/compute/cli/callback?state={state}&code=abc")
+    url = urlparse(back.location)
+    return back, url, parse_qs(url.query).get("code", [""])[0]
+
+
+def test_challenge_matches_rfc_7636_appendix_b():
+    from modules.godfather import cli_login
+
+    verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    assert cli_login.challenge_for(verifier) == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+
+def test_loopback_sign_in_returns_a_code_the_cli_redeems_once(app, client, runpod, monkeypatch):
+    back, url, code = _loopback_sign_in(app, monkeypatch)
+    assert back.status_code == 302
+    assert (url.scheme, url.hostname, url.port, url.path) == ("http", "127.0.0.1", 53682, "/callback")
+    assert "state=cli-state-123" in url.query and code and "plat_" not in back.location
+
+    body = {"code": code, "code_verifier": "v" * 43}
+    first = client.post("/api/compute/soda/cli/token", json=body)
+    assert first.status_code == 200 and first.headers["Cache-Control"] == "no-store"
+    token = first.get_json()["token"]
+    assert token.startswith("plat_") and first.get_json()["expires_days"] == 90
+    assert client.get("/api/compute/soda/me/pods", headers={"Authorization": f"Bearer {token}"}).status_code == 200
+    assert client.post("/api/compute/soda/cli/token", json=body).status_code == 400
+
+
+def test_cli_token_refuses_bad_codes(app, client, runpod, monkeypatch):
+    import datetime
+
+    from core.db import db_connect
+    from modules.godfather.models import ComputeCliCode
+
+    empty = client.post("/api/compute/soda/cli/token", json={})
+    assert empty.status_code == 400 and "required" in empty.get_json()["error"]
+    assert client.post("/api/compute/nope/cli/token", json={}).status_code == 404
+
+    _, _, code = _loopback_sign_in(app, monkeypatch)
+    assert client.post("/api/compute/soda/cli/token", json={"code": code, "code_verifier": "w" * 43}).status_code == 400
+    # A wrong verifier uses up the code.
+    assert client.post("/api/compute/soda/cli/token", json={"code": code, "code_verifier": "v" * 43}).status_code == 400
+
+    _, _, code = _loopback_sign_in(app, monkeypatch)
+    db = db_connect.SessionLocal()
+    db.query(ComputeCliCode).update({"expires_at": datetime.datetime(2000, 1, 1)})
+    db.commit()
+    db.close()
+    assert client.post("/api/compute/soda/cli/token", json={"code": code, "code_verifier": "v" * 43}).status_code == 400
+    assert (
+        client.post("/api/compute/soda/cli/token", json={"code": "made-up", "code_verifier": "v" * 43}).status_code
+        == 400
+    )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "port=53682",
+        "port=80&state=cli-state-123&code_challenge=" + "c" * 43 + "&code_challenge_method=S256",
+        "port=53682&state=cli-state-123&code_challenge=" + "c" * 43 + "&code_challenge_method=plain",
+        "port=53682&state=x&code_challenge=" + "c" * 43 + "&code_challenge_method=S256",
+        "port=53682&state=cli-state-123&code_challenge=short&code_challenge_method=S256",
+    ],
+)
+def test_partial_or_bad_loopback_parameters_are_refused(app, runpod, monkeypatch, query):
+    monkeypatch.setenv("ACCOUNTS_BASE_URL", "https://platform.example")
+    assert app.test_client().get(f"/api/compute/soda/cli/login?{query}").status_code == 400
+
+
+def test_member_sessions_list_upcoming_sessions_of_pods_the_member_may_use(client, officer_headers, runpod):
+    import datetime
+
+    from core.db import db_connect
+    from core.time import utcnow
+    from modules.godfather import schedule
+    from modules.godfather.models import ComputePod, ComputeSession
+
+    _create(client, officer_headers, allowed_users=[MEMBER_DISCORD_ID])
+    _create(client, officer_headers, name="private")
+    db = db_connect.SessionLocal()
+    org_id = db.query(ComputePod).filter_by(pod_id="pod1").one().organization_id
+    now = utcnow()
+    hour = datetime.timedelta(hours=1)
+    db.add_all(
+        [
+            ComputeSession(
+                organization_id=org_id, pod_id="pod1", title="later", start_at=now + 3 * hour, stop_at=now + 4 * hour
+            ),
+            ComputeSession(
+                organization_id=org_id, pod_id="pod1", title="soon", start_at=now + hour, stop_at=now + 2 * hour
+            ),
+            ComputeSession(
+                organization_id=org_id, pod_id="pod1", title="past", start_at=now - 3 * hour, stop_at=now - hour
+            ),
+            ComputeSession(
+                organization_id=org_id, pod_id="pod1", title="done", start_at=now, stop_at=now + hour, finished=True
+            ),
+            ComputeSession(
+                organization_id=org_id, pod_id="pod2", title="hidden", start_at=now + hour, stop_at=now + 2 * hour
+            ),
+        ]
+    )
+    db.commit()
+    sessions = schedule.member_sessions(db, org_id, MEMBER_DISCORD_ID, now=now)
+    db.close()
+    assert [s["title"] for s in sessions] == ["soon", "later"]
+    first = sessions[0]
+    assert first["pod_id"] == "pod1" and first["pod_name"] == "workshop" and "created_by" not in first
+    start = datetime.datetime.fromisoformat(first["start_at"])
+    assert start - datetime.datetime.fromisoformat(first["pod_starts_at"]) == datetime.timedelta(minutes=10)
+
+
+def test_member_sessions_route_takes_the_cli_token(app, client, officer_headers, runpod, monkeypatch):
+    from modules.godfather import api
+
+    monkeypatch.setattr(api, "_is_officer", lambda org, discord_id: False)
+    _create(client, officer_headers, allowed_users=[MEMBER_DISCORD_ID])
+    _, token = _cli_sign_in(app.test_client(), monkeypatch)
+    answer = client.get("/api/compute/soda/me/sessions", headers={"Authorization": f"Bearer {token}"})
+    assert answer.status_code == 200 and answer.get_json() == {"sessions": []}
 
 
 def test_cli_sign_in_is_refused_when_it_should_be(app, runpod, monkeypatch):
