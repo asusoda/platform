@@ -92,8 +92,10 @@
 /api/calendar/notion-webhook OPTIONS,POST calendar.notion_webhook
 /api/calendar/sync-all OPTIONS,POST calendar.sync_all_organizations
 /api/compute/<string:org_prefix>/cli/login GET,HEAD,OPTIONS godfather.cli_sign_in
+/api/compute/<string:org_prefix>/cli/token OPTIONS,POST godfather.cli_token
 /api/compute/<string:org_prefix>/me/pods GET,HEAD,OPTIONS godfather.my_pods
 /api/compute/<string:org_prefix>/me/pods/<string:pod_id>/connect OPTIONS,POST godfather.connect
+/api/compute/<string:org_prefix>/me/sessions GET,HEAD,OPTIONS godfather.my_sessions
 /api/compute/<string:org_prefix>/members GET,HEAD,OPTIONS godfather.find_members
 /api/compute/<string:org_prefix>/pods GET,HEAD,OPTIONS godfather.list_pods
 /api/compute/<string:org_prefix>/pods OPTIONS,POST godfather.create_pod

@@ -53,6 +53,44 @@ def session_dict(row: ComputeSession) -> dict:
     }
 
 
+MEMBER_UPCOMING = 20
+
+
+def member_sessions(db, org_id: int, discord_id: str, now=None) -> list[dict]:
+    """Upcoming sessions on the pods this member may connect to, running or not, soonest first."""
+    now = now or utcnow()
+    pods = {
+        str(row.pod_id): row
+        for row in db.query(ComputePod).filter_by(organization_id=org_id)
+        if service._may_connect(row, discord_id)
+    }
+    if not pods:
+        return []
+    rows = (
+        db.query(ComputeSession)
+        .filter(
+            ComputeSession.organization_id == org_id,
+            ComputeSession.pod_id.in_(list(pods)),
+            ComputeSession.finished.is_(False),
+            ComputeSession.stop_at > now,
+        )
+        .order_by(ComputeSession.start_at)
+        .limit(MEMBER_UPCOMING)
+        .all()
+    )
+    return [
+        {
+            "pod_id": row.pod_id,
+            "pod_name": pods[str(row.pod_id)].name,
+            "title": row.title,
+            "start_at": _iso(row.start_at),
+            "stop_at": _iso(row.stop_at),
+            "pod_starts_at": _iso(cast(datetime.datetime, row.start_at) - START_LEAD),
+        }
+        for row in rows
+    ]
+
+
 def list_sessions(db, org_id: int, pod_id: str) -> list[dict]:
     service._find(db, org_id, pod_id)
     rows = (

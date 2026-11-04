@@ -62,6 +62,7 @@ These routes need a Discord session, or the CLI token as `Authorization: Bearer 
 | --- | --- |
 | `GET /api/compute/<org>/me/pods` | Running pods that are public or that list the member in `allowed_users` |
 | `POST /api/compute/<org>/me/pods/<pod_id>/connect` | `{"public_key": "ssh-ed25519 ..."}`. Returns host, port, `user_folder` and a certificate |
+| `GET /api/compute/<org>/me/sessions` | Up to 20 upcoming sessions of the pods the member may connect to, running or not: `pod_id`, `pod_name`, `title`, `start_at`, `stop_at` and `pod_starts_at` (10 minutes before `start_at`) |
 
 A member certificate has the principal `gf-<pod_id>` and forces `/usr/local/bin/godfather-login <username>`, which puts the member in their own account and folder. An officer of the org gets a root certificate with no forced command. A certificate is valid from 5 minutes ago to 12 hours from now. The audit log records each connect, and the `compute_connections` table keeps it for the pod's member list.
 
@@ -81,21 +82,31 @@ The connected route opens SSH to the pod as root with the `backend` key, with a 
 ## CLI sign-in
 
 1. `<cli> auth` opens `GET /api/compute/<org>/cli/login`, which sends the member to Discord.
-2. Discord returns to `GET /api/compute/cli/callback`. If the member is in the org's server and compute is on, the page shows a token one time.
-3. The member pastes the token into the CLI. The CLI sends it on the member routes.
+2. Discord returns to `GET /api/compute/cli/callback`. If the member is in the org's server and Godfather is on, Platform gives the CLI a token.
+3. The CLI sends the token on the member routes.
 
-The CLI signs in one time, then gets a certificate each time it connects.
+In step 2 the token reaches the CLI in one of two ways:
+
+- **Browser return (CLI 2.2.0 and later).** The CLI listens on `127.0.0.1` and adds `port`, `state`, `code_challenge` and `code_challenge_method=S256` to `cli/login`. The callback sends the browser to `http://127.0.0.1:<port>/callback` with a one-time `code` and the CLI's `state`. The CLI posts `{"code", "code_verifier"}` to `POST /api/compute/<org>/cli/token` and gets `{"token", "expires_days"}`. A code works once, for 2 minutes, and only with the verifier of its challenge (PKCE, RFC 7636). A wrong verifier uses up the code. The host is always `127.0.0.1`, so the redirect cannot send the code to another machine. Send all four parameters or none: a partial or bad set answers 400.
+- **Paste.** Without the parameters the page shows the token one time, and the member pastes it into the CLI. CLI 2.1.0 and older, `<cli> auth --paste`, and a CLI that cannot open a port use this.
+
+`POST .../cli/token` with an empty body answers 400. The CLI uses it to tell a server with browser return from an older one (404).
 
 ```mermaid
 sequenceDiagram
   participant CLI as Godfather CLI
+  participant B as Browser
   participant API as Platform
   participant D as Discord
   participant Pod as Pod
-  CLI->>API: GET /api/compute/org/cli/login
+  CLI->>B: open cli/login with port, state, code_challenge
+  B->>API: GET /api/compute/org/cli/login
   API->>D: Send the member to sign in
   D->>API: GET /api/compute/cli/callback
-  API-->>CLI: Token shown one time, pasted into the CLI
+  API-->>B: 302 to 127.0.0.1 port /callback with code and state
+  B->>CLI: GET /callback
+  CLI->>API: POST /api/compute/org/cli/token with code and code_verifier
+  API-->>CLI: token
   CLI->>API: GET /api/compute/org/me/pods
   API-->>CLI: Running pods the member can use
   CLI->>API: POST .../me/pods/pod_id/connect with public_key
@@ -104,7 +115,7 @@ sequenceDiagram
   Pod->>Pod: godfather-login username
 ```
 
-The token is a machine token of kind `cli` with the scope `godfather:connect`, for the member's Discord id and the org. It is valid for 90 days. A new sign-in revokes the member's previous CLI token. The audit log records each token.
+The token is a machine token of kind `cli` with the scope `godfather:connect`, for the member's Discord id and the org. It is valid for 90 days. A new sign-in revokes the member's previous CLI token. The audit log records each token. Codes live in `compute_cli_codes` as SHA-256 hashes, and each new code deletes the expired ones.
 
 The CLI sign-in needs `ACCOUNTS_BASE_URL`, `CLIENT_ID` and `CLIENT_SECRET` on the server, and `<ACCOUNTS_BASE_URL>/api/compute/cli/callback` as a redirect of the Discord app.
 

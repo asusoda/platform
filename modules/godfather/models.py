@@ -79,3 +79,17 @@ class ComputeConnection(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
 
     __table_args__ = (Index("ix_compute_connections_pod", "organization_id", "pod_id", "created_at"),)
+
+
+class ComputeCliCode(Base):
+    """A one-time code from the CLI browser sign-in. The CLI redeems it with its PKCE verifier for a token."""
+
+    __tablename__ = "compute_cli_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False)
+    discord_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)  # SHA-256 hex of the code
+    code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)  # S256
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)  # UTC
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
