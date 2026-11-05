@@ -1,51 +1,45 @@
-"""Library hours: the weekly table flattened to one line per location."""
+"""Library hours: the LibCal hours feed behind lib.asu.edu/hours, one line per location."""
 
 from __future__ import annotations
 
-from modules.submodules.text import is_divider, page_text, plain, table_cells
+import json
+
+from modules.submodules.text import page_text
 from modules.submodules.types import Fetched, Source
+
+# The Arizona libraries on the ASU LibCal instance. lib.asu.edu/hours draws its table from this feed in the browser.
+FEED = "https://api3.libcal.com/api_hours_grid.php?iid=1222&lid=0&format=json&weeks=1"
 
 
 def extract_hours(fetched: Fetched) -> str:
-    """One line per library, carrying every day column with its hours."""
+    """The week's dates, then one line per location with each day's date and hours."""
+    try:
+        locations = json.loads(fetched.body)["locations"]
+    except (ValueError, KeyError, TypeError):
+        return page_text(fetched)
+    names = {loc.get("lid"): loc.get("name", "") for loc in locations}
     out: list[str] = []
-    headers: list[str] = []
-    for raw in page_text(fetched).splitlines():
-        cells = table_cells(raw)
-        if cells is None:
-            headers = []
-            line = plain(raw)
-            if line:
-                out.append(line)
-            continue
-        if is_divider(cells):
-            continue
-        cells = [plain(cell) for cell in cells]
-        if not any(cells):
-            continue
-        if not headers:
-            headers = cells
-            continue
-        line = _row_line(headers, cells)
-        if line:
-            out.append(line)
-    return "\n".join(out).strip()
-
-
-def _row_line(headers: list[str], cells: list[str]) -> str:
-    label = cells[0]
-    pairs = [f"{header} {value}".strip() for header, value in zip(headers[1:], cells[1:], strict=False) if value]
-    if not pairs:
-        return label
-    body = "; ".join(pairs)
-    return f"{label}: {body}" if label else body
+    for loc in locations:
+        weeks = loc.get("weeks") or [{}]
+        days = weeks[0]
+        if not out and days:
+            dates = [day.get("date", "") for day in days.values()]
+            out.append(f"ASU Library hours for {dates[0]} to {dates[-1]}, Arizona time.")
+        pairs = [
+            f"{name} {day.get('date', '')} {day.get('rendered') or 'no hours listed'}" for name, day in days.items()
+        ]
+        name = loc.get("name", "")
+        parent = names.get(loc.get("parent_lid"))
+        label = f"{parent} > {name}" if parent else name
+        if pairs:
+            out.append(f"{label}: {'; '.join(pairs)}")
+    return "\n".join(out)
 
 
 SOURCE = Source(
     key="library_hours",
-    url="https://lib.asu.edu/hours",
+    url=FEED,
     category="library",
     fetch_every_hours=6,
-    needs_js=True,
     extractor=extract_hours,
 )

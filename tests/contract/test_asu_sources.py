@@ -41,14 +41,20 @@ def line_with(text: str, needle: str) -> str:
     return matches[0]
 
 
-def test_library_hours_keeps_a_whole_week_on_one_line():
-    text = extract_hours(page("library_hours.md"))
-    hayden = line_with(text, "Hayden Library")
-    assert "Monday 7 a.m. - 2 a.m." in hayden
-    assert "Sunday 10 a.m. - 2 a.m." in hayden
-    assert "Saturday Closed" in line_with(text, "Noble Library")
-    assert "September 8 - September 14, 2025" in text
-    assert "|" not in text and "https://" not in text
+def test_library_hours_read_the_libcal_feed():
+    body = (FIXTURES / "library_hours.json").read_bytes()
+    text = extract_hours(Fetched(url=SOURCES["library_hours"].url, body=body, content_type="application/json"))
+    assert text.splitlines()[0] == "ASU Library hours for 2026-11-01 to 2026-11-07, Arizona time."
+    hayden = line_with(text, "Hayden Library - ASU Faculty, Staff and Students:")
+    assert "Thursday 2026-11-05 7am - 12am" in hayden
+    assert "Sunday 2026-11-01 10am - 12am" in hayden
+    assert line_with(text, "Visitors").startswith("Hayden Library - ASU Faculty, Staff and Students > Visitors:")
+    assert "Saturday 2026-11-07 Closed" in line_with(text, "Noble Library")
+
+
+def test_library_hours_fall_back_to_page_text():
+    fetched = page("events.md")
+    assert extract_hours(fetched) == fetched.text
 
 
 def test_events_keep_name_date_and_location_together():

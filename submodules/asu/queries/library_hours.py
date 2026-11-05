@@ -7,7 +7,7 @@ from submodules.asu.sources.library_hours import SOURCE as HOURS
 
 
 def to_url(params: dict[str, str]) -> str:
-    """The hours page. It takes no parameters."""
+    """The hours feed. It takes no parameters."""
     return HOURS.url
 
 
