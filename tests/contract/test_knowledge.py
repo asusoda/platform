@@ -252,6 +252,8 @@ def text_index(app):
     from core.db import db_connect
     from modules.knowledge import fts
 
+    if db_connect.engine.dialect.name != "sqlite":
+        pytest.skip("the text index is SQLite only")
     with db_connect.engine.begin() as connection:
         fts.install(connection)
     yield
