@@ -6,6 +6,8 @@ export type KnowledgeCrawl = {
   enabled: boolean;
   last_attempt_at: string | null;
   last_error: string | null;
+  // pending or rejected for a page an agent read that waits on an officer
+  review: 'pending' | 'rejected' | null;
 };
 
 export type KnowledgeSource = {

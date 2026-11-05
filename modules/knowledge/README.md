@@ -11,6 +11,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 | `search.py` | Hybrid search with reciprocal rank fusion |
 | `fts.py` | The SQLite FTS5 index of chunk text and its triggers, for the text ranking on SQLite |
 | `crawl.py` | Crawls: fetch, extract, chunk, embed, index; `queue` starts the crawl job for one source |
+| `discover.py` | Pages agents read: saved at once on an ASU host, held for an officer's review on others |
 | `fetch.py` | Fetches with robots.txt, per-host pauses and public addresses only; registers the Firecrawl integration and uses the org's Firecrawl |
 | `render.py` | Renders a thin page again in the shared browser (`BROWSER_URL`), in a new context for each page; declares `knowledge.renders_per_day` |
 | `extract.py` | HTML to text, text to chunks, and the extractors that other modules register |
@@ -23,13 +24,13 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 
 ## Surface
 
-- Routes: `/api/knowledge`. Machine tokens only, with `knowledge:read` or `knowledge:write`. The officer routes for sources, source text, crawls, uploads, settings, runs, submodules and reindex are in `modules/dashboard/api.py`.
+- Routes: `/api/knowledge`. Machine tokens only, with `knowledge:read`, `knowledge:write` or `knowledge:discover` (`POST /discovered` only). The officer routes for sources, source text, crawls, uploads, settings, runs, submodules and reindex are in `modules/dashboard/api.py`.
 - Jobs: `knowledge.crawl_due`, schedule `*/10 * * * *`; `knowledge.crawl_source`, `knowledge.reindex` and `knowledge.reembed`, on request. Saving the Embeddings integration starts `knowledge.reembed`.
 - Tools: `knowledge.search`, `knowledge.sources`, `knowledge.read_source`, `knowledge.submodules`, `knowledge.settings`, `knowledge.embeddings`, `knowledge.runs` (scope `knowledge:read`); `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_submodule`, `knowledge.update_settings`, `knowledge.reindex` (confirm), `knowledge.reembed` (confirm) (scope `knowledge:write`). Tools marked confirm run only with `confirm=true`.
 - Webhook events: `knowledge.crawl_failed`, from `runs.record()`. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs`.
 - On SQLite the text ranking reads the FTS5 table `knowledge_chunks_fts`, which triggers keep in step with `knowledge_chunks`. Without it, the text ranking scans every chunk in Python. A batch migration that rebuilds `knowledge_chunks` drops the triggers, so it must call `fts.install` again.
 - Search reads the org's own sources, public sources, and the shared sources of the submodules it subscribes to (`submodule_id`, no org; see the submodules module). Shared sources are crawled with the deployment's embedder, Firecrawl and chunk settings, and are not in an org's run log.
-- Limits: `knowledge.sources` and `knowledge.passages` (`service.py`, shared sources not counted), `knowledge.uploads_per_day` and `knowledge.jobs_per_day` (`service.py`), `knowledge.embeddings_per_day` (`embedder.py`, each text that an org's embedder embeds), `knowledge.renders_per_day` (`render.py`, each page an org renders in the browser; 0 by default, so an org renders only after the superadmin raises it). `knowledge.reindex` and `knowledge.reembed` run once at a time for each org, `knowledge.crawl_source` once for each source. The crawl of due sources takes one source of each org in turn. See [docs/limits.md](../../docs/limits.md).
+- Limits: `knowledge.discovered_per_day` (`discover.py`), `knowledge.sources` and `knowledge.passages` (`service.py`, shared sources not counted), `knowledge.uploads_per_day` and `knowledge.jobs_per_day` (`service.py`), `knowledge.embeddings_per_day` (`embedder.py`, each text that an org's embedder embeds), `knowledge.renders_per_day` (`render.py`, each page an org renders in the browser; 0 by default, so an org renders only after the superadmin raises it). `knowledge.reindex` and `knowledge.reembed` run once at a time for each org, `knowledge.crawl_source` once for each source. The crawl of due sources takes one source of each org in turn. See [docs/limits.md](../../docs/limits.md).
 
 See [docs/modules/knowledge.md](../../docs/modules/knowledge.md).

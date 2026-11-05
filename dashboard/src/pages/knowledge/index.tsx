@@ -28,6 +28,7 @@ import { compact, count, keyPath } from '../../lib/format';
 import { useCurrentOrg } from '../../lib/org';
 import type { KnowledgeSource } from '../../lib/types';
 import { crawlBody, CrawlForm, RunCrawl } from './crawl';
+import { ReviewCard } from './review';
 import { TestSearch } from './search';
 import { KnowledgeSettingsForm } from './settings';
 import { useInvalidate } from './shared';
@@ -68,6 +69,7 @@ export function KnowledgePage() {
   const q = useDeferredValue(query.trim().toLowerCase());
   const data = list.data?.sources;
   const sources = useMemo(() => data ?? [], [data]);
+  const pending = useMemo(() => sources.filter((s) => s.crawl?.review === 'pending'), [sources]);
   const { categories, domains, crawled, failing, chunks } = useMemo(() => {
     const crawled = sources.filter((s) => s.crawl);
     return {
@@ -161,6 +163,7 @@ export function KnowledgePage() {
           <ErrorNote error={list.error ?? actionError} />
         </div>
       ) : null}
+      <ReviewCard prefix={prefix} pending={pending} onChange={invalidate} />
       {domains.length > 1 ? <DomainFilter total={sources.length} domains={domains} value={domain} onChange={setDomain} /> : null}
       <Card>
         <CardHeader

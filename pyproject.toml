@@ -185,6 +185,7 @@ source_modules = [
     "modules.integrations.servers",
     "modules.integrations.web",
     "modules.knowledge.crawl",
+    "modules.knowledge.discover",
     "modules.knowledge.documents",
     "modules.knowledge.embedder",
     "modules.knowledge.extract",

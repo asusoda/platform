@@ -106,6 +106,8 @@ class KnowledgeSource(Base):
     # a name registered in modules/knowledge/extract.py
     extractor: Mapped[str | None] = mapped_column(String(100), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # pending or rejected for a page an agent read that waits on an officer; None once approved or for any other source
+    review: Mapped[str | None] = mapped_column(String(16), nullable=True)
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)

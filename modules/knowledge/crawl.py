@@ -77,6 +77,8 @@ def schedule(db, org_id: int, org_prefix: str, key: str, data: dict) -> dict:
     if source.url != url:
         source.last_attempt_at = None  # a new URL is due at once
     source.url, source.category, source.public, source.enabled = url, category, public, enabled
+    if enabled:
+        source.review = None  # turning on a page that waits on a review approves it
     source.title = title or source.title
     source.fetch_every_hours = every
     source.updated_at = utcnow()

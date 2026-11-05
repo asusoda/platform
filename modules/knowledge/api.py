@@ -8,7 +8,7 @@ from core.http import audit_hook
 from core.http.responses import json_body
 from modules.auth.routes import machine_route
 
-from . import embedder, service
+from . import discover, embedder, service
 from .search import search as search_chunks
 
 knowledge_blueprint = Blueprint("knowledge", __name__)
@@ -74,3 +74,13 @@ def run_crawl(db, org):
     data = json_body()
     crawl.queue(db, int(org.id), str(org.prefix), str(data.get("key")), force=data.get("force") is True)
     return {"queued": True}, 202
+
+
+# Pages an agent read
+
+
+@_route("/discovered", "knowledge:discover", ["POST"])
+def discovered(db, org):
+    """Save a page an agent read: at once for an ASU page, after an officer approves for others."""
+    result = discover.discover(db, int(org.id), json_body().get("url"))
+    return result, 201 if result["status"] != "known" else 200
