@@ -14,7 +14,7 @@ The Arizona State University submodule. It adds public ASU pages to an org's kno
 
 ## Pages
 
-Sync adds each page as a crawled source with a key that starts with `asu/`. Some pages have their own extractor (library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports). An extractor keeps each record on one line, so a chunk never splits a name from its hours or date. The `extractor` column of the source names it (`asu.<key>`).
+Sync adds each page as a crawled source with a key that starts with `asu/`. Some pages have their own extractor (library hours, read from the LibCal JSON feed behind lib.asu.edu/hours; events, courses, dining, scholarships, news, shuttles, jobs, sports). An extractor keeps each record on one line, so a chunk never splits a name from its hours or date. The `extractor` column of the source names it (`asu.<key>`).
 
 ## Live queries
 

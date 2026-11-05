@@ -1,0 +1,322 @@
+{
+ "locations": [
+  {
+   "lid": 1290,
+   "name": "Hayden Library - ASU Faculty, Staff and Students",
+   "category": "library",
+   "url": "https://lib.asu.edu/hayden",
+   "weeks": [
+    {
+     "Sunday": {
+      "date": "2026-11-01",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "10am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "10am - 12am"
+     },
+     "Monday": {
+      "date": "2026-11-02",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Tuesday": {
+      "date": "2026-11-03",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Wednesday": {
+      "date": "2026-11-04",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Thursday": {
+      "date": "2026-11-05",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Friday": {
+      "date": "2026-11-06",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "10pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 10pm"
+     },
+     "Saturday": {
+      "date": "2026-11-07",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "9am",
+         "to": "10pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "9am - 10pm"
+     }
+    }
+   ]
+  },
+  {
+   "lid": 1304,
+   "name": "Visitors",
+   "category": "department",
+   "url": "https://lib.asu.edu/hayden",
+   "parent_lid": 1290,
+   "weeks": [
+    {
+     "Sunday": {
+      "date": "2026-11-01",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "10am",
+         "to": "5pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "10am - 5pm"
+     },
+     "Monday": {
+      "date": "2026-11-02",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "9pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 9pm"
+     },
+     "Tuesday": {
+      "date": "2026-11-03",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "9pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 9pm"
+     },
+     "Wednesday": {
+      "date": "2026-11-04",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "9pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 9pm"
+     },
+     "Thursday": {
+      "date": "2026-11-05",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "9pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 9pm"
+     },
+     "Friday": {
+      "date": "2026-11-06",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "5pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 5pm"
+     },
+     "Saturday": {
+      "date": "2026-11-07",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "9am",
+         "to": "5pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "9am - 5pm"
+     }
+    }
+   ]
+  },
+  {
+   "lid": 1295,
+   "name": "Noble Library - ASU Faculty, Staff and Students",
+   "category": "library",
+   "url": "https://lib.asu.edu/noble",
+   "weeks": [
+    {
+     "Sunday": {
+      "date": "2026-11-01",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "10am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "10am - 12am"
+     },
+     "Monday": {
+      "date": "2026-11-02",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Tuesday": {
+      "date": "2026-11-03",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Wednesday": {
+      "date": "2026-11-04",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Thursday": {
+      "date": "2026-11-05",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "12am"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 12am"
+     },
+     "Friday": {
+      "date": "2026-11-06",
+      "times": {
+       "status": "open",
+       "hours": [
+        {
+         "from": "7am",
+         "to": "9pm"
+        }
+       ],
+       "currently_open": false
+      },
+      "rendered": "7am - 9pm"
+     },
+     "Saturday": {
+      "date": "2026-11-07",
+      "times": {
+       "status": "closed"
+      },
+      "rendered": "Closed"
+     }
+    }
+   ]
+  }
+ ]
+}

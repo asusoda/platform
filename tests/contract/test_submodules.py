@@ -159,8 +159,8 @@ def test_crawl_uses_the_asu_extractor(client, writer, pages):
     headers, org_id = writer
     client.put("/api/submodules/asu/subscription", headers=headers)
     url = SOURCES["library_hours"].url
-    markdown = (Path(__file__).parent / "asu_fixtures" / "library_hours.md").read_text()
-    pages[url] = fetch.Fetched(url=url, body=markdown.encode(), content_type="text/markdown", text=markdown)
+    body = (Path(__file__).parent / "asu_fixtures" / "library_hours.json").read_bytes()
+    pages[url] = fetch.Fetched(url=url, body=body, content_type="application/json")
     db = db_connect.SessionLocal()
     try:
         source = db.query(KnowledgeSource).filter(KnowledgeSource.key == "asu/library_hours").one()
@@ -170,7 +170,7 @@ def test_crawl_uses_the_asu_extractor(client, writer, pages):
     assert result["changed"] is True
     found = client.post("/api/knowledge/search", json={"query": "Hayden Library"}, headers=headers).get_json()
     hayden = [r for r in found["results"] if "Hayden Library" in r["content"]]
-    assert hayden and "|" not in hayden[0]["content"].split("\n", 1)[1]
+    assert any("Students: Sunday 2026-11-01 10am - 12am" in r["content"] for r in hayden)
 
 
 def test_live_query_answers_then_queues_indexing(client, writer, pages, queued):
