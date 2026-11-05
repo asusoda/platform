@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the platform on one RunPod pod: API on 8000, dashboard on 5000, MCP server on 8001, bot when BOT_TOKEN is set.
 # RUN_BOT=false skips the bot, for a BOT_TOKEN that another bot process already uses.
-# It also runs the shared browser and SearXNG on 127.0.0.1. RUN_BROWSER=false and RUN_SEARCH=false turn them off.
+# RUN_BROWSER=true and RUN_SEARCH=true also run the shared browser and SearXNG on 127.0.0.1. Both are off by default.
 # The pod clones PLATFORM_BRANCH into /workspace on each start, so a restart deploys the branch head.
 # State (SQLite database, generated keys) lives in /workspace/data on the pod's volume.
 set -euo pipefail
@@ -43,7 +43,7 @@ export CORS_EXTRA_ORIGINS="${CORS_EXTRA_ORIGINS:-$WEB_URL}"
 export IS_PROD=true FLASK_ENV=production FLASK_DEBUG=0 RUN_BOT_IN_API=false LOG_FORMAT=json
 
 python3 -m pip install -q uv
-if [ "${RUN_BROWSER:-true}" != "false" ]; then
+if [ "${RUN_BROWSER:-false}" = "true" ]; then
   uv sync --frozen --no-dev --extra browser
 else
   uv sync --frozen --no-dev
@@ -70,7 +70,7 @@ start_browser() {
   uv run playwright run-server --port 3000 --host 127.0.0.1 &
   export BROWSER_URL="ws://127.0.0.1:3000/"
 }
-if [ "${RUN_BROWSER:-true}" != "false" ] && [ -z "${BROWSER_URL:-}" ]; then
+if [ "${RUN_BROWSER:-false}" = "true" ] && [ -z "${BROWSER_URL:-}" ]; then
   start_browser || echo "the browser did not start; pages are read without JavaScript" >&2
 fi
 
@@ -102,7 +102,7 @@ start_searxng() {
   ) &
   export SEARXNG_URL="http://127.0.0.1:8888"
 }
-if [ "${RUN_SEARCH:-true}" != "false" ] && [ -z "${SEARXNG_URL:-}" ]; then
+if [ "${RUN_SEARCH:-false}" = "true" ] && [ -z "${SEARXNG_URL:-}" ]; then
   start_searxng || echo "SearXNG did not start; web search answers 503" >&2
 fi
 
