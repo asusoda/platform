@@ -192,6 +192,7 @@ source_modules = [
     "modules.knowledge.render",
     "modules.knowledge.runs",
     "modules.knowledge.reembed",
+    "modules.knowledge.fts",
     "modules.knowledge.search",
     "modules.knowledge.settings",
     "modules.leetcode.client",

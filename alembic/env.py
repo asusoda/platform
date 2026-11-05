@@ -58,10 +58,11 @@ UNMODELED_INDEXES = {
 
 
 def include_object(obj, name, type_, reflected, compare_to):
-    """Procrastinate's tables come from its own schema SQL, not from our models."""
+    """Procrastinate's tables and the SQLite knowledge text index come from SQL, not from our models."""
     if type_ == "index" and reflected and compare_to is None and name in UNMODELED_INDEXES:
         return False
-    return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate_"))
+    unmodeled = name.startswith(("procrastinate_", "knowledge_chunks_fts"))
+    return not (type_ == "table" and reflected and compare_to is None and unmodeled)
 
 
 def run_migrations_offline() -> None:
