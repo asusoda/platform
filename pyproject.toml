@@ -211,6 +211,8 @@ source_modules = [
     "modules.submodules.http",
     "modules.submodules.params",
     "modules.submodules.queries",
+    "modules.submodules.fill",
+    "modules.submodules.find",
     "modules.submodules.search",
     "modules.submodules.text",
     "modules.submodules.types",

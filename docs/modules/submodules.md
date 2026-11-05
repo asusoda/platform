@@ -52,7 +52,21 @@ Each org can have `submodules.subscriptions` subscriptions, 20 by default ([Limi
 
 The older `POST /api/submodules/<submodule>/sync`, `POST /api/dashboard/<org>/knowledge/submodules/<submodule>/sync` and `/api/asu/*` routes still answer. A sync subscribes.
 
-Tools: `submodules.list` (`submodules:read`), `submodules.subscribe` and `submodules.unsubscribe` (`submodules:manage`, confirm), and `submodules.query` (`knowledge:read`). `knowledge.submodules` and `knowledge.sync_submodule` do the same as `submodules.list` and `submodules.subscribe`.
+Tools: `submodules.list` (`submodules:read`), `submodules.subscribe` and `submodules.unsubscribe` (`submodules:manage`, confirm), and `submodules.query` and `search` (`knowledge:read`).
+
+`search(query, source?)` is the one search an agent needs. It takes a plain query and fills the live query's parameters from it, so the agent never sees parameter names.
+
+```mermaid
+flowchart LR
+  Q[query, source?] --> N{source named?}
+  N -->|no| S[stored pages]
+  S -->|nothing| W[web]
+  N -->|stored kind| C[stored pages in its category]
+  C -->|nothing| L[that source live]
+  N -->|live kind| L
+```
+
+It answers `{"from": "stored", "results": [...]}`, `{"from": "live", "source", "url", "text"}`, or `{"from": "none", "note"}`. Stored results older than `SEARCH_STALE_DAYS` add a `note` to read the url again. A query that misses a required value, like a campus for `dining`, returns 422 naming the values to add. `knowledge.submodules` and `knowledge.sync_submodule` do the same as `submodules.list` and `submodules.subscribe`.
 
 Platform checks the parameters of a live query before it gets a page. An unknown submodule or query returns 404. A bad parameter returns 422 with the values the query accepts. A failed fetch returns 502. After the answer, the `submodules.index_result` job adds the result to the org's knowledge as its own `<submodule>-live/<query>-<hash>` source. It never writes into a shared page, and it does not write a result that did not change. A query with `index=False`, such as `web`, is not indexed.
 
@@ -73,6 +87,7 @@ An org sets its own Firecrawl and SearXNG on the Integrations tab of the dashboa
 | `BROWSER_URL` | not set | The shared browser. A query marked `needs_js` is rendered there within the org's `knowledge.renders_per_day` |
 | `SEARXNG_URL` | not set | The search service for the `web` query. If it is not set, that query returns 503. The `searxng` compose service gives one; see [operations](../operations.md#run-web-search) |
 | `SEARXNG_ENGINES` | `google,brave,bing` | The engines SearXNG asks |
+| `SEARCH_STALE_DAYS` | 14 | Days after which a stored page that `search` returns is marked old |
 | `SUBMODULE_QUERY_MAX_CHARS` | 30000 | The maximum text length of a live query result. `ASU_QUERY_MAX_CHARS` still works |
 
 ## Write a submodule

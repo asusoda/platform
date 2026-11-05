@@ -12,4 +12,5 @@ SUBMODULE = Submodule(
     sources=tuple(SOURCES.values()),
     queries=QUERIES,
     canvas_url="https://canvas.asu.edu",
+    timezone="America/Phoenix",
 )

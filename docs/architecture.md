@@ -181,7 +181,7 @@ Both need a machine token: `Authorization: Bearer plat_...`. An MCP client can a
 | `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_submodule`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
 | `submodules.list` | `submodules:read` | submodules |
 | `submodules.subscribe` (confirm), `submodules.unsubscribe` (confirm) | `submodules:manage` | submodules |
-| `submodules.query` | `knowledge:read` | submodules |
+| `submodules.query`, `search` | `knowledge:read` | submodules |
 | `shared_apps.list` | `submodules:read` | runpod (works with it off) |
 | `shared_apps.subscribe` (confirm) | `submodules:manage` | runpod (works with it off) |
 | `apps.list`, `apps.get`, `apps.pod`, `apps.templates`, `hosting.providers` | `apps:read` | runpod |

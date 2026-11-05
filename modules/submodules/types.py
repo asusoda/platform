@@ -1,5 +1,6 @@
 """Data types for submodules: crawled sources, live queries and the submodule itself."""
 
+import datetime
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -22,7 +23,7 @@ class Source:
 
 @dataclass(frozen=True)
 class QueryParam:
-    """One parameter a live query takes. choices restrict the input; many allows a comma list."""
+    """One parameter a live query takes. choices restrict the input; many allows a comma list; date takes YYYY-MM-DD."""
 
     name: str
     description: str
@@ -30,11 +31,16 @@ class QueryParam:
     example: str | None = None
     choices: tuple[str, ...] = ()
     many: bool = False
+    date: bool = False
 
 
 @dataclass(frozen=True)
 class QuerySource:
-    """A source queried live with parameters. Exactly one of to_url and answer is set."""
+    """A source queried live with parameters. Exactly one of to_url and answer is set.
+
+    search fills the parameters from one query: query_param names the text parameter the query fills (else the first
+    one), narrow cuts the words the source cannot match, and derive gives values the query implies.
+    """
 
     key: str
     description: str
@@ -46,6 +52,9 @@ class QuerySource:
     category: str = "live"
     index: bool = True
     needs_search: bool = False
+    query_param: str | None = None
+    narrow: Callable[[str], str] | None = None
+    derive: Callable[[str, datetime.date], dict[str, str]] | None = None
 
     def __post_init__(self) -> None:
         if (self.to_url is None) == (self.answer is None):
@@ -84,6 +93,8 @@ class Submodule:
     feeds: tuple[Feed, ...] = ()
     # The school's Canvas, for member sign-in through the accounts module
     canvas_url: str | None = None
+    # IANA time zone a query that names no date is read in
+    timezone: str = "UTC"
 
     def __post_init__(self) -> None:
         if not self.name or not all(c.islower() or c.isdigit() or c == "_" for c in self.name):
