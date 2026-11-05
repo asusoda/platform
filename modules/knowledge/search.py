@@ -2,8 +2,8 @@
 
 Search fuses a vector leg and a text leg with reciprocal rank fusion over the caller's organization,
 public sources, and the sources of the submodules the org subscribes to. On Postgres with pgvector, both legs run in SQL. Elsewhere, including Postgres
-without pgvector, the vector leg runs in Python over the stored vectors, and on SQLite so does the
-text leg.
+without pgvector, the vector leg runs in Python over the stored vectors. On SQLite the text leg runs
+in SQL over the FTS5 index, or in Python when the index is missing.
 """
 
 import math
@@ -15,7 +15,7 @@ from sqlalchemy import or_, select, text
 from core import limits
 from core.log import get_logger
 from core.time import iso
-from modules.knowledge import settings
+from modules.knowledge import fts, settings
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import Embedding, KnowledgeChunk, KnowledgeSource, KnowledgeVersion, vector_sql
 from modules.knowledge.service import KnowledgeError, _optional_text, _text, _vector
@@ -113,6 +113,28 @@ def _terms(value: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", value.lower()) if len(t) > 1}
 
 
+def _lexical_fts(db, org_id: int, category: str | None, query_text: str) -> list[str]:
+    terms = _terms(query_text)
+    if not terms:
+        return []
+    params: dict[str, Any] = {"org": org_id, "q": fts.match(terms), "n": CANDIDATES}
+    where = VISIBLE_SQL
+    if category:
+        where += " AND c.category = :category"
+        params["category"] = category
+    sql = (
+        f"SELECT c.id FROM {fts.TABLE} f JOIN knowledge_chunks c ON c.id = f.chunk_id"  # nosec B608 - fixed fragments
+        f" WHERE {fts.TABLE} MATCH :q AND {where} ORDER BY bm25({fts.TABLE}) LIMIT :n"
+    )
+    return [row[0] for row in db.execute(text(sql), params)]
+
+
+def _lexical(db):
+    if _dialect(db) == "postgresql":
+        return _lexical_sql
+    return _lexical_fts if fts.available(db) else _lexical_python
+
+
 def _lexical_python(db, org_id: int, category: str | None, query_text: str) -> list[str]:
     terms = _terms(query_text)
     if not terms:
@@ -186,8 +208,7 @@ def search(
         dense = _dense_sql if vector_sql(db, "knowledge_chunks") else _dense_python
         legs.append(dense(db, org_id, category, vector, model, tuning["max_distance"]))
     if not legs or tuning["mode"] != "vector":
-        lexical = _lexical_sql if _dialect(db) == "postgresql" else _lexical_python
-        legs.append(lexical(db, org_id, category, query_text))
+        legs.append(_lexical(db)(db, org_id, category, query_text))
 
     fused = rrf(legs, float(tuning["rrf_k"]))
     if not fused:

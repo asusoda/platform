@@ -245,3 +245,36 @@ def test_reembed_passages_written_before_the_service(client, writer, monkeypatch
     finally:
         db.close()
     assert _search(client, writer, "kitten cat")[0]["content"] == "a cat sat"
+
+
+@pytest.fixture
+def text_index(app):
+    from core.db import db_connect
+    from modules.knowledge import fts
+
+    if db_connect.engine.dialect.name != "sqlite":
+        pytest.skip("the text index is SQLite only")
+    with db_connect.engine.begin() as connection:
+        fts.install(connection)
+    yield
+    with db_connect.engine.begin() as connection:
+        for statement in fts.DROP:
+            connection.exec_driver_sql(statement)
+
+
+def test_text_index_serves_the_text_leg_and_follows_changes(client, writer, text_index, monkeypatch):
+    def python_leg(*_):
+        raise AssertionError("the Python text leg ran")
+
+    monkeypatch.setattr(search, "_lexical_python", python_leg)
+    old, new = _word(), _word()
+    key = f"fts-{old}"
+    assert _put(client, writer, key, [{"content": f"Hayden opens at 7am {old}"}]).status_code == 201
+    assert _search(client, writer, old)[0]["source_key"] == key
+
+    _put(client, writer, key, [{"content": f"Hayden opens at 8am {new}"}])
+    assert _search(client, writer, old) == []
+    assert _search(client, writer, new)[0]["source_key"] == key
+
+    assert client.delete(f"/api/knowledge/sources/{key}", headers=writer).status_code == 200
+    assert _search(client, writer, new) == []
