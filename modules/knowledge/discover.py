@@ -1,7 +1,7 @@
-"""Pages an agent read: saved as crawled sources, at once for an ASU page and after an officer approves for others.
+"""Pages an agent read, saved as crawled sources so search finds them and the crawl keeps them fresh.
 
 A page has the key read/<host>/<hash of the URL>. It takes the category of the org's other sources on that host,
-or asu or web. A rejected page stays as a disabled source, so the agent does not suggest it again. No Flask here.
+or asu or web. No Flask here.
 """
 
 import hashlib
@@ -11,11 +11,10 @@ from urllib.parse import urlsplit, urlunsplit
 
 from core import limits
 from modules.knowledge.models import KnowledgeSource
-from modules.knowledge.service import KnowledgeError, _find, new_source
+from modules.knowledge.service import KnowledgeError, new_source
 
-PENDING, REJECTED = "pending", "rejected"
 DISCOVER_LIMIT = "knowledge.discovered_per_day"
-limits.declare(DISCOVER_LIMIT, "knowledge", "Pages agents suggest a day", 200, window="day", unit="pages")
+limits.declare(DISCOVER_LIMIT, "knowledge", "Pages agents save a day", 200, window="day", unit="pages")
 
 
 def _every_hours() -> int:
@@ -24,16 +23,6 @@ def _every_hours() -> int:
     except ValueError:
         return 168
     return value if 1 <= value <= 24 * 30 else 168
-
-
-def _auto_hosts() -> tuple[str, ...]:
-    """The domains whose pages are saved without review, from KNOWLEDGE_DISCOVER_AUTO."""
-    raw = os.environ.get("KNOWLEDGE_DISCOVER_AUTO", "asu.edu")
-    return tuple(h.strip().lower().lstrip(".") for h in raw.split(",") if h.strip())
-
-
-def _automatic(host: str) -> bool:
-    return any(host == d or host.endswith("." + d) for d in _auto_hosts())
 
 
 def normalize(url: object) -> tuple[str, str]:
@@ -65,10 +54,9 @@ def _category(db, org_id: int, host: str) -> str:
 
 
 def discover(db, org_id: int, url: object) -> dict:
-    """Save a page an agent read as a crawled source of the org. Commits.
+    """Save a page an agent read as a crawled source of the org, due at once. Commits.
 
-    status is known when the org has a source with that URL, added when the page is saved, and review when it
-    waits on an officer.
+    status is known when the org has a source with that URL, and added when the page is saved.
     """
     page, host = normalize(url)
     known = db.query(KnowledgeSource).filter_by(organization_id=org_id, url=page).first()
@@ -76,29 +64,6 @@ def discover(db, org_id: int, url: object) -> dict:
         return {"key": known.key, "status": "known"}
     limits.consume(db, org_id, DISCOVER_LIMIT)
     key = f"read/{host[:200]}/{hashlib.sha256(page.encode()).hexdigest()[:12]}"
-    auto = _automatic(host)
-    new_source(
-        db,
-        org_id,
-        key=key,
-        url=page,
-        category=_category(db, org_id, host),
-        fetch_every_hours=_every_hours(),
-        enabled=auto,
-        review=None if auto else PENDING,
-    )
+    new_source(db, org_id, key=key, url=page, category=_category(db, org_id, host), fetch_every_hours=_every_hours())
     db.commit()
-    return {"key": key, "status": "added" if auto else "review"}
-
-
-def review(db, org_id: int, key: str, approve: object) -> dict:
-    """Approve or reject a page that waits on an officer. Approving starts its crawl on the next run. Commits."""
-    if not isinstance(approve, bool):
-        raise KnowledgeError("approve must be true or false")
-    source = _find(db, org_id, key)
-    if source.review is None:
-        raise KnowledgeError("This source is not waiting on a review", 409)
-    source.review, source.enabled = (None, True) if approve else (REJECTED, False)
-    source.last_attempt_at = None
-    db.commit()
-    return {"key": key, "review": source.review, "enabled": bool(source.enabled)}
+    return {"key": key, "status": "added"}

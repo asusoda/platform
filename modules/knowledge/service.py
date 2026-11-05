@@ -176,7 +176,6 @@ def _source_dict(source: KnowledgeSource, version: KnowledgeVersion | None = Non
             "enabled": bool(source.enabled),
             "last_attempt_at": iso(source.last_attempt_at),
             "last_error": source.last_error,
-            "review": source.review,
         },
     }
 

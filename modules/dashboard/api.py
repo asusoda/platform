@@ -19,7 +19,7 @@ from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
 from modules.integrations import oauth
-from modules.knowledge import crawl, discover, documents, embedder, reembed, runs, settings
+from modules.knowledge import crawl, documents, embedder, reembed, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
 from modules.organizations import service as organizations
@@ -336,12 +336,6 @@ def run_crawl(db, org, key):
     """Queue a crawl of one source now."""
     crawl.queue(db, _org_id(org), str(org.prefix), key, force=json_body().get("force") is True)
     return {"queued": True}, 202
-
-
-@_route("/knowledge/sources/<path:key>/review", ["POST"], module="knowledge")
-def review_source(db, org, key):
-    """Approve or reject a page an agent read. Body: approve."""
-    return discover.review(db, _org_id(org), key, json_body().get("approve"))
 
 
 @_route("/knowledge/submodules", ["GET"], module="knowledge")

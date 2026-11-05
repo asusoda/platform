@@ -11,7 +11,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 | `search.py` | Hybrid search with reciprocal rank fusion |
 | `fts.py` | The SQLite FTS5 index of chunk text and its triggers, for the text ranking on SQLite |
 | `crawl.py` | Crawls: fetch, extract, chunk, embed, index; `queue` starts the crawl job for one source |
-| `discover.py` | Pages agents read: saved at once on an ASU host, held for an officer's review on others |
+| `discover.py` | Pages agents read, saved as crawled sources |
 | `fetch.py` | Fetches with robots.txt, per-host pauses and public addresses only; registers the Firecrawl integration and uses the org's Firecrawl |
 | `render.py` | Renders a thin page again in the shared browser (`BROWSER_URL`), in a new context for each page; declares `knowledge.renders_per_day` |
 | `extract.py` | HTML to text, text to chunks, and the extractors that other modules register |

@@ -134,9 +134,7 @@ export function SourceTable({
               </span>
             </Td>
             <Td className="hidden whitespace-nowrap sm:table-cell">
-              {s.crawl?.review ? (
-                <Badge tone={s.crawl.review === 'pending' ? 'warn' : 'muted'}>{s.crawl.review === 'pending' ? 'needs review' : 'rejected'}</Badge>
-              ) : s.crawl ? (
+              {s.crawl ? (
                 s.crawl.enabled ? (
                   <span className="text-xs text-muted">{every(s.crawl.fetch_every_hours)}</span>
                 ) : (

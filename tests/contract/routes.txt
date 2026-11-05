@@ -159,7 +159,6 @@
 /api/dashboard/<string:org_prefix>/knowledge/sources GET,HEAD,OPTIONS dashboard.list_sources
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> DELETE,OPTIONS dashboard.delete_source
 /api/dashboard/<string:org_prefix>/knowledge/sources/<path:key> GET,HEAD,OPTIONS dashboard.read_source
-/api/dashboard/<string:org_prefix>/knowledge/sources/<path:key>/review OPTIONS,POST dashboard.review_source
 /api/dashboard/<string:org_prefix>/knowledge/submodules GET,HEAD,OPTIONS dashboard.list_submodules
 /api/dashboard/<string:org_prefix>/knowledge/submodules/<string:name>/sync OPTIONS,POST dashboard.sync_submodule
 /api/dashboard/<string:org_prefix>/modules GET,HEAD,OPTIONS dashboard.list_modules
