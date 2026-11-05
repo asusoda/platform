@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs the platform on one RunPod pod: API on 8000, dashboard on 5000, MCP server on 8001, bot when BOT_TOKEN is set.
 # RUN_BOT=false skips the bot, for a BOT_TOKEN that another bot process already uses.
+# RUN_BROWSER=true and RUN_SEARCH=true also run the shared browser and SearXNG on 127.0.0.1. Both are off by default.
 # The pod clones PLATFORM_BRANCH into /workspace on each start, so a restart deploys the branch head.
 # State (SQLite database, generated keys) lives in /workspace/data on the pod's volume.
 set -euo pipefail
@@ -42,7 +43,11 @@ export CORS_EXTRA_ORIGINS="${CORS_EXTRA_ORIGINS:-$WEB_URL}"
 export IS_PROD=true FLASK_ENV=production FLASK_DEBUG=0 RUN_BOT_IN_API=false LOG_FORMAT=json
 
 python3 -m pip install -q uv
-uv sync --frozen --no-dev
+if [ "${RUN_BROWSER:-false}" = "true" ]; then
+  uv sync --frozen --no-dev --extra browser
+else
+  uv sync --frozen --no-dev
+fi
 (cd dashboard && npm ci --no-audit --no-fund && VITE_API_URL="$API_URL" npm run build)
 uv run alembic upgrade head
 # Logs the Discord app of BOT_TOKEN and any setting that is missing. A failure does not stop the start.
@@ -55,6 +60,50 @@ if [ -n "${ORG_PREFIX:-}" ] && [ -n "${ORG_GUILD_ID:-}" ]; then
       --guild-id "$ORG_GUILD_ID" ${ORG_OFFICER_ROLE_ID:+--officer-role-id "$ORG_OFFICER_ROLE_ID"} \
       ${ORG_MODULES_OFF:+--off "$ORG_MODULES_OFF"}
   fi
+fi
+
+# The shared browser, a Playwright server for pages that need JavaScript and the ASU sign-in.
+# Chromium is kept on the volume. A failure does not stop the start; pages are then read without it.
+start_browser() {
+  export PLAYWRIGHT_BROWSERS_PATH="$DATA/ms-playwright"
+  uv run playwright install --with-deps chromium || return 1
+  uv run playwright run-server --port 3000 --host 127.0.0.1 &
+  export BROWSER_URL="ws://127.0.0.1:3000/"
+}
+if [ "${RUN_BROWSER:-false}" = "true" ] && [ -z "${BROWSER_URL:-}" ]; then
+  start_browser || echo "the browser did not start; pages are read without JavaScript" >&2
+fi
+
+# SearXNG, the deployment default for web search, at the commit of the searxng image in docker-compose.yml.
+# The code and its virtualenv are kept on the volume. A failure does not stop the start; web search then answers 503.
+SEARXNG_COMMIT=d4f00d15d
+start_searxng() {
+  local dir="$DATA/searxng"
+  if [ ! -f "$dir/.ready-$SEARXNG_COMMIT" ]; then
+    rm -rf "$dir"
+    git clone -q --filter=blob:none --no-checkout https://github.com/searxng/searxng.git "$dir" || return 1
+    git -C "$dir" checkout -q "$SEARXNG_COMMIT" || return 1
+    python3 -m venv "$dir/venv" || return 1
+    "$dir/venv/bin/pip" install -q -r "$dir/requirements.txt" || return 1
+    touch "$dir/.ready-$SEARXNG_COMMIT"
+  fi
+  if [ ! -f "$DATA/searxng.env" ]; then
+    python3 -c 'import secrets; print(f"SEARXNG_SECRET={secrets.token_hex(32)}")' > "$DATA/searxng.env"
+    chmod 600 "$DATA/searxng.env"
+  fi
+  (
+    set -a
+    # shellcheck disable=SC1091
+    . "$DATA/searxng.env"
+    set +a
+    cd "$dir"
+    SEARXNG_SETTINGS_PATH="$ROOT/deploy/searxng/settings.yml" SEARXNG_BIND_ADDRESS=127.0.0.1 SEARXNG_PORT=8888 \
+      exec "$dir/venv/bin/python" -m searx.webapp
+  ) &
+  export SEARXNG_URL="http://127.0.0.1:8888"
+}
+if [ "${RUN_SEARCH:-false}" = "true" ] && [ -z "${SEARXNG_URL:-}" ]; then
+  start_searxng || echo "SearXNG did not start; web search answers 503" >&2
 fi
 
 npx --yes serve@14 -s dashboard/dist -l 5000 &
