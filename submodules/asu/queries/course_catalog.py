@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from modules.submodules.params import text, url
 from modules.submodules.types import QueryParam, QuerySource
-from submodules.asu.params import term_code
+from submodules.asu.params import catalog_keywords, catalog_terms, term_code
 
 
 def to_url(params: dict[str, str]) -> str:
@@ -33,4 +33,7 @@ QUERY = QuerySource(
     to_url=to_url,
     needs_js=True,
     category="course_catalog",
+    query_param="keywords",
+    narrow=catalog_keywords,
+    derive=catalog_terms,
 )

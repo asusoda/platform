@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from modules.submodules.params import choices, code, codes, text, url
 from modules.submodules.types import QueryParam, QuerySource
-from submodules.asu.params import term_code
+from submodules.asu.params import class_keywords, class_terms, term_code
 
 _DAYS = {
     "monday": "MON",
@@ -63,4 +63,7 @@ QUERY = QuerySource(
     to_url=to_url,
     needs_js=True,
     category="courses",
+    query_param="keywords",
+    narrow=class_keywords,
+    derive=class_terms,
 )

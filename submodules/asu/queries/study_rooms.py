@@ -45,7 +45,7 @@ QUERY = QuerySource(
     description="List open study room slots at one ASU library on one date.",
     params=(
         QueryParam("library", "Library.", required=True, choices=choices(_LIBRARIES)),
-        QueryParam("date", "Date to check.", required=True, example="2026-09-14"),
+        QueryParam("date", "Date to check.", required=True, example="2026-09-14", date=True),
     ),
     to_url=to_url,
     needs_js=True,

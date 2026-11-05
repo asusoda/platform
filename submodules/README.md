@@ -36,9 +36,11 @@ A submodule is content for one campus or topic that a module reads and any org c
 3. Optional parts of a `Submodule`:
    - `feeds`: feeds that officers pick under **New feed** > **Start from** on the Job alerts and Hackathons pages of the Feeds module. Each `Feed` has a key (lowercase letters, digits and dashes), a title, a description, and the `kind` and `config` that the [feeds module](../docs/modules/feeds.md) takes. The `kind` is `github_jobs` or `hackathons`.
    - `canvas_url`: the school's Canvas, like `https://canvas.example.edu`. Member sign-in to Canvas uses it when `ACCOUNTS_CANVAS_URL` is not set and only one submodule sets it.
-4. Optional: give a `Source` or `QuerySource` an `extractor` that turns the fetched page into one line for each record. Helpers are in `modules/submodules/text.py`. A query that calls an API sets `answer` instead of `to_url`. Add `modules.submodules.web.QUERY` to `queries` for web search.
-5. Add a `README.md` that lists the pages and the queries, and add the submodule to the table above.
-6. Add tests in `tests/contract/` with saved pages in a fixtures folder. Do not fetch live pages in tests.
+   - `timezone`: the IANA zone a `search` query that names no date is read in. The default is `UTC`.
+4. The `search` tool fills a query's parameters from one plain query: the first text parameter takes the words, a parameter with `choices` takes the choices the words name, and a `QueryParam` with `date=True` takes a YYYY-MM-DD in the words, else today when it is required. A query sets `query_param` to fill another text parameter, `narrow` to cut the words its site cannot match, and `derive` for values the words imply, like the term of a class search. See `asu/params.py`.
+5. Optional: give a `Source` or `QuerySource` an `extractor` that turns the fetched page into one line for each record. Helpers are in `modules/submodules/text.py`. A query that calls an API sets `answer` instead of `to_url`. Add `modules.submodules.web.QUERY` to `queries` for web search.
+6. Add a `README.md` that lists the pages and the queries, and add the submodule to the table above.
+7. Add tests in `tests/contract/` with saved pages in a fixtures folder. Do not fetch live pages in tests.
 
 Rules:
 
