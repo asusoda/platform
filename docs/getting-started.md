@@ -78,7 +78,7 @@ To run one test file: `uv run pytest tests/contract/test_godfather.py -v`. The t
 
 ## Run it on one RunPod pod
 
-`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the dashboard on 5000 and the MCP server on 8001. If `BOT_TOKEN` is set, it also starts the bot. Set `RUN_BOT=false` to use the token of a bot that runs elsewhere, such as an agent bot: the API then uses the token only for Discord's REST API, and the bot commands, LeetCode posts and games do not run. Do not run two bot processes with one token. Jobs run in threads of the API, on SQLite.
+`deploy/runpod/start.sh` runs Platform on one CPU pod with no Docker. It starts the API on port 8000, the dashboard on 5000 and the MCP server on 8001. It also runs the shared browser (a Playwright server, for pages that need JavaScript and the ASU sign-in) and SearXNG (web search) on `127.0.0.1`, so live queries work as on a Docker server. If `BOT_TOKEN` is set, it also starts the bot. Set `RUN_BOT=false` to use the token of a bot that runs elsewhere, such as an agent bot: the API then uses the token only for Discord's REST API, and the bot commands, LeetCode posts and games do not run. Do not run two bot processes with one token. Jobs run in threads of the API, on SQLite.
 
 At each start the script gets the head of `PLATFORM_BRANCH`. A pod restart thus deploys the branch.
 
@@ -91,6 +91,8 @@ flowchart TD
   keys --> build["uv sync and the dashboard build"]
   build --> migrate["alembic upgrade head"]
   migrate --> org["Create the org on the first start"]
+  org --> browser["Browser on 127.0.0.1:3000, unless RUN_BROWSER is false"]
+  org --> search["SearXNG on 127.0.0.1:8888, unless RUN_SEARCH is false"]
   org --> dash["Dashboard on port 5000"]
   org --> mcp["MCP server on port 8001"]
   org --> bot["bot_main.py, if BOT_TOKEN is set and RUN_BOT is not false"]
@@ -116,6 +118,7 @@ Caution: keep `/workspace/data/keys.env`. It holds `SECRET_KEY` and `SECRETS_KEY
 | `ORG_PREFIX`, `ORG_NAME`, `ORG_GUILD_ID`, `ORG_OFFICER_ROLE_ID`, `ORG_MODULES_OFF` | The org that the script creates on the first start |
 | `CLIENT_ID`, `CLIENT_SECRET`, `BOT_TOKEN`, `SYS_ADMIN` | As in the settings above |
 | `RUN_BOT` | `false` to not start the bot process. The API still uses `BOT_TOKEN` |
+| `RUN_BROWSER`, `RUN_SEARCH` | `false` to not run the browser or SearXNG. Chromium, the SearXNG code and `searxng.env` (its secret) are kept in `/workspace/data`. A failed start of either one is logged and does not stop the pod |
 | `API_URL`, `WEB_URL` | Only for a custom domain. The defaults are the pod proxy URLs, `https://<pod id>-8000.proxy.runpod.net` and `-5000` |
 
 Agents connect to the MCP server at `https://<pod id>-8001.proxy.runpod.net/mcp` with a machine token. `start.sh` sets `MCP_PUBLIC_URL` to that URL, so OAuth works there too. Add `<that URL>/oauth/callback` to the redirects of the Discord app.
