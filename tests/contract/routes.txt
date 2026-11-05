@@ -192,6 +192,7 @@
 /api/feeds/<string:org_prefix>/presets GET,HEAD,OPTIONS feeds.list_presets
 /api/knowledge/crawls/<path:key> OPTIONS,PUT knowledge.schedule_crawl
 /api/knowledge/crawls/run OPTIONS,POST knowledge.run_crawl
+/api/knowledge/discovered OPTIONS,POST knowledge.discovered
 /api/knowledge/search OPTIONS,POST knowledge.search
 /api/knowledge/sources GET,HEAD,OPTIONS knowledge.list_sources
 /api/knowledge/sources/<path:key> DELETE,OPTIONS knowledge.delete_source

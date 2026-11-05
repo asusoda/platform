@@ -28,6 +28,7 @@ from modules.submodules.models import SubmoduleSubscription
 scopes.declare(
     "knowledge:read", "Search the organization's knowledge and public sources", uses=("embeddings", "searxng")
 )
+scopes.declare("knowledge:discover", "Suggest pages an agent read for the organization to save")
 scopes.declare(
     "knowledge:write", "Write and delete the organization's knowledge sources", uses=("embeddings", "firecrawl")
 )

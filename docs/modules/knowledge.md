@@ -22,6 +22,7 @@ All routes are under `/api/knowledge`.
 | `POST /search` | read | Ranked passages. The audit log does not record searches |
 | `PUT /crawls/<key>` | write | A crawled source: `url`, `category`, `fetch_every_hours` (1 to 720, default 24), `title`, `public`, `enabled` |
 | `POST /crawls/run` | write | `{"key": ..., "force": false}`. Starts a crawl now. 202 |
+| `POST /discovered` | discover | `{"url": ...}`. Saves a page an agent read. 201 added, 200 known. See [Pages agents read](#pages-agents-read) |
 
 The key is the writer's fixed name for the source: letters, digits and `._:/-`, 255 characters or fewer.
 
@@ -71,6 +72,21 @@ flowchart LR
 A source's `crawl` field shows its schedule, `last_attempt_at` and `last_error`.
 
 A page that starts to fail keeps its last chunks; the error shows on the source. Delete the source to remove them.
+
+## Pages agents read
+
+An agent such as Sparky sends the URL of each public page it reads to `POST /api/knowledge/discovered` with a `knowledge:discover` token. Platform saves the page as a crawled source with the key `read/<host>/<hash>`. The next crawl run fetches it, and it is fetched again every `KNOWLEDGE_DISCOVER_EVERY_HOURS`.
+
+```mermaid
+flowchart LR
+  agent["Agent reads a page"] --> post["POST /discovered"]
+  post --> known{"URL saved already?"}
+  known -- yes --> skip["known"]
+  known -- no --> crawl["added: crawled on the next run"]
+```
+
+- The category is the one most used by the org's other sources on that host, else `asu` for an ASU host, else `web`.
+- Delete a saved page like any other source. The `knowledge.discovered_per_day` limit caps new pages a day (200).
 
 ## Uploads
 
@@ -165,6 +181,7 @@ An org sets its own embeddings service and Firecrawl on the Integrations tab of 
 | `KNOWLEDGE_CHUNK_CHARS` | 300 | The default of the org setting `chunk_chars` |
 | `KNOWLEDGE_CRAWL_BATCH` | 20 | Sources crawled in each run of the job |
 | `KNOWLEDGE_CRAWL_GAP_SECONDS` | 2 | The time between fetches to one host |
+| `KNOWLEDGE_DISCOVER_EVERY_HOURS` | 168 | How often a page an agent read is fetched again |
 | `KNOWLEDGE_USER_AGENT` | `PlatformKnowledgeBot/1.0` | Sent with fetches and matched against robots.txt |
 | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | not set | A Firecrawl for JavaScript pages |
 | `BROWSER_URL` | not set | The shared browser, a Playwright server such as `ws://browser:3000/`. See [operations](../operations.md#run-the-shared-browser) |
