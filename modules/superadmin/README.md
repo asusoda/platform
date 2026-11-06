@@ -20,4 +20,4 @@ Routes for the superadmins of the deployment (the Discord user ids in `SYS_ADMIN
 
 ## Known gaps
 
-- `/add_org` makes the org with `service.new_organization`, not with `organizations.service.create_organization`. A taken prefix is not checked.
+- `/add_org` makes the org with `service.new_organization`, not with `organizations.service.create_organization`. It checks a taken prefix itself, and `prefix_for` adds `_org` to a reserved prefix.

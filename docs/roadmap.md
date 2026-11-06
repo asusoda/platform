@@ -75,7 +75,6 @@ Campus content is a submodule in `submodules/`, such as `submodules/asu`. Anothe
 - `POST /api/storefront/<org>/members/orders` writes a pending order and takes no points. An officer must check the balance before delivery.
 - `error_handler` returns the exception text to the client.
 - `GET /api/organizations/<id>/stats`, `/activity` and `/roles` return fixed sample data.
-- `superadmin_required` accepts a session only with `role == "admin"`, which sign-in never sets. Only the header path works.
 - `GameCog` keeps the game state in memory, and a restart loses it.
 - The calendar sync needs the Notion properties `Name`, `Date`, `Location`, `Description` and `gcal_id`. If one has a different name, the sync skips the event and logs a warning.
 - The points CSV upload gives no progress or result. Errors go only to the log.

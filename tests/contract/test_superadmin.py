@@ -20,6 +20,40 @@ def test_prefix_follows_the_prefix_rules():
     assert prefix_for("Robotics Club @ ASU!", 1) == "robotics_club_asu"
     assert prefix_for("A" * 40, 1) == "a" * 20
     assert prefix_for("$$", 123456789) == "org_456789"
+    assert prefix_for("Admin", 1) == "admin_org"
+    assert prefix_for("Store", 1) == "store_org"
+
+
+def test_a_dashboard_path_cannot_be_an_org_prefix(app):
+    import pytest
+
+    from core.db import db_connect
+    from modules.organizations import service
+
+    db = db_connect.SessionLocal()
+    try:
+        with pytest.raises(service.OrganizationError, match="reserved"):
+            service.create_organization(db, name="Admin", prefix="admin", guild_id="9911")
+    finally:
+        db.close()
+
+
+def test_the_superadmin_gets_in_while_the_bot_is_down(client, monkeypatch, app):
+    from core.config import config
+    from modules.auth.tokens import token_manager
+
+    monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
+    monkeypatch.setattr(app, "discord_directory", Guilds(ready=False))
+    assert client.get("/api/superadmin/limits", headers=headers_for(SUPERADMIN_ID)).status_code == 200
+    assert client.get("/api/superadmin/limits", headers=headers_for("123")).status_code == 403
+
+    token = token_manager.generate_token(username="u", discord_id=SUPERADMIN_ID)
+    with client.session_transaction() as session:
+        session["token"] = token
+        session["user"] = {"discord_id": SUPERADMIN_ID, "role": "officer"}
+    assert client.get("/api/superadmin/limits").status_code == 200
+    with client.session_transaction() as session:
+        session.clear()
 
 
 def test_add_org_errors(client, monkeypatch, app):

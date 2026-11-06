@@ -63,6 +63,8 @@ class SettingsError(ServiceError, ValueError):
 
 # No two dashes in a row: they separate the org and the app in container names on This server
 PREFIX_PATTERN = re.compile(r"^(?!.*--)[a-z0-9_-]{2,20}$")
+# First path parts of the dashboard that are not an org, so no org may take them as its prefix
+RESERVED_PREFIXES = frozenset({"admin", "auth", "login", "store", "godfather"})
 ACCENT_PATTERN = re.compile(r"#[0-9a-fA-F]{6}")
 BRANDING_KEYS = ("logo_url", "accent_color", "website_url")
 MAX_URL = 500
@@ -145,6 +147,8 @@ def create_organization(
         raise OrganizationError("Prefix must be 2-20 characters of lowercase letters, numbers, - and _, with no --")
     if not str(guild_id).isdigit():
         raise OrganizationError("Guild id must be a Discord id (digits only)")
+    if prefix in RESERVED_PREFIXES:
+        raise OrganizationError(f"Prefix {prefix} is reserved for a dashboard page")
     if find_by_prefix(db, prefix):
         raise OrganizationError(f"Prefix {prefix} is taken")
     if db.query(Organization).filter_by(guild_id=str(guild_id)).first():
