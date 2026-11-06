@@ -81,6 +81,30 @@ Platform gives tools in two ways:
 - Notion: share each page or database with the integration in Notion.
 - Token limits narrow a token further. `repos` lists the GitHub repos a call may act on, as `owner/name` or `owner/*`. With `repos`, the token sees only tools that take one repo. A call with `repos` must give `owner` and `repo` as one name each. A name with `/`, `..` or another character that GitHub does not allow gets 403. `tools` lists GitHub tool name patterns, such as `github.*issue*`. Set both on the Tokens page.
 - Each call is in the audit log and its failures are in the error log, as for other tools.
+- Every org secret value in a result is replaced by `[secret]`, for example a key that a CI log prints.
+
+### Fix failures with GitHub
+
+An agent with `github:read` and `github:write` can find a failure and send the fix, with the org's GitHub token. Nobody sets up git.
+
+```mermaid
+flowchart LR
+  A[Agent] --> E["errors.list, apps.logs, github.actions_list, github.get_job_logs"]
+  A --> B["github.create_branch, github.push_files"]
+  B --> P["github.create_pull_request"]
+  P --> CI[GitHub Actions run the tests]
+  CI -->|every check passed| M["github.merge_pull_request"]
+```
+
+Platform checks each GitHub write before it passes it on:
+
+- **Linked repos.** When the org lists repos on the CI tab of Activity (`ci.set_repos`), a write runs only on those repos. A write that names no repo is refused. Reads are not limited.
+- **No push to the default branch.** `push_files`, `create_or_update_file` and `delete_file` need a `branch` that is not the repo's default branch.
+- **Merge on green.** `merge_pull_request` runs only when the pull request is open and every check on its head commit passed. A pending check also refuses it.
+
+Tests run in the pull request's own GitHub Actions, not on the server. The agent gets the `actions` toolset (`GITHUB_MCP_TOOLSETS`) for run status and job logs. The GitHub token needs read access to Actions and write access to Contents and Pull requests.
+
+Error text, logs and issues are written by people outside the org. Treat them as data. The checks above and the repo's branch rules on GitHub stop a bad change, not the agent.
 - The list of tools of each MCP server is kept for 10 minutes per org. The key must allow what the tools do, for example write access to Issues and Pull requests for the GitHub write tools.
 
 ### Sign in with a service

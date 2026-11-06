@@ -105,7 +105,7 @@ export function CiRuns() {
           </Card>
         ) : null}
         <Card>
-          <CardHeader title="Repositories" hint="Private repositories need GitHub on Integrations." />
+          <CardHeader title="Repositories" hint="Linked repos. Agents may change only these. Private repos need GitHub on Integrations." />
           <form
             className="space-y-4 p-4"
             onSubmit={(e) => {

@@ -7,7 +7,8 @@ Gives agents the tools of the services an org connects on the Integrations tab o
 | File | Holds |
 | --- | --- |
 | `servers.py` | The MCP server of each service: URL, sign-in with the org's keys, scopes, and the repo a call acts on; declares the `github:*` and `runpod:*` scopes and the GitHub token limits |
-| `service.py` | The pass-through tools a token may see and the call to the remote server: scope, confirm, tool name and repo limits |
+| `service.py` | The pass-through tools a token may see and the call to the remote server: scope, confirm, tool name and repo limits, the write guard, secret masking |
+| `github_guard.py` | The write rule of the `github.*` tools: linked repos only, no push to the default branch, merge only on green checks |
 | `oauth.py` | The sign-in with a service for its MCP server: start, callback, token refresh; Notion and Google |
 | `mcp_client.py` | A small MCP client over streamable HTTP |
 | `google.py` | Calendar, Drive, Sheets and Gmail tools with the org's service account; declares `google:*` and `gmail:*` |
@@ -19,7 +20,7 @@ Gives agents the tools of the services an org connects on the Integrations tab o
 
 - Routes: none here. The sign-in routes are in the dashboard module. The tools are served by the mcp module at `/mcp` and `/api/tools`.
 - Jobs: none.
-- Tools: `github.*`, `runpod.*`, and with a sign-in `notion.*`, `gmail.*`, `drive.*` and `calendar.*`, the tools that those MCP servers list. The read scope gives the read-only tools; the write scope gives the others, which run only with `confirm=true`. `google.*`, `notion.*` and `web.search`, shown only when the org connected the service. Tools that change something run only with `confirm=true`.
+- Tools: `github.*`, `runpod.*`, and with a sign-in `notion.*`, `gmail.*`, `drive.*` and `calendar.*`, the tools that those MCP servers list. The read scope gives the read-only tools; the write scope gives the others, which run only with `confirm=true`. GitHub writes also pass `github_guard.py`. Org secret values in results are replaced by `[secret]`. `google.*`, `notion.*` and `web.search`, shown only when the org connected the service. Tools that change something run only with `confirm=true`.
 - Tables: none. Token limits are the `limits` column of `machine_tokens`.
 
 See [docs/integrations.md](../../docs/integrations.md#tools-for-agents).

@@ -31,8 +31,7 @@ class DashboardError(ServiceError, ValueError):
 
 
 def repos(org: Organization) -> list[str]:
-    config = cast(dict, org.config) or {}
-    return list((config.get("dashboard") or {}).get("repos") or [])
+    return github.linked_repos(org)
 
 
 def set_repos(db, org: Organization, value: object) -> list[str]:

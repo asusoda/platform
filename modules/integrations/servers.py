@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from core import secrets
 from core.integrations import github, runpod
 from modules.auth import machine_tokens, scopes
-from modules.integrations import oauth
+from modules.integrations import github_guard, oauth
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,8 @@ class RemoteServer:
     target_limit: str | None = None
     # The integration the server belongs to, when it differs from key, such as google for gmail
     of: str | None = None
+    # Called as guard(db, org, tool name, target, arguments) before a write runs; raises ToolError to refuse it
+    guard: Callable[[object, object, str, str | None, dict], None] | None = None
 
     @property
     def integration(self) -> str:
@@ -59,9 +61,18 @@ scopes.declare(
 )
 
 
+# The GitHub toolsets an agent gets. actions gives workflow runs and job logs
+GITHUB_TOOLSETS = "context,repos,issues,pull_requests,users,actions"
+
+
 def _github_headers(db, org_id: int) -> dict[str, str] | None:
     token = secrets.get_secret(db, org_id, github.SECRET_NAME)
-    return {"Authorization": f"Bearer {token}"} if token else None
+    if not token:
+        return None
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-MCP-Toolsets": os.environ.get("GITHUB_MCP_TOOLSETS", GITHUB_TOOLSETS),
+    }
 
 
 def _github_target(arguments: dict) -> str | None:
@@ -111,6 +122,7 @@ register(
         write_scope="github:write",
         target=_github_target,
         target_limit="repos",
+        guard=github_guard.check,
     )
 )
 

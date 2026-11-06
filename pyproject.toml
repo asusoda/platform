@@ -178,6 +178,7 @@ source_modules = [
     "modules.games.cog",
     "modules.games.jeopardy",
     "modules.games.ui",
+    "modules.integrations.github_guard",
     "modules.integrations.google",
     "modules.integrations.mcp_client",
     "modules.integrations.notion",

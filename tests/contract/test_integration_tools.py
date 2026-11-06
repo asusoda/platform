@@ -199,3 +199,108 @@ def test_repo_limit_refuses_path_parts(client, officer_headers, soda, github, ow
     response = client.post("/api/tools/github.list_issues", json={"owner": owner, "repo": repo}, headers=headers)
     assert response.status_code == 403
     assert github == []
+
+
+WRITES = [
+    {
+        "name": name,
+        "description": name,
+        "inputSchema": {"type": "object", "properties": {"owner": {"type": "string"}, "repo": {"type": "string"}}},
+    }
+    for name in ("push_files", "merge_pull_request")
+]
+
+
+class Rest:
+    def __init__(self, body: dict):
+        self.status_code = 200
+        self.body = body
+
+    def json(self):
+        return self.body
+
+
+@pytest.fixture
+def rest(monkeypatch):
+    """A fake GitHub REST API: default branch main, and pull request 7 with the checks in state."""
+    from core.integrations import github as github_rest
+
+    state = {"conclusion": "success"}
+
+    def get(url, params=None, headers=None, timeout=None):
+        path = url.removeprefix(github_rest.API)
+        if path.endswith("/pulls/7"):
+            return Rest({"state": "open", "head": {"sha": "abc"}})
+        if path.endswith("/check-runs"):
+            return Rest({"check_runs": [{"name": "check", "status": "completed", "conclusion": state["conclusion"]}]})
+        if path.endswith("/status"):
+            return Rest({"state": "pending", "statuses": []})
+        return Rest({"default_branch": "main"})
+
+    monkeypatch.setattr(github_rest.requests, "get", get)
+    return state
+
+
+@pytest.fixture
+def writer(client, officer_headers, soda, github, rest, monkeypatch):
+    monkeypatch.setattr(f"{__name__}.TOOLS", TOOLS + WRITES)
+    service.clear_cache()
+    yield _token(client, officer_headers, soda, ["github:read", "github:write"])
+    client.put("/api/dashboard/soda/ci/repos", json={"repos": []}, headers=officer_headers)
+
+
+def _write(client, headers, name, **arguments):
+    return client.post(
+        f"/api/tools/github.{name}",
+        json={"owner": "ais", "repo": "site", "confirm": True, **arguments},
+        headers=headers,
+    )
+
+
+def test_file_writes_never_go_to_the_default_branch(client, writer, github):
+    assert _write(client, writer, "push_files", branch="main").status_code == 403
+    assert _write(client, writer, "push_files").status_code == 400
+    assert _write(client, writer, "push_files", branch="fix-footer").status_code == 200
+    assert [c["name"] for c in github] == ["push_files"]
+
+
+def test_merge_waits_for_green_checks(client, writer, github, rest):
+    rest["conclusion"] = "failure"
+    refused = _write(client, writer, "merge_pull_request", pullNumber=7)
+    assert refused.status_code == 409 and "check" in refused.get_json()["error"]
+    rest["conclusion"] = "success"
+    assert _write(client, writer, "merge_pull_request", pullNumber=7).status_code == 200
+
+
+def test_writes_stay_on_linked_repos(client, officer_headers, writer):
+    client.put("/api/dashboard/soda/ci/repos", json={"repos": ["AIS/site"]}, headers=officer_headers)
+    assert _write(client, writer, "create_issue", title="Bug").status_code == 200
+    other = client.post(
+        "/api/tools/github.create_issue",
+        json={"owner": "ais", "repo": "other", "title": "Bug", "confirm": True},
+        headers=writer,
+    )
+    assert other.status_code == 403
+    read = client.post("/api/tools/github.list_issues", json={"owner": "ais", "repo": "other"}, headers=writer)
+    assert read.status_code == 200
+
+
+def test_results_hide_org_secrets_and_ask_for_actions(client, officer_headers, soda, monkeypatch):
+    seen = {}
+
+    def post(url, json, headers, timeout):
+        seen["toolsets"] = headers.get("X-MCP-Toolsets")
+        if json["method"] == "notifications/initialized":
+            return Reply({}, status=202)
+        if json["method"] == "tools/list":
+            return Reply({"jsonrpc": "2.0", "id": json["id"], "result": {"tools": TOOLS}})
+        result = {"content": [{"type": "text", "text": f"log line token={GITHUB_KEY}"}]}
+        return Reply({"jsonrpc": "2.0", "id": json["id"], "result": result})
+
+    monkeypatch.setattr(mcp_client.requests, "post", post)
+    service.clear_cache()
+    headers = _token(client, officer_headers, soda, ["github:read"])
+    read = client.post("/api/tools/github.list_issues", json={"owner": "ais", "repo": "x"}, headers=headers)
+    assert read.get_json()["result"]["text"] == "log line token=[secret]"
+    assert "actions" in seen["toolsets"]
+    service.clear_cache()
