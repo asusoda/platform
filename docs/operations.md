@@ -73,6 +73,7 @@ The runner lets orgs deploy apps to this server (provider `server` on the Hostin
 | `shared.host_paths`, `shared.host_ports` | Host paths and host ports that only shared apps may use |
 | `host_control.containers`, `host_control.units` | The other containers and systemd units that the superadmin may start, stop, restart and read the logs of on the Services card. Container names may use `*`, such as `twenty_*`; units are exact names. App containers are controlled through their apps |
 | `commands` | Named commands for the `server.run` tool: `{"health": {"argv": ["make", "health"], "cwd": "/var/www/soda-internal-api", "timeout": 120, "description": "..."}}`. A call sends only the name; the command line comes from the policy. Timeout at most 600 seconds; the last 20,000 characters of output come back |
+| `shell` | The `server.shell` tool. Off by default. `{"enabled": true, "user": "platform-agent", "cwd": "/srv/agent", "timeout": 120}` runs any command line with bash as that user, never root (the runner refuses uid or gid 0). Make a user with no sudo, not in the podman or wheel groups, and with no read access to the Platform folder or `.env`. Timeout at most 600 seconds; a timeout kills the whole process group |
 
 1. Copy `deploy/runner/platform-runner.example.json` to `/etc/platform-runner.json` and edit it. Make it `root:root`, mode 600.
 2. Copy `deploy/runner/platform-runner.service` to `/etc/systemd/system/`.
@@ -80,7 +81,7 @@ The runner lets orgs deploy apps to this server (provider `server` on the Hostin
 
 The unit has `KillMode=process`, so a restart of the runner, for example after a policy change, does not stop the app containers.
 
-Agents reach the runner through the `server.*` tools (`modules/superadmin/tools.py`): `server.status`, `server.services`, `server.logs` and `server.commands` with `server:read`; `server.control` and `server.run` with `server:manage` and `confirm=true`. A tool runs only for a token that a superadmin made. There is no free-form shell: `server.run` takes a command name from `commands`, never a command line.
+Agents reach the runner through the `server.*` tools (`modules/superadmin/tools.py`): `server.status`, `server.services`, `server.logs` and `server.commands` with `server:read`; `server.control`, `server.run` and `server.shell` with `server:manage` and `confirm=true`. A tool runs only for a token that a superadmin made. `server.run` takes a command name from `commands`, never a command line. `server.shell` takes a command line, but only when the policy's `shell` is on, and runs it as the shell user. The audit log keeps each shell command line, and the runner's journal logs it with the token that sent it.
 
 The Hosting page then lists This server as a provider. An app container is named `app-<org>--<app>` and has the labels `platform.managed=1`, `platform.org` and `platform.app`, so the [host agent](#host-agent) gives it to its org. The runner starts, stops, removes and reads the logs of a container only when its `platform.org` and `platform.app` labels match the org and app of the request. A host port that a container of another org publishes, running or stopped, is refused.
 

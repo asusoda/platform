@@ -292,3 +292,56 @@ def test_a_command_runs_only_when_the_policy_names_it(policy):
         with pytest.raises(runner.Refused) as refused:
             runner.run_command(policy, name)
         assert refused.value.status == 403
+
+
+def test_the_shell_is_off_unless_the_policy_turns_it_on(policy):
+    with pytest.raises(runner.Refused) as refused:
+        runner.run_shell(policy, {"command": "id"})
+    assert refused.value.status == 403
+
+
+def test_the_shell_never_runs_as_root(policy):
+    policy["shell"] = {"enabled": True, "user": "root"}
+    with pytest.raises(runner.Refused) as refused:
+        runner.run_shell(policy, {"command": "id"})
+    assert "root" in str(refused.value)
+    policy["shell"] = {"enabled": True, "user": "no-such-user-here"}
+    with pytest.raises(runner.Refused):
+        runner.run_shell(policy, {"command": "id"})
+
+
+def test_the_shell_runs_as_its_user_and_a_timeout_kills_it(policy, monkeypatch):
+    import pwd
+    import subprocess
+
+    account = pwd.struct_passwd(("agent", "x", 4242, 4242, "", "/tmp", "/bin/bash"))
+    monkeypatch.setattr(runner.pwd, "getpwnam", lambda name: account)
+    seen: dict = {}
+
+    class FakeProcess:
+        pid = 99
+        returncode = 0
+
+        def __init__(self, argv, **kwargs):
+            seen.update(kwargs, argv=argv)
+
+        def communicate(self, timeout=None):
+            if seen.get("slow") and timeout is not None:
+                raise subprocess.TimeoutExpired("bash", timeout)
+            return (b"hi\n", None)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", FakeProcess)
+    policy["shell"] = {"enabled": True, "user": "agent", "timeout": 5}
+    ran = runner.run_shell(policy, {"command": "echo hi", "actor": "token:1"})
+    assert ran["exit_code"] == 0 and ran["output"] == "hi\n" and ran["user"] == "agent"
+    assert seen["user"] == 4242 and seen["group"] == 4242 and seen["extra_groups"] == []
+    assert seen["argv"][-1] == "echo hi" and seen["env"]["HOME"] == "/tmp" and seen["start_new_session"]
+
+    killed = []
+    monkeypatch.setattr(runner.os, "killpg", lambda pid, sig: killed.append(pid))
+    seen["slow"] = True
+    slow = runner.run_shell(policy, {"command": "sleep 100"})
+    assert slow["timed_out"] and slow["exit_code"] is None and killed == [99]
+    for bad in ("", "x" * 4001, None):
+        with pytest.raises(runner.Refused):
+            runner.run_shell(policy, {"command": bad})

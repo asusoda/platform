@@ -64,3 +64,31 @@ def test_a_superadmin_token_reads_status_and_runs_named_commands(client, superad
     assert ("POST", "/host/commands/health") in sent
     bad = client.post("/api/tools/server.run", json={"name": "rm -rf /", "confirm": True}, headers=headers)
     assert bad.status_code == 400
+
+
+def test_the_shell_needs_confirm_and_is_audited(client, superadmin, monkeypatch):
+    from core.audit import AuditEntry
+    from core.db import db_connect
+
+    sent: list[tuple] = []
+
+    def call(method, path, body=None, socket_path=None):
+        sent.append((method, path, body or {}))
+        return {"user": "agent", "exit_code": 0, "timed_out": False, "seconds": 0.1, "output": "x", "truncated": False}
+
+    monkeypatch.setattr(runner, "call", call)
+    officer = _token(client, superadmin, ["server:read"])
+    assert client.post("/api/tools/server.shell", json={"command": "ls"}, headers=officer).status_code in (403, 404)
+    headers = _token(client, superadmin, ["server:manage"])
+    preview = client.post("/api/tools/server.shell", json={"command": "ls /srv"}, headers=headers).get_json()
+    assert preview["result"]["confirm_required"] is True and not sent
+    ran = client.post("/api/tools/server.shell", json={"command": "ls /srv", "confirm": True}, headers=headers)
+    assert ran.status_code == 200 and ran.get_json()["result"]["user"] == "agent"
+    assert sent[0][:2] == ("POST", "/host/shell") and sent[0][2]["command"] == "ls /srv"
+    db = db_connect.SessionLocal()
+    try:
+        entry = db.query(AuditEntry).filter_by(action="server.shell").order_by(AuditEntry.id.desc()).first()
+        details = entry.details if entry is not None else None
+        assert isinstance(details, dict) and details["command"] == "ls /srv"
+    finally:
+        db.close()

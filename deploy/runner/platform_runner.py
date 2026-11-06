@@ -18,13 +18,15 @@ org's no_new_privileges_off lists: databases whose images drop privileges with g
 group network (app-<org>--<group>), where each answers to its
 alias. The policy's host_control list names the other containers and systemd units that the superadmin may start,
 stop, restart and read the logs of. The policy's commands map names to fixed command lines that the superadmin may
-run; a request names a command and sends no arguments. Standard library only. See docs/operations.md, "This server runner".
+run; a request names a command and sends no arguments. The policy's shell, off unless enabled is true, runs any
+command line as its unprivileged user, never root. Standard library only. See docs/operations.md, "This server runner".
 """
 
 import argparse
 import fnmatch
 import json
 import os
+import pwd
 import re
 import shutil
 import socket
@@ -110,6 +112,7 @@ def load_policy_dict(policy: dict) -> dict:
     policy.setdefault("orgs", {})
     policy.setdefault("host_control", {"containers": [], "units": []})
     policy.setdefault("commands", {})
+    policy.setdefault("shell", {"enabled": False})
     # A container on podman's default network keeps the bridge, and so the 10.88.0.1 bind address, in place
     policy.setdefault("bridge_image", "docker.io/library/nginx:alpine")
     return policy
@@ -605,6 +608,71 @@ def run_command(policy: dict, name: str) -> dict:
     }
 
 
+MAX_SHELL_COMMAND = 4000
+SHELL_TIMEOUT_SECONDS = 120
+SHELL_PATH = "/usr/local/bin:/usr/bin:/bin"
+
+
+def shell_user(policy: dict) -> pwd.struct_passwd:
+    """The account the shell runs as. Refused when the shell is off, the user is missing, or the user is root."""
+    shell = policy.get("shell") or {}
+    if shell.get("enabled") is not True:
+        raise Refused("The shell is off in the policy of this server", 403)
+    name = shell.get("user")
+    if not isinstance(name, str) or not name:
+        raise Refused("The shell of the policy names no user", 500)
+    try:
+        account = pwd.getpwnam(name)
+    except KeyError as e:
+        raise Refused(f"The shell user {name} does not exist on this server", 500) from e
+    if account.pw_uid == 0 or account.pw_gid == 0:
+        raise Refused("The shell user must not be root", 500)
+    return account
+
+
+def run_shell(policy: dict, body: dict) -> dict:
+    """Run one command line with bash as the policy's shell user, in a new session that a timeout kills whole."""
+    account = shell_user(policy)
+    command = body.get("command")
+    if not isinstance(command, str) or not command.strip() or len(command) > MAX_SHELL_COMMAND or "\0" in command:
+        raise Refused(f"command must be text of 1 to {MAX_SHELL_COMMAND} characters")
+    shell = policy.get("shell") or {}
+    timeout = min(int(shell.get("timeout") or SHELL_TIMEOUT_SECONDS), COMMAND_TIMEOUT_SECONDS)
+    cwd = shell.get("cwd") if isinstance(shell.get("cwd"), str) else account.pw_dir
+    env = {"PATH": SHELL_PATH, "HOME": account.pw_dir, "USER": account.pw_name, "LANG": "C.UTF-8"}
+    actor = str(body.get("actor") or "unknown")[:128]
+    sys.stderr.write(f"runner: shell by {actor} as {account.pw_name}: {command[:500]!r}\n")
+    started = time.monotonic()
+    process = subprocess.Popen(  # nosec B603 - the superadmin's command, as the policy's unprivileged user
+        ["/bin/bash", "--noprofile", "--norc", "-c", command],
+        user=account.pw_uid,
+        group=account.pw_gid,
+        extra_groups=[],
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    try:
+        raw, _ = process.communicate(timeout=timeout)
+        code, timed_out = process.returncode, False
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, 9)
+        raw, _ = process.communicate()
+        code, timed_out = None, True
+    output = (raw or b"").decode(errors="replace")
+    return {
+        "user": account.pw_name,
+        "exit_code": code,
+        "timed_out": timed_out,
+        "seconds": round(time.monotonic() - started, 1),
+        "output": output[-MAX_COMMAND_OUTPUT:],
+        "truncated": len(output) > MAX_COMMAND_OUTPUT,
+    }
+
+
 def health(org: str | None, app: str, port: int, path: str | None) -> dict:
     """GET path on the container's port, from the host: on 127.0.0.1 when the port is published, else on the
     container's own address. With path None, only check that the port accepts a connection."""
@@ -681,6 +749,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._answer(200, list_commands(self.policy))
             if method == "POST" and len(parts) == 3 and parts[:2] == ["host", "commands"]:
                 return self._answer(200, run_command(self.policy, parts[2]))
+            if method == "POST" and parts == ["host", "shell"]:
+                return self._answer(200, run_shell(self.policy, self._body()))
             if len(parts) == 4 and parts[0] == "host":
                 kind, host_name, action = parts[1], parts[2], parts[3]
                 allowed = (method == "GET" and action == "logs") or (

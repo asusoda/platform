@@ -92,5 +92,11 @@
       "timeout": 600,
       "description": "Pull main, migrate and recreate the containers"
     }
+  },
+  "shell": {
+    "enabled": false,
+    "user": "platform-agent",
+    "cwd": "/srv/platform-agent",
+    "timeout": 120
   }
 }
