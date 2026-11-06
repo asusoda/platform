@@ -63,7 +63,7 @@ RUNPOD = Need("runpod", "RunPod")
 CATALOG = {
     "accounts": ModuleInfo(
         "Member accounts",
-        "Members connect Canvas, Google and Outlook, and agents read them for the member.",
+        "Members connect their Google Calendar, and agents read it for the member.",
         needs=(Need("ACCOUNTS_BASE_URL", "ACCOUNTS_BASE_URL setting", kind="setting"),),
     ),
     "agents": ModuleInfo(
@@ -192,7 +192,6 @@ TOOL_MODULES = [
     "modules.feeds.tools",
     "modules.godfather.tools",
     "modules.integrations.tools",
-    "modules.accounts.tools",
     "modules.uptime.tools",
     "modules.users.tools",
     "modules.storefront.tools",

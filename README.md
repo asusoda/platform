@@ -20,7 +20,7 @@ Each org route checks access. The audit log records each change that an officer 
 | `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
 | `submodules` | Shared content from `submodules/`: content made once for every org, such as the ASU campus pages and live queries for knowledge, and the job and hackathon feeds for Feeds |
 | `alerts` | Org events, such as a failed job or a site that is down, sent to the org's Discord destinations |
-| `accounts` | Canvas, Google and Outlook sign-in for a member, so that agents can act for them |
+| `accounts` | Google Calendar sign-in for a member, so that agents can act for them |
 | `feeds` | New job listings and hackathons posted to an alert destination |
 | `runpod` | Hosting: deploys of an org's apps to RunPod or This server (capped containers on the deployment's server), with health checks and rollback; shared apps such as the vault |
 | `uptime` | Checks of sites and Hosting apps on a schedule, with events when one goes down or up |

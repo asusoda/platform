@@ -31,7 +31,6 @@ flowchart LR
 - [x] Move the vault (vault.thesoda.io) into a shared app.
 - [x] Add the embedding server (Qwen3-Embedding-0.6B, llama.cpp) as a shared app. It is off by default: the deployment and the orgs keep their embedder until someone points theirs at it, which needs a re-embed.
 - [ ] Templates that make several apps and link them.
-- [ ] Take `canvas_url` from the org's subscribed submodules, not the deployment.
 - [ ] Deployment-wide limits on shared submodule passages and embeddings.
 
 ## Core

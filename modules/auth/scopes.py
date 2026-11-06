@@ -23,7 +23,7 @@ def declare(name: str, description: str, integration: str | None = None, uses: t
 # a group.
 GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Org", ("org", "settings", "activity", "submodules")),
-    ("Members", ("members", "points", "store", "accounts", "canvas")),
+    ("Members", ("members", "points", "store", "accounts")),
     ("Content and agents", ("calendar", "knowledge", "feeds", "agents", "asu")),
     ("Hosting", ("apps", "godfather", "uptime", "server")),
     ("Access and keys", ("tokens", "secrets", "integrations", "webhooks")),

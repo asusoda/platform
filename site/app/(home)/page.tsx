@@ -52,7 +52,7 @@ const modules: Module[] = [
   {
     icon: KeyRound,
     name: 'Member accounts',
-    text: 'Canvas, Google Calendar and Outlook, for agents to use.',
+    text: 'A member\'s Google Calendar, for agents to use.',
     href: '/docs/modules/accounts',
   },
   { icon: Cpu, name: 'Godfather pods', text: 'GPU and CPU pods that members reach over SSH.', href: '/docs/modules/godfather' },

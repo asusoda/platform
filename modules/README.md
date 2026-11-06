@@ -28,7 +28,7 @@ Core modules are always on. The Explore page of the dashboard does not show them
 | [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | `knowledge` |
 | [points](points/README.md) | Points, leaderboards and CSV imports | `points` |
 | [storefront](storefront/README.md) | Merch store paid in points | `storefront` |
-| [accounts](accounts/README.md) | Canvas, Google and Outlook sign-in for a member | `accounts` |
+| [accounts](accounts/README.md) | Google Calendar sign-in for a member | `accounts` |
 
 ## AI and agents
 

@@ -2,9 +2,7 @@
 
 A provider is on when ACCOUNTS_<NAME>_CLIENT_ID and ACCOUNTS_<NAME>_CLIENT_SECRET are set, along
 with ACCOUNTS_BASE_URL (the public URL of this API, which the provider redirects back to).
-ACCOUNTS_<NAME>_SCOPES, _AUTHORIZE_URL and _TOKEN_URL override the defaults below. The Canvas URLs
-come from ACCOUNTS_CANVAS_URL (the school's Canvas, like https://canvas.example.edu), else from the
-canvas_url of the one submodule that sets it.
+ACCOUNTS_<NAME>_SCOPES, _AUTHORIZE_URL and _TOKEN_URL override the defaults below.
 """
 
 import datetime
@@ -35,12 +33,6 @@ DEFAULTS = {
         "https://oauth2.googleapis.com/token",
         "https://www.googleapis.com/auth/calendar.events.readonly",
         {"access_type": "offline", "prompt": "consent", "include_granted_scopes": "true"},
-    ),
-    "canvas": Defaults("/login/oauth2/auth", "/login/oauth2/token", ""),
-    "microsoft": Defaults(
-        "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        "openid profile offline_access Calendars.Read Mail.Read",
     ),
 }
 
@@ -138,17 +130,6 @@ class Provider:
         )
 
 
-def canvas_url() -> str | None:
-    """The school's Canvas: ACCOUNTS_CANVAS_URL, else the canvas_url of the one submodule that sets it."""
-    url = os.environ.get("ACCOUNTS_CANVAS_URL", "").strip().rstrip("/")
-    if url:
-        return url
-    from modules.submodules import catalog
-
-    found = {submodule.canvas_url.rstrip("/") for submodule in catalog.SUBMODULES.values() if submodule.canvas_url}
-    return found.pop() if len(found) == 1 else None
-
-
 def get(name: str) -> Provider | None:
     """The provider when it is known and configured, else None."""
     defaults = DEFAULTS.get(name)
@@ -159,16 +140,8 @@ def get(name: str) -> Provider | None:
     client_secret = os.environ.get(prefix + "CLIENT_SECRET", "").strip()
     if not client_id or not client_secret:
         return None
-    authorize_url, token_url = defaults.authorize_url, defaults.token_url
-    if name == "canvas":
-        school = canvas_url()
-        authorize_url = f"{school}{authorize_url}" if school else ""
-        token_url = f"{school}{token_url}" if school else ""
-    authorize_url = os.environ.get(prefix + "AUTHORIZE_URL", authorize_url)
-    token_url = os.environ.get(prefix + "TOKEN_URL", token_url)
-    if not authorize_url or not token_url:
-        logger.warning("provider %s has no URLs; set ACCOUNTS_CANVAS_URL", name)
-        return None
+    authorize_url = os.environ.get(prefix + "AUTHORIZE_URL", defaults.authorize_url)
+    token_url = os.environ.get(prefix + "TOKEN_URL", defaults.token_url)
     return Provider(
         name=name,
         client_id=client_id,
