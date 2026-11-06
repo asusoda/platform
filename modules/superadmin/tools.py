@@ -2,9 +2,12 @@
 
 A call runs only when the token was made by a superadmin (SYS_ADMIN), whatever its scopes. Containers and units
 are those the host agent sees; control, logs and commands go through the This server runner, whose policy lists
-what may be touched. There is no free-form shell: server.run runs only a command the policy names.
+what may be touched. server.run runs only a command the policy names. server.shell runs any command line, but only
+when the policy turns the shell on, and only as the policy's unprivileged user. Each shell call goes to the audit log
+with its command line.
 """
 
+from core import audit
 from core.errors import ServiceError
 from core.hosting import HostingError
 from core.integrations import server as runner
@@ -113,3 +116,30 @@ def server_commands(db, org, caller):
 def server_run(db, org, caller, name: str):
     _superadmin(caller)
     return _run(lambda: runner.host_command(name))
+
+
+@tool(
+    "server.shell",
+    description="Run a command line with bash on the server, as the unprivileged user of the runner's policy, not "
+    "root. Off unless the policy turns the shell on. Returns the exit code and the last output.",
+    scope="server:manage",
+    confirm=True,
+    input_schema={
+        "type": "object",
+        "properties": {"command": {"type": "string", "minLength": 1, "maxLength": runner.MAX_SHELL_COMMAND}},
+        "required": ["command"],
+        "additionalProperties": False,
+    },
+)
+def server_shell(db, org, caller, command: str):
+    _superadmin(caller)
+    result = _run(lambda: runner.host_shell(command, caller.actor))
+    audit.record(
+        "server.shell",
+        source="mcp",
+        actor_kind="machine",
+        actor_id=caller.actor,
+        status=200,
+        details={"command": command[:500], "exit_code": result.get("exit_code"), "user": result.get("user")},
+    )
+    return result

@@ -8,14 +8,14 @@ Routes for the superadmins of the deployment (the Discord user ids in `SYS_ADMIN
 | --- | --- |
 | `api.py` | `/check`, `/dashboard`, `/guild_roles/<guild_id>`, `/add_org/<guild_id>`, `/remove_org/<org_id>`, `/update_officer_role/<org_id>`, `/audit`, `/publishers`, `/errors`, `/server`, `/server/services`, `/server/services/<name>` (PUT), `/limits`, `/limits/<org_id>` (GET, PUT), `/shared-apps` and `/shared-apps/<name>` (GET, PUT, DELETE), `/shared-apps/<name>/deploy`, `/rollback`, `/pod`, `/secrets` (PUT), `/action`, `/logs`; `/server/services/<name>/action` and `/logs` |
 | `models.py` | `ServiceOwner`: the owner the superadmin set for a service |
-| `tools.py` | The `server.*` tools for superadmins: status, services, logs, control, and the runner's named commands |
+| `tools.py` | The `server.*` tools for superadmins: status, services, logs, control, the runner's named commands, and the opt-in shell |
 | `service.py` | The superadmin check, servers with no org, an officer's orgs, server roles, role checks, new orgs, `server()` (the server's health, the bot and the job queue), `server_services()` and `set_service_owner()` (the host agent's services and their owners) and each org's limits (`all_limits`, `org_limits`, `set_org_limits`) |
 
 ## Surface
 
 - Routes: `/api/superadmin`. Each route except `/check` needs a superadmin, also when `ACCESS_ENFORCE` is false. `/check` answers for the caller's own token. `PUT /limits/<org_id>` takes `{"limits": {key: number | null | "default"}}`; see [docs/limits.md](../../docs/limits.md). `DELETE /remove_org/<org_id>` deletes the org and each row that belongs to it. Submodules that the org owns stay, with no owner. If an app of the org has a pod, or the org has a godfather pod, it returns 409 and deletes nothing. `PUT /server/services/<name>` takes `{"owner": "platform" | "infrastructure" | "org" | null, "organization_id": 1}`; see [docs/operations.md](../../docs/operations.md#host-agent).
 - Jobs: none.
-- Tools: `server.status`, `server.services`, `server.logs`, `server.commands` (scope `server:read`); `server.control`, `server.run` (scope `server:manage`, confirm). Each one runs only for a token made by a superadmin. `server.run` runs only a command that the runner's policy names under `commands`, with no arguments from the call.
+- Tools: `server.status`, `server.services`, `server.logs`, `server.commands` (scope `server:read`); `server.control`, `server.run`, `server.shell` (scope `server:manage`, confirm). Each one runs only for a token made by a superadmin. `server.run` runs only a command that the runner's policy names under `commands`, with no arguments from the call. `server.shell` runs a command line as the policy's unprivileged shell user, only when the policy turns the shell on, and writes the command line to the audit log.
 - Tables: `server_service_owners`.
 
 ## Known gaps
