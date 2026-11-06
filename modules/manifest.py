@@ -197,6 +197,7 @@ TOOL_MODULES = [
     "modules.users.tools",
     "modules.storefront.tools",
     "modules.leetcode.tools",
+    "modules.superadmin.tools",
     "submodules.asu.signin.tools",
 ]
 

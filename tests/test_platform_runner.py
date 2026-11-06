@@ -281,3 +281,14 @@ def test_the_runner_refuses_an_org_with_two_dashes_in_a_row(served):
     _fake, request = served
     status, answer = request("GET", "/apps/acm--w/site")
     assert status == 400 and "two dashes" in answer["error"]
+
+
+def test_a_command_runs_only_when_the_policy_names_it(policy):
+    policy["commands"] = {"hello": {"argv": ["echo", "hi"], "description": "Say hi"}}
+    assert runner.list_commands(policy) == {"commands": [{"name": "hello", "description": "Say hi"}]}
+    ran = runner.run_command(policy, "hello")
+    assert ran["exit_code"] == 0 and ran["output"].strip() == "hi" and not ran["timed_out"]
+    for name in ("other", "../hello", "hello; rm"):
+        with pytest.raises(runner.Refused) as refused:
+            runner.run_command(policy, name)
+        assert refused.value.status == 403
