@@ -418,7 +418,7 @@ const INTEGRATIONS = [
     scopes: ['web:read'],
     through: ['knowledge:read'],
     limits: [],
-    tools: { 'web:read': ['web.search'] },
+    tools: { 'web:read': ['knowledge.web_search'] },
   },
 ];
 

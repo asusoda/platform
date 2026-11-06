@@ -24,7 +24,7 @@ def connected(db, org_id: int) -> bool:
 
 
 @tool(
-    "web.search",
+    "knowledge.web_search",
     description="Search the web through Google, Brave and Bing. Returns titles, links, dates and snippets.",
     scope="web:read",
     input_schema={

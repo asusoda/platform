@@ -11,7 +11,7 @@ Steps:
 2. `models.py`: tables on `core.db.Base` with `name: Mapped[type] = mapped_column(...)` columns, `organization_id` on every org-owned row, a unique constraint on the natural key.
 3. `api.py`: a blueprint. Use `officer_route` or `machine_route` from `modules/auth/routes.py` with `functools.partial`. Views return a dict or `(dict, status)`.
 4. `jobs.py` with `@job` from `core/jobs.py` for scheduled or background work. Import the service inside the function.
-5. `tools.py` with `@tool` from `core/tools.py` when agents call the module. No try/except: `ServiceError` becomes a tool error.
+5. `tools.py` with `@tool` from `core/tools.py` when agents call the module, named `<module>.<action>`. No try/except: `ServiceError` becomes a tool error. Add a `SKILL.md` for agents with frontmatter `name` (the tool prefix) and `description`; `tests/test_module_layout.py` checks it.
 6. Register:
    - `MOUNTS` in `modules/registry.py`, with the blueprint import at the top of the file.
    - `MODEL_MODULES`, `JOB_MODULES` and `TOOL_MODULES` in `modules/manifest.py`, for each of those files the module has.

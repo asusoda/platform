@@ -2,6 +2,8 @@
 
 import pytest
 
+from tests.contract.tool_names import every_name
+
 
 @pytest.fixture
 def soda_id(client, officer_headers, restore_soda_config):
@@ -21,7 +23,7 @@ def token_for(client, officer_headers, soda_id):
 
 
 def _names(client, headers):
-    return [t["name"] for t in client.get("/api/tools", headers=headers).get_json()["tools"]]
+    return every_name(client, headers)
 
 
 def test_tools_follow_scopes(client, token_for):
@@ -29,8 +31,8 @@ def test_tools_follow_scopes(client, token_for):
     assert _names(client, token_for("org:read")) == org_read
     assert _names(client, token_for("org:read", "points:read", "calendar:read")) == [
         "batch",
+        "calendar.events",
         "calendar.settings",
-        "events.list",
         "leetcode.settings",
         "org.branding",
         "org.info",
@@ -110,15 +112,19 @@ def test_mcp_lists_and_calls_tools(mcp_client, token_for):
     listed = _rpc(mcp_client, headers, "tools/list")
     assert listed.status_code == 200, listed.text
     tools = listed.json()["result"]["tools"]
+    # The base tools and the gateways; leetcode.settings sits under modules
     assert [t["name"] for t in tools] == [
         "batch",
-        "leetcode.settings",
+        "modules.call",
+        "modules.list",
+        "modules.skill",
+        "modules.tools",
         "org.branding",
         "org.info",
         "org.limits",
         "org.settings",
     ]
-    assert tools[3]["annotations"] == {"readOnlyHint": True, "destructiveHint": False}
+    assert tools[6]["annotations"] == {"readOnlyHint": True, "destructiveHint": False}
     called = _rpc(mcp_client, headers, "tools/call", {"name": "org.info", "arguments": {}})
     result = called.json()["result"]
     assert result.get("isError") in (None, False)

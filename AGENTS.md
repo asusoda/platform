@@ -36,7 +36,7 @@ flask --app main org|jobs|config ...
 | --- | --- |
 | `main.py`, `bot_main.py`, `worker_main.py`, `mcp_main.py` | API, Discord bot, job worker (Postgres only), MCP server on port 8001 |
 | `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, hosting providers (`core/hosting.py`: RunPod and This server), per-org limits (`core/limits.py`), server health and the host agent's file (`core/host.py`) |
-| `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, only the files it needs |
+| `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, `SKILL.md` (for agents, when it has tools), only the files it needs |
 | `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; categories, the module catalog, the modules of a new org, and model, job and tool modules |
 | `apps/` | App templates that officers create apps from on the Hosting page. No Platform code |
 | `deploy/` | The SQLite to Postgres copy script, the RunPod start script, the `config.js` writer and the `serve` config of the dashboard image (`deploy/frontend-config.mjs`, `deploy/dashboard-serve.json`), the read-only host agent (`deploy/host-agent/`), the This server runner (`deploy/runner/`), the shared browser image (`deploy/browser/`), the SearXNG settings (`deploy/searxng/`), and the firewall playbook that `cd.yml` runs (`deploy/ansible/`) |

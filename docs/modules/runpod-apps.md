@@ -57,7 +57,7 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 - `env`, `disk`, `ports`, `args` and `registry` go with each deploy.
 - `secret_env` maps a pod env var to an org secret. The deploy reads the values. The API never returns them, and a dry run shows `(secret)`. RunPod shows pod env in its console, so a person with access to the org's RunPod account can read them.
 - Platform checks `health` at `https://<pod>-<port>.proxy.runpod.net<path>`. The port must be in `ports` as `/http`.
-- `mcp` names the app's own MCP server: `{"port": 6006, "path": "/mcp"}` on its pod, or `{"url": "https://..."}`. `token_secret` names the org secret sent as the bearer token. Then an agent that is connected to Platform reaches the app through two tools: `apps.mcp_tools` lists the app's tools and `apps.mcp_call` calls one. Platform reaches only public https addresses.
+- `mcp` names the app's own MCP server: `{"port": 6006, "path": "/mcp"}` on its pod, or `{"url": "https://..."}`. `token_secret` names the org secret sent as the bearer token. Then an agent that is connected to Platform reaches the app through two tools: `hosting.mcp_tools` lists the app's tools and `hosting.mcp_call` calls one. Platform reaches only public https addresses.
 
 ### An app that already runs
 
@@ -66,7 +66,7 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 ```mermaid
 flowchart LR
   A[agent] -->|one MCP connection| P[Platform MCP]
-  P -->|apps.mcp_tools / apps.mcp_call| S[app MCP: Phoenix, Sparky, ...]
+  P -->|hosting.mcp_tools / hosting.mcp_call| S[app MCP: Phoenix, Sparky, ...]
   P --> T[Platform tools]
 ```
 
@@ -138,7 +138,7 @@ All routes are under `/api/apps`. They need a machine token, and the org is the 
 | `POST /<name>/deploy` | `apps:deploy` | `{"tag": "v1.2.0" or "sha256:...", "ref": "<git sha>", "dry_run": false}`. `ref` is only for apps with a repo; without it, Platform reads the default branch. A dry run returns the manifest and the RunPod request. 202 when the deploy starts |
 | `POST /<name>/rollback` | `apps:manage` | Deploys the newest healthy tag that is not the current tag, with the manifest of that deploy |
 
-The `apps.list` tool returns the same list as `GET /`.
+The `hosting.list` tool returns the same list as `GET /`.
 
 The first deploy creates the pod, named `<org>-<app>`. A later deploy changes its image, which restarts it: the container disk is erased and volumes stay. A new deploy replaces one that is still in progress. The `runpod.check_deployments` job runs each minute. It marks a deployment healthy when its health path returns a status below 400, or failed after 15 minutes. There is no automatic rollback. The Uptime module checks the app: a new app gets a monitor when it is registered and Uptime is on, and a deleted app loses its monitors.
 

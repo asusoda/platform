@@ -136,7 +136,7 @@ MANIFEST_SCHEMA: dict = {
             },
         },
         "mcp": {
-            "description": "The MCP server of the app, which apps.mcp_tools and apps.mcp_call reach (app_mcp.py)",
+            "description": "The MCP server of the app, which hosting.mcp_tools and hosting.mcp_call reach (app_mcp.py)",
             "type": "object",
             "properties": {
                 "url": {"type": "string", "maxLength": 500, "pattern": r"^https://[^\s]+$"},

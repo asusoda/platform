@@ -1,6 +1,7 @@
 """The batch tool: each call has its own scope check, confirm step and audit entry; at most 25 calls; no nesting."""
 
 from core.db import db_connect
+from tests.contract.tool_names import every_name
 
 
 def _issue(*scopes):
@@ -19,7 +20,7 @@ def _batch(client, headers, calls, **extra):
 
 
 def _names(client, headers):
-    return [t["name"] for t in client.get("/api/tools", headers=headers).get_json()["tools"]]
+    return every_name(client, headers)
 
 
 def test_batch_is_listed_only_with_other_tools(client):
@@ -32,7 +33,7 @@ def test_each_call_needs_its_own_scope(client):
     calls = [
         {"tool": "org.info"},
         {"tool": "points.leaderboard", "arguments": {"limit": 3}},
-        {"tool": "org.set_modules", "arguments": {"modules": {"feeds": False}, "confirm": True}},
+        {"tool": "modules.set", "arguments": {"modules": {"feeds": False}, "confirm": True}},
         {"tool": "org.info", "arguments": {"nope": 1}},
     ]
     response = _batch(client, headers, calls)
@@ -41,7 +42,7 @@ def test_each_call_needs_its_own_scope(client):
     assert [(r["tool"], r["ok"], r["status"]) for r in results] == [
         ("org.info", True, 200),
         ("points.leaderboard", False, 404),
-        ("org.set_modules", False, 404),
+        ("modules.set", False, 404),
         ("org.info", False, 400),
     ]
     assert results[0]["result"]["prefix"] == "soda"
@@ -50,12 +51,12 @@ def test_each_call_needs_its_own_scope(client):
 
 def test_confirm_tools_return_their_preview_in_a_batch(client, restore_soda_config):
     headers = _issue("settings:write", "org:read")
-    change = {"tool": "org.set_modules", "arguments": {"modules": {"feeds": False}}}
+    change = {"tool": "modules.set", "arguments": {"modules": {"feeds": False}}}
     pending = _batch(client, headers, [change, {"tool": "org.info"}]).get_json()["result"]["results"]
     assert pending[0]["ok"] is True and pending[0]["result"]["confirm_required"] is True
     assert pending[1]["result"]["modules"]["feeds"] is True
 
-    confirmed = {"tool": "org.set_modules", "arguments": {"modules": {"feeds": False}, "confirm": True}}
+    confirmed = {"tool": "modules.set", "arguments": {"modules": {"feeds": False}, "confirm": True}}
     done = _batch(client, headers, [confirmed, {"tool": "org.info"}]).get_json()["result"]["results"]
     assert done[1]["result"]["modules"]["feeds"] is False
 

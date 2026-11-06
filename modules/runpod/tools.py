@@ -12,7 +12,7 @@ tool = partial(_tool, module="runpod")
 
 
 @tool(
-    "apps.list",
+    "hosting.list",
     description="Apps the organization runs: provider, image tag, pod id and the latest deployment's status.",
     scope="apps:read",
 )
@@ -25,7 +25,7 @@ NAME = {"type": "string", "minLength": 1, "maxLength": 64}
 
 
 @tool(
-    "apps.get",
+    "hosting.get",
     description="One app: its manifest, pod, tag and recent deployments.",
     scope="apps:read",
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
@@ -35,7 +35,7 @@ def apps_get(db, org, caller, name: str):
 
 
 @tool(
-    "apps.register",
+    "hosting.register",
     description="Create an app or replace its manifest. Send a manifest object, or a repo whose manifest file is read. "
     "provider runpod (default) takes gpu or cpu; provider server (This server) takes memory in MB, and optionally "
     "publish, volumes, command, workdir, and group with alias for the parts of one app. health is a path, or "
@@ -61,7 +61,7 @@ def apps_register(db, org, caller, name: str, manifest=None, repo=None, manifest
 
 
 @tool(
-    "apps.delete",
+    "hosting.delete",
     description="Forget an app. On This server its container goes too; a RunPod pod keeps running until it is "
     "terminated on RunPod.",
     scope="apps:manage",
@@ -81,7 +81,7 @@ def _rollback_preview(db, org, caller, name: str):
 
 
 @tool(
-    "apps.deploy",
+    "hosting.deploy",
     description="Deploy an image tag of an app. The health check rolls a failed deploy back.",
     scope="apps:deploy",
     confirm=True,
@@ -102,7 +102,7 @@ def apps_deploy(db, org, caller, name: str, tag: str, ref: str | None = None):
 
 
 @tool(
-    "apps.rollback",
+    "hosting.rollback",
     description="Deploy the newest healthy tag other than the current one.",
     scope="apps:manage",
     confirm=True,
@@ -114,7 +114,7 @@ def apps_rollback(db, org, caller, name: str):
 
 
 @tool(
-    "apps.pod",
+    "hosting.pod",
     description="The live pod of an app on its provider: status, address and hardware.",
     scope="apps:read",
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
@@ -124,9 +124,9 @@ def apps_pod(db, org, caller, name: str):
 
 
 @tool(
-    "apps.mcp_tools",
+    "hosting.mcp_tools",
     description="The tools an app's own MCP server offers, such as a deployed agent or its tracing. Call one with "
-    "apps.mcp_call. The app names its server under mcp in its manifest.",
+    "hosting.mcp_call. The app names its server under mcp in its manifest.",
     scope="apps:read",
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
 )
@@ -135,8 +135,8 @@ def apps_mcp_tools(db, org, caller, name: str):
 
 
 @tool(
-    "apps.mcp_call",
-    description="Call one tool on an app's own MCP server, by the name apps.mcp_tools lists, with its arguments.",
+    "hosting.mcp_call",
+    description="Call one tool on an app's own MCP server, by the name hosting.mcp_tools lists, with its arguments.",
     scope="apps:manage",
     input_schema={
         "type": "object",
@@ -154,7 +154,7 @@ def apps_mcp_call(db, org, caller, name: str, tool: str, arguments: dict | None 
 
 
 @tool(
-    "apps.templates",
+    "hosting.templates",
     description="App templates to create an app from, with the inputs each one asks for.",
     scope="apps:read",
 )
@@ -172,10 +172,10 @@ def hosting_providers(db, org, caller):
 
 
 @tool(
-    "apps.create_from_template",
+    "hosting.create_from_template",
     description=(
         "Register a new app from a template. values maps the template's input keys to text. secrets maps its "
-        "secret keys to values; they are saved as org secrets and never returned. Deploy it with apps.deploy."
+        "secret keys to values; they are saved as org secrets and never returned. Deploy it with hosting.deploy."
     ),
     scope="apps:manage",
     input_schema={
@@ -196,7 +196,7 @@ def apps_create_from_template(db, org, caller, template: str, name: str, values=
 
 
 @tool(
-    "apps.action",
+    "hosting.action",
     description="Start, stop or restart a deployed app.",
     scope="apps:manage",
     confirm=True,
@@ -212,7 +212,7 @@ def apps_action(db, org, caller, name: str, action: str):
 
 
 @tool(
-    "apps.logs",
+    "hosting.logs",
     description="The last lines of a This server app's output.",
     scope="apps:read",
     input_schema={
@@ -227,7 +227,7 @@ def apps_logs(db, org, caller, name: str, lines: int = 200):
 
 
 @_tool(
-    "shared_apps.list",
+    "hosting.shared",
     description="The shared apps the deployment runs for every org, such as the vault: what each is, whether the org "
     "subscribes, and whom it invited.",
     scope="submodules:read",
@@ -237,7 +237,7 @@ def shared_apps_list(db, org, caller):
 
 
 @_tool(
-    "shared_apps.subscribe",
+    "hosting.subscribe_shared",
     description="Subscribe the org to a shared app and invite people by email. For the vault, each person gets an "
     "invite and sets their own master password.",
     scope="submodules:manage",

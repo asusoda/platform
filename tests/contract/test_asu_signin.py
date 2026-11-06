@@ -187,7 +187,7 @@ def test_without_playwright_the_sign_in_is_blocked(client, officer_headers, soda
 
 def _query(client, headers, source, keywords="robotics"):
     body = {"submodule": "asu", "source": source, "params": {"keywords": keywords}}
-    return client.post("/api/tools/submodules.query", json=body, headers=headers)
+    return client.post("/api/tools/knowledge.query", json=body, headers=headers)
 
 
 def test_clubs_need_a_saved_sign_in(client, officer_headers, soda, fake):

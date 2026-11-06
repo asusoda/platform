@@ -158,18 +158,39 @@ Apps and agents read and change Platform data through tools. A module declares a
 
 Both need a machine token: `Authorization: Bearer plat_...`. An MCP client can also get a token with OAuth at `<ACCOUNTS_BASE_URL>/mcp` ([authentication](./authentication.md#oauth-for-mcp-clients)). The `mcp` module is Core, so it is always on. A caller sees only the tools that its token scopes allow and whose module its org has turned on. An OAuth token also sees the module tools that need another scope, and asks for it with step-up ([authentication](./authentication.md#step-up)). The MCP card on the Connections page of the dashboard shows the server, the header and whether OAuth is on. For other tokens, an unknown tool and a refused tool both return 404, so a token cannot find tools it may not use. A tool always acts on the caller's org. It has no org argument.
 
+### Layers
+
+The tool list is the same shape in every org. It holds the base tools, `search`, `batch`, the tools of each service the org connected, and the modules gateway. Module tools sit behind the gateway, so a new module adds no names to the list.
+
+```mermaid
+flowchart TD
+  A[agent] --> L[tool list]
+  L --> B["base: org, activity, members, access, connections, hosting, modules, server"]
+  L --> S[search, batch]
+  L --> C["service tools, once connected: github, runpod, notion, google, gmail, drive"]
+  L --> M["modules.list / skill / tools / call"]
+  M --> MT["module tools: calendar, points, knowledge, feeds, godfather, uptime, store, leetcode"]
+```
+
+- `modules.list` gives the modules the token can use, with how many tools each has and whether it has a skill. `modules.skill` gives the module's `SKILL.md`: what it is for and which tool to call when. `modules.tools` gives its tools with their arguments, and `modules.call` runs one.
+- A service's tools are in the list under the service's name, such as `github.create_pull_request`, once the org connects it. Not connected means not listed.
+- The gateway needs no scope of its own. It lists and runs only the tools the token can use, and each call it runs has its own scope check, confirm step and audit entry. `modules.call` runs only module tools; it refuses a tool from the list.
+- Every tool also runs by its own name, over MCP, `/api/tools/<name>` and `batch`. `GET /api/tools` gives the same list as MCP.
+- `layers.py` in `modules/mcp/` sorts the tools. A tool is base when its name starts with a base domain, a service tool when it calls a connected service under that service's name, and a module tool otherwise.
+
 | Tools | Scope | Module |
 | --- | --- | --- |
 | `batch`: 1 to 25 calls of other tools, each checked as a single call | the scope of each call | mcp |
+| `modules.list`, `modules.skill`, `modules.tools`, `modules.call` | none; the scope of each tool they list or run | mcp |
 | `org.info`, `org.branding`, `org.settings`, `org.limits`, `leetcode.settings` | `org:read` | organizations, leetcode |
-| `org.set_modules` (confirm), `org.set_branding`, `org.update_settings`, `leetcode.update_settings`, `ci.set_repos` | `settings:write` | organizations, leetcode, dashboard |
-| `secrets.list`, `secrets.set` (confirm), `secrets.delete` (confirm) | `secrets:manage` | organizations |
-| `tokens.list`, `tokens.create` (confirm), `tokens.revoke` (confirm) | `tokens:manage` | organizations |
-| `org.overview`, `org.trends`, `notifications.list`, `errors.list`, `activity.log`, `ci.runs` | `activity:read` | dashboard |
-| `notifications.resolve`, `notifications.reopen`, `notifications.delete` (confirm), `errors.resolve`, `errors.reopen`, `errors.delete` (confirm) | `settings:write` | dashboard |
-| `integrations.list`, `integrations.save` (confirm), `integrations.test`, `integrations.disconnect` (confirm) | `integrations:manage` | dashboard |
-| `webhooks.list`, `webhooks.save`, `webhooks.test`, `webhooks.delete` (confirm) | `webhooks:manage` | alerts |
-| `events.list`, `calendar.settings` | `calendar:read` | calendar |
+| `modules.set` (confirm), `org.set_branding`, `org.update_settings`, `leetcode.update_settings`, `activity.set_ci_repos` | `settings:write` | organizations, leetcode, dashboard |
+| `access.secrets`, `access.set_secret` (confirm), `access.delete_secret` (confirm) | `secrets:manage` | organizations |
+| `access.tokens`, `access.create_token` (confirm), `access.revoke_token` (confirm) | `tokens:manage` | organizations |
+| `org.overview`, `org.trends`, `activity.notifications`, `activity.errors`, `activity.log`, `activity.ci_runs` | `activity:read` | dashboard |
+| `activity.resolve_notification`, `activity.reopen_notification`, `activity.delete_notification` (confirm), `activity.resolve_error`, `activity.reopen_error`, `activity.delete_error` (confirm) | `settings:write` | dashboard |
+| `connections.list`, `connections.save` (confirm), `connections.test`, `connections.disconnect` (confirm) | `integrations:manage` | dashboard |
+| `access.webhooks`, `access.save_webhook`, `access.test_webhook`, `access.delete_webhook` (confirm) | `webhooks:manage` | alerts |
+| `calendar.events`, `calendar.settings` | `calendar:read` | calendar |
 | `calendar.update_settings`, `calendar.sync`, `calendar.setup` | `calendar:manage` | calendar |
 | `points.leaderboard` | `points:read` | points |
 | `points.entries`, `points.history`, `members.list`, `members.discord_roles` | `members:read` | points, users |
@@ -179,16 +200,16 @@ Both need a machine token: `Authorization: Bearer plat_...`. An MCP client can a
 | `store.save_product`, `store.update_orders`, `store.delete_products` (confirm), `store.delete_orders` (confirm) | `store:write` | storefront |
 | `knowledge.search`, `knowledge.sources`, `knowledge.read_source`, `knowledge.submodules`, `knowledge.settings`, `knowledge.runs` | `knowledge:read` | knowledge |
 | `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_submodule`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
-| `submodules.list` | `submodules:read` | submodules |
-| `submodules.subscribe` (confirm), `submodules.unsubscribe` (confirm) | `submodules:manage` | submodules |
-| `submodules.query`, `search` | `knowledge:read` | submodules |
-| `shared_apps.list` | `submodules:read` | runpod (works with it off) |
-| `shared_apps.subscribe` (confirm) | `submodules:manage` | runpod (works with it off) |
-| `apps.list`, `apps.get`, `apps.pod`, `apps.templates`, `hosting.providers` | `apps:read` | runpod |
-| `apps.register`, `apps.create_from_template`, `apps.delete` (confirm), `apps.rollback` (confirm) | `apps:manage` | runpod |
-| `apps.deploy` (confirm) | `apps:deploy` | runpod |
-| `apps.action` (confirm) | `apps:manage` | runpod |
-| `apps.logs` | `apps:read` | runpod |
+| `modules.submodules` | `submodules:read` | submodules |
+| `modules.subscribe` (confirm), `modules.unsubscribe` (confirm) | `submodules:manage` | submodules |
+| `knowledge.query`, `search` | `knowledge:read` | submodules |
+| `hosting.shared` | `submodules:read` | runpod (works with it off) |
+| `hosting.subscribe_shared` (confirm) | `submodules:manage` | runpod (works with it off) |
+| `hosting.list`, `hosting.get`, `hosting.pod`, `hosting.templates`, `hosting.providers` | `apps:read` | runpod |
+| `hosting.register`, `hosting.create_from_template`, `hosting.delete` (confirm), `hosting.rollback` (confirm) | `apps:manage` | runpod |
+| `hosting.deploy` (confirm) | `apps:deploy` | runpod |
+| `hosting.action` (confirm) | `apps:manage` | runpod |
+| `hosting.logs` | `apps:read` | runpod |
 | `feeds.list`, `feeds.presets`, `feeds.history`, `feeds.save`, `feeds.run`, `feeds.delete` (confirm) | `feeds:manage` | feeds |
 | `godfather.pods`, `godfather.pod_members`, `godfather.connected`, `godfather.settings`, `godfather.sessions`, `godfather.list_files`, `godfather.read_file`, `godfather.update_pod`, `godfather.update_settings`, `godfather.delete_session`, `godfather.make_folder`, `godfather.move_file` | `godfather:manage` | godfather |
 | `godfather.pod_action`, `godfather.create_pod`, `godfather.add_session`, `godfather.write_file`, `godfather.delete_file` (each confirm) | `godfather:manage` | godfather |
@@ -207,11 +228,11 @@ Both need a machine token: `Authorization: Bearer plat_...`. An MCP client can a
 | `google.gmail_send` (confirm) | `gmail:send` | integrations |
 | `notion.search`, `notion.read_page`, `notion.query_database` | `notion:read` | integrations |
 | `notion.create_page` (confirm) | `notion:write` | integrations |
-| `web.search` | `web:read` | integrations |
+| `knowledge.web_search` | `web:read` | integrations |
 
-A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `apps.deploy` and `apps.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
+A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `hosting.deploy` and `hosting.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 
-No tool returns a secret value or a webhook URL. `tokens.create` returns the new token once. It gives only the scopes and limits of the calling token, and the new token expires no later than the calling token. A write tool that takes `ids` changes up to 100 rows in one commit; if one id is missing, nothing changes. To send many calls in one request, use `batch` with `{"calls": [{"tool", "arguments"}], "stop_on_error"}`. Its result has one entry for each call: `tool`, `ok`, `result` or `error`, and `status`.
+No tool returns a secret value or a webhook URL. `access.create_token` returns the new token once. It gives only the scopes and limits of the calling token, and the new token expires no later than the calling token. A write tool that takes `ids` changes up to 100 rows in one commit; if one id is missing, nothing changes. To send many calls in one request, use `batch` with `{"calls": [{"tool", "arguments"}], "stop_on_error"}`. Its result has one entry for each call: `tool`, `ok`, `result` or `error`, and `status`.
 
 The flows that need a browser have no tool: the OAuth sign-in to an integration, the ASU sign-in, file upload and download on a pod, and the Godfather CLI sign-in. Superadmin routes and member routes have no tool.
 

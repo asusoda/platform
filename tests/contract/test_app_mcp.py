@@ -54,7 +54,7 @@ def test_a_bad_pod_id_is_refused(client, manager, fake):
 def test_an_app_without_mcp_says_so(client, manager, fake):
     name = _name()
     client.put(f"/api/apps/{name}", json={"manifest": MANIFEST}, headers=manager)
-    response = client.post("/api/tools/apps.mcp_tools", json={"name": name}, headers=manager)
+    response = client.post("/api/tools/hosting.mcp_tools", json={"name": name}, headers=manager)
     assert response.status_code == 404 and "mcp" in response.get_json()["error"]
 
 
@@ -89,10 +89,10 @@ def test_tools_are_listed_and_called_with_the_app_token(client, manager, fake, m
         return await work(Session())
 
     monkeypatch.setattr(app_mcp, "_session", session)
-    listed = client.post("/api/tools/apps.mcp_tools", json={"name": name}, headers=manager).get_json()
+    listed = client.post("/api/tools/hosting.mcp_tools", json={"name": name}, headers=manager).get_json()
     assert listed["result"]["tools"][0]["name"] == "list_projects"
     called = client.post(
-        "/api/tools/apps.mcp_call", json={"name": name, "tool": "list_projects", "arguments": {}}, headers=manager
+        "/api/tools/hosting.mcp_call", json={"name": name, "tool": "list_projects", "arguments": {}}, headers=manager
     ).get_json()
     assert called["result"] == {"text": "default", "structured": None, "is_error": False}
     assert seen == {

@@ -113,7 +113,7 @@ def test_subscribe_shares_every_page_and_retires_removed_ones(client, writer):
 def test_subscription_needs_the_manage_scope(client, app, clean_submodules):
     reader, _ = _issue("ais", "submodules:read", "knowledge:write")
     assert client.put("/api/submodules/asu/subscription", headers=reader).status_code == 403
-    listed = client.post("/api/tools/submodules.list", headers=reader).get_json()["result"]["submodules"]
+    listed = client.post("/api/tools/modules.submodules", headers=reader).get_json()["result"]["submodules"]
     assert next(p for p in listed if p["name"] == "asu")["subscribed"] is False
 
 
@@ -231,10 +231,10 @@ def test_query_list_and_tool(client, writer, pages, queued):
     url = queries.url_for(QUERIES["library_hours"], {})
     pages[url] = fetch.Fetched(url=url, body=b"", content_type="text/markdown", text="Hayden Library\nOpen 24 hours")
     result = client.post(
-        "/api/tools/submodules.query", json={"submodule": "asu", "source": "library_hours"}, headers=headers
+        "/api/tools/knowledge.query", json={"submodule": "asu", "source": "library_hours"}, headers=headers
     ).get_json()
     assert result["result"]["url"] == url
-    bad = client.post("/api/tools/submodules.query", json={"submodule": "nope", "source": "x"}, headers=headers)
+    bad = client.post("/api/tools/knowledge.query", json={"submodule": "nope", "source": "x"}, headers=headers)
     assert bad.status_code == 400
 
 

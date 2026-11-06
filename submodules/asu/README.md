@@ -18,7 +18,7 @@ Sync adds each page as a crawled source with a key that starts with `asu/`. Some
 
 ## Live queries
 
-Run them with `POST /api/submodules/asu/query` or the `submodules.query` tool with `submodule` set to `asu`. The old routes `/api/asu/queries`, `/api/asu/query` and `/api/asu/sync` give the same answers.
+Run them with `POST /api/submodules/asu/query` or the `knowledge.query` tool with `submodule` set to `asu`. The old routes `/api/asu/queries`, `/api/asu/query` and `/api/asu/sync` give the same answers.
 
 | Source | Parameters (required are marked) |
 | --- | --- |
@@ -40,7 +40,7 @@ courses and course_catalog read the JSON API behind the ASU class search, so the
 
 ## ASU sign-in
 
-An officer of an org that subscribes to ASU signs in on the ASU card of the Shared tab of the dashboard Explore page with a NetID, a password and Duo. Platform keeps only the browser cookies, as the org secret `asu_session`. Two live queries then read Sun Devil Central with it, like any other live query (`search` with a source, or `submodules.query`):
+An officer of an org that subscribes to ASU signs in on the ASU card of the Shared tab of the dashboard Explore page with a NetID, a password and Duo. Platform keeps only the browser cookies, as the org secret `asu_session`. Two live queries then read Sun Devil Central with it, like any other live query (`search` with a source, or `knowledge.query`):
 
 | Query | Parameters | Reads |
 | --- | --- | --- |

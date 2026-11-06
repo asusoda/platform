@@ -204,6 +204,7 @@ source_modules = [
     "modules.mcp.edges",
     "modules.mcp.oauth",
     "modules.mcp.oauth_pages",
+    "modules.mcp.layers",
     "modules.mcp.runtime",
     "modules.mcp.server",
     "modules.organizations.config",

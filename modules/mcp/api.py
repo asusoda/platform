@@ -30,7 +30,7 @@ def list_tools():
         if caller is None:
             return jsonify({"error": "A valid machine token is required"}), 401
         try:
-            return jsonify({"tools": [runtime.describe(spec) for spec in runtime.available(db, caller)]})
+            return jsonify({"tools": [runtime.describe(spec) for spec in runtime.listed(db, caller)]})
         except ToolError as e:
             return jsonify({"error": e.message}), e.status
     finally:

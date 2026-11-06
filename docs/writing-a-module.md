@@ -11,7 +11,8 @@ This page lists the files a module can have, the places to register it, and the 
 | `api.py` | A Flask blueprint. Each route reads the request, calls `service.py` and returns JSON | the module has routes |
 | `models.py` | SQLAlchemy tables that use `Base` from `core/db/base.py`, with `Mapped[...]` columns from `mapped_column` | the module keeps data |
 | `jobs.py` | Background work with `@job` from `core/jobs.py` | the module runs on a schedule or in the background |
-| `tools.py` | Tools for agents with `@tool` from `core/tools.py` | agents call the module |
+| `tools.py` | Tools for agents with `@tool` from `core/tools.py`. Name each `<module>.<action>`. Agents reach them through `modules.tools` and `modules.call`, not the tool list | agents call the module |
+| `SKILL.md` | For agents: frontmatter `name` (the tool name prefix) and `description`, then what the module is for, which tool to call when, and what to watch out for. `modules.skill` gives it to agents | the module has tools |
 
 If `service.py` has more than one concern, split it into more Flask-free files. For example, `godfather/` has `ssh.py`, `files.py` and `schedule.py`.
 

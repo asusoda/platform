@@ -9,7 +9,7 @@ flowchart LR
   notion --> events["GET /api/calendar/org/events"]
   events --> cache["Cache, 5 minutes"]
   cache --> site["Public site"]
-  cache --> tool["events.list tool"]
+  cache --> tool["calendar.events tool"]
 ```
 
 ## Setup
@@ -45,4 +45,4 @@ A sync occurs only when a caller starts it, with `POST /api/calendar/<org_prefix
 
 ## Events
 
-`GET /api/calendar/<org_prefix>/events` is open. It returns the org's events from Notion and keeps them in a cache for 5 minutes. If the org has a `google_calendar_id`, each event that a sync copied to Google has `jump_url`, the event's Google Calendar link. The lookup reads Google only from one day before the earliest event. If Google cannot be read, the events have no `jump_url`. The `events.list` tool returns the same events to agents with `calendar:read`. `calendar.settings` (scope `calendar:read`) and `calendar.update_settings`, `calendar.sync` and `calendar.setup` (scope `calendar:manage`) do what the Calendar page does.
+`GET /api/calendar/<org_prefix>/events` is open. It returns the org's events from Notion and keeps them in a cache for 5 minutes. If the org has a `google_calendar_id`, each event that a sync copied to Google has `jump_url`, the event's Google Calendar link. The lookup reads Google only from one day before the earliest event. If Google cannot be read, the events have no `jump_url`. The `calendar.events` tool returns the same events to agents with `calendar:read`. `calendar.settings` (scope `calendar:read`) and `calendar.update_settings`, `calendar.sync` and `calendar.setup` (scope `calendar:manage`) do what the Calendar page does.

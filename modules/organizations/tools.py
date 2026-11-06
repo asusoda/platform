@@ -19,7 +19,7 @@ def org_info(db, org, caller):
 
 
 @tool(
-    "org.set_modules",
+    "modules.set",
     description='Turn optional modules on or off, for example {"points": false}.',
     scope="settings:write",
     confirm=True,
@@ -105,7 +105,7 @@ SECRET_NAME = {"type": "string", "minLength": 1, "maxLength": 100}
 
 
 @tool(
-    "secrets.list",
+    "access.secrets",
     description="The org's secrets: name, description, whether it is set, and who set it when. Never the values.",
     scope="secrets:manage",
 )
@@ -114,7 +114,7 @@ def secrets_list(db, org, caller):
 
 
 @tool(
-    "secrets.set",
+    "access.set_secret",
     description="Save one org secret. It replaces the old value. The value is stored encrypted and never returned.",
     scope="secrets:manage",
     confirm=True,
@@ -134,7 +134,7 @@ def secrets_set(db, org, caller, name: str, value: str):
 
 
 @tool(
-    "secrets.delete",
+    "access.delete_secret",
     description="Delete org secrets by name, up to 50.",
     scope="secrets:manage",
     confirm=True,
@@ -150,7 +150,7 @@ def secrets_delete(db, org, caller, names: list[str]):
 
 
 @tool(
-    "tokens.list",
+    "access.tokens",
     description="The org's active machine tokens: name, kind, scopes, limits, first characters and dates. Never values.",
     scope="tokens:manage",
 )
@@ -159,7 +159,7 @@ def tokens_list(db, org, caller):
 
 
 @tool(
-    "tokens.create",
+    "access.create_token",
     description=(
         "Make a machine token. It gets only scopes that the calling token has, and the calling token's limits. "
         "The result has the token value once; it cannot be read again."
@@ -183,7 +183,7 @@ def tokens_create(db, org, caller, **data):
 
 
 @tool(
-    "tokens.revoke",
+    "access.revoke_token",
     description="Revoke machine tokens by id, up to 100. If one id is not an active token, nothing changes.",
     scope="tokens:manage",
     confirm=True,

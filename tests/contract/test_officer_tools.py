@@ -6,6 +6,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from core.db import db_connect
+from tests.contract.tool_names import every_name
 
 
 def _issue(*scopes, name="officer-agent"):
@@ -30,7 +31,7 @@ def _result(client, headers, tool, **arguments):
 
 
 def _names(client, headers):
-    return [t["name"] for t in client.get("/api/tools", headers=headers).get_json()["tools"]]
+    return every_name(client, headers)
 
 
 def test_points_award_list_and_delete(client):
@@ -201,42 +202,52 @@ def test_org_calendar_and_leetcode_settings(client, restore_soda_config):
     assert saved["settings"]["daily_time"] == "09:30"
     assert _call(client, headers, "leetcode.update_settings", daily_time="9am").status_code == 400
     assert _result(client, headers, "leetcode.settings")["settings"]["channel_id"] == "123456789"
-    assert _result(client, headers, "ci.set_repos", repos=["asusoda/platform"]) == {"repos": ["asusoda/platform"]}
+    assert _result(client, headers, "activity.set_ci_repos", repos=["asusoda/platform"]) == {
+        "repos": ["asusoda/platform"]
+    }
 
 
 def test_secrets_are_write_only(client, monkeypatch):
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     headers = _issue("secrets:manage")
     value = "secret_value_for_tool_test"
-    assert _result(client, headers, "secrets.set", name="notion_api_key", value=value)["confirm_required"] is True
-    assert _result(client, headers, "secrets.set", name="notion_api_key", value=value, confirm=True)["set"] is True
-    listing = _result(client, headers, "secrets.list")
+    assert _result(client, headers, "access.set_secret", name="notion_api_key", value=value)["confirm_required"] is True
+    assert (
+        _result(client, headers, "access.set_secret", name="notion_api_key", value=value, confirm=True)["set"] is True
+    )
+    listing = _result(client, headers, "access.secrets")
     assert value not in json.dumps(listing)
     assert next(s for s in listing["secrets"] if s["name"] == "notion_api_key")["set"] is True
-    assert _call(client, headers, "secrets.set", name="not_a_secret", value="x", confirm=True).status_code == 400
-    deleted = _result(client, headers, "secrets.delete", names=["notion_api_key", "notion_api_key"], confirm=True)
+    assert _call(client, headers, "access.set_secret", name="not_a_secret", value="x", confirm=True).status_code == 400
+    deleted = _result(client, headers, "access.delete_secret", names=["notion_api_key", "notion_api_key"], confirm=True)
     assert deleted == {"deleted": ["notion_api_key"], "not_set": []}
 
 
 def test_tokens_get_only_the_callers_scopes(client):
     headers = _issue("tokens:manage", "org:read")
-    listed = _result(client, headers, "tokens.list")
+    listed = _result(client, headers, "access.tokens")
     assert "tokens" in listed and "org:read" in listed["scopes"]
     assert all("token" not in t for t in listed["tokens"])
 
-    wider = _call(client, headers, "tokens.create", name="child", kind="agent", scopes=["points:write"], confirm=True)
+    wider = _call(
+        client, headers, "access.create_token", name="child", kind="agent", scopes=["points:write"], confirm=True
+    )
     assert wider.status_code == 403
-    pending = _result(client, headers, "tokens.create", name="child", kind="agent", scopes=["org:read"])
+    pending = _result(client, headers, "access.create_token", name="child", kind="agent", scopes=["org:read"])
     assert pending["confirm_required"] is True and "token" not in pending
 
-    child = _result(client, headers, "tokens.create", name="child", kind="agent", scopes=["org:read"], confirm=True)
+    child = _result(
+        client, headers, "access.create_token", name="child", kind="agent", scopes=["org:read"], confirm=True
+    )
     assert child["token"].startswith("plat_") and child["scopes"] == ["org:read"]
     child_headers = {"Authorization": f"Bearer {child['token']}"}
     assert _call(client, child_headers, "org.info").status_code == 200
-    assert child["token"] not in json.dumps(_result(client, headers, "tokens.list"))
+    assert child["token"] not in json.dumps(_result(client, headers, "access.tokens"))
 
-    assert _call(client, headers, "tokens.revoke", ids=[999999], confirm=True).status_code == 404
-    assert _result(client, headers, "tokens.revoke", ids=[child["id"]], confirm=True) == {"revoked": [child["id"]]}
+    assert _call(client, headers, "access.revoke_token", ids=[999999], confirm=True).status_code == 404
+    assert _result(client, headers, "access.revoke_token", ids=[child["id"]], confirm=True) == {
+        "revoked": [child["id"]]
+    }
     assert _call(client, child_headers, "org.info").status_code == 401
 
 
@@ -262,11 +273,20 @@ def test_child_token_expires_with_its_parent(client):
         db.close()
     assert parent_expiry is not None
     headers = {"Authorization": f"Bearer {value}"}
-    forever = _result(client, headers, "tokens.create", name="child", kind="agent", scopes=["org:read"], confirm=True)
+    forever = _result(
+        client, headers, "access.create_token", name="child", kind="agent", scopes=["org:read"], confirm=True
+    )
     assert forever["expires_at"] is not None
     assert datetime.datetime.fromisoformat(forever["expires_at"]) <= parent_expiry
     longer = _result(
-        client, headers, "tokens.create", name="child", kind="agent", scopes=["org:read"], expires_days=30, confirm=True
+        client,
+        headers,
+        "access.create_token",
+        name="child",
+        kind="agent",
+        scopes=["org:read"],
+        expires_days=30,
+        confirm=True,
     )
     assert datetime.datetime.fromisoformat(longer["expires_at"]) <= parent_expiry
     assert parent_expiry < utcnow() + datetime.timedelta(days=1)
@@ -275,23 +295,27 @@ def test_child_token_expires_with_its_parent(client):
 def test_webhook_tools(client, sent):
     headers = _issue("webhooks:manage")
     url = "https://discord.com/api/webhooks/1/tool-test"
-    hook = _result(client, headers, "webhooks.save", name="Tools", url=url, events=["member.joined"])["webhook"]
-    assert url not in json.dumps(_result(client, headers, "webhooks.list"))
-    assert _result(client, headers, "webhooks.save", id=hook["id"], enabled=False)["webhook"]["enabled"] is False
-    assert _result(client, headers, "webhooks.test", id=hook["id"])["ok"] is True
+    hook = _result(client, headers, "access.save_webhook", name="Tools", url=url, events=["member.joined"])["webhook"]
+    assert url not in json.dumps(_result(client, headers, "access.webhooks"))
+    assert _result(client, headers, "access.save_webhook", id=hook["id"], enabled=False)["webhook"]["enabled"] is False
+    assert _result(client, headers, "access.test_webhook", id=hook["id"])["ok"] is True
     assert sent[-1][0] == url
-    assert _call(client, headers, "webhooks.delete", ids=[hook["id"], 999999], confirm=True).status_code == 404
-    assert _result(client, headers, "webhooks.delete", ids=[hook["id"]], confirm=True) == {"deleted": [hook["id"]]}
+    assert _call(client, headers, "access.delete_webhook", ids=[hook["id"], 999999], confirm=True).status_code == 404
+    assert _result(client, headers, "access.delete_webhook", ids=[hook["id"]], confirm=True) == {
+        "deleted": [hook["id"]]
+    }
 
 
 def test_notification_and_error_deletes_need_confirm(client):
     headers = _issue("settings:write")
-    pending = _result(client, headers, "notifications.delete", ids=["event-999999"])
+    pending = _result(client, headers, "activity.delete_notification", ids=["event-999999"])
     assert pending["confirm_required"] is True
-    assert "notifications" in _result(client, headers, "notifications.delete", ids=["event-999999"], confirm=True)
-    assert _result(client, headers, "errors.delete", ids=[999999])["confirm_required"] is True
-    assert _result(client, headers, "errors.delete", ids=[999999], confirm=True) == {"deleted": 0}
-    assert "changed" in _result(client, headers, "errors.reopen", ids=[999999])
+    assert "notifications" in _result(
+        client, headers, "activity.delete_notification", ids=["event-999999"], confirm=True
+    )
+    assert _result(client, headers, "activity.delete_error", ids=[999999])["confirm_required"] is True
+    assert _result(client, headers, "activity.delete_error", ids=[999999], confirm=True) == {"deleted": 0}
+    assert "changed" in _result(client, headers, "activity.reopen_error", ids=[999999])
 
 
 def test_create_pod_waits_for_confirm(client, monkeypatch):
@@ -306,5 +330,5 @@ def test_create_pod_waits_for_confirm(client, monkeypatch):
 
 def test_app_templates_and_providers(client):
     headers = _issue("apps:read")
-    assert isinstance(_result(client, headers, "apps.templates")["templates"], list)
+    assert isinstance(_result(client, headers, "hosting.templates")["templates"], list)
     assert all("configured" in p for p in _result(client, headers, "hosting.providers")["providers"])

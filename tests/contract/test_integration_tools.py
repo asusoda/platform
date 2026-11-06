@@ -6,6 +6,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from modules.integrations import mcp_client, service
+from tests.contract.tool_names import every_name, every_tool
 
 GITHUB_KEY = "github_pat_test_value"
 TOOLS = [
@@ -97,7 +98,7 @@ def _token(client, officer_headers, org_id, scopes, limits=None):
 
 
 def _names(client, headers):
-    return [t["name"] for t in client.get("/api/tools", headers=headers).get_json()["tools"]]
+    return every_name(client, headers)
 
 
 def test_scopes_pick_read_and_write_tools(client, officer_headers, soda, github):
@@ -105,7 +106,7 @@ def test_scopes_pick_read_and_write_tools(client, officer_headers, soda, github)
     assert _names(client, reader) == ["batch", "github.list_issues", "github.search_code"]
     writer = _token(client, officer_headers, soda, ["github:read", "github:write"])
     assert _names(client, writer) == ["batch", "github.create_issue", "github.list_issues", "github.search_code"]
-    listed = client.get("/api/tools", headers=writer).get_json()["tools"]
+    listed = every_tool(client, writer)
     create = next(t for t in listed if t["name"] == "github.create_issue")
     assert (
         create["confirm"] is True and create["read_only"] is False and "confirm" in create["input_schema"]["properties"]
