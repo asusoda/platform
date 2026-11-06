@@ -59,7 +59,7 @@ def answer(params: dict[str, str]) -> tuple[str, str]:
     if not EVENT_DATE.search(body):
         raise QueryError(
             f"no event on the public ASU calendar matches {keywords!r}; try fewer or other words, "
-            "or the asu.events tool for club events on Sun Devil Central"
+            "or the club_events source for club events on Sun Devil Central"
             if keywords
             else "no events found on the ASU events calendar"
         )
@@ -73,7 +73,7 @@ QUERY = QuerySource(
     key="events",
     description=(
         "Search the public ASU events calendar. Example: keywords career fair. "
-        "Club events on Sun Devil Central come from the asu.events tool, not this source."
+        "Club events on Sun Devil Central come from the club_events source, not this one."
     ),
     params=(QueryParam("keywords", "What the event is about, in a few words.", example="career fair"),),
     answer=answer,

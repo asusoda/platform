@@ -163,6 +163,8 @@ def test_live_sources_registered():
         "sports_news",
         "shuttles",
         "campus_map",
+        "clubs",
+        "club_events",
         "social_media",
         "dining",
         "jobs",

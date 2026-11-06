@@ -72,7 +72,7 @@ Platform gives tools in two ways:
 | Notion, signed in | `NOTION_MCP_URL`, default `https://mcp.notion.com/mcp`, as the officer who signed in | `notion:read`: the tools the server marks read-only, such as `notion.notion-search`. `notion:write`: the other tools |
 | Google, signed in | Google's Gmail, Drive and Calendar MCP servers (`gmailmcp`, `drivemcp`, `calendarmcp.googleapis.com`), as the officer who signed in | `gmail.*`: `gmail:read` and `gmail:send`. `drive.*` and `calendar.*`: `google:read` and `google:write` |
 | Web search | The org's SearXNG, or the one in `.env` | `web:read`: `search` |
-| ASU, signed in | Sun Devil Central in a headless browser, with the cookies of the officer who signed in | `asu:read`: `asu.clubs`, `asu.events` |
+| ASU, signed in | Sun Devil Central in a headless browser, with the cookies of the officer who signed in | `knowledge:read`: the `clubs` and `club_events` live queries |
 
 - A tool name starts with the service key, such as `github.list_issues` or `google.drive_search`.
 - A tool that changes something runs only with `confirm=true`. Without it, the call returns what it would do.
@@ -123,12 +123,12 @@ Sun Devil Central, the ASU club system, needs an ASU sign-in. An officer signs i
 1. On the Shared tab of Explore, subscribe to Arizona State University, then click **Sign in to ASU** on its card.
 2. Type your NetID and password, and click **Sign in**.
 3. Approve the Duo push on your phone. If Duo shows a code, the card shows the same code. Type it in the Duo app.
-4. When the card shows **Signed in**, give a token the `asu:read` scope.
+4. When the card shows **Signed in**, agents with `knowledge:read` can search `clubs` and `club_events`.
 
 - Platform keeps only the browser cookies, as the org secret `asu_session`, encrypted with `SECRETS_KEY`. It does not keep, log or audit the NetID or the password.
-- The tools `asu.clubs` and `asu.events` show only when the org subscribes to ASU and has a saved sign-in. They are read-only. Their results go only to the caller. Platform never adds them to knowledge.
-- `asu.events` also reads the public ASU events calendar. If the sign-in expired, it returns the calendar and says that it did not read Sun Devil Central.
-- When a page load ends on a sign-in page, the sign-in has expired. The tools return an error, the card shows **Sign-in expired**, and Platform sends the event `asu.session_expired` one time. The notification links to the Shared tab of Explore. Sign in again to clear it.
+- The live queries `clubs` and `club_events` run only when the org subscribes to ASU and has a saved sign-in. Any live query can name a sign-in this way (`signin` on a `QuerySource`, registered in `modules/submodules/signins.py`). Their results go only to the caller. Platform never adds them to knowledge.
+- The public ASU events calendar is the `events` live query, with no sign-in.
+- When a page load ends on a sign-in page, the sign-in has expired. The queries return an error, the card shows **Sign-in expired**, and Platform sends the event `asu.session_expired` one time. The notification links to the Shared tab of Explore. Sign in again to clear it.
 - **Sign out** removes the saved cookies.
 - The sign-in runs in a browser on the API. The API process keeps the state of each attempt in memory, so run one API worker (the default).
 

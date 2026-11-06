@@ -9,6 +9,7 @@ parameters, answers the caller, and then indexes what it read as a source of the
 """
 
 import hashlib
+from functools import partial
 from typing import Any, cast
 
 from sqlalchemy import func
@@ -22,7 +23,7 @@ from modules.knowledge import crawl, fetch
 from modules.knowledge.embedder import Embedder
 from modules.knowledge.models import KnowledgeSource, KnowledgeVersion
 from modules.knowledge.service import KnowledgeError, can_publish, new_source
-from modules.submodules import catalog, queries
+from modules.submodules import catalog, queries, signins
 from modules.submodules.models import Submodule as SubmoduleRow
 from modules.submodules.models import SubmoduleSubscription
 from modules.submodules.search import query_scope, settings
@@ -274,11 +275,19 @@ def query(db, org_id: int, org_prefix: str, name: object, source_key: Any, param
     source = next((q for q in submodule.queries if q.key == source_key), None)
     if source is None:
         raise KnowledgeError(f"The shared content {submodule.name} has no live source named {source_key}", 404)
+    read = None
+    if source.signin is not None:
+        signin = signins.SIGNINS.get(source.signin)
+        if signin is None or not signin.usable(db, org_id):
+            raise KnowledgeError(
+                f"{source.key} needs the org's {source.signin} sign-in. An officer signs in on Explore, Shared", 409
+            )
+        read = partial(signin.read, db, org_id, org_prefix)
     try:
         with query_scope(db, org_id):
             if source.needs_search and not settings().search.base_url:
                 raise KnowledgeError("Web search needs a SearXNG server. Set one on the Integrations page", 503)
-            url, text = queries.run(source, _params(params))
+            url, text = queries.run(source, _params(params), read)
     except QueryError as e:
         raise KnowledgeError(str(e), 422) from e
     except fetch.FetchRejected as e:

@@ -17,6 +17,7 @@ See [submodules/README.md](../../submodules/README.md) to write one.
 | `service.py` | `list_submodules()`, `subscribe()`, `unsubscribe()`, `sync_shared()` (the shared sources of a submodule), `sync()` (the older name of `subscribe()`), `overview()` for the superadmin, the parts of each submodule with who pays for each (`_parts()`), `query()` and the indexing of query results; declares `submodules:read`, `submodules:manage` and the `submodules.subscriptions` limit |
 | `api.py`, `tools.py` | Machine routes to list submodules, subscribe and end a subscription, and list and run live queries; the older sync routes and `/api/asu` routes; the `submodules.*` tools |
 | `types.py` | `Submodule`, `Source`, `QuerySource`, `QueryParam`, `Feed`, `QueryError` |
+| `signins.py` | Sign-ins that a live query reads pages behind (`signin` on a `QuerySource`), such as `asu` |
 | `queries.py`, `params.py` | Parameter checks and the run of one live query; helpers that map parameters to URL values |
 | `find.py`, `fill.py` | The `search` tool: stored pages, then the named live query, then `web`; the parameters of a live query filled from one plain query |
 | `http.py`, `text.py` | Page, JSON and feed fetches; text and Markdown helpers for extractors |

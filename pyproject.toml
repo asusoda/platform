@@ -214,6 +214,7 @@ source_modules = [
     "modules.submodules.fill",
     "modules.submodules.find",
     "modules.submodules.search",
+    "modules.submodules.signins",
     "modules.submodules.text",
     "modules.submodules.types",
     "modules.submodules.web",

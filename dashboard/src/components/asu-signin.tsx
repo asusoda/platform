@@ -23,7 +23,7 @@ function StateBadge({ state }: { state: AsuState }) {
 function signedInLine(state: AsuState): string {
   const who = state.signed_in_by ? ` by ${state.signed_in_by}` : '';
   const when = state.signed_in_at ? ` ${timeAgo(state.signed_in_at)}` : '';
-  return `Signed in${who}${when}. Agents with the asu:read scope can search Sun Devil Central.`;
+  return `Signed in${who}${when}. Agents can search Sun Devil Central clubs and club events.`;
 }
 
 // The NetID and password go to the API one time. The API does not keep them.

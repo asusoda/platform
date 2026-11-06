@@ -17,6 +17,7 @@ from submodules.asu.queries import (
     sports,
     sports_news,
     study_rooms,
+    sun_devil_central,
 )
 
 _MODULES = (
@@ -37,4 +38,8 @@ _MODULES = (
     web,
 )
 
-QUERIES: tuple[QuerySource, ...] = tuple(m.QUERY for m in _MODULES)
+QUERIES: tuple[QuerySource, ...] = (
+    *(m.QUERY for m in _MODULES),
+    sun_devil_central.CLUBS,
+    sun_devil_central.CLUB_EVENTS,
+)

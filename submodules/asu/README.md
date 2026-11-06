@@ -10,7 +10,7 @@ The Arizona State University submodule. It adds public ASU pages to an org's kno
 | `sources/` | Crawled ASU pages: one file for each source with its extractor, and the page list in `pages.py` |
 | `queries/` | One file for each live query |
 | `params.py` | ASU term codes, and dates and times in Arizona time |
-| `signin/` | The ASU sign-in and the `asu.clubs` and `asu.events` tools. See [ASU sign-in](#asu-sign-in) |
+| `signin/` | The ASU sign-in that the `clubs` and `club_events` live queries read with. See [ASU sign-in](#asu-sign-in) |
 
 ## Pages
 
@@ -40,12 +40,12 @@ courses and course_catalog read the JSON API behind the ASU class search, so the
 
 ## ASU sign-in
 
-An officer of an org that subscribes to ASU signs in on the ASU card of the Shared tab of the dashboard Explore page with a NetID, a password and Duo. Platform keeps only the browser cookies, as the org secret `asu_session`. Agents with the `asu:read` scope then get two read-only tools:
+An officer of an org that subscribes to ASU signs in on the ASU card of the Shared tab of the dashboard Explore page with a NetID, a password and Duo. Platform keeps only the browser cookies, as the org secret `asu_session`. Two live queries then read Sun Devil Central with it, like any other live query (`search` with a source, or `submodules.query`):
 
-| Tool | Parameters | Reads |
+| Query | Parameters | Reads |
 | --- | --- | --- |
-| `asu.clubs` | keywords (required) | The Sun Devil Central club directory |
-| `asu.events` | keywords | The Sun Devil Central events and the public ASU events calendar |
+| `clubs` | keywords (required) | The Sun Devil Central club directory |
+| `club_events` | keywords (required) | The Sun Devil Central events |
 
 | File | Holds |
 | --- | --- |
@@ -53,6 +53,7 @@ An officer of an org that subscribes to ASU signs in on the ASU card of the Shar
 | `signin/sso.py` | The sign-in on a page: the ASU form, Duo and its code, the Sun Devil Central sign-in link, and the check for a sign-in page |
 | `signin/sundevil_central.py` | The club and event URLs and extractors |
 | `signin/service.py` | Sign-in attempts, the saved session, page loads with it, and the `asu.session_expired` event |
-| `signin/tools.py` | The `asu:read` scope and the two tools |
+| `signin/__init__.py` | Registers the sign-in as `asu` in `modules/submodules/signins.py` |
+| `queries/sun_devil_central.py` | The `clubs` and `club_events` live queries, with `signin="asu"` |
 
-Playwright is an optional extra: `uv sync --extra browser`. The API image has it. With `BROWSER_URL` set, the sign-in uses the shared browser ([operations](../../docs/operations.md#run-the-shared-browser)); else run `uv run playwright install --with-deps chromium` on the machine. Without the package, the card says so and the tools do not show. The results are never added to knowledge. See [docs/integrations.md](../../docs/integrations.md#sign-in-to-asu).
+Playwright is an optional extra: `uv sync --extra browser`. The API image has it. With `BROWSER_URL` set, the sign-in uses the shared browser ([operations](../../docs/operations.md#run-the-shared-browser)); else run `uv run playwright install --with-deps chromium` on the machine. Without the package, the card says so and the two queries refuse. Their results are never added to knowledge. See [docs/integrations.md](../../docs/integrations.md#sign-in-to-asu).

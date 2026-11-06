@@ -1,4 +1,5 @@
-"""The ASU sign-in: the officer routes, the saved session, the asu.* tools and the expiry notification.
+"""The ASU sign-in: the officer routes, the saved session, the clubs and club_events live queries and the expiry
+notification.
 
 A fake browser stands in for Chromium, so no test opens a browser or reaches ASU.
 """
@@ -184,58 +185,54 @@ def test_without_playwright_the_sign_in_is_blocked(client, officer_headers, soda
     assert refused.status_code == 409 and refused.get_json()["error"] == browsers.INSTALL
 
 
-def test_tools_show_only_with_a_session(client, officer_headers, soda, fake):
-    headers = _token(client, officer_headers, soda, ["asu:read"])
-    assert not [n for n in _tools(client, headers) if n.startswith("asu.")]
-    assert client.post("/api/tools/asu.clubs", json={"keywords": "robotics"}, headers=headers).status_code == 404
-    _sign_in(client, officer_headers)
-    assert [n for n in _tools(client, headers) if n.startswith("asu.")] == ["asu.clubs", "asu.events"]
-    signed_out = client.delete(BASE, headers=officer_headers).get_json()
-    assert signed_out["signed_in"] is False
-    assert not [n for n in _tools(client, headers) if n.startswith("asu.")]
+def _query(client, headers, source, keywords="robotics"):
+    body = {"submodule": "asu", "source": source, "params": {"keywords": keywords}}
+    return client.post("/api/tools/submodules.query", json=body, headers=headers)
 
 
-def test_tools_need_the_asu_scope(client, officer_headers, soda, fake):
-    _sign_in(client, officer_headers)
+def test_clubs_need_a_saved_sign_in(client, officer_headers, soda, fake):
     headers = _token(client, officer_headers, soda, ["knowledge:read"])
-    assert not [n for n in _tools(client, headers) if n.startswith("asu.")]
-    assert client.post("/api/tools/asu.clubs", json={"keywords": "robotics"}, headers=headers).status_code == 404
+    refused = _query(client, headers, "clubs")
+    assert refused.status_code == 409 and "asu sign-in" in refused.get_json()["error"]
     assert fake.loads == []
+    _sign_in(client, officer_headers)
+    fake.pages[sundevil_central.CLUBS_URL] = _page("sundevil_clubs.html", sundevil_central.clubs_url("robotics"))
+    assert _query(client, headers, "clubs").status_code == 200
+    client.delete(BASE, headers=officer_headers)
+    assert _query(client, headers, "clubs").status_code == 409
 
 
-def test_clubs_and_events_read_sun_devil_central(client, officer_headers, soda, fake, monkeypatch):
-    from submodules.asu.queries import events as public_events
-
+def test_clubs_and_club_events_read_sun_devil_central(client, officer_headers, soda, fake):
     _sign_in(client, officer_headers)
     fake.pages[sundevil_central.CLUBS_URL] = _page("sundevil_clubs.html", sundevil_central.clubs_url("robotics"))
     fake.pages[sundevil_central.EVENTS_URL] = _page("sundevil_events.html", sundevil_central.EVENTS_URL)
-    monkeypatch.setattr(public_events, "public", lambda k: ("https://asuevents.asu.edu/home", "Fall Welcome | Sep 1"))
-    headers = _token(client, officer_headers, soda, ["asu:read"])
-    clubs = client.post("/api/tools/asu.clubs", json={"keywords": "robotics clubs"}, headers=headers)
+    headers = _token(client, officer_headers, soda, ["knowledge:read"])
+    clubs = _query(client, headers, "clubs", "robotics clubs")
     assert clubs.status_code == 200, clubs.get_json()
     result = clubs.get_json()["result"]
-    assert result["citation"] == sundevil_central.clubs_url("robotics")
+    assert result["url"] == sundevil_central.clubs_url("robotics")
     assert "Robotics Club | Tempe - Academic, Special Interest" in result["text"]
-    events = client.post("/api/tools/asu.events", json={"keywords": "career"}, headers=headers).get_json()["result"]
-    assert events["text"].startswith("Sun Devil Central\n1 upcoming events shown of 3025")
-    assert "ASU Events\nFall Welcome" in events["text"]
+    events = _query(client, headers, "club_events", "career").get_json()["result"]
+    assert events["text"].startswith("1 upcoming events shown of 3025")
     assert fake.loads[-1] == sundevil_central.events_url("career")
+    found = client.post("/api/tools/search", json={"query": "robotics", "source": "clubs"}, headers=headers)
+    assert found.status_code == 200 and found.get_json()["result"]["from"] == "live"
 
 
-def test_tool_results_are_not_indexed(client, officer_headers, soda, fake):
+def test_signed_in_results_are_not_indexed(client, officer_headers, soda, fake):
     from core.db import db_connect
     from modules.knowledge.models import KnowledgeSource
 
     _sign_in(client, officer_headers)
     fake.pages[sundevil_central.CLUBS_URL] = _page("sundevil_clubs.html", sundevil_central.clubs_url("robotics"))
-    headers = _token(client, officer_headers, soda, ["asu:read"])
-    assert client.post("/api/tools/asu.clubs", json={"keywords": "robotics"}, headers=headers).status_code == 200
+    headers = _token(client, officer_headers, soda, ["knowledge:read"])
+    assert _query(client, headers, "clubs").status_code == 200
     db = db_connect.SessionLocal()
     try:
         keys = [k for (k,) in db.query(KnowledgeSource.key).filter_by(organization_id=soda).all()]
     finally:
         db.close()
-    assert not [k for k in keys if "sundevil" in k or k.startswith("asu-live/")]
+    assert not [k for k in keys if "clubs" in k or "sundevil" in k]
 
 
 def test_an_expired_session_gives_an_error_and_one_notification(client, officer_headers, soda, fake, sent):
@@ -244,12 +241,12 @@ def test_an_expired_session_gives_an_error_and_one_notification(client, officer_
 
     _sign_in(client, officer_headers)
     fake.pages[sundevil_central.BASE] = Loaded(url=LOGIN_PAGE, status=200, html="<a>SSO Login</a>")
-    headers = _token(client, officer_headers, soda, ["asu:read"])
+    headers = _token(client, officer_headers, soda, ["knowledge:read"])
     try:
-        first = client.post("/api/tools/asu.clubs", json={"keywords": "robotics"}, headers=headers)
+        first = _query(client, headers, "clubs")
         assert first.status_code == 409 and first.get_json()["error"] == service.EXPIRED
         loads = len(fake.loads)
-        second = client.post("/api/tools/asu.clubs", json={"keywords": "robotics"}, headers=headers)
+        second = _query(client, headers, "clubs")
         assert second.status_code == 409 and len(fake.loads) == loads
         status = client.get(BASE, headers=officer_headers).get_json()
         assert status["signed_in"] is False and status["expired_at"]
@@ -262,27 +259,6 @@ def test_an_expired_session_gives_an_error_and_one_notification(client, officer_
         assert len(expired) == 1 and expired[0]["link"] == "explore?tab=shared"
         _sign_in(client, officer_headers)
         assert client.get(BASE, headers=officer_headers).get_json()["signed_in"] is True
-    finally:
-        db = db_connect.SessionLocal()
-        db.query(webhooks.Notification).delete()
-        db.commit()
-        db.close()
-
-
-def test_events_keep_the_calendar_when_the_session_expired(client, officer_headers, soda, fake, sent, monkeypatch):
-    from core import webhooks
-    from core.db import db_connect
-    from submodules.asu.queries import events as public_events
-
-    _sign_in(client, officer_headers)
-    fake.pages[sundevil_central.BASE] = Loaded(url=LOGIN_PAGE, status=200, html="")
-    monkeypatch.setattr(public_events, "public", lambda k: ("https://asuevents.asu.edu/home", "Fall Welcome | Sep 1"))
-    headers = _token(client, officer_headers, soda, ["asu:read"])
-    try:
-        result = client.post("/api/tools/asu.events", json={}, headers=headers).get_json()["result"]
-        assert result["citation"] == "https://asuevents.asu.edu/home"
-        assert f"Sun Devil Central was not read: {service.EXPIRED}." in result["text"]
-        assert "ASU Events\nFall Welcome" in result["text"]
     finally:
         db = db_connect.SessionLocal()
         db.query(webhooks.Notification).delete()
@@ -342,8 +318,8 @@ def test_only_an_org_that_subscribes_to_asu_signs_in(client, officer_headers, so
     assert client.get(BASE, headers=officer_headers).status_code == 404
     refused = client.post(BASE, json={"netid": NETID, "password": PASSWORD}, headers=officer_headers)
     assert refused.status_code == 404 and "Subscribe" in refused.get_json()["error"]
-    agent = _token(client, officer_headers, soda, ["asu:read"])
-    assert "asu.clubs" not in _tools(client, agent)
+    agent = _token(client, officer_headers, soda, ["knowledge:read"])
+    assert _query(client, agent, "clubs").status_code == 409
     # Signing out stays allowed, so the saved session can go
     assert client.delete(BASE, headers=officer_headers).status_code == 200
     _subscription(soda, True)
