@@ -5,7 +5,6 @@ that is not the repo's default branch. A merge runs only when the pull request i
 on its head commit passed. Reads are not checked here.
 """
 
-from core import secrets
 from core.integrations import github
 from core.integrations.registry import IntegrationError
 from core.tools import ToolError
@@ -15,8 +14,8 @@ FILE_WRITES = {"create_or_update_file", "push_files", "delete_file"}
 MERGES = {"merge_pull_request"}
 
 
-def check(db, org, tool_name: str, target: str | None, arguments: dict) -> None:
-    """Raise ToolError when the write breaks the rule."""
+def check(org, headers: dict[str, str], tool_name: str, target: str | None, arguments: dict) -> None:
+    """Raise ToolError when the write breaks the rule. headers sign in with the org's GitHub token."""
     linked = [repo.lower() for repo in github.linked_repos(org)]
     if linked and target not in linked:
         raise ToolError(
@@ -28,9 +27,7 @@ def check(db, org, tool_name: str, target: str | None, arguments: dict) -> None:
         return
     if target is None:
         raise ToolError("Name the repo with owner and repo", 400)
-    token = secrets.get_secret(db, int(org.id), github.SECRET_NAME)
-    if not token:
-        raise ToolError("Connect GitHub on the Integrations page first", 409)
+    token = headers.get("Authorization", "").removeprefix("Bearer ")
     try:
         if tool_name in FILE_WRITES:
             _check_branch(token, target, arguments.get("branch"))

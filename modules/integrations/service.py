@@ -138,11 +138,11 @@ def _call(server: RemoteServer, tool_name: str, write: bool, db, org, caller: Ma
     target_limits = caller.limit(server.key, server.target_limit) if server.target_limit else None
     if target_limits is not None and (target is None or not _allowed_target(target_limits, target)):
         raise ToolError(f"This token may not act on {target or 'that target'}", 403)
-    if write and server.guard is not None:
-        server.guard(db, org, tool_name, target, arguments)
     headers = server.headers(db, int(org.id))
     if headers is None:
         raise ToolError(f"Connect {server.key} on the Integrations page first", 409)
+    if write and server.guard is not None:
+        server.guard(org, headers, tool_name, target, arguments)
     try:
         result = mcp_client.call_tool(server.url(), headers, tool_name, arguments)
     except mcp_client.RemoteError as e:

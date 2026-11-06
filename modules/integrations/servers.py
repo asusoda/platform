@@ -31,8 +31,8 @@ class RemoteServer:
     target_limit: str | None = None
     # The integration the server belongs to, when it differs from key, such as google for gmail
     of: str | None = None
-    # Called as guard(db, org, tool name, target, arguments) before a write runs; raises ToolError to refuse it
-    guard: Callable[[object, object, str, str | None, dict], None] | None = None
+    # Called as guard(org, headers, tool name, target, arguments) before a write runs; raises ToolError to refuse it
+    guard: Callable[[object, dict[str, str], str, str | None, dict], None] | None = None
 
     @property
     def integration(self) -> str:
