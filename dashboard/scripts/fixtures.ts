@@ -469,8 +469,8 @@ export function fixtures(now: number = Date.now()) {
   const tokens: Token[] = [
     {
       id: 11,
-      name: 'club-assistant',
-      kind: 'agent',
+      name: 'Claude',
+      kind: 'oauth',
       scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read', 'github:read'],
       limits: { github: { repos: ['my-org/*'] } },
       display: 'plat_4hQ2',
@@ -492,8 +492,8 @@ export function fixtures(now: number = Date.now()) {
     },
     {
       id: 13,
-      name: 'workshop-helper',
-      kind: 'agent',
+      name: 'Cursor',
+      kind: 'oauth',
       scopes: ['knowledge:read', 'points:read'],
       display: 'plat_Tb7c',
       created_by: 'officer',

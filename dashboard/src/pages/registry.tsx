@@ -7,7 +7,7 @@ import {
   Compass,
   Database,
   HeartPulse,
-  KeyRound,
+  Plug,
   LayoutDashboard,
   Cpu,
   Server,
@@ -37,7 +37,7 @@ import { prefetchPoints } from './points/shared';
 import { SettingsPage } from './settings';
 import { StorePage } from './store';
 import { prefetchStore } from './store/shared';
-import { TokensPage } from './tokens';
+import { ConnectionsPage } from './connections';
 import { UptimePage } from './uptime';
 import { AlertsPage } from './alerts';
 
@@ -94,7 +94,7 @@ export const PAGES: PageEntry[] = [
   { path: 'godfather', label: 'Godfather', icon: Cpu, section: 'compute', module: 'godfather', gate: true, page: GodfatherPage },
   { path: 'hosting', label: 'Hosting', icon: Server, section: 'compute', module: 'runpod', gate: true, page: HostingPage },
   { path: 'alerts', label: 'Alerts', icon: Megaphone, section: 'bottom', page: AlertsPage },
-  { path: 'tokens', label: 'Tokens', icon: KeyRound, section: 'bottom', page: TokensPage },
+  { path: 'connections', label: 'Connections', icon: Plug, section: 'bottom', page: ConnectionsPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
   { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },
@@ -108,7 +108,8 @@ export const REDIRECTS: { path: string; to: string }[] = [
   { path: 'integrations', to: '../explore?tab=integrations' },
   { path: 'apps', to: '../hosting' },
   { path: 'compute', to: '../godfather' },
-  { path: 'mcp', to: '../tokens' },
+  { path: 'mcp', to: '../connections' },
+  { path: 'tokens', to: '../connections' },
   { path: 'webhooks', to: '../alerts' },
   { path: 'agents', to: '../explore' },
 ];

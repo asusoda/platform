@@ -216,7 +216,7 @@ def _limit_inputs(texts: dict[str, str]) -> str:
         return ""
     return (
         "<fieldset><legend>Limits (optional)</legend>"
-        "<p>Limit the tools of a connected service, as on the Tokens page. Separate items with commas. "
+        "<p>Limit the tools of a connected service, as on the Connections page. Separate items with commas. "
         "Leave a field empty for no limit. Example: <code>my-org/*</code> for repos, "
         "<code>github.*issue*</code> for tools.</p>"
         f"{''.join(groups)}</fieldset>"
@@ -361,7 +361,7 @@ def _consent_page(db, row, consent_key: str, error: str | None = None, chosen: d
         '<p><button type="submit" name="action" value="approve">Approve</button> '
         '<button type="submit" name="action" value="deny">Deny</button></p>'
         "</form>"
-        "<p>The connection shows on the Tokens page of the org with the kind <code>oauth</code>. "
+        "<p>The connection shows on the Connections page of the org with the kind <code>oauth</code>. "
         "Revoke it there to disconnect the client. If you stop being an officer of the org, "
         "the connection stops at its next refresh, within an hour. If Discord cannot be reached then, "
         "it can continue for up to 24 hours more.</p>"

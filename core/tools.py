@@ -7,7 +7,7 @@ The runtime that checks tokens, scopes and module switches is modules/mcp/runtim
 A tool made with confirm=True changes or deletes something that is hard to undo. It takes a boolean argument
 confirm. Without confirm=true the runtime does not run it and returns what the call would do.
 
-A tool made with integration calls that connected service. The Tokens page lists it under the integration.
+A tool made with integration calls that connected service. The Connections page lists it under the integration.
 A tool made with available is shown only to orgs for which available(db, org_id) is true, such as orgs that
 saved their own keys for the service.
 """

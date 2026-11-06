@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, Copy, KeyRound, Plus } from 'lucide-react';
+import { Bot, Check, ChevronDown, Copy, KeyRound, Plus } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { IntegrationIcon } from '../components/integration-icons';
 import { Tooltip } from '../components/tooltip';
@@ -20,7 +20,6 @@ import {
   Input,
   Mono,
   PageHeader,
-  Select,
   SkeletonRows,
   Table,
   Td,
@@ -256,8 +255,7 @@ function NewToken({
 }) {
   const client = useQueryClient();
   const [name, setName] = useState('');
-  const [kind, setKind] = useState('agent');
-  const [chosen, setChosen] = useState<string[]>([]);
+    const [chosen, setChosen] = useState<string[]>([]);
   const [limitText, setLimitText] = useState<Record<string, string>>({});
   const [value, setValue] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -275,7 +273,7 @@ function NewToken({
             };
         }
       }
-      return send<{ token: string }>(`/api/organizations/${orgId}/tokens`, 'POST', { name, kind, scopes: chosen, limits });
+      return send<{ token: string }>(`/api/organizations/${orgId}/tokens`, 'POST', { name, kind: 'app', scopes: chosen, limits });
     },
     onSuccess: (body) => {
       setValue(body.token);
@@ -332,17 +330,9 @@ function NewToken({
           create.mutate();
         }}
       >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="club-agent" required />
-          </Field>
-          <Field label="Kind">
-            <Select value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="agent">agent</option>
-              <option value="app">app</option>
-            </Select>
-          </Field>
-        </div>
+        <Field label="Name" hint="The service that uses it, such as sparky-engine or a CI job.">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="sparky-engine" required />
+        </Field>
         <fieldset>
           <legend className="mb-1.5 text-sm font-medium">Platform scopes</legend>
           <PresetBar
@@ -451,7 +441,63 @@ function NewToken({
   );
 }
 
-export function TokensPage() {
+// One row for each token: name, kind, scopes and limits, last use, and Revoke.
+function TokenTable({ tokens, onRevoke }: { tokens: MachineToken[]; onRevoke: (id: number) => void }) {
+  return (
+    <Table>
+      <thead>
+        <tr>
+          <Th>Name</Th>
+          <Th className="hidden md:table-cell">Token</Th>
+          <Th className="hidden lg:table-cell">Last used</Th>
+          <Th>
+            <span className="sr-only">Actions</span>
+          </Th>
+        </tr>
+      </thead>
+      <tbody>
+        {tokens.map((t) => (
+          <Tr key={t.id}>
+            <Td className="w-full max-w-0 py-3">
+              <div className="flex items-center gap-2">
+                <span className="truncate font-medium">{t.name}</span>
+                <Badge>{t.kind}</Badge>
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {t.scopes.map((scope) => (
+                  <Code key={scope} className="text-muted">
+                    {scope}
+                  </Code>
+                ))}
+                {Object.entries(t.limits ?? {}).flatMap(([integration, limits]) =>
+                  Object.entries(limits).map(([name, values]) => (
+                    <Code key={`${integration}.${name}`} className="text-muted">
+                      {integration} {name}: {values.join(', ')}
+                    </Code>
+                  )),
+                )}
+              </div>
+            </Td>
+            <Td className="hidden whitespace-nowrap md:table-cell">
+              <Mono>{t.display}…</Mono>
+            </Td>
+            <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums lg:table-cell">{timeAgo(t.last_used_at)}</Td>
+            <Td className="text-right">
+              <DeleteButton
+                title="Revoke"
+                label={`Revoke ${t.name}`}
+                question={`Revoke ${t.name}? Anything using it stops working.`}
+                onDelete={() => onRevoke(t.id)}
+              />
+            </Td>
+          </Tr>
+        ))}
+      </tbody>
+    </Table>
+  );
+}
+
+export function ConnectionsPage() {
   const { org } = useCurrentOrg();
   const client = useQueryClient();
   const [adding, setAdding] = useState(false);
@@ -464,19 +510,52 @@ export function TokensPage() {
     mutationFn: (id: number) => send(`/api/organizations/${org!.id}/tokens/${id}`, 'DELETE'),
     onSuccess: () => client.invalidateQueries({ queryKey: ['tokens', org?.id] }),
   });
+  const tokens = list.data?.tokens ?? [];
+  const agents = tokens.filter((t) => t.kind === 'oauth');
+  const services = tokens.filter((t) => t.kind !== 'oauth');
+  const loading = list.isLoading || !org;
   return (
     <>
       <PageHeader
-        title="Tokens"
-        description="Keys that apps and agents use to call Platform."
+        title="Connections"
+        description="Agents and services that call Platform."
         docs="codebase/authentication"
-        action={
-          <Button variant="primary" onClick={() => setAdding(true)} disabled={!list.data}>
-            <Plus className="size-4" /> New token
-          </Button>
-        }
       />
-      <Dialog open={adding} onClose={() => setAdding(false)} title="New token" wide>
+      {list.error ? (
+        <div className="mb-4">
+          <ErrorNote error={list.error} />
+        </div>
+      ) : null}
+      <ConnectCard mcp={list.data?.mcp} />
+      <Card className="mt-6">
+        <CardHeader title="Agents" hint="Clients that signed in with OAuth." />
+        {loading ? (
+          <SkeletonRows />
+        ) : agents.length ? (
+          <TokenTable tokens={agents} onRevoke={(id) => revoke.mutate(id)} />
+        ) : (
+          <EmptyState icon={Bot} title="No agents connected" />
+        )}
+      </Card>
+      <Card className="mt-6">
+        <CardHeader
+          title="For services"
+          hint="Tokens for things that run with no one signed in: bots, CI jobs, scripts, Sparky. Send Authorization: Bearer plat_..."
+          action={
+            <Button onClick={() => setAdding(true)} disabled={!list.data}>
+              <Plus className="size-4" /> New token
+            </Button>
+          }
+        />
+        {loading ? (
+          <SkeletonRows />
+        ) : services.length ? (
+          <TokenTable tokens={services} onRevoke={(id) => revoke.mutate(id)} />
+        ) : (
+          <EmptyState icon={KeyRound} title="No service tokens" />
+        )}
+      </Card>
+      <Dialog open={adding} onClose={() => setAdding(false)} title="New service token" wide>
         {adding && org && list.data ? (
           <NewToken
             orgId={org.id}
@@ -490,119 +569,45 @@ export function TokensPage() {
           />
         ) : null}
       </Dialog>
-      {list.error ? (
-        <div className="mb-4">
-          <ErrorNote error={list.error} />
-        </div>
-      ) : null}
-      <Card>
-        {list.isLoading || !org ? (
-          <SkeletonRows />
-        ) : list.data?.tokens.length ? (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Name</Th>
-                <Th className="hidden md:table-cell">Token</Th>
-                <Th className="hidden lg:table-cell">Last used</Th>
-                <Th>
-                  <span className="sr-only">Actions</span>
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.tokens.map((t) => (
-                <Tr key={t.id}>
-                  <Td className="w-full max-w-0 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-medium">{t.name}</span>
-                      <Badge>{t.kind}</Badge>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {t.scopes.map((scope) => (
-                        <Code key={scope} className="text-muted">
-                          {scope}
-                        </Code>
-                      ))}
-                      {Object.entries(t.limits ?? {}).flatMap(([integration, limits]) =>
-                        Object.entries(limits).map(([name, values]) => (
-                          <Code key={`${integration}.${name}`} className="text-muted">
-                            {integration} {name}: {values.join(', ')}
-                          </Code>
-                        )),
-                      )}
-                    </div>
-                  </Td>
-                  <Td className="hidden whitespace-nowrap md:table-cell">
-                    <Mono>{t.display}…</Mono>
-                  </Td>
-                  <Td className="hidden text-xs whitespace-nowrap text-muted tabular-nums lg:table-cell">{timeAgo(t.last_used_at)}</Td>
-                  <Td className="text-right">
-                    <DeleteButton
-                      title="Revoke"
-                      label={`Revoke ${t.name}`}
-                      question={`Revoke ${t.name}? Anything using it stops working.`}
-                      onDelete={() => revoke.mutate(t.id)}
-                    />
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : (
-          <EmptyState icon={KeyRound} title="No active tokens" />
-        )}
-      </Card>
-      <McpCard mcp={list.data?.mcp} />
     </>
   );
 }
 
-// How an agent reaches the tools of the org's modules: the MCP server, and a token from this page or OAuth.
-function McpCard({ mcp }: { mcp?: TokenList['mcp'] }) {
+// How an agent connects: add the MCP server URL to the client and sign in with Discord.
+function ConnectCard({ mcp }: { mcp?: TokenList['mcp'] }) {
   const [copied, setCopied] = useState(false);
   const url = mcp?.url ?? null;
-  const rows: [string, string][] = [
-    ['Server', url ?? '/mcp on port 8001'],
-    ['Header', 'Authorization: Bearer plat_...'],
-  ];
   return (
-    <Card className="mt-6">
-      <CardHeader title="MCP" />
-      <dl className="divide-y divide-line text-sm">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center gap-3 px-4 py-2.5">
-            <dt className="w-16 shrink-0 text-xs text-muted">{label}</dt>
-            <dd className="min-w-0 truncate">
-              <Code>{value}</Code>
-            </dd>
-            {label === 'Server' && url ? (
-              <Button
-                size="icon"
-                className="ml-auto shrink-0"
-                aria-label="Copy server URL"
-                onClick={() => {
-                  navigator.clipboard.writeText(url);
-                  setCopied(true);
-                }}
-              >
-                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-              </Button>
-            ) : null}
-          </div>
-        ))}
-        <div className="flex items-start gap-3 px-4 py-2.5">
-          <dt className="w-16 shrink-0 pt-0.5 text-xs text-muted">OAuth</dt>
-          <dd className="min-w-0 space-y-1">
-            <Badge tone={mcp?.oauth ? 'ok' : 'muted'}>{mcp?.oauth ? 'On' : 'Off'}</Badge>
-            <p className="text-xs text-muted">
-              {mcp?.oauth
-                ? 'A client that supports OAuth needs only the server URL. An officer signs in with Discord and chooses the org, scopes and limits. Each connection shows above with the kind oauth.'
-                : 'Set ACCOUNTS_BASE_URL or MCP_PUBLIC_URL on the server to let clients connect with OAuth.'}
-            </p>
-          </dd>
+    <Card>
+      <CardHeader title="Connect an agent" hint="Claude, Cursor or any MCP client." />
+      <div className="space-y-3 px-4 py-3 text-sm">
+        <div className="flex items-center gap-2">
+          <Input readOnly value={url ?? '/mcp on port 8001'} className="font-mono" aria-label="MCP server URL" />
+          {url ? (
+            <Button
+              size="icon"
+              aria-label="Copy server URL"
+              onClick={() => {
+                navigator.clipboard.writeText(url);
+                setCopied(true);
+              }}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </Button>
+          ) : null}
         </div>
-      </dl>
+        {mcp?.oauth ? (
+          <ol className="list-decimal space-y-1 pl-5 text-muted">
+            <li>Add the URL as an MCP server in the client.</li>
+            <li>Sign in with Discord, then pick the org and scopes.</li>
+            <li>The agent shows under Agents. Revoke it there.</li>
+          </ol>
+        ) : (
+          <p className="text-xs text-muted">
+            OAuth is off. Set ACCOUNTS_BASE_URL or MCP_PUBLIC_URL on the server, or use a service token below.
+          </p>
+        )}
+      </div>
     </Card>
   );
 }

@@ -837,7 +837,7 @@ async function story(d: Director) {
   d.zoomOut();
   await d.press('Escape', { animate: 180, after: 0.05 });
 
-  // Compute and tokens: Godfather, hosting and tokens.
+  // Compute and connections: Godfather, hosting and connections.
   await d.click(nav('Godfather'), { after: 0.1 });
   d.caption('Schedule GPU pods for workshops');
   await d.click(page.getByRole('button', { name: 'Sessions of Workshop GPU (A40)' }), { animate: 180, after: 0.05 });
@@ -860,12 +860,12 @@ async function story(d: Director) {
   d.zoomOut();
   await d.press('Escape', { animate: 180, after: 0.05 });
 
-  await d.click(nav('Tokens'), { after: 0.1 });
-  d.caption('Give an agent a scoped token');
+  await d.click(nav('Connections'), { after: 0.1 });
+  d.caption('Give a service a scoped token');
   await d.click(page.getByRole('button', { name: 'New token' }), { after: 0.05 });
-  await d.zoomTo(card('New token'), { max: 1.45 });
-  await d.click(page.getByPlaceholder('club-agent'), { after: 0.05 });
-  await d.type('events-agent', { cps: 26 });
+  await d.zoomTo(card('New service token'), { max: 1.45 });
+  await d.click(page.getByPlaceholder('sparky-engine'), { after: 0.05 });
+  await d.type('events-bot', { cps: 26 });
   await d.click(page.getByLabel('knowledge:read'), { after: 0.05 });
   await d.click(page.getByLabel('calendar:read'), { after: 0.1 });
   await d.click(page.getByRole('button', { name: 'Create token' }), { after: 0.1 });
