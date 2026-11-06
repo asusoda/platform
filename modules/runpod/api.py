@@ -58,7 +58,14 @@ def get_app(db, org, name):
 def put_app(db, org, name):
     data = json_body()
     return service.put_app(
-        db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"), data.get("provider")
+        db,
+        _org_id(org),
+        name,
+        data.get("manifest"),
+        data.get("repo"),
+        data.get("manifest_path"),
+        data.get("provider"),
+        data.get("pod_id"),
     )
 
 

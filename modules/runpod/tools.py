@@ -5,7 +5,7 @@ from functools import partial
 
 from core import hosting
 from core.tools import tool as _tool
-from modules.runpod import service, shared, templates
+from modules.runpod import app_mcp, service, shared, templates
 
 # Every tool here needs the runpod module on for the caller's org
 tool = partial(_tool, module="runpod")
@@ -39,7 +39,8 @@ def apps_get(db, org, caller, name: str):
     description="Create an app or replace its manifest. Send a manifest object, or a repo whose manifest file is read. "
     "provider runpod (default) takes gpu or cpu; provider server (This server) takes memory in MB, and optionally "
     "publish, volumes, command, workdir, and group with alias for the parts of one app. health is a path, or "
-    "{port, tcp: true} for a database, or {running: true} for a part with no port.",
+    "{port, tcp: true} for a database, or {running: true} for a part with no port. pod_id adopts a RunPod pod that "
+    "already runs the app. mcp ({port, path} or {url}, and token_secret) names the app's MCP server.",
     scope="apps:manage",
     input_schema={
         "type": "object",
@@ -49,13 +50,14 @@ def apps_get(db, org, caller, name: str):
             "repo": {"type": "string", "maxLength": 200},
             "manifest_path": {"type": "string", "maxLength": 200},
             "provider": {"type": "string", "maxLength": 32},
+            "pod_id": {"type": "string", "maxLength": 64},
         },
         "required": ["name"],
         "additionalProperties": False,
     },
 )
-def apps_register(db, org, caller, name: str, manifest=None, repo=None, manifest_path=None, provider=None):
-    return service.put_app(db, int(org.id), name, manifest, repo, manifest_path, provider)
+def apps_register(db, org, caller, name: str, manifest=None, repo=None, manifest_path=None, provider=None, pod_id=None):
+    return service.put_app(db, int(org.id), name, manifest, repo, manifest_path, provider, pod_id)
 
 
 @tool(
@@ -119,6 +121,36 @@ def apps_rollback(db, org, caller, name: str):
 )
 def apps_pod(db, org, caller, name: str):
     return {"pod": service.pod(db, int(org.id), name)}
+
+
+@tool(
+    "apps.mcp_tools",
+    description="The tools an app's own MCP server offers, such as a deployed agent or its tracing. Call one with "
+    "apps.mcp_call. The app names its server under mcp in its manifest.",
+    scope="apps:read",
+    input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
+)
+def apps_mcp_tools(db, org, caller, name: str):
+    return {"tools": app_mcp.list_tools(db, int(org.id), name)}
+
+
+@tool(
+    "apps.mcp_call",
+    description="Call one tool on an app's own MCP server, by the name apps.mcp_tools lists, with its arguments.",
+    scope="apps:manage",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "name": NAME,
+            "tool": {"type": "string", "minLength": 1, "maxLength": 128},
+            "arguments": {"type": "object"},
+        },
+        "required": ["name", "tool"],
+        "additionalProperties": False,
+    },
+)
+def apps_mcp_call(db, org, caller, name: str, tool: str, arguments: dict | None = None):
+    return app_mcp.call_tool(db, int(org.id), name, tool, arguments)
 
 
 @tool(

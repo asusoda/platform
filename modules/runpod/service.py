@@ -135,6 +135,18 @@ MANIFEST_SCHEMA: dict = {
                 "additionalProperties": False,
             },
         },
+        "mcp": {
+            "description": "The MCP server of the app, which apps.mcp_tools and apps.mcp_call reach (app_mcp.py)",
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "maxLength": 500, "pattern": r"^https://[^\s]+$"},
+                "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+                "path": {"type": "string", "maxLength": 200, "pattern": r"^/[^\s]*$"},
+                "token_secret": {"type": "string", "pattern": r"^(app|shared)_[a-z0-9_]{1,96}$"},
+            },
+            "anyOf": [{"required": ["url"]}, {"required": ["port"]}],
+            "additionalProperties": False,
+        },
         "access": {
             "description": "Shared apps: what an org's subscription does in the app (modules/runpod/shared.py)",
             "type": "object",
@@ -356,11 +368,13 @@ def put_app(
     repo: Any = None,
     manifest_path: Any = None,
     provider: Any = None,
+    pod_id: Any = None,
 ) -> dict:
     """Create an app or replace its manifest. Takes a manifest, or a repo whose manifest file is read
     now from the default branch and again at each deploy's ref. Commits.
 
     provider names the hosting provider of a new app, runpod when missing. An app with a pod keeps its provider.
+    pod_id adopts a RunPod pod that already runs the app, so the next deploy updates it in place.
     """
     if not NAME_PATTERN.match(name):
         raise AppError("name must be lowercase letters, digits and single dashes, up to 63")
@@ -391,6 +405,8 @@ def put_app(
         if app.pod_id:
             raise AppError("The app has a pod on its provider. Delete the app to move it to another provider", 409)
         app.provider = chosen
+    if pod_id is not None:
+        _adopt(db, org_id, app, pod_id)
     app.repo, app.manifest_path = repo, path
     app.manifest = json.dumps(manifest, sort_keys=True)
     app.updated_at = utcnow()
@@ -398,6 +414,26 @@ def put_app(
     if new and org_id is not None:
         uptime.watch_app(db, org_id, name)
     return _app_dict(db, app)
+
+
+POD_ID_PATTERN = re.compile(r"^[a-z0-9]{6,64}$")
+
+
+def _adopt(db, org_id: int | None, app: App, pod_id: Any) -> None:
+    """Give app the RunPod pod pod_id, after the org's RunPod key finds it."""
+    if not isinstance(pod_id, str) or not POD_ID_PATTERN.match(pod_id):
+        raise AppError("pod_id must be a RunPod pod id")
+    if str(app.provider) != hosting.DEFAULT:
+        raise AppError("Only an app on RunPod can adopt a pod")
+    if app.pod_id and app.pod_id != pod_id:
+        raise AppError("The app already has a pod", 409)
+    try:
+        found = client_for(db, org_id, hosting.DEFAULT).get_pod(pod_id)
+    except hosting.HostingError as e:
+        raise AppError(e.message, 502) from e
+    if found is None:
+        raise AppError("The org's RunPod key finds no pod with this id", 404)
+    app.pod_id = pod_id
 
 
 def list_apps(db, org_id: int | None) -> list[dict]:
