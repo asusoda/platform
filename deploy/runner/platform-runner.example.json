@@ -74,5 +74,23 @@
       "soda-site"
     ],
     "units": []
+  },
+  "commands": {
+    "health": {
+      "argv": ["make", "health"],
+      "cwd": "/var/www/soda-internal-api",
+      "timeout": 120,
+      "description": "Check the API, bot, worker and MCP containers"
+    },
+    "disk": {
+      "argv": ["df", "-h", "/", "/var"],
+      "description": "Free disk space"
+    },
+    "deploy": {
+      "argv": ["make", "deploy"],
+      "cwd": "/var/www/soda-internal-api",
+      "timeout": 600,
+      "description": "Pull main, migrate and recreate the containers"
+    }
   }
 }

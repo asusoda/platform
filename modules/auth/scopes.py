@@ -25,12 +25,14 @@ GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Org", ("org", "settings", "activity", "submodules")),
     ("Members", ("members", "points", "store", "accounts", "canvas")),
     ("Content and agents", ("calendar", "knowledge", "feeds", "agents", "asu")),
-    ("Hosting", ("apps", "godfather", "uptime")),
+    ("Hosting", ("apps", "godfather", "uptime", "server")),
     ("Access and keys", ("tokens", "secrets", "integrations", "webhooks")),
 )
 
 # Scopes that give tokens, secrets, keys or the access tokens of members. The "Read and write" preset leaves them out.
-ADMIN = frozenset({"tokens:manage", "secrets:manage", "integrations:manage", "webhooks:manage", "accounts:token"})
+ADMIN = frozenset(
+    {"tokens:manage", "secrets:manage", "integrations:manage", "webhooks:manage", "accounts:token", "server:manage"}
+)
 
 
 def is_read(name: str) -> bool:
