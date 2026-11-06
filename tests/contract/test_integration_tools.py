@@ -114,6 +114,7 @@ def test_scopes_pick_read_and_write_tools(client, officer_headers, soda, github)
 
 def test_calls_pass_through_and_writes_need_confirm(client, officer_headers, soda, github):
     headers = _token(client, officer_headers, soda, ["github:read", "github:write"])
+    client.put("/api/dashboard/soda/ci/repos", json={"repos": ["ais/bedrock"]}, headers=officer_headers)
     read = client.post("/api/tools/github.list_issues", json={"owner": "ais", "repo": "bedrock"}, headers=headers)
     assert read.status_code == 200, read.get_json()
     assert read.get_json()["result"]["text"] == "ran list_issues"
@@ -123,6 +124,7 @@ def test_calls_pass_through_and_writes_need_confirm(client, officer_headers, sod
     assert [c["name"] for c in github] == ["list_issues"]
     done = client.post("/api/tools/github.create_issue", json={**args, "confirm": True}, headers=headers)
     assert done.status_code == 200 and github[-1] == {"name": "create_issue", "arguments": args}
+    client.put("/api/dashboard/soda/ci/repos", json={"repos": []}, headers=officer_headers)
 
 
 def test_repo_and_tool_limits(client, officer_headers, soda, github):
@@ -245,6 +247,7 @@ def rest(monkeypatch):
 def writer(client, officer_headers, soda, github, rest, monkeypatch):
     monkeypatch.setattr(f"{__name__}.TOOLS", TOOLS + WRITES)
     service.clear_cache()
+    client.put("/api/dashboard/soda/ci/repos", json={"repos": ["ais/site"]}, headers=officer_headers)
     yield _token(client, officer_headers, soda, ["github:read", "github:write"])
     client.put("/api/dashboard/soda/ci/repos", json={"repos": []}, headers=officer_headers)
 
@@ -273,6 +276,8 @@ def test_merge_waits_for_green_checks(client, writer, github, rest):
 
 
 def test_writes_stay_on_linked_repos(client, officer_headers, writer):
+    client.put("/api/dashboard/soda/ci/repos", json={"repos": []}, headers=officer_headers)
+    assert _write(client, writer, "create_issue", title="Bug").status_code == 403
     client.put("/api/dashboard/soda/ci/repos", json={"repos": ["AIS/site"]}, headers=officer_headers)
     assert _write(client, writer, "create_issue", title="Bug").status_code == 200
     other = client.post(

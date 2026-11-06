@@ -1,6 +1,6 @@
 """The write rule of the github.* tools. No Flask here.
 
-A write runs only on one of the org's linked repos, when the org lists any. A file write names a branch
+A write runs only on one of the org's linked repos. With no linked repos, every write is refused. A file write names a branch
 that is not the repo's default branch. A merge runs only when the pull request is open and every check
 on its head commit passed. Reads are not checked here.
 """
@@ -17,7 +17,13 @@ MERGES = {"merge_pull_request"}
 def check(org, headers: dict[str, str], tool_name: str, target: str | None, arguments: dict) -> None:
     """Raise ToolError when the write breaks the rule. headers sign in with the org's GitHub token."""
     linked = [repo.lower() for repo in github.linked_repos(org)]
-    if linked and target not in linked:
+    if not linked:
+        raise ToolError(
+            "The org lists no linked repos, so agents may not write to GitHub. "
+            "Officers list them on the Activity page, CI tab",
+            403,
+        )
+    if target not in linked:
         raise ToolError(
             f"{target or 'This write'} is not a linked repo. Linked repos: {', '.join(linked)}. "
             "Officers change the list on the Activity page, CI tab",
