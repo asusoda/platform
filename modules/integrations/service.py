@@ -3,14 +3,17 @@
 A token with a server's read scope sees the tools the server marks read-only; its write scope adds the
 others, which run only with confirm=true. Token limits narrow the tools by name pattern and the repos a
 call may act on. With a repo limit, only tools that name one repo are shown. The tool list of each org is
-cached for CACHE_SECONDS. Every call goes through modules/mcp/runtime.py, which audits it.
+cached for CACHE_SECONDS. Every call goes through modules/mcp/runtime.py, which audits it. A write passes
+the server's guard first. Every org secret value in a result is replaced by [secret].
 """
 
 import fnmatch
+import json
 import time
 from functools import partial
 from typing import Any
 
+from core import secrets
 from core.integrations import registry
 from core.log import get_logger
 from core.tools import CONFIRM_NOTE, ToolError, ToolSpec
@@ -22,6 +25,8 @@ logger = get_logger(__name__)
 
 CACHE_SECONDS = 600
 MAX_RESULT_CHARS = 100_000
+# Shorter secret values are not masked, so that common words are not replaced
+MIN_SECRET_CHARS = 8
 
 for _server in SERVERS.values():
     registry.use(_server.integration, "integrations")
@@ -78,7 +83,7 @@ def _spec(server: RemoteServer, tool: dict, write: bool) -> ToolSpec:
         name=name,
         description=description,
         scope=server.write_scope if write else server.read_scope,
-        func=partial(_call, server, str(tool["name"])),
+        func=partial(_call, server, str(tool["name"]), write),
         input_schema=schema,
         confirm=write,
         integration=server.integration,
@@ -118,23 +123,35 @@ def _text(result: dict) -> str:
     return "\n".join(p for p in parts if isinstance(p, str))
 
 
-def _call(server: RemoteServer, tool_name: str, db, org, caller: MachineCaller, **arguments: Any) -> Any:
+def _masked(value: Any, hidden: list[str]) -> Any:
+    """value with every org secret value replaced by [secret]."""
+    if not hidden:
+        return value
+    text = json.dumps(value)
+    for secret in hidden:
+        text = text.replace(json.dumps(secret)[1:-1], "[secret]")
+    return json.loads(text)
+
+
+def _call(server: RemoteServer, tool_name: str, write: bool, db, org, caller: MachineCaller, **arguments: Any) -> Any:
+    target = server.target(arguments)
     target_limits = caller.limit(server.key, server.target_limit) if server.target_limit else None
-    if target_limits is not None:
-        target = server.target(arguments)
-        if target is None or not _allowed_target(target_limits, target):
-            raise ToolError(f"This token may not act on {target or 'that target'}", 403)
+    if target_limits is not None and (target is None or not _allowed_target(target_limits, target)):
+        raise ToolError(f"This token may not act on {target or 'that target'}", 403)
     headers = server.headers(db, int(org.id))
     if headers is None:
         raise ToolError(f"Connect {server.key} on the Integrations page first", 409)
+    if write and server.guard is not None:
+        server.guard(org, headers, tool_name, target, arguments)
     try:
         result = mcp_client.call_tool(server.url(), headers, tool_name, arguments)
     except mcp_client.RemoteError as e:
         raise ToolError(f"{server.key}: {e}", e.status) from e
-    text = _text(result)
+    hidden = [v for v in secrets.org_values(db, int(org.id)) if len(v) >= MIN_SECRET_CHARS]
+    text = _masked(_text(result), hidden)
     if result.get("isError") is True:
         raise ToolError(f"{server.key}: {text[:1000] or 'the tool failed'}", 422)
     structured = result.get("structuredContent")
     if isinstance(structured, dict):
-        return structured
+        return _masked(structured, hidden)
     return {"text": text[:MAX_RESULT_CHARS], "truncated": len(text) > MAX_RESULT_CHARS}

@@ -131,6 +131,20 @@ def get_secret(db, org_id: int, name: str) -> str | None:
         return None
 
 
+def org_values(db, org_id: int) -> list[str]:
+    """The decrypted value of every secret the org set, for masking in text that leaves the server."""
+    fernet = _fernet()
+    if fernet is None:
+        return []
+    values = []
+    for row in db.query(OrgSecret).filter_by(organization_id=org_id).all():
+        try:
+            values.append(fernet.decrypt(str(row.ciphertext).encode()).decode())
+        except InvalidToken:
+            continue
+    return values
+
+
 def delete_secret(db, org_id: int, name: str) -> bool:
     row = db.query(OrgSecret).filter_by(organization_id=org_id, name=name).first()
     if row is None:
