@@ -32,7 +32,7 @@ const SCREENS: Screen[] = [
   { name: 'hosting', path: 'godfather' },
   {
     name: 'tokens-scopes',
-    path: 'tokens',
+    path: 'connections',
     before: async (page) => {
       await page.getByRole('button', { name: 'New token' }).click();
       await page.getByRole('button', { name: /^Read only/ }).click();
@@ -40,7 +40,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: 'tokens-integrations',
-    path: 'tokens',
+    path: 'connections',
     before: async (page) => {
       await page.getByRole('button', { name: 'New token' }).click();
       await page.getByLabel('google:read').check();
@@ -50,10 +50,10 @@ const SCREENS: Screen[] = [
   },
   {
     name: 'tokens',
-    path: 'tokens',
+    path: 'connections',
     before: async (page) => {
       await page.getByRole('button', { name: 'New token' }).click();
-      await page.getByPlaceholder('club-agent').fill('events-agent');
+      await page.getByPlaceholder('sparky-engine').fill('events-bot');
       await page.getByRole('button', { name: /^Content and agents/ }).click();
       await page.getByLabel('knowledge:read').check();
       await page.getByLabel('calendar:read').check();

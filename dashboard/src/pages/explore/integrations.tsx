@@ -28,7 +28,7 @@ import type { Integration, IntegrationList, IntegrationTest, OAuthState } from '
 // The module names the API sends, with their label and dashboard page.
 const MODULES: Record<string, { label: string; path?: string }> = {
   agents: { label: 'Agent memory' },
-  mcp: { label: 'MCP', path: 'tokens' },
+  mcp: { label: 'MCP', path: 'connections' },
   auth: { label: 'Sign-in' },
   calendar: { label: 'Calendar sync', path: 'calendar' },
   godfather: { label: 'Godfather', path: 'godfather' },

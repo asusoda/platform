@@ -1,8 +1,8 @@
 """Scopes a machine token can hold. Modules declare the scopes their tools and endpoints check.
 
-A scope with an integration gives tools of that connected service, such as github:read. The Tokens page
+A scope with an integration gives tools of that connected service, such as github:read. The Connections page
 groups those scopes under the integration. A scope with uses reaches those integrations through Platform,
-such as knowledge:read, which embeds the query with the org's embeddings key. The Tokens page marks them.
+such as knowledge:read, which embeds the query with the org's embeddings key. The Connections page marks them.
 """
 
 SCOPES: dict[str, str] = {}
@@ -18,7 +18,7 @@ def declare(name: str, description: str, integration: str | None = None, uses: t
         SCOPE_USES[name] = uses
 
 
-# The groups of the Tokens page and the MCP consent page, by the part of a scope name before the colon. A scope of an
+# The groups of the Connections page and the MCP consent page, by the part of a scope name before the colon. A scope of an
 # integration shows under its integration instead. tests/contract/test_mcp_oauth.py checks that each other scope is in
 # a group.
 GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -50,7 +50,7 @@ def groups() -> list[tuple[str, list[str]]]:
 
 
 def presets() -> dict[str, tuple[str, list[str]]]:
-    """The presets of the Tokens page and the consent page: the label of each one and the scopes it chooses."""
+    """The presets of the Connections page and the consent page: the label of each one and the scopes it chooses."""
     return {
         "read": ("Read only", sorted(s for s in SCOPES if is_read(s))),
         "write": ("Read and write", sorted(s for s in SCOPES if s not in ADMIN)),

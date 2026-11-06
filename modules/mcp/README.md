@@ -1,6 +1,6 @@
 # mcp
 
-Serves the tools of other modules to apps and agents with a machine token: over MCP streamable HTTP at `/mcp`, and over HTTP at `/api/tools`. The module is Core and always on. A caller sees only the tools that its token scopes and its org's module switches allow. An OAuth token also sees the module tools that need a scope it does not have, and a call to one gets 403 `insufficient_scope` (step-up). The Tokens page of the dashboard shows how to connect.
+Serves the tools of other modules to apps and agents with a machine token: over MCP streamable HTTP at `/mcp`, and over HTTP at `/api/tools`. The module is Core and always on. A caller sees only the tools that its token scopes and its org's module switches allow. An OAuth token also sees the module tools that need a scope it does not have, and a call to one gets 403 `insufficient_scope` (step-up). The Connections page of the dashboard shows how to connect.
 
 ## Files
 

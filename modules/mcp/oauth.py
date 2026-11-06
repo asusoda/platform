@@ -9,7 +9,7 @@ A client registers itself (RFC 7591), or uses the HTTPS URL of its Client ID Met
 client_id (draft-ietf-oauth-client-id-metadata-document). Platform then fetches that document, checks it and
 keeps it in oauth_clients for the time that its cache headers allow.
 
-The access token is a machine token of kind oauth, so the MCP server, scopes, limits and the Tokens page
+The access token is a machine token of kind oauth, so the MCP server, scopes, limits and the Connections page
 treat it as any other machine token. An officer approves the org, the scopes and the integration limits.
 A refresh gives the same machine token row a new value, after a check that the officer still has the
 officer role. When an officer revokes that token, the refresh token stops working too. No Flask here.
@@ -642,7 +642,7 @@ def signed_in(db, row: OAuthRequest, discord_id: str, org_ids: list[int]) -> str
 def approve(db, row: OAuthRequest, organization_id: int, scopes: list[str], limits: dict | None = None) -> str:
     """Make the authorization code for an approved request. Returns the code. Raises OAuthError. Commits.
 
-    limits is {integration: {name: [items]}}, as on the Tokens page.
+    limits is {integration: {name: [items]}}, as on the Connections page.
     """
     if organization_id not in (row.officer_org_ids or []):
         raise OAuthError("Choose an org where you are an officer")
@@ -837,7 +837,7 @@ def cleanup(db) -> dict:
         )
         if token is None or token.revoked_at is not None or grant.refresh_expires_at <= now
     ]
-    # An expired grant leaves no live token on the Tokens page
+    # An expired grant leaves no live token on the Connections page
     db.query(MachineToken).filter(
         MachineToken.id.in_([token_id for _, token_id in finished]), MachineToken.revoked_at.is_(None)
     ).update({"revoked_at": now}, synchronize_session=False)
