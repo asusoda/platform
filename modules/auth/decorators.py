@@ -11,7 +11,6 @@ from modules.auth import clerk, machine_tokens
 from modules.auth.access import (
     discord_directory,
     is_superadmin,
-    officer_guild_ids,
     org_officer_denial,
     superadmin_denial,
 )
@@ -164,7 +163,7 @@ def _with_org_scope(f, *args, **kwargs):
 
 
 def superadmin_required(f):
-    """Require the superadmin: an admin session, or a platform token whose discord_id is the superadmin."""
+    """Require the superadmin: a session or platform token whose discord_id is in SYS_ADMIN."""
 
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -174,7 +173,8 @@ def superadmin_required(f):
                 problem = _token_problem(token)
                 if problem:
                     return _refuse(*_HEADER_REFUSALS[problem])
-                if session.get("user", {}).get("role") != "admin":
+                user = session.get("user") or {}
+                if user.get("role") != "admin" and not is_superadmin(str(user.get("discord_id") or "")):
                     return _refuse("Superadmin access required!", 403)
                 return f(*args, **kwargs)
             except Exception as e:
@@ -200,12 +200,7 @@ def superadmin_required(f):
             if not discord_id:
                 return _refuse("Token missing user identification!", 401)
 
-            officer_guilds = officer_guild_ids(str(discord_id))
-            if officer_guilds is None:
-                return _refuse("Bot not available for verification!", 503)
-            if not officer_guilds and not is_superadmin(str(discord_id)):
-                return _refuse("Superadmin access required!", 403)
-
+            # SYS_ADMIN decides alone, so the superadmin gets in while the bot is down
             denial = superadmin_denial(str(discord_id))
             if denial:
                 return _refuse(*denial)

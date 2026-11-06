@@ -124,7 +124,9 @@ def role_in_guild(directory, guild_id: Any, role_id: Any) -> bool:
 def prefix_for(name: str, guild_id: object) -> str:
     """A prefix from a guild name: lowercase letters, digits and underscores, 2 to 20 characters."""
     prefix = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:20].rstrip("_")
-    return prefix if len(prefix) >= 2 else f"org_{str(guild_id)[-6:]}"
+    if len(prefix) < 2:
+        return f"org_{str(guild_id)[-6:]}"
+    return f"{prefix[:16]}_org" if prefix in organizations.RESERVED_PREFIXES else prefix
 
 
 def new_organization(guild: dict) -> Organization:

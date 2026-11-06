@@ -157,6 +157,9 @@ def update_organization_settings(org_id):
             if "--" in new_prefix and new_prefix != org.prefix:
                 return jsonify({"error": "Prefix cannot contain two hyphens in a row"}), 400
 
+            if new_prefix in service.RESERVED_PREFIXES and new_prefix != org.prefix:
+                return jsonify({"error": f"Prefix {new_prefix} is reserved for a dashboard page"}), 400
+
             existing_org = service.find_by_prefix(db, new_prefix)
             if existing_org and existing_org.id != org_id:
                 return jsonify({"error": "Prefix is already taken by another organization"}), 400
