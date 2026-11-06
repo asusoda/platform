@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from modules.submodules.params import choices, code, text, url
 from modules.submodules.types import QueryParam, QuerySource
+from submodules.asu.params import topic
 
 # Option values of the exposed filters on onsa.asu.edu/scholarships.
 _CITIZENSHIP = {
@@ -56,7 +57,10 @@ def to_url(params: dict[str, str]) -> str:
 
 QUERY = QuerySource(
     key="scholarships",
-    description=("Search ASU scholarships by keyword, citizenship, year of study and field of focus."),
+    description=(
+        "Search ASU scholarships by keyword, citizenship, year of study and field of focus. "
+        "Example: keywords engineering, applicant undergraduate."
+    ),
     params=(
         QueryParam("keywords", "Words in the scholarship name or description.", example="women"),
         QueryParam("citizenship", "Citizenship status.", choices=choices(_CITIZENSHIP)),
@@ -65,4 +69,6 @@ QUERY = QuerySource(
     ),
     to_url=to_url,
     category="scholarships",
+    query_param="keywords",
+    narrow=topic,
 )

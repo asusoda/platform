@@ -36,13 +36,34 @@ def named(query: str, choices: tuple[str, ...]) -> list[str]:
     return [c for c in choices if c in picked]
 
 
-def dated(query: str) -> str | None:
-    """The first valid YYYY-MM-DD in query."""
+_WEEKDAYS = (
+    ("monday", "mon"),
+    ("tuesday", "tue", "tues"),
+    ("wednesday", "wed"),
+    ("thursday", "thu", "thur", "thurs"),
+    ("friday", "fri"),
+    ("saturday",),
+    ("sunday",),
+)
+
+
+def dated(query: str, today: datetime.date | None = None) -> str | None:
+    """The first valid YYYY-MM-DD in query, else today, tomorrow or the next weekday it names."""
     for found in _DATE.findall(query):
         try:
             return datetime.date.fromisoformat(found).isoformat()
         except ValueError:
             continue
+    if today is None:
+        return None
+    words = {"".join(c for c in w if c.isalpha()) for w in query.lower().split()}
+    if "tomorrow" in words:
+        return (today + datetime.timedelta(days=1)).isoformat()
+    if "today" in words or "tonight" in words:
+        return today.isoformat()
+    for index, names in enumerate(_WEEKDAYS):
+        if words.intersection(names):
+            return (today + datetime.timedelta(days=(index - today.weekday()) % 7)).isoformat()
     return None
 
 
@@ -62,7 +83,7 @@ def fill(source: QuerySource, query: str, today: datetime.date) -> dict[str, str
             found = named(query, p.choices)
             value = ",".join(found) if p.many else (found[0] if found else "")
         elif p.date:
-            value = dated(query) or (today.isoformat() if p.required else "")
+            value = dated(query, today) or (today.isoformat() if p.required else "")
         else:
             value = ""
         if value:

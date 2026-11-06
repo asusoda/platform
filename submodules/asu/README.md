@@ -26,7 +26,6 @@ Run them with `POST /api/submodules/asu/query` or the `submodules.query` tool wi
 | course_catalog | keywords (required), term |
 | scholarships | keywords, citizenship, applicant, focus |
 | events, news | keywords |
-| library_catalog | keywords (required), type |
 | library_hours, jobs | none |
 | study_rooms | library (required), date (required) |
 | sports | sport (required) |
@@ -37,7 +36,7 @@ Run them with `POST /api/submodules/asu/query` or the `submodules.query` tool wi
 | dining | campus (required) |
 | web | query (required), time_range. Needs a SearXNG server |
 
-Pages that render with JavaScript (class search, events) need Firecrawl. The `web` query needs SearXNG. See [docs/modules/submodules.md](../../docs/modules/submodules.md).
+courses and course_catalog read the JSON API behind the ASU class search, so they need no renderer. Pages that render with JavaScript (events, study rooms) need Firecrawl or the browser. search fills the parameters from a plain question: a course code, a term, today, tomorrow or a weekday, and a campus place by its short name (MU, SDFC). The ASU Library catalog is not a source, because its robots.txt disallows search. The `web` query needs SearXNG. See [docs/modules/submodules.md](../../docs/modules/submodules.md).
 
 ## ASU sign-in
 

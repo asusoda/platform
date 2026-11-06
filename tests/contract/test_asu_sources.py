@@ -157,7 +157,6 @@ def test_live_sources_registered():
         "scholarships",
         "events",
         "news",
-        "library_catalog",
         "library_hours",
         "study_rooms",
         "sports",
@@ -172,12 +171,6 @@ def test_live_sources_registered():
 
 
 def test_urls_carry_the_given_filters():
-    url = url_for(QUERY_SOURCES["courses"], {"term": "Fall 2026", "keywords": "CSE 310", "level": "undergraduate"})
-    assert url.startswith("https://catalog.apps.asu.edu/catalog/classes/classlist?")
-    assert "term=2267" in url and "keywords=CSE+310" in url and "level=undergrad" in url
-    assert "daysOfWeek" not in url
-    catalog = url_for(QUERY_SOURCES["course_catalog"], {"keywords": "CSE 485"})
-    assert catalog.startswith("https://catalog.apps.asu.edu/catalog/courses/courselist?") and "term" not in catalog
     assert url_for(QUERY_SOURCES["sports"], {"sport": "Men's Basketball"}) == (
         "https://thesundevils.com/sports/mens-basketball/schedule"
     )
@@ -289,3 +282,60 @@ def test_web_results():
     assert "duplicate" not in out
     with pytest.raises(QueryError, match="duckduckgo"):
         render("x", {"results": [], "unresponsive_engines": [["duckduckgo", "CAPTCHA"]]}, 8, 300)
+
+
+def test_class_search_reads_sections_and_seats_from_the_api(monkeypatch):
+    from modules.submodules import http
+    from submodules.asu.queries import courses
+
+    seen: dict = {}
+    row = {
+        "CLAS": {
+            "SUBJECT": "CSE",
+            "CATALOGNBR": "310",
+            "TITLE": "Data Structures",
+            "CLASSNBR": "11198",
+            "STARTTIME": "9:00 AM",
+            "ENDTIME": "10:15 AM",
+            "INSTRUCTORSLIST": ["Ada"],
+        },
+        "DAYLIST": ["M W"],
+        "LOCATIONBUILDING": [{"ADDRESS": "Coor Hall 170"}],
+        "seatInfo": {"ENRL_CAP": 150, "ENRL_TOT": 120},
+    }
+    full = {**row, "seatInfo": {"ENRL_CAP": 75, "ENRL_TOT": 75}}
+
+    def fake(url, headers=None):
+        seen.update(url=url, headers=headers)
+        return {"classes": [row, full]}
+
+    monkeypatch.setattr(http, "get_json", fake)
+    page, text = courses.answer({"term": "Spring 2027", "keywords": "CSE 310", "open_only": "true"})
+    assert "subject=CSE" in seen["url"] and "catalogNbr=310" in seen["url"] and "term=2271" in seen["url"]
+    assert seen["headers"] == {"Authorization": "Bearer null"}
+    assert page.startswith("https://catalog.apps.asu.edu/catalog/classes/classlist?")
+    assert (
+        text
+        == "CSE 310: Data Structures | class 11198 | M W 9:00 AM-10:15 AM | Coor Hall 170 | Ada | 30 of 150 seats open"
+    )
+
+
+def test_course_catalog_reads_hours_and_prerequisites(monkeypatch):
+    from modules.submodules import http
+    from submodules.asu.queries import course_catalog
+
+    course = {
+        "SUBJECT": "CSE",
+        "CATALOGNBR": "340",
+        "COURSETITLELONG": "Programming Languages",
+        "HOURS": "3",
+        "COLLEGEMAP": [{"INFO": {"ENROLLREQ": "Prerequisite(s): CSE 310"}}],
+        "DESCRLONG": "Syntax and semantics.",
+    }
+    monkeypatch.setattr(http, "get_json", lambda url, headers=None: [course])
+    page, text = course_catalog.answer({"keywords": "machine learning", "term": "Fall 2026"})
+    assert "keywords=machine+learning" in page
+    assert text == "CSE 340: Programming Languages | 3 credit hours | Prerequisite(s): CSE 310 | Syntax and semantics."
+    monkeypatch.setattr(http, "get_json", lambda url, headers=None: [])
+    with pytest.raises(QueryError, match="no course"):
+        course_catalog.answer({"keywords": "CSE 999", "term": "Fall 2026"})

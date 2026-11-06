@@ -11,7 +11,8 @@ _MONTHS = (
     "January|February|March|April|May|June|July|August|September|October|November|December"
     "|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
 )
-_DATE = re.compile(rf"\b(?:{_MONTHS})\b\.?\s+\d{{1,2}}|\b\d{{1,2}}/\d{{1,2}}/\d{{2,4}}\b")
+#: A month and day, or a numeric date, as event listings write them.
+DATE = re.compile(rf"\b(?:{_MONTHS})\b\.?\s+\d{{1,2}}|\b\d{{1,2}}/\d{{1,2}}/\d{{2,4}}\b")
 _TIME = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)", re.IGNORECASE)
 _HEADING = re.compile(r"^\s*#{1,6}\s")
 _LINK_ONLY = re.compile(r"^\s*[-*+]?\s*\[[^\]]+\]\([^)]*\)\s*$")
@@ -55,7 +56,7 @@ class _Event:
 
     def add(self, line: str) -> None:
         """Files one line under when, where, or the leftover description."""
-        if self.when is None and (_DATE.search(line) or _TIME.search(line)):
+        if self.when is None and (DATE.search(line) or _TIME.search(line)):
             self.when = line
             self._after_when = True
             return

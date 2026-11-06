@@ -98,6 +98,23 @@ def test_a_required_date_defaults_to_today_and_a_named_one_is_kept():
     assert dated("on 2026-02-30 or 2026-03-01") == "2026-03-01"
 
 
+def test_a_relative_date_is_read_from_today():
+    _, rooms = find.SOURCES["study_rooms"]
+    assert fill(rooms, "hayden study rooms tomorrow", TODAY)["date"] == "2026-11-06"
+    assert fill(rooms, "hayden rooms on monday", TODAY)["date"] == "2026-11-09"
+    assert fill(rooms, "noble room thu", TODAY)["date"] == "2026-11-05"
+    assert dated("sun devil central", TODAY) is None
+
+
+def test_filler_words_are_cut_from_topics():
+    _, events = find.SOURCES["events"]
+    _, places = find.SOURCES["campus_map"]
+    _, news = find.SOURCES["news"]
+    assert fill(events, "any career fair events this week?", TODAY)["keywords"] == "career fair"
+    assert fill(places, "where is the MU?", TODAY)["place"] == "Memorial Union"
+    assert fill(news, "latest news about robotics", TODAY)["keywords"] == "robotics"
+
+
 def test_a_longer_choice_wins_the_words_it_covers():
     assert named("upper division classes", ("upper division", "division")) == ["upper division"]
     assert named("divisional", ("division",)) == []

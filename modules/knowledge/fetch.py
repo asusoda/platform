@@ -9,6 +9,7 @@ the deployment default. Every URL, and every redirect, must resolve to a public 
 goes to an address that passed the check, so a source cannot make the platform read its own network.
 """
 
+import io
 import os
 import threading
 import time
@@ -22,6 +23,8 @@ from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import requests
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 from core import net
 from core.integrations.registry import Field, Integration, IntegrationError, org_values, register, use
@@ -68,14 +71,14 @@ def check_url(url: str) -> None:
         raise FetchRejected(str(e)) from e
 
 
-def _get(url: str, *, limit: int = MAX_BYTES) -> _Response:
+def _get(url: str, *, limit: int = MAX_BYTES, headers: dict[str, str] | None = None) -> _Response:
     """GET with redirects followed by hand, so each hop is checked. The body is read up to limit."""
     for _ in range(MAX_REDIRECTS + 1):
         check_url(url)
         try:
             response = net.get(
                 url,
-                headers={"User-Agent": USER_AGENT},
+                headers={"User-Agent": USER_AGENT, **(headers or {})},
                 timeout=TIMEOUT_SECONDS,
                 allow_redirects=False,
                 stream=True,
@@ -119,13 +122,31 @@ def robots_rules(status: int, body: str) -> RobotFileParser:
     return parser
 
 
-def fetch_http(url: str) -> Fetched:
-    response = _get(url)
+def fetch_http(url: str, headers: dict[str, str] | None = None) -> Fetched:
+    """The response at url, with any extra request headers. A PDF also carries its text."""
+    response = _get(url, headers=headers)
     if response.status >= 500:
         raise FetchError(f"{url} returned {response.status}")
     if response.status >= 400:
         raise FetchRejected(f"{url} returned {response.status}")
-    return Fetched(url=response.url, body=response.body, content_type=response.content_type)
+    return Fetched(url=response.url, body=response.body, content_type=response.content_type, text=pdf_text(response))
+
+
+#: Pages of a fetched PDF that are read. Hours sheets and flyers are a few pages.
+MAX_PDF_PAGES = 50
+
+
+def pdf_text(response: _Response) -> str | None:
+    """The text of a PDF response, or None when it is not a PDF or cannot be read."""
+    if "pdf" not in response.content_type.lower() and not response.body.startswith(b"%PDF"):
+        return None
+    try:
+        reader = PdfReader(io.BytesIO(response.body))
+        if reader.is_encrypted:
+            return None
+        return "\n\n".join(page.extract_text() or "" for page in reader.pages[:MAX_PDF_PAGES]).strip()
+    except (PdfReadError, ValueError, KeyError, TypeError):
+        return None
 
 
 def parse_firecrawl(url: str, payload: Any) -> Fetched:
