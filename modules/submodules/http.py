@@ -29,9 +29,9 @@ def get_text(url: str) -> str:
     return fetch_http(url).body.decode("utf-8", errors="replace")
 
 
-def get_json(url: str) -> Any:
+def get_json(url: str, headers: dict[str, str] | None = None) -> Any:
     """The body of url parsed as JSON. Raises QueryError when it is not JSON."""
-    body = fetch_http(url).body
+    body = fetch_http(url, headers).body
     try:
         return json.loads(body)
     except ValueError as e:

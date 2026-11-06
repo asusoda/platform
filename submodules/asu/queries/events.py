@@ -11,6 +11,8 @@ from modules.submodules import http
 from modules.submodules.params import text, url
 from modules.submodules.search import settings
 from modules.submodules.types import Fetched, QueryError, QueryParam, QuerySource
+from submodules.asu.params import topic
+from submodules.asu.sources.events import DATE as EVENT_DATE
 from submodules.asu.sources.events import extract_events
 
 _PUBLIC = "https://asuevents.asu.edu/home"
@@ -52,9 +54,15 @@ def public(keywords: str) -> tuple[str, str]:
 
 def answer(params: dict[str, str]) -> tuple[str, str]:
     """The public ASU events calendar. Sun Devil Central needs an ASU sign-in and is not read here."""
-    source_url, body = public(text(params, "keywords"))
-    if not body.strip():
-        raise QueryError("no events found on the ASU events calendar")
+    keywords = text(params, "keywords")
+    source_url, body = public(keywords)
+    if not EVENT_DATE.search(body):
+        raise QueryError(
+            f"no event on the public ASU calendar matches {keywords!r}; try fewer or other words, "
+            "or the asu.events tool for club events on Sun Devil Central"
+            if keywords
+            else "no events found on the ASU events calendar"
+        )
     budget = settings().scraper.query_max_chars
     if len(body) > budget:
         body = body[:budget].rsplit("\n", 1)[0] + "\n[more listings not shown]"
@@ -63,9 +71,13 @@ def answer(params: dict[str, str]) -> tuple[str, str]:
 
 QUERY = QuerySource(
     key="events",
-    description="Search the public ASU events calendar.",
-    params=(QueryParam("keywords", "What the event is about.", example="career fair"),),
+    description=(
+        "Search the public ASU events calendar. Example: keywords career fair. "
+        "Club events on Sun Devil Central come from the asu.events tool, not this source."
+    ),
+    params=(QueryParam("keywords", "What the event is about, in a few words.", example="career fair"),),
     answer=answer,
+    narrow=topic,
     category="events",
     index=False,
 )

@@ -117,11 +117,38 @@ def class_terms(query: str, today: datetime.date) -> dict[str, str]:
 
 
 def catalog_keywords(query: str) -> str:
-    """The course code query names, else the query."""
-    return code_in(query) or query.strip()
+    """The course code query names, else the words of it the catalog can match."""
+    return class_keywords(query)
 
 
-def catalog_terms(query: str, _today: datetime.date) -> dict[str, str]:
-    """The term the query names, if any."""
-    term = term_in(query)
-    return {"term": term} if term else {}
+def catalog_terms(query: str, today: datetime.date) -> dict[str, str]:
+    """The term the query names or the one running today."""
+    return {"term": term_in(query) or term_for(today)}
+
+
+# Words around a topic that a site's keyword box cannot match: question words, time words, and source nouns.
+_FILLER = (
+    _INTENT
+    | _CONNECTIVES
+    | frozenset(
+        "all at can could event events find get go happening help how i is list located look looking my near need "
+        "news on or scholarship scholarships search show some stories story there this upcoming week weekend "
+        "today tonight tomorrow want where wheres whats".split()
+    )
+)
+
+
+def topic(query: str) -> str:
+    """The words of query that name its topic, without question words, time words and source nouns."""
+    kept = [w for w in query.split() if "".join(c for c in w if c.isalnum()).lower() not in _FILLER]
+    return " ".join(w.strip("?!.,") for w in kept if _matchable(w))
+
+
+# Short names students use for campus places, spelled as the campus map names them.
+PLACE_ALIASES = {"mu": "Memorial Union", "sdfc": "Sun Devil Fitness Complex"}
+
+
+def place(query: str) -> str:
+    """The place query asks about, with a known short name spelled out."""
+    words = topic(query).split() or query.split()
+    return " ".join(PLACE_ALIASES.get(w.lower(), w) for w in words)

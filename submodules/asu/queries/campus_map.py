@@ -7,6 +7,7 @@ from typing import Any
 from modules.submodules.http import get_json, plain
 from modules.submodules.params import text, url
 from modules.submodules.types import QueryError, QueryParam, QuerySource
+from submodules.asu.params import place as place_in
 
 MAP = "https://www.asu.edu/about/map"
 _FIND = "https://gisprodportal.asu.edu/server/rest/services/CampusLayers/Campus_Map_Web_Layers/MapServer/find"
@@ -63,8 +64,11 @@ def render(place: str, results: list[dict[str, Any]]) -> str:
 
 QUERY = QuerySource(
     key="campus_map",
-    description="Find a building or place on the ASU campus map, with a map link.",
-    params=(QueryParam("place", "Building name, code or place.", required=True, example="Hayden"),),
+    description="Find a building or place on the ASU campus map, with a map link. Example: place Memorial Union.",
+    params=(
+        QueryParam("place", "Building name, code or place, without question words.", required=True, example="Hayden"),
+    ),
     answer=answer,
+    narrow=place_in,
     category="campus",
 )
