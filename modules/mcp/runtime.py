@@ -1,8 +1,10 @@
 """Lists and runs tools for a machine token. Shared by the MCP server and /api/tools. No Flask here.
 
 The tools are the modules' tools in core.tools.TOOLS and the tools of connected services that
-modules/integrations passes through to their MCP servers. The batch tool runs up to MAX_BATCH of those
-calls in one request; each call gets its own scope check, confirm step and audit entry.
+modules/integrations passes through to their MCP servers. The list holds the base tools, the tools of the
+services the org connected (layers.py), and the gateway to module tools: modules.list, modules.skill,
+modules.tools and modules.call. The batch tool runs up to MAX_BATCH calls in one request; each call, also
+through the gateway, gets its own scope check, confirm step and audit entry.
 
 Each call of a tool, also inside a batch, counts against the org's mcp.calls_per_minute limit.
 """
@@ -17,8 +19,10 @@ from core.cache import cache
 from core.errors import ServiceError
 from core.log import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec
-from modules.auth.machine_tokens import MachineCaller
+from modules.auth.machine_tokens import OAUTH_KIND, MachineCaller
 from modules.integrations import service as remote
+from modules.manifest import CATALOG
+from modules.mcp import layers
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -63,6 +67,49 @@ BATCH_SPEC = ToolSpec(
 )
 
 
+def _gateway(name: str, description: str, properties: dict, required: list[str]) -> ToolSpec:
+    """A gateway tool. It needs no scope of its own: the tools it lists or runs check theirs."""
+    schema = {"type": "object", "properties": properties, "required": required, "additionalProperties": False}
+    return ToolSpec(
+        name=name, description=description, scope="", func=lambda *args, **kwargs: None, input_schema=schema
+    )
+
+
+TOOL_NAME = {"type": "string", "minLength": 1, "maxLength": 200}
+DOMAIN_NAME = {"type": "string", "minLength": 1, "maxLength": 64}
+GATEWAYS = {
+    spec.name: spec
+    for spec in [
+        _gateway(
+            "modules.list",
+            "The org's modules that this token can use, with how many tools each has. "
+            "Read a module's skill with modules.skill before the first call to its tools.",
+            {},
+            [],
+        ),
+        _gateway(
+            "modules.skill",
+            "How to use a module: what it is for, which tool to call when, and what to check first.",
+            {"name": DOMAIN_NAME},
+            ["name"],
+        ),
+        _gateway(
+            "modules.tools",
+            "The tools of one module, with their arguments. Run one with modules.call.",
+            {"name": DOMAIN_NAME},
+            ["name"],
+        ),
+        _gateway(
+            "modules.call",
+            "Run one module tool, as tool and its arguments. A confirm tool needs confirm=true in arguments.",
+            {"tool": TOOL_NAME, "arguments": {"type": "object"}},
+            ["tool"],
+        ),
+    ]
+}
+CALL_GATEWAYS = ("modules.call",)
+
+
 def _org(db, caller: MachineCaller) -> Organization:
     org = db.query(Organization).filter_by(id=caller.organization_id, is_active=True).first()
     if org is None:
@@ -87,8 +134,17 @@ def available(db, caller: MachineCaller, *, step_up: bool = False) -> list[ToolS
     """
     org = _org(db, caller)
     local = [spec for spec in TOOLS.values() if _usable(db, spec, org, caller, any_scope=step_up)]
-    found = local + _remote(db, org, caller)
-    return sorted(found + [BATCH_SPEC] if found else found, key=lambda s: s.name)
+    return sorted(local + _remote(db, org, caller), key=lambda s: s.name)
+
+
+def listed(db, caller: MachineCaller, *, step_up: bool = False) -> list[ToolSpec]:
+    """The tool list: the base and service tools, batch, and the modules gateway when a module tool is behind it."""
+    found = available(db, caller, step_up=step_up)
+    if not found:
+        return []
+    top = [spec for spec in found if layers.layer(spec) != "module"]
+    gates = list(GATEWAYS.values()) if len(top) < len(found) else []
+    return sorted([*top, *gates, BATCH_SPEC], key=lambda s: s.name)
 
 
 def missing_scope(db, caller: MachineCaller, name: str) -> str | None:
@@ -121,6 +177,8 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
         org = _org(db, caller)
         if name == BATCH:
             return _batch(db, caller, arguments, source)
+        if name in GATEWAYS:
+            return _gate(db, caller, GATEWAYS[name], arguments, source)
         limits.consume(db, caller.organization_id, CALLS_LIMIT)
         db.commit()
         spec = TOOLS.get(name)
@@ -200,6 +258,49 @@ def _batch(db, caller: MachineCaller, arguments: dict | None, source: str) -> di
     return {"results": results}
 
 
+def _gate(db, caller: MachineCaller, spec: ToolSpec, arguments: dict | None, source: str) -> Any:
+    """Run the modules gateway: list the modules or a module's tools, give its skill, or run one module tool."""
+    args = dict(arguments or {})
+    try:
+        jsonschema.validate(args, spec.input_schema)
+    except jsonschema.ValidationError as e:
+        raise ToolError(f"Invalid arguments: {e.message}", 400) from e
+    action = spec.name.split(".", 1)[1]
+    if action == "call":
+        tool = args["tool"]
+        if tool in GATEWAYS or tool == BATCH:
+            raise ToolError(f"{spec.name} cannot run {tool}", 400)
+        target = TOOLS.get(tool)
+        found = layers.layer(target) if target else ("service" if layers.domain(tool) in layers.SERVERS else "module")
+        if found != "module":
+            raise ToolError(f"{tool} is in the tool list. Call it by its name, not through {spec.name}", 400)
+        return call(db, caller, tool, args.get("arguments"), source=source)
+    # An OAuth client also sees the tools that need a scope it lacks, as in the tool list (step-up)
+    groups = layers.grouped(available(db, caller, step_up=caller.kind == OAUTH_KIND), "module")
+    name = args.get("name")
+    if name is None:
+        return {"modules": [_summary(key, specs) for key, specs in groups.items()]}
+    specs = groups.get(name)
+    if specs is None:
+        raise ToolError(f"No module named {name}", 404)
+    if action == "skill":
+        text = layers.skill(name, specs)
+        if text is None:
+            raise ToolError(f"The {name} module has no skill. modules.tools lists its tools", 404)
+        return {"name": name, "skill": text}
+    return {"name": name, "tools": [describe(s) | {"description": described(s, caller)} for s in specs]}
+
+
+def _summary(name: str, specs: list[ToolSpec]) -> dict:
+    info = CATALOG.get(layers.folder(name, specs).name)
+    return {
+        "name": name,
+        "tools": len(specs),
+        "description": info.description if info else "",
+        "skill": layers.skill(name, specs) is not None,
+    }
+
+
 def _preview(spec: ToolSpec, args: dict) -> dict:
     """The answer to a confirm tool called without confirm=true. Nothing has changed."""
     return {
@@ -213,6 +314,16 @@ def _preview(spec: ToolSpec, args: dict) -> dict:
 def _prefix(db, caller: MachineCaller) -> str | None:
     org = db.query(Organization).filter_by(id=caller.organization_id).first()
     return str(org.prefix) if org else None
+
+
+def described(spec: ToolSpec, caller: MachineCaller) -> str:
+    """The description, with a note when the caller lacks the scope and can ask for it (step-up)."""
+    if not spec.scope or caller.allows(spec.scope):
+        return spec.description
+    return (
+        f"{spec.description} Needs the {spec.scope} scope, which this connection does not have: "
+        "a call asks an officer to approve it."
+    )
 
 
 def describe(spec: ToolSpec) -> dict:

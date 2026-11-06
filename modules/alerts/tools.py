@@ -14,7 +14,7 @@ WEBHOOK_ID = {"type": "integer", "minimum": 1}
 
 
 @tool(
-    "webhooks.list",
+    "access.webhooks",
     description="The org's alert destinations (webhooks), the events and kinds to pick from, and the org's feeds with the destination of each. URLs are never returned.",
     scope="webhooks:manage",
 )
@@ -23,7 +23,7 @@ def webhooks_list(db, org, caller):
 
 
 @tool(
-    "webhooks.save",
+    "access.save_webhook",
     description=(
         "Add a webhook, or change the webhook with id. A new webhook needs name, events and url. The URL must "
         "match the kind and is stored encrypted. A missing field is kept."
@@ -50,7 +50,7 @@ def webhooks_save(db, org, caller, id: int | None = None, **body):
 
 
 @tool(
-    "webhooks.test",
+    "access.test_webhook",
     description="Send a test message to a webhook now and return whether it worked.",
     scope="webhooks:manage",
     input_schema={
@@ -65,7 +65,7 @@ def webhooks_test(db, org, caller, id: int):
 
 
 @tool(
-    "webhooks.delete",
+    "access.delete_webhook",
     description="Delete webhooks by id, up to 20. If one id is missing, nothing changes.",
     scope="webhooks:manage",
     confirm=True,

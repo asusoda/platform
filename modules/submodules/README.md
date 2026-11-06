@@ -4,7 +4,7 @@ Loads the submodules in the `submodules/` folder and keeps each org's subscripti
 
 - knowledge searches its pages, which are the submodule's own sources: crawled and embedded once by the deployment, with no org;
 - [feeds](../feeds/README.md) offers its feeds as presets;
-- agents run its live queries (`submodules.query`, or `search`, which reads stored pages first), whose results become sources of the org.
+- agents run its live queries (`knowledge.query`, or `search`, which reads stored pages first), whose results become sources of the org.
 
 See [submodules/README.md](../../submodules/README.md) to write one.
 
@@ -28,7 +28,7 @@ See [submodules/README.md](../../submodules/README.md) to write one.
 
 - Routes: `/api/submodules`, and `/api/asu` for clients of the old asu module. Machine tokens only. `PUT` and `DELETE /<name>/subscription` need `submodules:manage` and no module switch. Listing and live queries need `knowledge:read`; the older `POST /<name>/sync` needs `knowledge:write` and subscribes. Officers use `/api/dashboard/<org>/submodules` and `/api/dashboard/<org>/submodules/<name>/subscription`; the superadmin uses `GET /api/superadmin/submodules`.
 - Jobs: `submodules.index_result`, started after a live query.
-- Tools: `submodules.list` (scope `submodules:read`); `submodules.subscribe` (confirm) and `submodules.unsubscribe` (confirm) (scope `submodules:manage`); `submodules.query` and `search` (scope `knowledge:read`). `knowledge.submodules` and `knowledge.sync_submodule` in the knowledge module do the same as `submodules.list` and `submodules.subscribe`. Tools marked confirm run only with `confirm=true`.
+- Tools: `modules.submodules` (scope `submodules:read`); `modules.subscribe` (confirm) and `modules.unsubscribe` (confirm) (scope `submodules:manage`); `knowledge.query` and `search` (scope `knowledge:read`). `knowledge.submodules` and `knowledge.sync_submodule` in the knowledge module do the same as `modules.submodules` and `modules.subscribe`. Tools marked confirm run only with `confirm=true`.
 - Limits: `submodules.subscriptions` (default 20). A submodule's shared pages count against no org.
 - Tables: `submodules`, `submodule_subscriptions`. A submodule's pages are rows in `knowledge_sources` and `knowledge_chunks` with `submodule_id` set and no `organization_id`. Migration `657f276f6993` keeps one org's copy of each submodule as its shared sources, subscribes each org that had a copy or a feed from its presets, and deletes the other copies.
 

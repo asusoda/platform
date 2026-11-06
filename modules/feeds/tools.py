@@ -40,7 +40,7 @@ def feeds_history(db, org, caller, key: str):
     "feeds.save",
     description=(
         "Create or change a feed. kind is github_jobs or hackathons. A new feed needs destination_id, the id of a "
-        "Discord destination from webhooks.list. webhook_url is the older way and is stored as a secret."
+        "Discord destination from access.webhooks. webhook_url is the older way and is stored as a secret."
     ),
     scope="feeds:manage",
     input_schema={

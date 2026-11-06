@@ -18,7 +18,7 @@ _LIST = "\n".join(
 
 
 @tool(
-    "submodules.query",
+    "knowledge.query",
     description="Ask a live source of shared content (a submodule) and get the text it returns with the URL to cite. "
     "Sources, as submodule/source:\n" + _LIST,
     scope="knowledge:read",
@@ -81,7 +81,7 @@ NAME = {
 
 
 @_tool(
-    "submodules.list",
+    "modules.submodules",
     description="All shared content (submodules, such as a campus or careers): its pages, live queries and feeds, the "
     "modules that read it, whether the org subscribes, and how many orgs do.",
     scope="submodules:read",
@@ -91,7 +91,7 @@ def submodules_list(db, org, caller):
 
 
 @_tool(
-    "submodules.subscribe",
+    "modules.subscribe",
     description="Subscribe the org to shared content (a submodule): knowledge search reads its pages and its feeds become presets.",
     scope="submodules:manage",
     confirm=True,
@@ -104,7 +104,7 @@ def submodules_subscribe(db, org, caller, name: str):
 
 
 @_tool(
-    "submodules.unsubscribe",
+    "modules.unsubscribe",
     description="End the org's subscription to shared content (a submodule). Feeds the org already made keep running.",
     scope="submodules:manage",
     confirm=True,

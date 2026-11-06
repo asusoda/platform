@@ -168,3 +168,15 @@ def test_data_model_lists_every_table():
 def test_claude_files_are_links():
     assert (ROOT / "CLAUDE.md").readlink() == Path("AGENTS.md"), "CLAUDE.md must be a link to AGENTS.md"
     assert (ROOT / ".claude").readlink() == Path(".agents"), ".claude must be a link to .agents"
+
+
+def test_each_module_with_tools_has_a_skill():
+    from core.tools import TOOLS
+    from modules import manifest
+    from modules.mcp import layers
+
+    manifest.load_tools()
+    for name, specs in layers.grouped(list(TOOLS.values()), "module").items():
+        path = layers.folder(name, specs) / layers.SKILL_FILE
+        assert path.is_file(), f"Add {path.relative_to(ROOT)}: modules.skill gives it to agents for the {name} tools"
+        assert path.read_text().startswith(f"---\nname: {name}\n"), f"{path.relative_to(ROOT)} starts with name: {name}"

@@ -279,7 +279,7 @@ def test_no_runpod_key(client, manager, deployer):
 
 def test_list_tool_and_delete(client, manager, fake):
     name = _register(client, manager)
-    tools = client.post("/api/tools/apps.list", json={}, headers=manager).get_json()["result"]["apps"]
+    tools = client.post("/api/tools/hosting.list", json={}, headers=manager).get_json()["result"]["apps"]
     assert name in [a["name"] for a in tools] and "manifest" not in tools[0]
     assert client.delete(f"/api/apps/{name}", headers=manager).get_json()["deleted"] is True
     assert client.get(f"/api/apps/{name}", headers=manager).status_code == 404
@@ -426,15 +426,15 @@ def test_private_repo_uses_the_github_secret_and_rollback_reuses_the_old_manifes
 
 def test_deploy_tool_previews_a_dry_run_until_confirmed(client, manager, deployer, fake, healthy):
     name = _register(client, manager)
-    pending = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1"}, headers=deployer).get_json()
+    pending = client.post("/api/tools/hosting.deploy", json={"name": name, "tag": "v1"}, headers=deployer).get_json()
     assert pending["result"]["confirm_required"] is True
     assert pending["result"]["preview"]["request"]["body"]["image"].endswith(":v1")
     assert fake.calls == []
 
-    done = client.post("/api/tools/apps.deploy", json={"name": name, "tag": "v1", "confirm": True}, headers=deployer)
+    done = client.post("/api/tools/hosting.deploy", json={"name": name, "tag": "v1", "confirm": True}, headers=deployer)
     assert done.status_code == 200, done.get_json()
     assert fake.calls[-1][0] == "POST"
-    app = client.post("/api/tools/apps.get", json={"name": name}, headers=manager).get_json()["result"]
+    app = client.post("/api/tools/hosting.get", json={"name": name}, headers=manager).get_json()["result"]
     assert app["deployments"][0]["tag"] == "v1"
 
 

@@ -13,13 +13,13 @@ Syncs an org's Notion events database to its Google Calendar, and serves the org
 | `sync.py` | Makes a Google Calendar match the Notion events |
 | `events.py`, `dates.py` | `CalendarEventDTO` and Notion property reads; `DateParser` |
 | `errors.py`, `tracing.py` | `APIErrorHandler` for Google and Notion errors; Sentry spans |
-| `models.py`, `tools.py`, `jobs.py` | The event link table; the `events.list` and `calendar.*` tools; the sync job |
+| `models.py`, `tools.py`, `jobs.py` | The event link table; the `calendar.events` and `calendar.*` tools; the sync job |
 
 ## Surface
 
 - Routes: `/api/calendar`, behind the `calendar` switch. `/<org_prefix>/events` is open. `/<org_prefix>/sync` and `/setup` need an officer of the org. `/sync-all` needs a platform token. `/debug/organizations` needs an officer of any org.
 - Jobs: `calendar.sync_all`, on the `CALENDAR_SYNC_CRON` schedule. No schedule if it is not set.
-- Tools: `events.list`, `calendar.settings` (scope `calendar:read`); `calendar.update_settings`, `calendar.sync`, `calendar.setup` (scope `calendar:manage`).
+- Tools: `calendar.events`, `calendar.settings` (scope `calendar:read`); `calendar.update_settings`, `calendar.sync`, `calendar.setup` (scope `calendar:manage`).
 - Tables: `calendar_event_links` (not used by the sync).
 
 See [docs/modules/calendar.md](../../docs/modules/calendar.md).

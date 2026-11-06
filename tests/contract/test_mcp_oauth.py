@@ -230,8 +230,13 @@ def test_full_flow(client, officer_headers, oauth_client):
     assert _rpc(oauth_client, tokens["access_token"], "initialize", INIT).status_code == 200
     listed = {t["name"]: t for t in _rpc(oauth_client, tokens["access_token"], "tools/list").json()["result"]["tools"]}
     assert "Needs the" not in listed["org.info"]["description"]
-    # An OAuth token also sees the tools it can ask for with step-up
-    assert "Needs the points:read scope" in listed["points.leaderboard"]["description"]
+    # An OAuth token also sees the tools it can ask for with step-up, under modules
+    assert "modules.tools" in listed
+    points = _rpc(
+        oauth_client, tokens["access_token"], "tools/call", {"name": "modules.tools", "arguments": {"name": "points"}}
+    )
+    board = next(t for t in points.json()["result"]["structuredContent"]["tools"] if t["name"] == "points.leaderboard")
+    assert "Needs the points:read scope" in board["description"]
 
     listed_tokens = client.get(f"/api/organizations/{soda_id}/tokens", headers=officer_headers).get_json()["tokens"]
     row = next(t for t in listed_tokens if t["kind"] == "oauth")
@@ -1094,10 +1099,16 @@ def test_step_up(oauth_client, client, officer_headers):
         oauth_client,
         access,
         "batch",
-        {"calls": [{"tool": "points.leaderboard"}, {"tool": "events.list"}, {"tool": "org.info"}]},
+        {"calls": [{"tool": "points.leaderboard"}, {"tool": "calendar.events"}, {"tool": "org.info"}]},
     )
     assert batch.status_code == 403
     assert 'scope="calendar:read points:read"' in batch.headers["www-authenticate"]
+    # A gateway call asks for the scope of the tool it runs, also inside a batch
+    gate = _call(oauth_client, access, "modules.call", {"tool": "points.leaderboard"})
+    assert gate.status_code == 403 and 'scope="points:read"' in gate.headers["www-authenticate"]
+    inner = {"tool": "modules.call", "arguments": {"tool": "calendar.events"}}
+    nested = _call(oauth_client, access, "batch", {"calls": [inner]})
+    assert nested.status_code == 403 and 'scope="calendar:read"' in nested.headers["www-authenticate"]
     # An unknown tool is not a step-up: it gets the usual answer
     unknown = _call(oauth_client, access, "nope.nothing")
     assert unknown.status_code == 200 and unknown.json()["result"]["isError"] is True

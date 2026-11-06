@@ -8,6 +8,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from modules.integrations import mcp_client, oauth, service
+from tests.contract.tool_names import every_tool
 
 BASE = "https://api.club.test"
 
@@ -103,7 +104,7 @@ def test_sign_in_saves_tokens_and_tools_pass_through(client, officer_headers, so
     assert listed["oauth"]["notion"]["connected"] is True
     body = {"name": "notes-agent", "kind": "agent", "scopes": ["notion:read"]}
     token = client.post(f"/api/organizations/{soda}/tokens", json=body, headers=officer_headers).get_json()["token"]
-    tools = client.get("/api/tools", headers={"Authorization": f"Bearer {token}"}).get_json()["tools"]
+    tools = every_tool(client, {"Authorization": f"Bearer {token}"})
     assert "notion.notion-search" in [t["name"] for t in tools]
     assert "notion.notion-create-pages" not in [t["name"] for t in tools]
     assert notion["mcp"][-1] == "Bearer access-1"

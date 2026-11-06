@@ -16,7 +16,7 @@ Sends the org's events, such as a failed job or a site that is down, to its dest
 
 - Routes: `/api/dashboard/<org>/webhooks`, `/webhooks/<id>` and `/webhooks/<id>/test`. Officers of the org only.
 - Jobs: none.
-- Tools: `webhooks.list`, `webhooks.save`, `webhooks.test`, `webhooks.delete` (confirm) (scope `webhooks:manage`). URLs are never returned. Tools marked confirm run only with `confirm=true`.
+- Tools: `access.webhooks`, `access.save_webhook`, `access.test_webhook`, `access.delete_webhook` (confirm) (scope `webhooks:manage`). URLs are never returned. Tools marked confirm run only with `confirm=true`.
 - Tables: none here. The destinations are in `webhooks` (`core/webhooks.py`).
 - Limits: `alerts.destinations` (default 20). See [docs/limits.md](../../docs/limits.md).
 - Migration `c6e8a0b2d4f6` made it from the `event_webhook` module. An org that had that switch off got its destinations turned off.

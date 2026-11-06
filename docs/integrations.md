@@ -89,7 +89,7 @@ An agent with `github:read` and `github:write` can find a failure and send the f
 
 ```mermaid
 flowchart LR
-  A[Agent] --> E["errors.list, apps.logs, github.actions_list, github.get_job_logs"]
+  A[Agent] --> E["activity.errors, hosting.logs, github.actions_list, github.get_job_logs"]
   A --> B["github.create_branch, github.push_files"]
   B --> P["github.create_pull_request"]
   P --> CI[GitHub Actions run the tests]
@@ -98,7 +98,7 @@ flowchart LR
 
 Platform checks each GitHub write before it passes it on:
 
-- **Linked repos.** When the org lists repos on the CI tab of Activity (`ci.set_repos`), a write runs only on those repos. A write that names no repo is refused. Reads are not limited.
+- **Linked repos.** When the org lists repos on the CI tab of Activity (`activity.set_ci_repos`), a write runs only on those repos. A write that names no repo is refused. Reads are not limited.
 - **No push to the default branch.** `push_files`, `create_or_update_file` and `delete_file` need a `branch` that is not the repo's default branch.
 - **Merge on green.** `merge_pull_request` runs only when the pull request is open and every check on its head commit passed. A pending check also refuses it.
 

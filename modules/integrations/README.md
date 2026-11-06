@@ -20,7 +20,7 @@ Gives agents the tools of the services an org connects on the Integrations tab o
 
 - Routes: none here. The sign-in routes are in the dashboard module. The tools are served by the mcp module at `/mcp` and `/api/tools`.
 - Jobs: none.
-- Tools: `github.*`, `runpod.*`, and with a sign-in `notion.*`, `gmail.*`, `drive.*` and `calendar.*`, the tools that those MCP servers list. The read scope gives the read-only tools; the write scope gives the others, which run only with `confirm=true`. GitHub writes also pass `github_guard.py`. Org secret values in results are replaced by `[secret]`. `google.*`, `notion.*` and `web.search`, shown only when the org connected the service. Tools that change something run only with `confirm=true`.
+- Tools: `github.*`, `runpod.*`, and with a sign-in `notion.*`, `gmail.*`, `drive.*` and `calendar.*`, the tools that those MCP servers list. The read scope gives the read-only tools; the write scope gives the others, which run only with `confirm=true`. GitHub writes also pass `github_guard.py`. Org secret values in results are replaced by `[secret]`. `google.*`, `notion.*` and `knowledge.web_search`, shown only when the org connected the service. Tools that change something run only with `confirm=true`.
 - Tables: none. Token limits are the `limits` column of `machine_tokens`.
 
 See [docs/integrations.md](../../docs/integrations.md#tools-for-agents).

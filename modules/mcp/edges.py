@@ -91,18 +91,26 @@ class OriginCheck:
 
 
 def _tool_names(message: object) -> list[str]:
-    """The tools that a JSON-RPC tools/call runs: its name, or each call of a batch."""
+    """The tools that a JSON-RPC tools/call runs: its name, the tool of a gateway call, or each call of a batch."""
     request = cast(dict, message) if isinstance(message, dict) else {}
     params = request.get("params") if request.get("method") == "tools/call" else None
     name = cast(dict, params).get("name") if isinstance(params, dict) else None
     if not isinstance(name, str):
         return []
+    return _runs(name, cast(dict, params).get("arguments"))
+
+
+def _runs(name: str, arguments: object) -> list[str]:
+    """The tools that one call runs. A batch holds no batch, so this goes two levels deep at most."""
+    args = cast(dict, arguments) if isinstance(arguments, dict) else {}
+    if name in runtime.CALL_GATEWAYS:
+        tool = args.get("tool")
+        return [tool] if isinstance(tool, str) else []
     if name != runtime.BATCH:
         return [name]
-    arguments = cast(dict, params).get("arguments")
-    calls = cast(dict, arguments).get("calls") if isinstance(arguments, dict) else None
+    calls = args.get("calls")
     items = [cast(dict, c) for c in calls if isinstance(c, dict)] if isinstance(calls, list) else []
-    return [str(c["tool"]) for c in items if isinstance(c.get("tool"), str)]
+    return [t for c in items if isinstance(c.get("tool"), str) for t in _runs(str(c["tool"]), c.get("arguments"))]
 
 
 def _missing_scopes(token: str, names: list[str]) -> tuple[list[str], str | None]:

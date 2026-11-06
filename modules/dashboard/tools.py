@@ -35,13 +35,13 @@ def org_trends(db, org, caller, days: int = trends.DEFAULT_DAYS):
     return trends.trends(db, org, days)
 
 
-@tool("notifications.list", description="Open and resolved problems the dashboard shows.", scope="activity:read")
+@tool("activity.notifications", description="Open and resolved problems the dashboard shows.", scope="activity:read")
 def notifications_list(db, org, caller):
     return notices.listing(db, org)
 
 
 @tool(
-    "notifications.resolve",
+    "activity.resolve_notification",
     description="Mark notifications resolved by id. One shows again when its error message changes.",
     scope="settings:write",
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
@@ -51,7 +51,7 @@ def notifications_resolve(db, org, caller, ids: list[str]):
 
 
 @tool(
-    "notifications.reopen",
+    "activity.reopen_notification",
     description="Open resolved notifications again by id.",
     scope="settings:write",
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
@@ -61,7 +61,7 @@ def notifications_reopen(db, org, caller, ids: list[str]):
 
 
 @tool(
-    "notifications.delete",
+    "activity.delete_notification",
     description="Delete events from the notification list by id. A problem cannot be deleted; resolve it instead.",
     scope="settings:write",
     confirm=True,
@@ -72,7 +72,7 @@ def notifications_delete(db, org, caller, ids: list[str]):
 
 
 @tool(
-    "errors.list",
+    "activity.errors",
     description="Errors recorded by Platform for the org, newest first: type, message, where, count and stack.",
     scope="activity:read",
     input_schema={
@@ -89,7 +89,7 @@ def errors_list(db, org, caller, status: str = "open", limit: int = 50):
 
 
 @tool(
-    "errors.resolve",
+    "activity.resolve_error",
     description="Mark errors resolved by id. An error shows again when it happens again.",
     scope="settings:write",
     input_schema={
@@ -104,7 +104,7 @@ def errors_resolve(db, org, caller, ids: list[int]):
 
 
 @tool(
-    "errors.reopen",
+    "activity.reopen_error",
     description="Open resolved errors again by id.",
     scope="settings:write",
     input_schema={
@@ -119,7 +119,7 @@ def errors_reopen(db, org, caller, ids: list[int]):
 
 
 @tool(
-    "errors.delete",
+    "activity.delete_error",
     description="Delete errors by id. An error that happens again after a delete starts a new entry.",
     scope="settings:write",
     confirm=True,
@@ -152,7 +152,7 @@ def activity_log(db, org, caller, limit: int = 50, before_id: int | None = None)
 
 
 @tool(
-    "integrations.list",
+    "connections.list",
     description="Each integration, its fields, and whether the org set them. Secret values are never returned.",
     scope="integrations:manage",
 )
@@ -161,7 +161,7 @@ def integrations_list(db, org, caller):
 
 
 @tool(
-    "integrations.save",
+    "connections.save",
     description="Set or clear an integration's fields. A null value clears that field; a missing field is kept.",
     scope="integrations:manage",
     confirm=True,
@@ -181,7 +181,7 @@ def integrations_save(db, org, caller, key: str, fields: dict):
 
 
 @tool(
-    "integrations.test",
+    "connections.test",
     description="Check an integration's keys with one call to its service.",
     scope="integrations:manage",
     input_schema={"type": "object", "properties": {"key": KEY}, "required": ["key"], "additionalProperties": False},
@@ -194,7 +194,7 @@ def integrations_test(db, org, caller, key: str):
 
 
 @tool(
-    "integrations.disconnect",
+    "connections.disconnect",
     description="Sign out of an integration that an officer connected with a sign-in, such as Notion or Google.",
     scope="integrations:manage",
     confirm=True,
@@ -206,7 +206,7 @@ def integrations_disconnect(db, org, caller, key: str):
 
 
 @tool(
-    "ci.runs",
+    "activity.ci_runs",
     description="The latest GitHub Actions runs of each repository on the org's CI list.",
     scope="activity:read",
 )
@@ -215,7 +215,7 @@ def ci_runs(db, org, caller):
 
 
 @tool(
-    "ci.set_repos",
+    "activity.set_ci_repos",
     description="Replace the org's CI repository list with owner/name repositories.",
     scope="settings:write",
     input_schema={

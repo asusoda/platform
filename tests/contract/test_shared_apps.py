@@ -219,11 +219,11 @@ def test_an_agent_lists_and_subscribes_with_tools(client, superadmin, runner, va
 
     _deploy(client, superadmin, vault)
     reader, manager = _issue("submodules:read"), _issue("submodules:manage")
-    listed = _call(client, reader, "shared_apps.list").get_json()["result"]["apps"]
+    listed = _call(client, reader, "hosting.shared").get_json()["result"]["apps"]
     assert [a["name"] for a in listed] == ["vault"]
-    unconfirmed = _call(client, manager, "shared_apps.subscribe", name="vault", emails=["ada@example.org"])
+    unconfirmed = _call(client, manager, "hosting.subscribe_shared", name="vault", emails=["ada@example.org"])
     assert unconfirmed.get_json()["result"].get("confirm_required") and vault.invited == []
-    done = _call(client, manager, "shared_apps.subscribe", name="vault", emails=["ada@example.org"], confirm=True)
+    done = _call(client, manager, "hosting.subscribe_shared", name="vault", emails=["ada@example.org"], confirm=True)
     assert done.get_json()["result"]["results"] == {"ada@example.org": "invited"}
 
 

@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from modules.integrations import google, notion, web
+from tests.contract.tool_names import every_name
 
 NOTION_KEY = "ntn_test_value"
 
@@ -83,8 +84,7 @@ def _token(client, officer_headers, org_id, scopes):
 
 
 def _names(client, headers, prefix):
-    tools = client.get("/api/tools", headers=headers).get_json()["tools"]
-    return [t["name"] for t in tools if t["name"].startswith(prefix)]
+    return [name for name in every_name(client, headers) if name.startswith(prefix)]
 
 
 SCOPES = ["google:read", "google:write", "gmail:read", "gmail:send", "notion:read", "notion:write"]
@@ -208,9 +208,9 @@ def test_notion_calls(client, officer_headers, connected, monkeypatch):
 def test_web_search_needs_searxng(client, officer_headers, orgs, monkeypatch):
     monkeypatch.delenv("SEARXNG_URL", raising=False)
     headers = _token(client, officer_headers, orgs["soda"], ["web:read"])
-    assert _names(client, headers, "web.") == []
+    assert _names(client, headers, "knowledge.web") == []
     monkeypatch.setenv("SEARXNG_URL", "http://searxng.local")
     monkeypatch.setattr(web.web, "answer", lambda params: ("https://google.com", f"Web results for {params['query']}"))
-    assert _names(client, headers, "web.") == ["web.search"]
-    found = client.post("/api/tools/web.search", json={"query": "hackathons"}, headers=headers).get_json()
+    assert _names(client, headers, "knowledge.web") == ["knowledge.web_search"]
+    found = client.post("/api/tools/knowledge.web_search", json={"query": "hackathons"}, headers=headers).get_json()
     assert found["result"]["text"] == "Web results for hackathons"

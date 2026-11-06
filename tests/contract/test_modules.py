@@ -2,6 +2,8 @@
 
 import pytest
 
+from tests.contract.tool_names import every_name
+
 
 def _soda_id(client, officer_headers):
     orgs = client.get("/api/organizations/", headers=officer_headers).get_json()
@@ -134,7 +136,7 @@ def test_agent_modules_off_close_their_routes_and_tools(client, officer_headers,
     headers = {"Authorization": f"Bearer {issued.get_json()['token']}"}
 
     def tools():
-        return [t["name"] for t in client.get("/api/tools", headers=headers).get_json()["tools"]]
+        return every_name(client, headers)
 
     assert client.get("/api/knowledge/sources", headers=headers).status_code == 200
     assert "knowledge.search" in tools()

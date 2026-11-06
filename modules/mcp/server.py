@@ -57,23 +57,14 @@ def _list(token: str | None) -> list[types.Tool]:
         return [
             types.Tool(
                 name=spec.name,
-                description=_description(spec, caller),
+                description=runtime.described(spec, caller),
                 input_schema=spec.input_schema,
                 annotations=types.ToolAnnotations(read_only_hint=spec.read_only, destructive_hint=spec.confirm),
             )
-            for spec in runtime.available(db, caller, step_up=step_up)
+            for spec in runtime.listed(db, caller, step_up=step_up)
         ]
     finally:
         db.close()
-
-
-def _description(spec, caller) -> str:
-    if not spec.scope or caller.allows(spec.scope):
-        return spec.description
-    return (
-        f"{spec.description} Needs the {spec.scope} scope, which this connection does not have: "
-        "a call asks an officer to approve it."
-    )
 
 
 def _call(token: str | None, name: str, arguments: dict | None) -> types.CallToolResult:
