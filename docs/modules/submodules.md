@@ -1,6 +1,6 @@
 # Shared content (submodules)
 
-Shared content is content made once for every org, such as one campus or careers, that an org subscribes to. The dashboard calls it shared content; the code calls each one a submodule. Each module that reads the submodule gets its part: public pages for [knowledge](./knowledge.md), live queries for agents, feeds for [Feeds](./feeds.md), and the school's Canvas URL for [accounts](./accounts.md). Submodules are folders in [`submodules/`](../../submodules/README.md) of the repo. A submodule holds content and settings, not new behavior. Features are [modules](../writing-a-module.md).
+Shared content is content made once for every org, such as one campus or careers, that an org subscribes to. The dashboard calls it shared content; the code calls each one a submodule. Each module that reads the submodule gets its part: public pages for [knowledge](./knowledge.md), live queries for agents, and feeds for [Feeds](./feeds.md). Submodules are folders in [`submodules/`](../../submodules/README.md) of the repo. A submodule holds content and settings, not new behavior. Features are [modules](../writing-a-module.md).
 
 The deployment crawls and embeds a submodule's pages once, for every org that subscribes. The pages are the submodule's own sources: they have no org, and they count against no org's limits.
 
@@ -14,12 +14,11 @@ flowchart LR
   query --> index["submodules.index_result"]
   index --> own["A source of the org"]
   catalog -->|feeds| feeds["Feed presets of each subscribed org"]
-  catalog -->|canvas_url| accounts["accounts"]
 ```
 
 | Submodule | Content |
 | --- | --- |
-| [asu](../../submodules/asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU Canvas URL; the ASU sign-in for Sun Devil Central ([Sign in to ASU](../integrations.md#sign-in-to-asu)) |
+| [asu](../../submodules/asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU sign-in for Sun Devil Central ([Sign in to ASU](../integrations.md#sign-in-to-asu)) |
 | [careers](../../submodules/careers/__init__.py) | Feeds for software internships, new grad roles and hackathons (`feeds`) |
 
 ## Subscribe an org

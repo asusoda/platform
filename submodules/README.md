@@ -1,10 +1,10 @@
 # Submodules
 
-A submodule is content for one campus or topic that a module reads and any org can use: public pages crawled into knowledge, live queries that agents run, feeds for the Feeds module, and the school's Canvas URL. The dashboard calls submodules shared content. A submodule holds content and settings, not new behavior. It adds no tables, routes or dashboard pages. Use a [module](../docs/writing-a-module.md) for a feature.
+A submodule is content for one campus or topic that a module reads and any org can use: public pages crawled into knowledge, live queries that agents run, and feeds for the Feeds module. The dashboard calls submodules shared content. A submodule holds content and settings, not new behavior. It adds no tables, routes or dashboard pages. Use a [module](../docs/writing-a-module.md) for a feature.
 
 | Submodule | Content |
 | --- | --- |
-| [asu](asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU Canvas URL; the ASU sign-in for Sun Devil Central |
+| [asu](asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports; the ASU sign-in for Sun Devil Central |
 | [careers](careers/__init__.py) | Feeds for software internships, new grad roles and hackathons (`feeds`) |
 
 ## Write a submodule
@@ -35,7 +35,6 @@ A submodule is content for one campus or topic that a module reads and any org c
 
 3. Optional parts of a `Submodule`:
    - `feeds`: feeds that officers pick under **New feed** > **Start from** on the Job alerts and Hackathons pages of the Feeds module. Each `Feed` has a key (lowercase letters, digits and dashes), a title, a description, and the `kind` and `config` that the [feeds module](../docs/modules/feeds.md) takes. The `kind` is `github_jobs` or `hackathons`.
-   - `canvas_url`: the school's Canvas, like `https://canvas.example.edu`. Member sign-in to Canvas uses it when `ACCOUNTS_CANVAS_URL` is not set and only one submodule sets it.
    - `timezone`: the IANA zone a `search` query that names no date is read in. The default is `UTC`.
 4. The `search` tool fills a query's parameters from one plain query: the first text parameter takes the words, a parameter with `choices` takes the choices the words name, and a `QueryParam` with `date=True` takes a YYYY-MM-DD in the words, else today when it is required. A query sets `query_param` to fill another text parameter, `narrow` to cut the words its site cannot match, and `derive` for values the words imply, like the term of a class search. See `asu/params.py`.
 5. Optional: give a `Source` or `QuerySource` an `extractor` that turns the fetched page into one line for each record. Helpers are in `modules/submodules/text.py`. A query that calls an API sets `answer` instead of `to_url`. Add `modules.submodules.web.QUERY` to `queries` for web search.

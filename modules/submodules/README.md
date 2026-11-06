@@ -4,8 +4,7 @@ Loads the submodules in the `submodules/` folder and keeps each org's subscripti
 
 - knowledge searches its pages, which are the submodule's own sources: crawled and embedded once by the deployment, with no org;
 - [feeds](../feeds/README.md) offers its feeds as presets;
-- agents run its live queries (`submodules.query`, or `search`, which reads stored pages first), whose results become sources of the org;
-- the accounts module reads `canvas_url`.
+- agents run its live queries (`submodules.query`, or `search`, which reads stored pages first), whose results become sources of the org.
 
 See [submodules/README.md](../../submodules/README.md) to write one.
 

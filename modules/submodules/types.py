@@ -91,8 +91,6 @@ class Submodule:
     sources: tuple[Source, ...] = ()
     queries: tuple[QuerySource, ...] = ()
     feeds: tuple[Feed, ...] = ()
-    # The school's Canvas, for member sign-in through the accounts module
-    canvas_url: str | None = None
     # IANA time zone a query that names no date is read in
     timezone: str = "UTC"
 
