@@ -1,8 +1,10 @@
 """The checks every live query passes, and how one is run. No Flask here."""
 
+from collections.abc import Callable
+
 from modules.submodules import http
 from modules.submodules.text import page_text
-from modules.submodules.types import QueryError, QuerySource
+from modules.submodules.types import Fetched, QueryError, QuerySource
 
 
 def check(source: QuerySource, params: dict[str, str]) -> None:
@@ -35,12 +37,18 @@ def url_for(source: QuerySource, params: dict[str, str]) -> str:
     return source.to_url(params)
 
 
-def run(source: QuerySource, params: dict[str, str]) -> tuple[str, str]:
-    """Checks the parameters and fetches the source. Returns the URL to cite and the text."""
+def run(source: QuerySource, params: dict[str, str], read: Callable[[str], Fetched] | None = None) -> tuple[str, str]:
+    """Checks the parameters and fetches the source, with read for a source behind a sign-in. Returns the URL to cite
+    and the text."""
     if source.answer is not None:
         check(source, params)
         return source.answer(params)
     url = url_for(source, params)
-    fetched = http.fetch(url, needs_js=source.needs_js)
+    if source.signin is not None:
+        if read is None:
+            raise QueryError(f"{source.key} needs the org's {source.signin} sign-in")
+        fetched = read(url)
+    else:
+        fetched = http.fetch(url, needs_js=source.needs_js)
     text = source.extractor(fetched) if source.extractor else page_text(fetched)
     return url, text

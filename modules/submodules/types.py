@@ -39,7 +39,9 @@ class QuerySource:
     """A source queried live with parameters. Exactly one of to_url and answer is set.
 
     search fills the parameters from one query: query_param names the text parameter the query fills (else the first
-    one), narrow cuts the words the source cannot match, and derive gives values the query implies.
+    one), narrow cuts the words the source cannot match, and derive gives values the query implies. signin names a
+    sign-in of modules/submodules/signins.py: the page loads with the org's saved session, and the query runs only for
+    an org that saved one.
     """
 
     key: str
@@ -55,6 +57,7 @@ class QuerySource:
     query_param: str | None = None
     narrow: Callable[[str], str] | None = None
     derive: Callable[[str, datetime.date], dict[str, str]] | None = None
+    signin: str | None = None
 
     def __post_init__(self) -> None:
         if (self.to_url is None) == (self.answer is None):
