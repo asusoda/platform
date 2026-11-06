@@ -218,6 +218,7 @@ source_modules = [
     "modules.submodules.types",
     "modules.submodules.web",
     "modules.points.csv_import",
+    "modules.runpod.app_mcp",
     "modules.runpod.shared",
     "modules.runpod.templates",
     "modules.uptime.probe",

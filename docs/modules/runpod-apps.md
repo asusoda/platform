@@ -57,6 +57,18 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 - `env`, `disk`, `ports`, `args` and `registry` go with each deploy.
 - `secret_env` maps a pod env var to an org secret. The deploy reads the values. The API never returns them, and a dry run shows `(secret)`. RunPod shows pod env in its console, so a person with access to the org's RunPod account can read them.
 - Platform checks `health` at `https://<pod>-<port>.proxy.runpod.net<path>`. The port must be in `ports` as `/http`.
+- `mcp` names the app's own MCP server: `{"port": 6006, "path": "/mcp"}` on its pod, or `{"url": "https://..."}`. `token_secret` names the org secret sent as the bearer token. Then an agent that is connected to Platform reaches the app through two tools: `apps.mcp_tools` lists the app's tools and `apps.mcp_call` calls one. Platform reaches only public https addresses.
+
+### An app that already runs
+
+`PUT /<name>` with `"pod_id"` adopts a RunPod pod that already runs the app. The org's RunPod key must find the pod. The next deploy changes that pod's image instead of creating a new pod.
+
+```mermaid
+flowchart LR
+  A[agent] -->|one MCP connection| P[Platform MCP]
+  P -->|apps.mcp_tools / apps.mcp_call| S[app MCP: Phoenix, Sparky, ...]
+  P --> T[Platform tools]
+```
 
 ### This server fields
 
@@ -117,7 +129,7 @@ All routes are under `/api/apps`. They need a machine token, and the org is the 
 | `GET /templates` | `apps:read` | App templates from `apps/`, with their inputs and manifests |
 | `POST /templates/<template>` | `apps:manage` | `{"name": "vault", "values": {...}, "secrets": {...}, "provider": "runpod"}`. Saves the secrets, then registers the app inline. 201. 409 if the app exists. A secret the org already saved can be left out |
 | `GET /<name>` | `apps:read` | One app and its manifest |
-| `PUT /<name>` | `apps:manage` | Creates or replaces the manifest. The name `templates` is not available |
+| `PUT /<name>` | `apps:manage` | Creates or replaces the manifest. `pod_id` adopts a pod that already runs the app. The name `templates` is not available |
 | `DELETE /<name>` | `apps:manage` | Removes the app record. The pod continues to run |
 | `GET /<name>/deployments` | `apps:read` | The latest 20 deployments |
 | `GET /<name>/pod` | `apps:read` | The pod as its provider shows it |
