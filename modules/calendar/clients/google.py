@@ -15,6 +15,9 @@ from ..tracing import operation_span
 
 logger = get_logger(__name__)
 
+# googleapiclient retries connection errors and 5xx/429 with exponential backoff.
+EXECUTE_RETRIES = 3
+
 
 def batch_operation(
     service: Any,
@@ -64,7 +67,7 @@ def batch_operation(
 
         try:
             logger.info(f"Executing batch {description} for chunk {i // batch_size + 1} ({len(chunk)} items).")
-            batch.execute()
+            batch.execute(num_retries=EXECUTE_RETRIES)
             logger.info(f"Batch chunk {i // batch_size + 1} executed for {description}.")
         except Exception as e:
             capture_exception(e)
@@ -179,7 +182,11 @@ class GoogleCalendarClient:
                     self.logger.debug(
                         f"Attempting to create Google Calendar event for Notion ID {notion_page_id} with data: {event_data}"
                     )
-                    created_event = service.events().insert(calendarId=calendar_id, body=event_data).execute()
+                    created_event = (
+                        service.events()
+                        .insert(calendarId=calendar_id, body=event_data)
+                        .execute(num_retries=EXECUTE_RETRIES)
+                    )
 
                     gcal_event_id = created_event["id"]
                     jump_url = created_event.get("htmlLink")
@@ -244,7 +251,9 @@ class GoogleCalendarClient:
                         f"Attempting to update Google Calendar event {event_id} for Notion ID {notion_page_id} with data: {event_data}"
                     )
                     updated_event = (
-                        service.events().update(calendarId=calendar_id, eventId=event_id, body=event_data).execute()
+                        service.events()
+                        .update(calendarId=calendar_id, eventId=event_id, body=event_data)
+                        .execute(num_retries=EXECUTE_RETRIES)
                     )
 
                     jump_url = updated_event.get("htmlLink")
@@ -312,7 +321,7 @@ class GoogleCalendarClient:
                                 timeMin=time_min,
                                 maxResults=250,
                             )
-                            .execute()
+                            .execute(num_retries=EXECUTE_RETRIES)
                         )
 
                         items = events_result.get("items", [])
@@ -405,7 +414,9 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendars.insert", logger=self.logger
                 ) as span:
-                    created_calendar = service.calendars().insert(body=calendar_body).execute()
+                    created_calendar = (
+                        service.calendars().insert(body=calendar_body).execute(num_retries=EXECUTE_RETRIES)
+                    )
 
                     calendar_id = created_calendar["id"]
                     span.set_data(
@@ -445,7 +456,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendars.get", logger=self.logger
                 ) as span:
-                    calendar = service.calendars().get(calendarId=calendar_id).execute()
+                    calendar = service.calendars().get(calendarId=calendar_id).execute(num_retries=EXECUTE_RETRIES)
                     span.set_data("calendar_id", calendar_id)
                     return calendar
 
@@ -474,7 +485,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendarList.list", logger=self.logger
                 ) as span:
-                    calendar_list = service.calendarList().list().execute()
+                    calendar_list = service.calendarList().list().execute(num_retries=EXECUTE_RETRIES)
                     calendars = calendar_list.get("items", [])
                     span.set_data("calendar_count", len(calendars))
                     return calendars
@@ -504,7 +515,7 @@ class GoogleCalendarClient:
                 with operation_span(
                     transaction, op="api_call", description="calendars.delete", logger=self.logger
                 ) as span:
-                    service.calendars().delete(calendarId=calendar_id).execute()
+                    service.calendars().delete(calendarId=calendar_id).execute(num_retries=EXECUTE_RETRIES)
                     span.set_data("calendar_id", calendar_id)
                     self.logger.warning(f"Successfully deleted calendar: {calendar_id}")
                     return True
