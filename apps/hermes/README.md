@@ -26,7 +26,7 @@ flowchart LR
 | Model API key | `OPENAI_API_KEY`, as an org secret |
 | Model API base URL | `OPENAI_BASE_URL`, any OpenAI compatible API, such as `https://openrouter.ai/api/v1` |
 | Model name | `HERMES_INFERENCE_MODEL`. Hermes needs a model with 64K context or more and tool calls |
-| Platform token | `MCP_PLATFORM_API_KEY`, as an org secret. Make it on the Connections page, For services, kind agent |
+| Platform token | `MCP_PLATFORM_API_KEY`, as an org secret. Make it on the Connections page, For services, kind agent. Add `discord:read` so it can read the server |
 | Platform MCP URL | `PLATFORM_MCP_URL`, such as `https://<host>/mcp` |
 | Hermes API key | `API_SERVER_KEY`, as an org secret. Make one with `openssl rand -hex 32` |
 | Network volume ID | The volume at `/opt/data` |

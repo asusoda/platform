@@ -17,7 +17,7 @@ Platform runs student orgs. Its MCP server is one gateway to everything an org h
 ```mermaid
 flowchart LR
   A[agent] --> L[tool list]
-  L --> B[base: org, activity, members, access, connections, hosting, modules, server]
+  L --> B[base: org, activity, members, discord, access, connections, hosting, modules, server]
   L --> S[services: github, notion, google, runpod]
   L --> T[search, batch, guide]
   L --> G[modules gateway]
@@ -47,6 +47,7 @@ flowchart LR
 | Deploy, roll back or check an app | `platform-hosting` |
 | Tokens, secrets, webhooks, connected services | `platform-access` |
 | Members, Discord roles, org settings, modules on or off | `platform-members` |
+| What people said on the Discord server, find a channel or message | `platform-discord` |
 | The server itself | `platform-server` |
 | Points, store, calendar, knowledge, Godfather, uptime, feeds | `modules.skill` with the module name |
 

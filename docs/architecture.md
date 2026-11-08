@@ -165,7 +165,7 @@ The tool list is the same shape in every org. It holds the base tools, `search`,
 ```mermaid
 flowchart TD
   A[agent] --> L[tool list]
-  L --> B["base: org, activity, members, access, connections, hosting, modules, server"]
+  L --> B["base: org, activity, members, discord, access, connections, hosting, modules, server"]
   L --> S[search, batch, guide]
   L --> C["service tools, once connected: github, runpod, notion, google, gmail, drive"]
   L --> M["modules.list / skill / tools / call"]
@@ -196,6 +196,7 @@ flowchart TD
 | `calendar.update_settings`, `calendar.sync`, `calendar.setup` | `calendar:manage` | calendar |
 | `points.leaderboard` | `points:read` | points |
 | `points.entries`, `points.history`, `members.list`, `members.discord_roles` | `members:read` | points, users |
+| `discord.server`, `discord.channels`, `discord.messages`, `discord.search`, `discord.pins`, `discord.members`: read the org's Discord server with the bot token, only channels of that server | `discord:read` | bot |
 | `points.award`, `points.import_csv`, `points.delete` (confirm) | `points:write` | points |
 | `members.add`, `members.update`, `members.discord_sync` (confirm) | `members:write` | users |
 | `store.products`, `store.orders` | `store:read` | storefront |

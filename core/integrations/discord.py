@@ -1,7 +1,7 @@
 """Discord over the REST API with the bot token, without the gateway bot.
 
-DiscordDirectory reads guilds, roles and members, cached for a short time. send_message and
-add_reaction post to channels.
+DiscordDirectory reads guilds, roles, members, channels and messages, cached for a short time.
+send_message and add_reaction post to channels.
 """
 
 import os
@@ -156,6 +156,34 @@ class DiscordDirectory:
                 break
             after = members[-1]["id"]
         return members[:max_members]
+
+    # Channels and messages
+
+    def get_channels(self, guild_id) -> list[dict]:
+        """The guild's channels and categories, as Discord returns them."""
+        return self._get(f"/guilds/{int(guild_id)}/channels", ttl=60) or []
+
+    def active_threads(self, guild_id) -> list[dict]:
+        """The guild's active threads that the bot can see."""
+        body = self._get(f"/guilds/{int(guild_id)}/threads/active", ttl=60) or {}
+        return body.get("threads") or []
+
+    def get_channel(self, channel_id) -> dict | None:
+        """A channel or thread, or None when it is gone or the bot cannot see it."""
+        return self._get(f"/channels/{int(channel_id)}", ttl=60)
+
+    def messages(self, channel_id, limit: int = 50, before: str | None = None, after: str | None = None) -> list[dict]:
+        """Up to 100 messages of a channel, newest first, before or after a message id."""
+        query: dict[str, object] = {"limit": max(1, min(int(limit), 100))}
+        if before:
+            query["before"] = int(before)
+        if after:
+            query["after"] = int(after)
+        return self._get(f"/channels/{int(channel_id)}/messages?{urlencode(query)}", ttl=15) or []
+
+    def pins(self, channel_id) -> list[dict]:
+        """The pinned messages of a channel."""
+        return self._get(f"/channels/{int(channel_id)}/pins", ttl=60) or []
 
     def check_user_membership(self, user_id, guild_id) -> bool:
         return self.get_member(guild_id, user_id) is not None
