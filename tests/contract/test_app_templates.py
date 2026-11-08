@@ -122,7 +122,8 @@ def test_a_template_can_take_the_image_as_an_input(client, reader, own_image):
 def test_no_template_uses_docker_hub():
     for template in templates.list_templates():
         image = template["manifest"].get("image")
-        assert image is None or image.startswith("ghcr.io/"), template["name"]
+        # GHCR, or the Google mirror of Docker Hub for an image only on Docker Hub
+        assert image is None or image.startswith(("ghcr.io/", "mirror.gcr.io/")), template["name"]
 
 
 def test_create_from_template_saves_secrets_and_registers_inline(client, manager, secrets_key, cleanup):
@@ -222,3 +223,14 @@ def test_a_bad_template_file_fails_on_load(tmp_path: Path):
     (folder / templates.FILE).write_text("template: {title: X, summary: Y, inputs: []}\ncpu: {id: c, vcpuCount: 2}\n")
     with pytest.raises(ValueError, match="broken"):
         templates._load.__wrapped__(tmp_path)
+
+
+def test_hermes_template_runs_the_gateway_with_its_data_on_a_volume(client, reader):
+    listed = {t["name"]: t for t in client.get("/api/apps/templates", headers=reader).get_json()["templates"]}
+    hermes = listed["hermes"]
+    manifest = hermes["manifest"]
+    assert manifest["image"] == "mirror.gcr.io/nousresearch/hermes-agent" and manifest["args"] == "gateway run"
+    assert manifest["mounts"]["network"] == [{"path": "/opt/data"}]
+    assert manifest["health"] == {"port": 8642, "path": "/health"}
+    secrets = {i["key"] for i in hermes["inputs"] if i["kind"] == "secret"}
+    assert secrets == {"DISCORD_BOT_TOKEN", "OPENAI_API_KEY", "MCP_PLATFORM_API_KEY", "API_SERVER_KEY"}

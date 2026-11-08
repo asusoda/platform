@@ -160,19 +160,20 @@ Both need a machine token: `Authorization: Bearer plat_...`. An MCP client can a
 
 ### Layers
 
-The tool list is the same shape in every org. It holds the base tools, `search`, `batch`, the tools of each service the org connected, and the modules gateway. Module tools sit behind the gateway, so a new module adds no names to the list.
+The tool list is the same shape in every org. It holds the base tools, `search`, `batch`, `guide`, the tools of each service the org connected, and the modules gateway. Module tools sit behind the gateway, so a new module adds no names to the list.
 
 ```mermaid
 flowchart TD
   A[agent] --> L[tool list]
   L --> B["base: org, activity, members, access, connections, hosting, modules, server"]
-  L --> S[search, batch]
+  L --> S[search, batch, guide]
   L --> C["service tools, once connected: github, runpod, notion, google, gmail, drive"]
   L --> M["modules.list / skill / tools / call"]
   M --> MT["module tools: calendar, points, knowledge, feeds, godfather, uptime, store, leetcode"]
 ```
 
 - `modules.list` gives the modules the token can use, with how many tools each has and whether it has a skill. `modules.skill` gives the module's `SKILL.md`: what it is for and which tool to call when. `modules.tools` gives its tools with their arguments, and `modules.call` runs one.
+- `guide` gives the skills in [skills/](../skills/README.md): how to use Platform MCP for a task, such as triage, a deploy or a search. With no name it lists them. The MCP server's instructions tell a client to call it first.
 - A service's tools are in the list under the service's name, such as `github.create_pull_request`, once the org connects it. Not connected means not listed.
 - The gateway needs no scope of its own. It lists and runs only the tools the token can use, and each call it runs has its own scope check, confirm step and audit entry. `modules.call` runs only module tools; it refuses a tool from the list.
 - Every tool also runs by its own name, over MCP, `/api/tools/<name>` and `batch`. `GET /api/tools` gives the same list as MCP.
@@ -182,6 +183,7 @@ flowchart TD
 | --- | --- | --- |
 | `batch`: 1 to 25 calls of other tools, each checked as a single call | the scope of each call | mcp |
 | `modules.list`, `modules.skill`, `modules.tools`, `modules.call` | none; the scope of each tool they list or run | mcp |
+| `guide`: the skills in `skills/` | none | mcp |
 | `org.info`, `org.branding`, `org.settings`, `org.limits`, `leetcode.settings` | `org:read` | organizations, leetcode |
 | `modules.set` (confirm), `org.set_branding`, `org.update_settings`, `leetcode.update_settings`, `activity.set_ci_repos` | `settings:write` | organizations, leetcode, dashboard |
 | `access.secrets`, `access.set_secret` (confirm), `access.delete_secret` (confirm) | `secrets:manage` | organizations |

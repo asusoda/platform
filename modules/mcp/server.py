@@ -101,7 +101,12 @@ async def on_call_tool(ctx, params: types.CallToolRequestParams) -> types.CallTo
 def build_server() -> Server:
     return Server(
         "platform",
-        instructions="Tools over this organization's platform data. Each token sees only its own org.",
+        instructions=(
+            "Platform is one gateway to a student org: its data, activity, members, access, apps, connected "
+            "services, modules and server. Each token sees only its own org. Call guide first, then the skill "
+            "for the task. Module tools sit behind modules.list, modules.skill, modules.tools and modules.call. "
+            "A confirm tool without confirm=true returns a dry run."
+        ),
         on_list_tools=on_list_tools,
         on_call_tool=on_call_tool,
     )

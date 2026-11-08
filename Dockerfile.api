@@ -49,6 +49,7 @@ COPY --chown=appuser:appuser modules ./modules
 COPY --chown=appuser:appuser core ./core
 COPY --chown=appuser:appuser submodules ./submodules
 COPY --chown=appuser:appuser apps ./apps
+COPY --chown=appuser:appuser skills ./skills
 COPY --chown=appuser:appuser alembic ./alembic
 COPY --chown=appuser:appuser alembic.ini ./
 COPY --chown=appuser:appuser *.py ./

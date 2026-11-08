@@ -14,7 +14,8 @@ def every_tool(client, headers) -> list[dict]:
     if "modules.list" in names:
         for module in _call(client, headers, "modules.list", {})["modules"]:
             found += _call(client, headers, "modules.tools", {"name": module["name"]})["tools"]
-    if len(found) == 1 and found[0]["name"] == "batch":
+    if {t["name"] for t in found} <= {"batch", "guide"}:
+        # Only the tools every token sees: nothing else to call
         return []
     return sorted(found, key=lambda t: t["name"])
 
