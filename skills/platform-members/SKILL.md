@@ -7,7 +7,7 @@ description: Use to manage a Platform org's people and setup, with members, Disc
 
 ## Members
 
-- `members.list`: active members with profile fields, Discord id and points. `query` filters.
+- `members.list`: active members with profile fields, Discord id and points. `query` keeps members whose name, username or email has that text. If a full name finds no one, try a short part of it before you say the person is not a member.
 - `members.add`: add a person by email, student id or Discord id.
 - `members.update`: change fields of a member, found by email, uuid or username.
 - `members.discord_roles`, then `members.discord_sync` (confirm): make the members of the org's Discord server members of the org, by role or all.
