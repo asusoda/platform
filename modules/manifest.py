@@ -194,6 +194,7 @@ TOOL_MODULES = [
     "modules.integrations.tools",
     "modules.uptime.tools",
     "modules.users.tools",
+    "modules.bot.tools",
     "modules.storefront.tools",
     "modules.leetcode.tools",
     "modules.superadmin.tools",

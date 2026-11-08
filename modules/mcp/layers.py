@@ -16,7 +16,7 @@ import yaml
 from core.tools import ToolSpec
 from modules.integrations.servers import SERVERS
 
-BASE = ("org", "activity", "members", "access", "connections", "hosting", "modules", "server")
+BASE = ("org", "activity", "members", "discord", "access", "connections", "hosting", "modules", "server")
 TOP = ("search", "batch", "guide")
 
 ROOT = Path(__file__).resolve().parent.parent.parent
