@@ -51,6 +51,7 @@ def test_write_tools_need_their_scope(client):
         "activity.resolve_notification",
         "activity.set_ci_repos",
         "batch",
+        "guide",
         "leetcode.update_settings",
         "modules.set",
         "org.set_branding",

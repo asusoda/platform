@@ -4,12 +4,13 @@ Ready-made apps that officers create from the Templates dialog of the Hosting pa
 
 | Template | App |
 | --- | --- |
+| [hermes](hermes/README.md) | Agent for officers in Discord that uses Platform MCP |
 | [vaultwarden](vaultwarden/README.md) | Password manager for the org |
 
 ## Write a template
 
 1. Make a folder `apps/<name>/`. The name is lowercase letters, digits and dashes.
-2. Write `platform.app.yaml`: a [manifest](../docs/modules/runpod-apps.md#manifest) and a `template` block. Use images from GHCR, not Docker Hub.
+2. Write `platform.app.yaml`: a [manifest](../docs/modules/runpod-apps.md#manifest) and a `template` block. Use images from GHCR. For an image that is only on Docker Hub, pull it through `mirror.gcr.io`, never from Docker Hub itself.
 
    ```yaml
    template:

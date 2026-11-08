@@ -3,7 +3,7 @@
 The tools are the modules' tools in core.tools.TOOLS and the tools of connected services that
 modules/integrations passes through to their MCP servers. The list holds the base tools, the tools of the
 services the org connected (layers.py), and the gateway to module tools: modules.list, modules.skill,
-modules.tools and modules.call. The batch tool runs up to MAX_BATCH calls in one request; each call, also
+modules.tools and modules.call. The guide tool gives the skills in skills/. The batch tool runs up to MAX_BATCH calls in one request; each call, also
 through the gateway, gets its own scope check, confirm step and audit entry.
 
 Each call of a tool, also inside a batch, counts against the org's mcp.calls_per_minute limit.
@@ -62,6 +62,22 @@ BATCH_SPEC = ToolSpec(
             "stop_on_error": {"type": "boolean"},
         },
         "required": ["calls"],
+        "additionalProperties": False,
+    },
+)
+
+GUIDE = "guide"
+GUIDE_SPEC = ToolSpec(
+    name=GUIDE,
+    description=(
+        "How to use Platform MCP. Read it first: with no name, the list of skills and when to use each; "
+        "with a name, that skill. Start with platform-mcp."
+    ),
+    scope="",
+    func=lambda *args, **kwargs: None,
+    input_schema={
+        "type": "object",
+        "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 64}},
         "additionalProperties": False,
     },
 )
@@ -138,13 +154,13 @@ def available(db, caller: MachineCaller, *, step_up: bool = False) -> list[ToolS
 
 
 def listed(db, caller: MachineCaller, *, step_up: bool = False) -> list[ToolSpec]:
-    """The tool list: the base and service tools, batch, and the modules gateway when a module tool is behind it."""
+    """The tool list: the base and service tools, batch, guide, and the modules gateway when a module tool is behind it."""
     found = available(db, caller, step_up=step_up)
     if not found:
         return []
     top = [spec for spec in found if layers.layer(spec) != "module"]
     gates = list(GATEWAYS.values()) if len(top) < len(found) else []
-    return sorted([*top, *gates, BATCH_SPEC], key=lambda s: s.name)
+    return sorted([*top, *gates, BATCH_SPEC, GUIDE_SPEC], key=lambda s: s.name)
 
 
 def missing_scope(db, caller: MachineCaller, name: str) -> str | None:
@@ -179,6 +195,8 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             return _batch(db, caller, arguments, source)
         if name in GATEWAYS:
             return _gate(db, caller, GATEWAYS[name], arguments, source)
+        if name == GUIDE:
+            return _guide(arguments)
         limits.consume(db, caller.organization_id, CALLS_LIMIT)
         db.commit()
         spec = TOOLS.get(name)
@@ -258,6 +276,22 @@ def _batch(db, caller: MachineCaller, arguments: dict | None, source: str) -> di
     return {"results": results}
 
 
+def _guide(arguments: dict | None) -> dict:
+    """The list of skills, or the text of the one that arguments name."""
+    args = dict(arguments or {})
+    try:
+        jsonschema.validate(args, GUIDE_SPEC.input_schema)
+    except jsonschema.ValidationError as e:
+        raise ToolError(f"Invalid arguments: {e.message}", 400) from e
+    name = args.get("name")
+    if name is None:
+        return {"skills": layers.guides(), "next": "Call guide with a name, such as platform-mcp."}
+    text = layers.guide(name)
+    if text is None:
+        raise ToolError(f"No skill named {name}. guide with no name lists them", 404)
+    return {"name": name, "skill": text}
+
+
 def _gate(db, caller: MachineCaller, spec: ToolSpec, arguments: dict | None, source: str) -> Any:
     """Run the modules gateway: list the modules or a module's tools, give its skill, or run one module tool."""
     args = dict(arguments or {})
@@ -268,7 +302,7 @@ def _gate(db, caller: MachineCaller, spec: ToolSpec, arguments: dict | None, sou
     action = spec.name.split(".", 1)[1]
     if action == "call":
         tool = args["tool"]
-        if tool in GATEWAYS or tool == BATCH:
+        if tool in GATEWAYS or tool in (BATCH, GUIDE):
             raise ToolError(f"{spec.name} cannot run {tool}", 400)
         target = TOOLS.get(tool)
         found = layers.layer(target) if target else ("service" if layers.domain(tool) in layers.SERVERS else "module")

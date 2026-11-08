@@ -1,0 +1,32 @@
+# Hermes Agent on a CPU pod: an agent for officers in Discord that runs Platform through Platform MCP.
+# The template block is for the template catalog and is removed on create.
+template:
+  title: Hermes
+  summary: Agent for officers in Discord. Uses Platform through its MCP server.
+  tag: "v0.23.0"
+  inputs:
+    - {kind: secret, key: DISCORD_BOT_TOKEN, label: Discord bot token}
+    - {kind: env, key: DISCORD_ALLOWED_ROLES, label: Discord role IDs that may use it}
+    - {kind: secret, key: OPENAI_API_KEY, label: Model API key}
+    - {kind: env, key: OPENAI_BASE_URL, label: Model API base URL}
+    - {kind: env, key: HERMES_INFERENCE_MODEL, label: Model name}
+    - {kind: secret, key: MCP_PLATFORM_API_KEY, label: Platform token (plat_)}
+    - {kind: env, key: PLATFORM_MCP_URL, label: Platform MCP URL}
+    - {kind: secret, key: API_SERVER_KEY, label: Hermes API key (32+ characters)}
+    - {kind: volume, label: Network volume ID}
+    - {kind: data_center, label: Data center of the volume}
+kind: agent
+description: Hermes agent for officers, on Discord, with Platform MCP
+image: mirror.gcr.io/nousresearch/hermes-agent
+cpu: {id: cpu3c, vcpuCount: 2}
+cloud: SECURE
+disk: 20
+ports: ["8642/http"]
+args: "gateway run"
+mounts:
+  network:
+    - {path: /opt/data}
+env:
+  API_SERVER_ENABLED: "true"
+  API_SERVER_HOST: "0.0.0.0"
+health: {port: 8642, path: /health}

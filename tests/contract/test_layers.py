@@ -29,6 +29,7 @@ def test_the_list_holds_base_tools_and_gateways(client, token_for):
     headers = token_for("org:read", "points:read")
     assert _listed(client, headers) == [
         "batch",
+        "guide",
         "modules.call",
         "modules.list",
         "modules.skill",
@@ -47,6 +48,7 @@ def test_no_gateway_without_tools_behind_it(client, token_for):
         "activity.log",
         "activity.notifications",
         "batch",
+        "guide",
         "org.overview",
         "org.trends",
     ]
