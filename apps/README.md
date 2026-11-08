@@ -1,6 +1,6 @@
 # App templates
 
-Ready-made apps that officers create from the Templates dialog of the Hosting page. Each folder holds a `platform.app.yaml` and a `README.md`. A template adds no code to Platform.
+Ready-made apps that officers create from the Templates dialog of the Hosting page. Each folder holds a `platform.app.yaml`, a `README.md`, and other files that its README names. A template adds no code to Platform.
 
 | Template | App |
 | --- | --- |
