@@ -1,6 +1,6 @@
 """Checks that a URL names a public host, so a URL from a user cannot make the server reach its own network.
 
-get() and post() connect only to an address that passed the check. A second DNS answer cannot move the connection
+get() and post() connect only to an an address that passed the check. A second DNS answer cannot move the connection
 to a private address.
 """
 
@@ -91,9 +91,13 @@ class _PublicHTTPSConnection(HTTPSConnection):
 class _PublicHTTPPool(HTTPConnectionPool):
     ConnectionCls = _PublicHTTPConnection
 
+    default_socket_options = []
+
 
 class _PublicHTTPSPool(HTTPSConnectionPool):
     ConnectionCls = _PublicHTTPSConnection
+
+    default_socket_options = []
 
 
 class _PublicPoolManager(PoolManager):
