@@ -91,9 +91,13 @@ class _PublicHTTPSConnection(HTTPSConnection):
 class _PublicHTTPPool(HTTPConnectionPool):
     ConnectionCls = _PublicHTTPConnection
 
+    default_socket_options = []
+
 
 class _PublicHTTPSPool(HTTPSConnectionPool):
     ConnectionCls = _PublicHTTPSConnection
+
+    default_socket_options = []
 
 
 class _PublicPoolManager(PoolManager):
