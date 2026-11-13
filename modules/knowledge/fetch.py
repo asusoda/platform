@@ -13,7 +13,7 @@ import io
 import os
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -207,7 +207,7 @@ _RENDER: ContextVar[Renderer | None] = ContextVar("render", default=None)
 
 
 @contextmanager
-def render_scope(renderer: Renderer | None) -> Iterator[None]:
+def render_scope(renderer: Renderer | None) -> Generator[None]:
     """fetch() inside the block passes each plain GET page to renderer."""
     token = _RENDER.set(renderer)
     try:
@@ -217,7 +217,7 @@ def render_scope(renderer: Renderer | None) -> Iterator[None]:
 
 
 @contextmanager
-def firecrawl_scope(firecrawl: Firecrawl | None) -> Iterator[None]:
+def firecrawl_scope(firecrawl: Firecrawl | None) -> Generator[None]:
     """fetch() inside the block uses firecrawl, or a plain GET when it is None."""
     token = _FIRECRAWL.set(firecrawl)
     try:

@@ -57,7 +57,7 @@ def member_fields(user: User, membership: UserOrganizationMembership | None = No
     fields = legacy_member_fields(user)
     fields.update({column: getattr(user, column) for column in LEGACY_MEMBER_KEYS.values()})
     if membership is not None:
-        fields["profile_fields"] = dict(cast(dict[str, Any], membership.profile_fields or {}))
+        fields["profile_fields"] = dict(membership.profile_fields or {})
     return fields
 
 
@@ -65,7 +65,7 @@ def merge_profile_fields(membership: UserOrganizationMembership, changes: Any) -
     """Merges changes into the membership's profile fields; a null value removes the key. Returns an error or None."""
     if not isinstance(changes, Mapping):
         return "profile_fields must be an object"
-    merged = dict(cast(dict[str, Any], membership.profile_fields or {}))
+    merged = dict(membership.profile_fields or {})
     for key, value in changes.items():
         if not isinstance(key, str) or not key.strip():
             return "profile_fields keys must be non-empty strings"

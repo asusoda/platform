@@ -13,7 +13,7 @@ BROWSER_MAX_PAGES renders run at one time in a process; the others wait.
 import importlib
 import os
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Any
 
@@ -143,7 +143,7 @@ def _meter(db, org_id: int) -> Callable[[], bool]:
 
 
 @contextmanager
-def scope(db, org_id: int | None) -> Iterator[None]:
+def scope(db, org_id: int | None) -> Generator[None]:
     """fetch() inside the block renders thin pages in the browser, counted against org_id when it is set."""
     server = browser_url()
     if not server:
