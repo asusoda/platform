@@ -6,7 +6,7 @@ Firecrawl for the live query it wraps.
 """
 
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from types import SimpleNamespace
@@ -53,7 +53,7 @@ _SEARCH: ContextVar[SimpleNamespace | None] = ContextVar("searxng", default=None
 
 
 @contextmanager
-def query_scope(db, org_id: int) -> Iterator[None]:
+def query_scope(db, org_id: int) -> Generator[None]:
     """Live queries inside the block use the org's SearXNG and Firecrawl, and the browser within its render limit."""
     token = _SEARCH.set(search_for(db, org_id))
     try:

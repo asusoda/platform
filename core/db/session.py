@@ -1,5 +1,5 @@
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine
@@ -43,7 +43,7 @@ db_connect = DBConnect(config.DATABASE_URL)
 
 
 @contextmanager
-def session() -> Iterator[Session]:
+def session() -> Generator[Session]:
     """A database session that commits on success, rolls back on an error and always closes."""
     db = db_connect.SessionLocal()
     try:

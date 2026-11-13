@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import threading
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -72,7 +72,7 @@ def _reason(error: Exception) -> str:
 
 
 @contextmanager
-def _chromium() -> Iterator[Any]:
+def _chromium() -> Generator[Any]:
     """A headless Chromium: the shared browser at BROWSER_URL, else a local one. Waits while MAX_OPEN are open."""
     server = os.environ.get("BROWSER_URL", "").strip()
     with _open, sso.api().sync_playwright() as playwright:

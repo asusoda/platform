@@ -7,7 +7,7 @@ to a private address.
 import ipaddress
 import socket
 import threading
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import urlsplit
 
 import requests
@@ -17,6 +17,9 @@ from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from urllib3.exceptions import ConnectTimeoutError, NameResolutionError, NewConnectionError
 from urllib3.poolmanager import PoolManager
 from urllib3.util.connection import _TYPE_SOCKET_OPTIONS, create_connection
+
+if TYPE_CHECKING:
+    from urllib3._base_connection import BaseHTTPConnection, BaseHTTPSConnection
 
 
 class NotPublic(ValueError):
@@ -89,13 +92,14 @@ class _PublicHTTPSConnection(HTTPSConnection):
 
 
 class _PublicHTTPPool(HTTPConnectionPool):
-    ConnectionCls = _PublicHTTPConnection
+    # urllib3 types default_socket_options as Final on HTTPConnection but writable on BaseHTTPConnection.
+    ConnectionCls = cast("type[BaseHTTPConnection]", _PublicHTTPConnection)
 
     default_socket_options: ClassVar[_TYPE_SOCKET_OPTIONS] = []
 
 
 class _PublicHTTPSPool(HTTPSConnectionPool):
-    ConnectionCls = _PublicHTTPSConnection
+    ConnectionCls = cast("type[BaseHTTPSConnection]", _PublicHTTPSConnection)
 
     default_socket_options: ClassVar[_TYPE_SOCKET_OPTIONS] = []
 
