@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "cn": "^0.5.2",
-    "fumadocs-core": "16.18.1",
-    "fumadocs-mdx": "15.5.0",
+    "fumadocs-core": "16.18.3",
+    "fumadocs-mdx": "15.5.2",
     "fumadocs-ui": "npm:@fumadocs/base-ui@16.18.1",
     "lucide-react": "^1.70.0",
     "mermaid": "12.3.0",
