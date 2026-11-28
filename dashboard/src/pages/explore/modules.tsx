@@ -3,17 +3,18 @@ import type { ReactNode } from 'react';
 import { ArrowUpRight, Plus, SearchX } from 'lucide-react';
 import { Link } from 'react-router';
 import { Tooltip } from '../../components/tooltip';
-import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, FormActions, LinkButton, quietLink, Spinner } from '../../components/ui';
+import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, FormActions, LinkButton, quietLink, Spinner, Switch } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import { useSubmodules, useSubscription } from './submodules';
 import { matches, MODULE_PAGES, moduleIcon } from '../../lib/modules';
 import type { FeedPreset, CatalogModule } from '../../lib/types';
 
-// Turns a module on or off for the org, and refreshes the lists that show it.
+// Turns a module or a sub-module (its key, such as points.store) on or off for the org, and refreshes the lists
+// that show it.
 export function useModuleSwitch(orgId: number | undefined, prefix: string, onDone?: () => void) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ m, on }: { m: CatalogModule; on: boolean }) =>
+    mutationFn: ({ m, on }: { m: Pick<CatalogModule, 'name'>; on: boolean }) =>
       send(`/api/organizations/${orgId}/modules`, 'PUT', { modules: { [m.name]: on } }),
     onSuccess: () => {
       onDone?.();
@@ -135,7 +136,7 @@ function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
           />
         ))}
       {submodules.data
-        ? m.submodules
+        ? m.shared_content
             .filter((s) => !subscribed.has(s.name))
             .map((s) => (
               <SubRow
@@ -153,33 +154,52 @@ function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
   );
 }
 
-// The submodules of a module that is on. A module that is off lists its submodules by title.
+// The shared content of a module that is on. A module that is off lists its shared content by title.
 export function SubModules({ m, prefix }: { m: CatalogModule; prefix: string }) {
   if (m.enabled && m.name === 'knowledge') return <KnowledgeSubmodules prefix={prefix} />;
   if (m.enabled && m.name in FEED_MODULES) return <ModuleFeeds m={m} prefix={prefix} />;
-  if (m.enabled || !m.submodules.length) return null;
+  if (m.enabled || !m.shared_content.length) return null;
   return (
     <>
-      {m.submodules.map((p) => (
+      {m.shared_content.map((p) => (
         <SubRow key={p.name} title={p.title} meta="Add the feature first" />
       ))}
     </>
   );
 }
 
-// One module: title, one line of what it does, what it still needs, its submodules and one action.
+// The sub-modules of a module, each with its own switch. A switch works only while the module is on.
+export function SubmoduleSwitches({ m, busy, onSwitch }: { m: CatalogModule; busy: boolean; onSwitch: (key: string, on: boolean) => void }) {
+  return (
+    <>
+      {m.submodules.map((s) => (
+        <SubRow
+          key={s.key}
+          title={s.title}
+          meta={m.enabled ? undefined : 'Add the feature first'}
+          action={<Switch checked={s.enabled} disabled={busy || !m.enabled} label={`${s.title} on`} onChange={(on) => onSwitch(s.key, on)} />}
+        />
+      ))}
+    </>
+  );
+}
+
+// One module: title, one line of what it does, what it still needs, its sub-modules and shared content, and one
+// action.
 export function ModuleCard({
   m,
   prefix,
   busy,
   onAdd,
   onRemove,
+  onSwitch,
 }: {
   m: CatalogModule;
   prefix: string;
   busy: boolean;
   onAdd: () => void;
   onRemove: () => void;
+  onSwitch: (key: string, on: boolean) => void;
 }) {
   const page = MODULE_PAGES[m.name];
   const missing = m.needs.filter((n) => !n.connected && !n.optional);
@@ -236,6 +256,7 @@ export function ModuleCard({
           )}
         </div>
       </div>
+      <SubmoduleSwitches m={m} busy={busy} onSwitch={onSwitch} />
       <SubModules m={m} prefix={prefix} />
     </Card>
   );

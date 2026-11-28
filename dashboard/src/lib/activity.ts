@@ -51,7 +51,7 @@ export function auditModule(action: string): string {
   if (job) return job[1];
   const route = /\/api\/([a-z_]+)\//.exec(action);
   if (!route) return 'organizations';
-  return route[1] === 'compute' ? 'godfather' : route[1] === 'apps' ? 'runpod' : route[1];
+  return route[1] === 'compute' ? 'godfather' : route[1] === 'apps' ? 'hosting' : route[1];
 }
 
 // Changes by officers and tokens, and job runs, from the audit log.
@@ -87,7 +87,7 @@ export function fromKnowledgeRuns(runs: KnowledgeRun[]): TimelineRow[] {
   }));
 }
 
-const POST_MODULES: Record<Delivery['source'], string> = { event: 'alerts', feed: 'feeds', leetcode: 'leetcode', test: 'alerts' };
+const POST_MODULES: Record<Delivery['source'], string> = { event: 'alerts', feed: 'feeds', leetcode: 'bot.leetcode', test: 'alerts' };
 
 // Messages that Platform posted: feed items, LeetCode posts, events and tests.
 export function fromDeliveries(list: Delivery[]): TimelineRow[] {

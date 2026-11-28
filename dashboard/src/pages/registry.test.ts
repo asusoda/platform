@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { ADMIN_PAGES } from './admin/registry';
 import { PAGES } from './registry';
 
-const DOCS = resolve(__dirname, '../../../docs');
+const ROOT = resolve(__dirname, '../../..');
+const DOCS = resolve(ROOT, 'docs');
 const SITE_PAGES = resolve(__dirname, '../../../site/content/docs');
 
 // The file in the repo that a docs page of the site comes from, as site/scripts/sync-docs.ts maps them.
@@ -23,6 +24,20 @@ const anchor = (heading: string) =>
     .trim()
     .replace(/ +/g, '-');
 
+// The switch keys of the API: OPTIONAL_MODULES in modules/organizations/service.py and each <module>.<name> of
+// SUBMODULES in modules/manifest.py.
+function switchKeys(): string[] {
+  const block = (file: string, name: string) => {
+    const text = readFileSync(resolve(ROOT, file), 'utf8');
+    return text.slice(text.indexOf(`${name} = {`), text.indexOf('\n}\n', text.indexOf(`${name} = {`)));
+  };
+  const modules = [...block('modules/organizations/service.py', 'OPTIONAL_MODULES').matchAll(/^ {4}"([a-z_]+)":/gm)].map((m) => m[1]);
+  const subs = [...block('modules/manifest.py', 'SUBMODULES').matchAll(/^ {4}"([a-z_]+)": \(([^)]*)\)/gm)].flatMap((m) =>
+    [...m[2].matchAll(/"([a-z_]+)"/g)].map((n) => `${m[1]}.${n[1]}`),
+  );
+  return [...modules, ...subs];
+}
+
 const entries = [...PAGES.map((p) => ({ space: 'org', ...p })), ...ADMIN_PAGES.map((p) => ({ space: 'admin', ...p }))];
 
 describe('page registry', () => {
@@ -36,6 +51,14 @@ describe('page registry', () => {
         .filter((line) => line.startsWith('#'))
         .map((line) => anchor(line.replace(/^#+/, '')));
       expect(headings).toContain(hash);
+    }
+  });
+
+  it('gates pages by switch keys that the API has', () => {
+    const keys = switchKeys();
+    expect(keys).toContain('points.store');
+    for (const page of PAGES) {
+      for (const module of [page.module ?? []].flat()) expect(keys, page.path).toContain(module);
     }
   });
 

@@ -79,7 +79,7 @@ export function OverviewPage() {
           on('knowledge') ? (
             <Stat key="knowledge" label="Knowledge sources" value={compact(s.knowledge.sources)} icon={<Database className="size-4" />} />
           ) : null,
-          on('storefront') ? (
+          on('points.store') ? (
             <Stat key="store" label="Open orders" value={s.storefront.pending_orders} icon={<ShoppingBag className="size-4" />} />
           ) : null,
         ]
@@ -131,7 +131,7 @@ export function OverviewPage() {
           )}
         </Card>
 
-        {on('runpod') ? (
+        {on('hosting') ? (
         <Card>
           <CardHeader
             title="Services"

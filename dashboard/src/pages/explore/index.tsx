@@ -17,6 +17,9 @@ const TABS = [
 // The tab ids before the rename, from old links and notifications
 const ALIASES = { modules: 'features', submodules: 'shared' } as const;
 
+// The section of the layers, such as Hosting, after the categories. It matches the Apps section of the sidebar.
+const APPS = 'Apps';
+
 function ModulesTab({ query }: { query: string }) {
   const { org, prefix } = useCurrentOrg();
   const catalog = useModuleCatalog(prefix);
@@ -34,8 +37,8 @@ function ModulesTab({ query }: { query: string }) {
         </div>
       ) : null}
       <ModuleGrid
-        categories={catalog.data.categories}
-        modules={catalog.data.modules}
+        categories={[...catalog.data.categories, APPS]}
+        modules={[...catalog.data.modules, ...catalog.data.layers.map((l) => ({ ...l, category: APPS }))]}
         query={query}
         render={(m) => (
           <ModuleCard
@@ -45,6 +48,7 @@ function ModulesTab({ query }: { query: string }) {
             busy={change.isPending}
             onAdd={() => change.mutate({ m, on: true })}
             onRemove={() => setRemoving(m)}
+            onSwitch={(key, on) => change.mutate({ m: { name: key }, on })}
           />
         )}
       />
