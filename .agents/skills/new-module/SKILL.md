@@ -3,7 +3,7 @@ name: new-module
 description: Add a feature module under modules/ with its service, routes, models, jobs, tools, migration, tests and docs registered in every place the platform looks. Use when adding a module or a large feature to an existing one.
 ---
 
-Read `docs/writing-a-module.md` first; it is the source of truth. Copy the shape of `modules/feeds/` (officer routes) or `modules/runpod/` (machine-token routes).
+Read `docs/writing-a-module.md` first; it is the source of truth. Copy the shape of `modules/feeds/` (officer routes) or `hosting/api.py` (machine-token routes).
 
 Steps:
 

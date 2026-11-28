@@ -21,10 +21,10 @@ def db(app):
 def mug(app):
     """A 300-point product in SoDA with stock 10, and 1000 points for Alice. Both are removed after the test."""
     from core.db import db_connect
+    from modules.members.models import User
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.storefront.models import Order, OrderItem, Product
-    from modules.users.models import User
+    from modules.points.submodules.store.models import Order, OrderItem, Product
 
     session = db_connect.SessionLocal()
     soda = session.query(Organization).filter_by(prefix="soda").one()
@@ -49,8 +49,8 @@ def mug(app):
 
 
 def _balance(db) -> float:
+    from modules.members.models import User
     from modules.points.models import Points
-    from modules.users.models import User
 
     db.expire_all()
     alice = db.query(User).filter_by(email=MEMBER_EMAIL).one()
@@ -59,14 +59,14 @@ def _balance(db) -> float:
 
 
 def _stock(db, product_id) -> int:
-    from modules.storefront.models import Product
+    from modules.points.submodules.store.models import Product
 
     db.expire_all()
     return db.get(Product, product_id).stock
 
 
 def _orders(db) -> int:
-    from modules.storefront.models import Order
+    from modules.points.submodules.store.models import Order
 
     db.expire_all()
     return db.query(Order).count()
@@ -151,7 +151,7 @@ def test_delete_refunds_and_restocks(client, clerk_headers, officer_headers, db,
 
 
 def test_order_tools_refund(client, clerk_headers, db, mug):
-    from modules.storefront import service
+    from modules.points.submodules.store import service
 
     before = _balance(db)
     first = _checkout(client, clerk_headers, mug, total=300).get_json()["order"]
@@ -225,7 +225,7 @@ def test_delete_of_a_pending_member_order_gives_back_the_hold(member_client, off
 
 
 def test_an_old_pending_order_with_no_hold_cancels_with_no_refund(officer_headers, client, db, mug):
-    from modules.storefront.models import Order, OrderItem
+    from modules.points.submodules.store.models import Order, OrderItem
 
     before = _balance(db)
     alice_id = db.query(Order.user_id).filter_by(organization_id=1).first().user_id
@@ -267,8 +267,8 @@ def test_member_reads_own_order(member_client, client, clerk_headers, mug):
 
 
 def test_member_cannot_read_another_members_order(member_client, db):
-    from modules.storefront.models import Order
-    from modules.users.models import User
+    from modules.members.models import User
+    from modules.points.submodules.store.models import Order
 
     bob = db.query(User).filter_by(email="bob@asu.edu").one()
     order = Order(organization_id=1, user_id=bob.id, total_amount=5, status="pending")
@@ -282,8 +282,8 @@ def test_member_cannot_read_another_members_order(member_client, db):
 
 
 def test_delete_of_a_product_with_orders_is_refused(client, officer_headers, db):
-    from modules.storefront import service
-    from modules.storefront.models import OrderItem
+    from modules.points.submodules.store import service
+    from modules.points.submodules.store.models import OrderItem
 
     product_id = db.query(OrderItem.product_id).first().product_id
     response = client.delete(f"/api/storefront/soda/products/{product_id}", headers=officer_headers)
@@ -316,10 +316,10 @@ def test_global_leaderboard_groups_every_selected_column(client, app):
 
 
 def test_csv_import_adds_the_membership(app, db):
+    from modules.members.models import User, UserOrganizationMembership
     from modules.organizations.models import Organization
-    from modules.points.csv_import import process_csv_in_background
     from modules.points.models import Points
-    from modules.users.models import User, UserOrganizationMembership
+    from modules.points.submodules.checkins.csv_import import process_csv_in_background
 
     soda = db.query(Organization).filter_by(prefix="soda").one()
     ais = db.query(Organization).filter_by(prefix="ais").one()
@@ -346,10 +346,10 @@ def test_two_orders_at_once_cannot_spend_the_same_points(app):
     import threading
 
     from core.db import db_connect
+    from modules.members.models import User
     from modules.points.models import Points
-    from modules.storefront import service
-    from modules.storefront.models import Order, OrderItem, Product
-    from modules.users.models import User
+    from modules.points.submodules.store import service
+    from modules.points.submodules.store.models import Order, OrderItem, Product
 
     if db_connect.engine.dialect.name != "postgresql":
         pytest.skip("Row locks need Postgres (set TEST_DATABASE_URL)")

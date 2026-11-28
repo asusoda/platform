@@ -9,47 +9,53 @@ from dataclasses import dataclass, field
 from flask import Blueprint, Flask, jsonify, request
 
 from core.db import db_connect
+from hosting.api import apps_blueprint
+from hosting.officer_api import hosting_officer_blueprint
 from modules.alerts.api import alerts_blueprint
 from modules.auth.api import auth_blueprint
+from modules.bot.submodules.games.api import game_blueprint
 from modules.calendar.api import calendar_blueprint
 from modules.dashboard.api import dashboard_blueprint
 from modules.feeds.api import feeds_blueprint
-from modules.games.api import game_blueprint
 from modules.godfather.api import godfather_blueprint
 from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint, well_known_blueprint
+from modules.members.api import users_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
 from modules.points.member_api import points_blueprint
+from modules.points.submodules.store.member_api import storefront_blueprint
 from modules.public.api import public_blueprint
-from modules.runpod.api import apps_blueprint
-from modules.storefront.member_api import storefront_blueprint
 from modules.submodules.api import asu_blueprint, submodules_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.uptime.api import uptime_blueprint
-from modules.users.api import users_blueprint
 
 
 @dataclass(frozen=True)
 class Mount:
     blueprint: Blueprint
     url_prefix: str
-    # Optional module that gates every org-scoped route of this blueprint.
+    # Optional module or sub-module key that gates every org-scoped route of this blueprint.
     module: str | None = None
     # Optional modules that gate single endpoints, for blueprints that mix features.
     endpoint_modules: dict[str, str] = field(default_factory=dict)
 
 
 MOUNTS = [
-    Mount(public_blueprint, "/api/public", endpoint_modules={"get_leaderboard": "points"}),
-    Mount(points_blueprint, "/api/points", module="points"),
+    Mount(public_blueprint, "/api/public", endpoint_modules={"get_leaderboard": "points.leaderboard"}),
+    Mount(
+        points_blueprint,
+        "/api/points",
+        module="points",
+        endpoint_modules={"get_org_leaderboard": "points.leaderboard", "upload_event_csv": "points.checkins"},
+    ),
     Mount(users_blueprint, "/api/users"),
     Mount(auth_blueprint, "/api/auth"),
     Mount(calendar_blueprint, "/api/calendar", module="calendar"),
     Mount(game_blueprint, "/api/bot"),
     Mount(organizations_blueprint, "/api/organizations"),
     Mount(superadmin_blueprint, "/api/superadmin"),
-    Mount(storefront_blueprint, "/api/storefront", module="storefront"),
+    Mount(storefront_blueprint, "/api/storefront", module="points.store"),
     Mount(tools_blueprint, "/api/tools"),
     Mount(well_known_blueprint, "/.well-known"),
     Mount(knowledge_blueprint, "/api/knowledge"),
@@ -61,6 +67,7 @@ MOUNTS = [
     Mount(uptime_blueprint, "/api/uptime", module="uptime"),
     Mount(dashboard_blueprint, "/api/dashboard"),
     Mount(alerts_blueprint, "/api/dashboard"),
+    Mount(hosting_officer_blueprint, "/api/dashboard"),
 ]
 
 

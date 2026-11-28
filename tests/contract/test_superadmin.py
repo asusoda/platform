@@ -78,13 +78,13 @@ def _org_with_data(prefix):
     import uuid
 
     from core.db import db_connect
+    from hosting.models import App, AppDeployment
     from modules.auth import machine_tokens
+    from modules.members.models import User, UserOrganizationMembership
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.runpod.models import App, AppDeployment
-    from modules.storefront.models import Order, OrderItem, Product
+    from modules.points.submodules.store.models import Order, OrderItem, Product
     from modules.submodules.models import Submodule
-    from modules.users.models import User, UserOrganizationMembership
 
     db = db_connect.SessionLocal()
     try:
@@ -113,11 +113,11 @@ def _org_with_data(prefix):
 def test_remove_org_deletes_its_rows_and_keeps_shared_ones(client, monkeypatch):
     from core.config import config
     from core.db import db_connect
+    from modules.members.models import User
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.storefront.models import Order, OrderItem
+    from modules.points.submodules.store.models import Order, OrderItem
     from modules.submodules.models import Submodule
-    from modules.users.models import User
 
     monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
     org_id, user_id = _org_with_data("doomed")
@@ -145,7 +145,7 @@ def test_remove_org_deletes_its_rows_and_keeps_shared_ones(client, monkeypatch):
 def test_remove_org_refuses_while_an_app_has_a_pod(client, monkeypatch):
     from core.config import config
     from core.db import db_connect
-    from modules.runpod.models import App
+    from hosting.models import App
 
     monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
     org_id, _ = _org_with_data("running")

@@ -15,22 +15,31 @@ import {
 } from 'lucide-react';
 import type { CatalogModule } from './types';
 
-// Whether a module matches the search text, by its name, title, description, category, needs and submodules.
+// Whether a module matches the search text, by its name, title, description, category, needs, sub-modules and
+// shared content.
 export function matches(m: CatalogModule, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  const text = [m.name, m.title, m.description, m.category, ...m.needs.map((n) => n.label), ...m.submodules.map((p) => p.title)];
+  const text = [
+    m.name,
+    m.title,
+    m.description,
+    m.category ?? '',
+    ...m.needs.map((n) => n.label),
+    ...m.submodules.map((s) => s.title),
+    ...m.shared_content.map((p) => p.title),
+  ];
   return text.join(' ').toLowerCase().includes(q);
 }
 
 // The dashboard page of each module that has one, relative to /<org>/.
 export const MODULE_PAGES: Record<string, string> = {
   points: 'points',
-  storefront: 'store',
+  'points.store': 'store',
   calendar: 'calendar',
-  leetcode: 'leetcode',
+  'bot.leetcode': 'leetcode',
   godfather: 'godfather',
-  runpod: 'hosting',
+  hosting: 'hosting',
   feeds: 'job-alerts',
   knowledge: 'knowledge',
   uptime: 'uptime',
@@ -40,14 +49,16 @@ export const MODULE_PAGES: Record<string, string> = {
 const MODULE_DOCS: Record<string, string> = {
   knowledge: 'modules/knowledge',
   points: 'modules/points',
-  storefront: 'modules/storefront',
+  'points.store': 'modules/store',
+  'points.leaderboard': 'modules/points',
+  'points.checkins': 'modules/points',
   feeds: 'modules/feeds',
   calendar: 'modules/calendar',
   uptime: 'modules/uptime',
-  leetcode: 'modules/leetcode',
-  games: 'modules/discord-bot',
+  'bot.leetcode': 'modules/leetcode',
+  'bot.games': 'modules/discord-bot',
   godfather: 'modules/godfather',
-  runpod: 'modules/runpod-apps',
+  hosting: 'modules/hosting',
   integrations: 'codebase/integrations',
 };
 
@@ -57,14 +68,14 @@ export const moduleDocs = (name: string) => MODULE_DOCS[name] ?? 'concepts';
 const MODULE_ICONS: Record<string, LucideIcon> = {
   knowledge: Database,
   points: Coins,
-  storefront: ShoppingBag,
+  'points.store': ShoppingBag,
   feeds: Rss,
   calendar: CalendarDays,
   uptime: HeartPulse,
-  leetcode: CodeXml,
-  games: Gamepad2,
+  'bot.leetcode': CodeXml,
+  'bot.games': Gamepad2,
   godfather: Cpu,
-  runpod: Server,
+  hosting: Server,
   integrations: Plug,
 };
 
@@ -74,23 +85,30 @@ export const moduleIcon = (name: string): LucideIcon => MODULE_ICONS[name] ?? Bl
 const MODULE_LABELS: Record<string, string> = {
   knowledge: 'Knowledge',
   points: 'Points',
-  storefront: 'Store',
+  'points.store': 'Store',
+  'points.leaderboard': 'Leaderboard',
+  'points.checkins': 'Check-ins',
   feeds: 'Feeds',
   calendar: 'Calendar',
   uptime: 'Uptime',
-  leetcode: 'LeetCode',
-  games: 'Games',
+  'bot.leetcode': 'LeetCode',
+  'bot.games': 'Games',
   godfather: 'Godfather',
-  runpod: 'Hosting',
+  hosting: 'Hosting',
   integrations: 'Integrations',
   alerts: 'Alerts',
   organizations: 'Settings',
+  members: 'Members',
   users: 'Members',
   ci: 'CI',
   auth: 'Sign-in',
   dashboard: 'Dashboard',
   mcp: 'MCP',
-  // Older notifications, from before the two feed modules became feeds
+  // Older names, from before the renames
+  storefront: 'Store',
+  leetcode: 'LeetCode',
+  games: 'Games',
+  runpod: 'Hosting',
   job_webhook: 'Job alerts',
   hackathon_webhook: 'Hackathons',
   apps: 'Hosting',
@@ -105,9 +123,13 @@ export const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module;
 
 // The module of a notification. Some notifications name a part of a module, such as order for the store.
 const NOTIFICATION_MODULES: Record<string, string> = {
-  apps: 'runpod',
-  app: 'runpod',
-  order: 'storefront',
+  apps: 'hosting',
+  app: 'hosting',
+  runpod: 'hosting',
+  order: 'points.store',
+  storefront: 'points.store',
+  leetcode: 'bot.leetcode',
+  games: 'bot.games',
   job_webhook: 'feeds',
   hackathon_webhook: 'feeds',
 };

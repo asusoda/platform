@@ -16,9 +16,30 @@ from flask import Blueprint
 ROOT = Path(__file__).resolve().parent.parent
 MODULES = ROOT / "modules"
 NAMES = sorted(p.name for p in MODULES.iterdir() if (p / "__init__.py").exists())
+# Each sub-module folder, modules/<module>/submodules/<name>/, by its key <module>.<name>
+SUBMODULE_DIRS = {
+    f"{p.parent.parent.name}.{p.name}": p
+    for p in sorted(MODULES.glob("*/submodules/*"))
+    if (p / "__init__.py").exists()
+}
+SUBMODULE_KEYS = sorted(SUBMODULE_DIRS)
+# Packages next to modules/ that hold a layer, such as hosting/
+LAYER_NAMES = ["hosting"]
 
-# The files in modules/ that import Flask. Every other file is in the Flask-free contract in pyproject.toml.
-FLASK_FILES = {"api", "member_api", "registry", "cli", "auth.access", "auth.decorators", "auth.routes"}
+# The files in modules/ and the layers that import Flask. Every other file is in the Flask-free contract in
+# pyproject.toml.
+FLASK_FILES = {"api", "member_api", "officer_api", "registry", "cli", "auth.access", "auth.decorators", "auth.routes"}
+
+
+def _folder(name: str) -> Path:
+    """The folder of a module, a sub-module key or a layer."""
+    if name in LAYER_NAMES:
+        return ROOT / name
+    return SUBMODULE_DIRS.get(name) or MODULES / name
+
+
+def _dotted(folder: Path) -> str:
+    return ".".join(folder.relative_to(ROOT).parts)
 
 
 def _decorator_names(path: Path, decorator: str) -> list[str]:
@@ -39,7 +60,7 @@ def _tables(path: Path) -> list[str]:
 
 
 def _surface(name: str) -> list[str]:
-    folder = MODULES / name
+    folder = _folder(name)
     found = []
     if (folder / "jobs.py").exists():
         found += _decorator_names(folder / "jobs.py", "job")
@@ -50,17 +71,18 @@ def _surface(name: str) -> list[str]:
     return found
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", [*NAMES, *SUBMODULE_KEYS, *LAYER_NAMES])
 def test_manifest_lists_the_module_files(name):
     from modules import manifest
 
+    folder = _folder(name)
     for file, listed, where in [
         ("models.py", manifest.MODEL_MODULES, "MODEL_MODULES"),
         ("jobs.py", manifest.JOB_MODULES, "JOB_MODULES"),
         ("tools.py", manifest.TOOL_MODULES, "TOOL_MODULES"),
     ]:
-        if (MODULES / name / file).exists():
-            dotted = f"modules.{name}.{file[:-3]}"
+        if (folder / file).exists():
+            dotted = f"{_dotted(folder)}.{file[:-3]}"
             assert dotted in listed, f"Add {dotted} to {where} in modules/manifest.py"
 
 
@@ -68,8 +90,10 @@ def test_every_blueprint_is_mounted():
     from modules.registry import MOUNTS
 
     mounted = {id(mount.blueprint) for mount in MOUNTS}
-    for path in sorted(MODULES.glob("*/*api.py")):
-        module = importlib.import_module(f"modules.{path.parent.name}.{path.stem}")
+    paths = [*MODULES.glob("*/*api.py"), *MODULES.glob("*/submodules/*/*api.py")]
+    paths += [path for name in LAYER_NAMES for path in (ROOT / name).glob("*api.py")]
+    for path in sorted(paths):
+        module = importlib.import_module(".".join(path.relative_to(ROOT).with_suffix("").parts))
         for attr, value in vars(module).items():
             if isinstance(value, Blueprint):
                 assert id(value) in mounted, f"Add a Mount for {attr} to MOUNTS in modules/registry.py"
@@ -78,14 +102,51 @@ def test_every_blueprint_is_mounted():
 def test_switches_are_optional_modules():
     from core.tools import TOOLS
     from modules.manifest import load_tools
-    from modules.organizations.service import OPTIONAL_MODULES
+    from modules.organizations.service import switch_keys
     from modules.registry import MOUNTS
 
     load_tools()
     switches = [m for mount in MOUNTS for m in [mount.module, *mount.endpoint_modules.values()]]
     switches += [spec.module for spec in TOOLS.values()]
+    keys = switch_keys()
     for module in filter(None, switches):
-        assert module in OPTIONAL_MODULES, f"Add {module} to OPTIONAL_MODULES in modules/organizations/service.py"
+        assert module in keys, f"Add {module} to OPTIONAL_MODULES in modules/organizations/service.py, or SUBMODULES"
+
+
+@pytest.mark.parametrize("key", SUBMODULE_KEYS)
+def test_submodule_is_declared(key):
+    from core import submodules
+    from modules.manifest import SUBMODULES, load_submodules
+
+    module, name = key.split(".")
+    assert name in SUBMODULES.get(module, ()), f"Add {name} to SUBMODULES[{module!r}] in modules/manifest.py"
+    load_submodules()
+    found = submodules.get(key)
+    assert found is not None and (found.module, found.name) == (module, name), (
+        f"Set SUBMODULE = Submodule({module!r}, {name!r}, ...) in {_folder(key).relative_to(ROOT)}/__init__.py"
+    )
+    assert found.title and found.description, f"Give {key} a title and a description in its SUBMODULE"
+
+
+def test_manifest_submodules_have_folders():
+    from modules.manifest import SUBMODULES
+
+    for module, names in SUBMODULES.items():
+        for name in names:
+            assert f"{module}.{name}" in SUBMODULE_DIRS, f"SUBMODULES names {module}.{name}; add its folder"
+
+
+def test_hosting_is_a_layer_in_no_category():
+    from modules.manifest import CATEGORIES, LAYERS
+
+    assert list(LAYERS) == LAYER_NAMES
+    for name in LAYER_NAMES:
+        assert not (MODULES / name).exists(), f"{name} is a layer; it has no folder in modules/"
+        assert not any(name in names for names in CATEGORIES.values()), f"{name} is a layer, not in a category"
+        assert (ROOT / name / "README.md").exists(), f"Add {name}/README.md"
+        assert f"[{name}](../{name}/README.md)" in (MODULES / "README.md").read_text(), (
+            f"Link {name} in modules/README.md"
+        )
 
 
 def test_flask_free_files_are_in_the_contract():
@@ -94,7 +155,8 @@ def test_flask_free_files_are_in_the_contract():
         c for c in config["tool"]["importlinter"]["contracts"] if c["name"] == "service modules do not import Flask"
     )
     patterns = contract["source_modules"]
-    for path in sorted(MODULES.rglob("*.py")):
+    paths = [*MODULES.rglob("*.py"), *(path for name in LAYER_NAMES for path in (ROOT / name).rglob("*.py"))]
+    for path in sorted(paths):
         if path.name == "__init__.py":
             continue
         dotted = ".".join(path.relative_to(ROOT).with_suffix("").parts)
@@ -124,25 +186,27 @@ def test_module_has_a_catalog_entry(name):
     assert info.title and info.description, f"Give {name} a title and a description in CATALOG in modules/manifest.py"
 
 
-def test_catalog_names_real_submodules_and_new_org_modules():
+def test_catalog_names_real_shared_content_and_new_org_modules():
     from modules.manifest import CATALOG, CATEGORIES, CORE, NEW_ORG_MODULES
 
     for name, info in CATALOG.items():
         assert name in NAMES, f"{name} in CATALOG has no folder in modules/"
-        for submodule in info.submodules:
-            assert (ROOT / "submodules" / submodule / "__init__.py").exists(), (
-                f"{name} in CATALOG names {submodule}, not in submodules/"
+        for content in info.shared_content:
+            assert (ROOT / "submodules" / content / "__init__.py").exists(), (
+                f"{name} in CATALOG names {content}, not in submodules/"
             )
     for name in NEW_ORG_MODULES:
         assert name in CATALOG and name not in CATEGORIES[CORE], f"{name} in NEW_ORG_MODULES is not an optional module"
 
 
-def test_categories_name_real_modules():
+def test_categories_name_real_modules_or_submodules():
     from modules.manifest import CATEGORIES
 
     for category, names in CATEGORIES.items():
         for name in names:
-            assert name in NAMES, f"{name} in CATEGORIES[{category!r}] has no folder in modules/"
+            assert name in NAMES or name in SUBMODULE_KEYS, (
+                f"{name} in CATEGORIES[{category!r}] is not a folder in modules/ or a sub-module key"
+            )
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -157,10 +221,24 @@ def test_module_is_documented(name):
     assert re.search(rf"\b{name}\b", modules_line), f"Add {name} to the Modules line in AGENTS.md"
 
 
+@pytest.mark.parametrize("name", [*SUBMODULE_KEYS, *LAYER_NAMES])
+def test_submodule_and_layer_are_documented(name):
+    folder = _folder(name)
+    where = folder.relative_to(ROOT)
+    readme = folder / "README.md"
+    assert readme.exists(), f"Add {where}/README.md"
+    text = readme.read_text()
+    for item in _surface(name):
+        assert f"`{item}`" in text, f"Name `{item}` in the Surface list of {where}/README.md"
+    link = f"({folder.relative_to(MODULES)}/README.md)" if name in SUBMODULE_DIRS else f"(../{name}/README.md)"
+    assert link in (MODULES / "README.md").read_text(), f"Link {where}/README.md in modules/README.md"
+
+
 def test_data_model_lists_every_table():
     page = (ROOT / "docs" / "data-model.md").read_text()
     core_tables = [ROOT / "core" / name for name in ("audit.py", "error_log.py", "secrets.py", "webhooks.py")]
-    for path in [*MODULES.glob("*/models.py"), *core_tables]:
+    models = [*MODULES.glob("*/models.py"), *MODULES.glob("*/submodules/*/models.py"), ROOT / "hosting" / "models.py"]
+    for path in [*models, *core_tables]:
         for table in _tables(path):
             assert f"`{table}`" in page, f"Add `{table}` to docs/data-model.md"
 

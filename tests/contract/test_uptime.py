@@ -30,7 +30,7 @@ def uptime(app, monkeypatch):
     """probe.fetch answers from state["answers"] by URL and records each URL. Removes every monitor after the test."""
     from core import webhooks
     from core.db import db_connect
-    from modules.runpod.models import App
+    from hosting.models import App
     from modules.uptime import probe
     from modules.uptime.models import UptimeCheck, UptimeMonitor
 
@@ -226,7 +226,7 @@ def test_uptime_percent_and_prune(client, officer_headers, uptime, monkeypatch):
 
 def test_app_targets_use_the_health_url(client, officer_headers, uptime):
     from core.db import db_connect
-    from modules.runpod.models import App
+    from hosting.models import App
 
     manifest = {
         "image": "ghcr.io/club/bot",

@@ -51,7 +51,7 @@ register(
                 "For the github:write agent tools, also give write access to Contents, Issues and Pull requests.",
             ),
         ),
-        docs="modules/runpod-apps",
+        docs="modules/hosting",
         test=_test,
     )
 )

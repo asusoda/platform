@@ -86,7 +86,7 @@ class Http:
 
 @pytest.fixture
 def discord(monkeypatch):
-    from modules.users import service as users
+    from modules.members import service as users
 
     db = db_connect.SessionLocal()
     try:

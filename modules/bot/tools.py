@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from core.integrations.discord import DiscordDirectory, DiscordUnavailable
 from core.tools import ToolError, tool
 from modules.auth import scopes
-from modules.users import service as users
+from modules.members import service as users
 
 scopes.declare("discord:read", "Read the org's Discord server: channels, messages, pins and members")
 

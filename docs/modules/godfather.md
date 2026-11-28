@@ -4,7 +4,7 @@ Godfather is a module: GPU and CPU pods on an org's own hosting provider account
 
 ## Setup
 
-1. Connect RunPod on the Integrations tab of the dashboard Explore page. This saves the org secret `runpod_api_key`. The runpod module uses the same key. `SECRETS_KEY` must be set.
+1. Connect RunPod on the Integrations tab of the dashboard Explore page. This saves the org secret `runpod_api_key`. The hosting layer uses the same key. `SECRETS_KEY` must be set.
 2. Add the `godfather` module on Explore for the org.
 3. Optional: set these in the server's `.env`.
    - `GODFATHER_CLI_NAME`: the CLI name in sign-in pages and errors. Default `godfather`. The old name `COMPUTE_CLI_NAME` still works.
@@ -189,7 +189,7 @@ A hosting provider is the cloud that Godfather pods and apps run on. `core/hosti
 5. The create bodies of Godfather pods (`pod_request` in `modules/godfather/pod_spec.py`) and of app manifests follow the RunPod v2 API. Map them to the new provider's API in its client, or give the provider its own request builder.
 6. Show the provider's own fields in `dashboard/src/pages/godfather/new-pod.tsx` when it is selected, as the RunPod hardware fields are.
 
-The `provider` column of `compute_pods` and `runpod_apps` keeps the name, so a rename breaks existing rows. The module name `runpod` stays, and the tables of `godfather` keep their `compute_` names. A later change can rename `modules/runpod` to `modules/hosting`.
+The `provider` column of `compute_pods` and `runpod_apps` keeps the name, so a rename breaks existing rows. The tables of `godfather` keep their `compute_` names, and the tables of `hosting/` keep their `runpod_` names.
 
 ## Limits
 

@@ -7,12 +7,12 @@ from core.db import db_connect
 from core.errors import ServiceError
 from core.http.responses import internal_error
 from core.log import get_logger
+from hosting import service as apps
+from hosting import shared
 from modules.auth.access import current_principal, discord_directory
 from modules.auth.decorators import header_token_refusal, superadmin_required
 from modules.auth.routes import respond
 from modules.auth.tokens import token_manager
-from modules.runpod import service as apps
-from modules.runpod import shared
 
 from . import service
 

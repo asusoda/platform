@@ -207,7 +207,7 @@ def test_settings_config_keeps_keys_that_have_their_own_routes(client, restore_s
 
 def test_officer_cannot_edit_a_member_of_another_org(client):
     from core.db import db_connect
-    from modules.users.models import User, UserOrganizationMembership
+    from modules.members.models import User, UserOrganizationMembership
 
     body = {"name": "Taken", "email": "bob@asu.edu", "discord_id": "900000000000000077"}
     assert client.post("/api/users/ais/users", json=body, headers=headers_for(AIS_OFFICER_ID)).status_code == 201

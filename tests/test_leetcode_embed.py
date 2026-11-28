@@ -1,6 +1,6 @@
 """Checks for the LeetCode question embed builder."""
 
-from modules.leetcode.cog import build_question_embed
+from modules.bot.submodules.leetcode.cog import build_question_embed
 
 QUESTION = {
     "title": "Two Sum",

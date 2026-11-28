@@ -15,7 +15,7 @@ The `members` intent is privileged. Turn it on for the app in the Discord Develo
 
 ## Surface
 
-- Routes: none. The game routes at `/api/bot` are in `modules/games`.
-- Jobs: none. The LeetCode post runs as a job in `modules/leetcode`.
+- Routes: none. The game routes at `/api/bot` are in the `bot.games` sub-module, `submodules/games/`.
+- Jobs: none. The LeetCode post runs as a job in the `bot.leetcode` sub-module, `submodules/leetcode/`.
 - Tools: `discord.server`, `discord.channels`, `discord.messages`, `discord.search`, `discord.pins`, `discord.members` (scope `discord:read`). Each one reads only the org's own server, and only what the bot's Discord permissions let it see. `discord.search` reads recent history, up to 2000 messages, because Discord has no message search for bots. None of them write.
 - Tables: none.

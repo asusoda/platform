@@ -1,4 +1,4 @@
-"""Point entries and CSV import runs. Members and memberships are in modules/users/models.py."""
+"""Point entries and CSV import runs. Members and memberships are in modules/members/models.py."""
 
 from datetime import UTC, datetime
 from typing import Any

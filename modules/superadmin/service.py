@@ -17,12 +17,12 @@ from core.integrations import server as runner
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from core.time import utcnow
+from hosting.models import App
 from modules.godfather.models import ComputePod
+from modules.members.models import UserOrganizationMembership
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.runpod.models import App
 from modules.superadmin.models import ServiceOwner
-from modules.users.models import UserOrganizationMembership
 
 logger = get_logger(__name__)
 

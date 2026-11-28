@@ -8,24 +8,25 @@ import os
 
 from sqlalchemy import func
 
-from core import audit
+from core import audit, submodules
 from core import limits as core_limits
 from core.integrations import registry as integrations
 from core.time import iso, utcnow
+from hosting.models import App, AppDeployment
 from modules.auth import scopes
 from modules.auth.models import MachineToken
 from modules.feeds import service as feed_service
 from modules.feeds.models import AlertFeed, AlertPost
 from modules.godfather.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
-from modules.manifest import CATALOG, CATEGORIES, CORE, Need
+from modules.manifest import CATEGORIES, CORE, LAYERS, Need
+from modules.manifest import info as manifest_info
+from modules.members.models import UserOrganizationMembership
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.points.models import Points
-from modules.runpod.models import App, AppDeployment
-from modules.storefront.models import Order, Product
-from modules.submodules import catalog as submodules
-from modules.users.models import UserOrganizationMembership
+from modules.points.submodules.store.models import Order, Product
+from modules.submodules import catalog as shared_content
 
 from . import notices
 
@@ -55,10 +56,7 @@ def overview(db, org: Organization) -> dict:
             "prefix": org.prefix,
             "branding": organizations.branding(org),
         },
-        "modules": [
-            {"name": name, "description": text, "enabled": organizations.module_enabled(org, name)}
-            for name, text in organizations.OPTIONAL_MODULES.items()
-        ],
+        "modules": organizations.module_states(org),
         "sections": sections,
         "problems": notices.unresolved(org, _problems(sections)),
         "activity": [e for e in entries if e.get("source") != "job"][:25],
@@ -68,35 +66,49 @@ def overview(db, org: Organization) -> dict:
 
 
 def modules(db, org: Organization) -> dict:
-    """Each module that is not Core, in category order, with its switch, its needs and its submodules."""
-    org_id = org.id
-    result = []
-    for category, names in CATEGORIES.items():
-        if category == CORE:
-            continue
-        for name in names:
-            info = CATALOG[name]
-            needs = [_need(db, org_id, need) for need in info.needs]
-            result.append(
-                {
-                    "name": name,
-                    "title": info.title,
-                    "description": info.description,
-                    "category": category,
-                    "switchable": name in organizations.OPTIONAL_MODULES,
-                    "enabled": organizations.module_enabled(org, name),
-                    "ready": all(n["connected"] for n in needs if not n["optional"]),
-                    "needs": needs,
-                    # The limits this module's use counts against, with who pays for each
-                    "limits": core_limits.for_module(name),
-                    "submodules": [
-                        {"name": p.name, "title": p.title, "description": p.description}
-                        for p in map(submodules.get, info.submodules)
-                        if p is not None
-                    ],
-                }
-            )
-    return {"categories": [c for c in CATEGORIES if c != CORE], "modules": result}
+    """Each module that is not Core, in category order, with its switch, needs, sub-modules and shared content, and
+    the layers such as Hosting. A category that names a sub-module key, such as Discord, has a card for it."""
+    result = [
+        _card(db, org, name, category) for category, names in CATEGORIES.items() if category != CORE for name in names
+    ]
+    layers = [_card(db, org, name) for name in LAYERS]
+    return {"categories": [c for c in CATEGORIES if c != CORE], "modules": result, "layers": layers}
+
+
+def _card(db, org: Organization, name: str, category: str | None = None) -> dict:
+    info = manifest_info(name)
+    if info is None:
+        raise KeyError(f"{name} is in CATEGORIES or LAYERS of modules/manifest.py but has no catalog entry")
+    needs = [_need(db, org.id, need) for need in info.needs]
+    sub = submodules.get(name)
+    return {
+        "name": name,
+        "title": info.title,
+        "description": info.description,
+        "category": category,
+        "parent": sub.module if sub else None,
+        "switchable": name in organizations.OPTIONAL_MODULES or sub is not None,
+        "enabled": organizations.module_enabled(org, name),
+        "ready": all(n["connected"] for n in needs if not n["optional"]),
+        "needs": needs,
+        # The limits this module's use counts against, with who pays for each
+        "limits": core_limits.for_module(name),
+        "submodules": [
+            {
+                "key": s.key,
+                "title": s.title,
+                "description": s.description,
+                "shared": s.shared,
+                "enabled": organizations.module_enabled(org, s.key),
+            }
+            for s in submodules.of(name)
+        ],
+        "shared_content": [
+            {"name": p.name, "title": p.title, "description": p.description}
+            for p in map(shared_content.get, info.shared_content)
+            if p is not None
+        ],
+    }
 
 
 def _need(db, org_id: int, need: Need) -> dict:
@@ -109,10 +121,12 @@ def _need(db, org_id: int, need: Need) -> dict:
 
 
 def unlocks() -> dict[str, list[str]]:
-    """The titles of the modules that each integration key unlocks, from the needs in the catalog."""
+    """The titles of the modules, sub-modules and layers that each integration key unlocks, from their needs."""
+    names = [name for category, found in CATEGORIES.items() if category != CORE for name in found]
     found: dict[str, list[str]] = {}
-    for name, info in CATALOG.items():
-        if name in CATEGORIES[CORE]:
+    for name in [*names, *LAYERS]:
+        info = manifest_info(name)
+        if info is None:
             continue
         for need in info.needs:
             if need.kind == "integration":

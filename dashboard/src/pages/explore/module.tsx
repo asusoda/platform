@@ -26,7 +26,7 @@ import { MODULE_PAGES, moduleDocs, moduleIcon, notificationModule } from '../../
 import { useCurrentOrg } from '../../lib/org';
 import { useModuleCatalog, useNotifications } from '../../lib/queries';
 import type { CatalogModule, LimitRow, ToolGroups } from '../../lib/types';
-import { RemoveModuleDialog, SubModules, useModuleSwitch } from './modules';
+import { RemoveModuleDialog, SubModules, SubmoduleSwitches, useModuleSwitch } from './modules';
 
 // How many recent notifications of the module the page shows.
 const RECENT = 5;
@@ -64,18 +64,22 @@ function Needs({ m, prefix }: { m: CatalogModule; prefix: string }) {
   );
 }
 
-// The sub-modules of the module. Knowledge and feeds list what the org can subscribe to or add.
-function Submodules({ m, prefix }: { m: CatalogModule; prefix: string }) {
+// The sub-modules of the module, with their switches, and its shared content. Knowledge and feeds list what the
+// org can subscribe to or add.
+function Submodules({ m, prefix, busy, onSwitch }: { m: CatalogModule; prefix: string; busy: boolean; onSwitch: (key: string, on: boolean) => void }) {
   const live = m.enabled && (m.name === 'knowledge' || m.name === 'feeds');
-  if (!live && !m.submodules.length) return null;
+  if (!live && !m.submodules.length && !m.shared_content.length) return null;
   return (
     <Section title="Sub-modules">
+      <div className="-mt-px">
+        <SubmoduleSwitches m={m} busy={busy} onSwitch={onSwitch} />
+      </div>
       {live ? (
         <div className="-mt-px">
           <SubModules m={m} prefix={prefix} />
         </div>
       ) : (
-        m.submodules.map((s) => (
+        m.shared_content.map((s) => (
           <Row key={s.name}>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{s.title}</div>
@@ -189,7 +193,7 @@ export function ModulePage() {
       </>
     );
   }
-  const m = catalog.data.modules.find((x) => x.name === name);
+  const m = [...catalog.data.modules, ...catalog.data.layers].find((x) => x.name === name);
   if (!m) {
     return (
       <>
@@ -246,7 +250,7 @@ export function ModulePage() {
       ) : null}
       <div className="grid gap-6">
         <Needs m={m} prefix={prefix} />
-        <Submodules m={m} prefix={prefix} />
+        <Submodules m={m} prefix={prefix} busy={change.isPending} onSwitch={(key, on) => change.mutate({ m: { name: key }, on })} />
         {m.enabled ? (
           <>
             <Limits m={m} orgId={org.id} prefix={prefix} />

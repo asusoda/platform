@@ -16,11 +16,11 @@ from sqlalchemy.orm.attributes import flag_modified
 from core import webhooks
 from core.errors import ServiceError
 from core.time import iso, utcnow
+from hosting.models import App, AppDeployment
 from modules.feeds import service as feeds
 from modules.feeds.models import AlertFeed
 from modules.knowledge.models import KnowledgeSource
 from modules.organizations.models import Organization
-from modules.runpod.models import App, AppDeployment
 
 MAX_KNOWLEDGE = 200
 MAX_EVENTS = 200

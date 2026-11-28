@@ -102,7 +102,7 @@ def _users(name: str) -> list[str]:
     """The modules that read the submodule, from the catalog in modules/manifest.py."""
     from modules.manifest import CATALOG
 
-    return sorted(module for module, info in CATALOG.items() if name in info.submodules and module != "submodules")
+    return sorted(module for module, info in CATALOG.items() if name in info.shared_content and module != "submodules")
 
 
 def list_submodules(db, org_id: int) -> list[dict]:

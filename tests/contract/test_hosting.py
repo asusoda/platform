@@ -114,7 +114,7 @@ def test_a_pod_runs_on_the_provider_it_names(client, officer_headers, fakecloud)
 
 
 def test_an_app_runs_on_the_provider_it_names(client, officer_headers, fakecloud):
-    from modules.runpod import service as apps
+    from hosting import service as apps
 
     name = "app-" + uuid.uuid4().hex[:8]
     base = f"/api/dashboard/ais/apps/{name}"
@@ -139,7 +139,7 @@ def test_an_app_runs_on_the_provider_it_names(client, officer_headers, fakecloud
 
 
 def test_existing_rows_default_to_runpod(client, officer_headers, monkeypatch):
-    from modules.runpod import service as apps
+    from hosting import service as apps
 
     from .test_runpod_apps import FakeRunPod as FakeApps
 

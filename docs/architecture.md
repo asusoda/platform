@@ -7,7 +7,7 @@ Platform is a Flask API with a Discord bot, a job worker and an MCP server. All 
 | Process | Entry point | Port | Use |
 | --- | --- | --- | --- |
 | API | `main.py` under gunicorn | 8000 | Every HTTP route |
-| Discord bot | `bot_main.py` | | Slash commands and Jeopardy, with the cogs in `modules/bot`, `modules/games` and `modules/leetcode` |
+| Discord bot | `bot_main.py` | | Slash commands and Jeopardy, with the cogs in `modules/bot` and its sub-modules `bot.games` and `bot.leetcode` |
 | Job worker | `worker_main.py` | | Runs jobs from the Procrastinate queue. Postgres only |
 | MCP server | `mcp_main.py` | 8001 | Module tools for agents, over MCP |
 | Dashboard | `dashboard/` | 5001 (5173 in dev) | The officer pages for each org and the member store (Vite, React) |
@@ -39,7 +39,8 @@ The API does not need the bot. It reads Discord servers, roles and members over 
 ```
 main.py, bot_main.py, worker_main.py, mcp_main.py   the four entry points
 core/          shared code: config, database, jobs, tools, secrets, audit, logs, HTTP hooks, Discord and RunPod clients, hosting providers
-modules/       one folder per module, not nested; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
+modules/       one folder per module, with its sub-modules in modules/<module>/submodules/<name>/; registry.py mounts the blueprints, manifest.py lists categories, models, jobs and tools
+hosting/       the Hosting layer: an org's own apps on a hosting provider
 alembic/       migrations
 tests/         pytest; tests/contract/ checks every route a client uses
 dashboard/, site/   the dashboard and member store, the docs and landing site
@@ -65,7 +66,7 @@ Views get a database session from `officer_route`, `machine_route` or `member_vi
 
 A module is a folder in `modules/` with only the files it needs: `service.py` for the logic, `api.py` for the routes, `models.py`, `jobs.py` and `tools.py`. The REST routes, jobs, tools and the bot call the same `service.py` functions. [Writing a module](./writing-a-module.md) gives the rules and the places to register a module.
 
-Orgs can turn on and off the optional modules: `points`, `storefront`, `calendar`, `games`, `leetcode`, `godfather`, `feeds`, `uptime`, `knowledge`, `agents`, `integrations`, `accounts` and `runpod`. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`. The Core modules, `mcp` and `submodules` among them, are always on. When a module is off for an org, its routes return 404 for the org (`module=` on `officer_route`, `machine_route` or the `Mount`), its tools are not listed, and its jobs skip the org. With `integrations` off, the org has no tools of connected services. If `games` is off for each org of an officer, the `/api/bot` routes return 404 for that officer. The switches are in `Organization.config["modules"]`. A module with no entry is on, so an org made before the switch existed keeps the module. A new org gets an entry for each optional module: on for the modules in `NEW_ORG_MODULES` in `modules/manifest.py`, off for the others. `NEW_ORG_MODULES` is empty, so a new org starts with Core only. Officers add and remove modules on the dashboard Explore page, or with `flask --app main org modules <prefix> --on x --off y`.
+Orgs can turn on and off the optional modules: `points`, `calendar`, `godfather`, `feeds`, `uptime`, `knowledge`, `integrations` and the `hosting` layer. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`. The Core modules, `mcp` and `submodules` among them, are always on. When a module is off for an org, its routes return 404 for the org (`module=` on `officer_route`, `machine_route` or the `Mount`), its tools are not listed, and its jobs skip the org. With `integrations` off, the org has no tools of connected services. If `bot.games` is off for each org of an officer, the `/api/bot` routes return 404 for that officer. The switches are in `Organization.config["modules"]`. A module with no entry is on, so an org made before the switch existed keeps the module. A new org gets an entry for each optional module and sub-module: on for the modules in `NEW_ORG_MODULES` in `modules/manifest.py`, off for the others. `NEW_ORG_MODULES` is empty, so a new org starts with Core only. Officers add and remove modules on the dashboard Explore page, or with `flask --app main org modules <prefix> --on x --off y`.
 
 ### Modules, submodules, apps and integrations
 
@@ -97,14 +98,31 @@ An org turns modules on and subscribes to submodules. Each module that is on get
 
 | Category | Modules |
 | --- | --- |
-| Core | `alerts`, `auth`, `bot`, `dashboard`, `mcp`, `organizations`, `public`, `submodules`, `superadmin`, `users`. Always on and not on Explore |
-| Storage | `knowledge`, `points`, `storefront` |
-| AI and agents | `integrations` |
+| Core | `alerts`, `auth`, `bot`, `dashboard`, `mcp`, `members`, `organizations`, `public`, `submodules`, `superadmin`. Always on and not on Explore |
+| Members | `points`, with its sub-modules `points.leaderboard`, `points.checkins` and `points.store` |
+| AI | `knowledge`, `integrations` |
 | Automations | `feeds`, `calendar`, `uptime` |
-| Bots | `leetcode`, `games` |
-| Compute | `godfather`, `runpod` (Hosting) |
+| Discord | `bot.leetcode`, `bot.games` |
+| Compute | `godfather` |
+
+Hosting is a layer, not a module: the `hosting/` package next to `modules/`, in no category. `LAYERS` in `modules/manifest.py` gives its title and needs. It has a switch, `hosting`, and its own Apps section in the sidebar and on Explore.
 
 The dashboard sidebar has one section for each category except Core. Submodule subscriptions need no module switch; live queries need `knowledge`. `GET /api/dashboard/<org>/modules` returns the catalog with the org's switches, whether each need is connected, and the limits that each module's use counts against.
+
+### Sub-modules
+
+A sub-module is a part of a module with its own switch, in `modules/<module>/submodules/<name>/`. Its switch key is `<module>.<name>`, such as `points.store`. A sub-module is on only while its module is on, and a sub-module with no entry in `config["modules"]` is off.
+
+```mermaid
+flowchart LR
+  points["points"] --> leaderboard["points.leaderboard"]
+  points --> checkins["points.checkins"]
+  points --> store["points.store"]
+  bot["bot (Core)"] --> leetcode["bot.leetcode"]
+  bot --> games["bot.games"]
+```
+
+`core/submodules.py` has the `Submodule` declaration and its loader. `SUBMODULES` in `modules/manifest.py` lists the folders. For one release, a write of an old switch key (`runpod`, `storefront`, `leetcode`, `games`) sets the new key. Responses use the new keys only.
 
 ### Sharing and isolation
 
@@ -136,7 +154,7 @@ flowchart TB
 | Data | Each query filters on `organization_id`. A submodule's shared pages have no org, and only subscribers search them | [Data model](./data-model.md) |
 | Per-org limits | Each module declares count and rate limits; the superadmin sets them for each org; each says who pays | [Limits](./limits.md) |
 | Container caps | A memory and CPU cap on each service | [Operations](./operations.md#container-limits) |
-| Apps | Each app is its own container or pod, never a Platform process | [Hosting apps](./modules/runpod-apps.md) |
+| Apps | Each app is its own container or pod, never a Platform process | [Hosting apps](./modules/hosting.md) |
 
 The superadmins (`SYS_ADMIN`) see the server's health and each org's use in the superadmin space at `/admin`, and set each org's limits. Superadmin routes refuse every other caller.
 
@@ -276,7 +294,7 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Clerk | Member sign-in on the public website storefront | `modules/auth/clerk.py` |
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
 | RunPod | Godfather pods and app deploys, through the hosting provider registry in `core/hosting.py` | `core/integrations/runpod.py` |
-| LeetCode GraphQL | The daily question and solve checks | `modules/leetcode/client.py` |
+| LeetCode GraphQL | The daily question and solve checks | `modules/bot/submodules/leetcode/client.py` |
 | Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
 | Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to the org's alert destinations | `core/webhooks.py`, `modules/alerts/` |
 | Sentry | Optional: errors, logs and sampled traces if `SENTRY_DSN` is set | `core/log.py` |

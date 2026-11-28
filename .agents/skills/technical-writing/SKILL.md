@@ -50,6 +50,8 @@ The repo's prose follows the rules of ASD-STE100 (Simplified Technical English),
 | feature | module (in the dashboard, the site and messages that officers read) |
 | submodule | pack, domain (in code and developer docs, for content in `submodules/`) |
 | shared content | submodule, pack (in the dashboard, the site and messages that officers read) |
+| sub-module | submodule, child module (for a part of a module with its own switch, such as `points.store`, in `modules/<module>/submodules/`) |
+| layer | module (for `hosting/`, next to `modules/`) |
 | app | service, deployment (for a program in its own container or pod) |
 | route | endpoint (in prose) |
 | token | key (for a machine token) |

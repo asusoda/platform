@@ -7,7 +7,7 @@ import discord
 
 
 def test_announcement_location_names_the_org_or_the_server(app):
-    from modules.games.cog import server_name
+    from modules.bot.submodules.games.cog import server_name
 
     assert server_name(cast(discord.Guild, SimpleNamespace(id=1002, name="Guild Name"))) == "AI Society"
     assert server_name(cast(discord.Guild, SimpleNamespace(id=9999, name="Guild Name"))) == "Guild Name"
@@ -95,7 +95,7 @@ def _player(n):
 
 
 def test_balance_teams_puts_each_player_in_one_team():
-    from modules.games.cog import GameCog
+    from modules.bot.submodules.games.cog import GameCog
 
     cog = GameCog(cast(Any, FakeBot()))
     cog.set_game(GAME, None, None)
@@ -111,7 +111,7 @@ def test_balance_teams_puts_each_player_in_one_team():
 def test_game_is_set_up_in_the_given_server_and_starts(app):
     import asyncio
 
-    from modules.games.cog import GameCog
+    from modules.bot.submodules.games.cog import GameCog
 
     first, soda = FakeGuild(1002), FakeGuild(1001)
     cog = GameCog(cast(Any, FakeBot(first, soda)))
@@ -128,8 +128,8 @@ def test_game_is_set_up_in_the_given_server_and_starts(app):
 
 def test_set_active_game_sets_up_in_the_officers_server(client, officer_headers, monkeypatch):
     from core.db import db_connect
-    from modules.games import api, service
-    from modules.games.cog import GameCog
+    from modules.bot.submodules.games import api, service
+    from modules.bot.submodules.games.cog import GameCog
 
     db = db_connect.SessionLocal()
     try:

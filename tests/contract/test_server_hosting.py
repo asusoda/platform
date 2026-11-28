@@ -42,7 +42,7 @@ def apps_cleanup(app):
     names: list[str] = []
     yield names
     from core.db import db_connect
-    from modules.runpod.models import App, AppDeployment
+    from hosting.models import App, AppDeployment
     from modules.uptime import service as uptime
 
     db = db_connect.SessionLocal()
@@ -63,7 +63,7 @@ def _name(cleanup) -> str:
 
 def _check_deployments():
     from core.db import db_connect
-    from modules.runpod import service
+    from hosting import service
 
     db = db_connect.SessionLocal()
     try:
@@ -159,7 +159,7 @@ def test_godfather_refuses_this_server(client, officer_headers, runner):
 
 def test_a_legacy_container_moves_to_its_new_name_at_the_next_deploy(client, officer_headers, runner, apps_cleanup):
     from core.db import db_connect
-    from modules.runpod.models import App
+    from hosting.models import App
 
     name = _name(apps_cleanup)
     base = f"/api/dashboard/soda/apps/{name}"

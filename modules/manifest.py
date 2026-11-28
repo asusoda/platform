@@ -1,13 +1,19 @@
-"""Module categories, and the modules that hold models, jobs and tools.
+"""Module categories, the module catalog, sub-modules, layers, and the modules that hold models, jobs and tools.
 
 Flask-free, so alembic, the worker and MCP can load it.
 """
 
 import importlib
 from dataclasses import dataclass
+from pathlib import Path
 
-# Each module and its category. modules/ stays flat; the categories group modules in modules/README.md and on the
-# Explore page of the dashboard. Core modules are always on and do not show on Explore.
+from core import submodules
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# Each module and its category, in the order of the Explore page and the sidebar of the dashboard. A category
+# names modules, or sub-modules by their key when the parent is Core (bot). Core modules are always on and do not
+# show on Explore.
 CATEGORIES = {
     "Core": [
         "alerts",
@@ -15,17 +21,24 @@ CATEGORIES = {
         "bot",
         "dashboard",
         "mcp",
+        "members",
         "organizations",
         "public",
         "submodules",
         "superadmin",
-        "users",
     ],
-    "Storage": ["knowledge", "points", "storefront"],
-    "AI and agents": ["integrations"],
+    "Members": ["points"],
+    "AI": ["knowledge", "integrations"],
     "Automations": ["feeds", "calendar", "uptime"],
-    "Bots": ["leetcode", "games"],
-    "Compute": ["godfather", "runpod"],
+    "Discord": ["bot.leetcode", "bot.games"],
+    "Compute": ["godfather"],
+}
+
+# The sub-modules of each module: the folders in modules/<module>/submodules/. Each sets SUBMODULE in its
+# __init__.py, and its switch key is <module>.<name>.
+SUBMODULES = {
+    "bot": ("leetcode", "games"),
+    "points": ("leaderboard", "checkins", "store"),
 }
 
 CORE = "Core"
@@ -52,8 +65,8 @@ class ModuleInfo:
     title: str
     description: str
     needs: tuple[Need, ...] = ()
-    # The submodules in submodules/ that the module reads
-    submodules: tuple[str, ...] = ()
+    # The shared content in submodules/ that the module reads
+    shared_content: tuple[str, ...] = ()
 
 
 DISCORD_BOT = Need("discord", "Discord bot")
@@ -78,9 +91,8 @@ CATALOG = {
     "feeds": ModuleInfo(
         "Feeds",
         "Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.",
-        submodules=("careers",),
+        shared_content=("careers",),
     ),
-    "games": ModuleInfo("Games", "Jeopardy games in the org's Discord server.", (DISCORD_BOT,)),
     "integrations": ModuleInfo("Integration tools", "Gives agents the tools of the services that the org connects."),
     "knowledge": ModuleInfo(
         "Knowledge",
@@ -89,10 +101,7 @@ CATALOG = {
             Need("embeddings", "Embeddings service", optional=True),
             Need("firecrawl", "Firecrawl", optional=True),
         ),
-        submodules=("asu",),
-    ),
-    "leetcode": ModuleInfo(
-        "LeetCode", "Posts the daily LeetCode question in a Discord channel and checks who solved it.", (DISCORD_BOT,)
+        shared_content=("asu",),
     ),
     "mcp": ModuleInfo("MCP", "The MCP server that gives agents and apps the tools of each module."),
     "organizations": ModuleInfo("Organizations", "The org record, module switches, secrets and machine tokens."),
@@ -101,22 +110,44 @@ CATALOG = {
         "Content made once for every org: campus pages and live queries for Knowledge, and job and hackathon sources "
         "for Feeds. The code name is submodules.",
         needs=(Need("searxng", "Web search (SearXNG)", optional=True),),
-        submodules=("asu", "careers"),
+        shared_content=("asu", "careers"),
     ),
     "points": ModuleInfo("Points", "Points, leaderboards and event check-ins."),
     "public": ModuleInfo("Public pages", "Open routes for the leaderboard, the member list and stats."),
-    "runpod": ModuleInfo(
-        "Hosting",
-        "Deploys the org's apps to a hosting provider, and rolls back to an earlier tag.",
-        needs=(RUNPOD, Need("github", "GitHub", optional=True)),
-    ),
-    "storefront": ModuleInfo("Store", "A merch store that members pay for with points."),
     "superadmin": ModuleInfo("Superadmin", "Orgs for the whole deployment. Only the superadmin uses it."),
     "uptime": ModuleInfo(
         "Uptime", "Checks the org's sites and Hosting apps, with an event when one goes down or comes back."
     ),
-    "users": ModuleInfo("Member list", "The members of the org and their profile fields."),
+    "members": ModuleInfo("Member list", "The members of the org and their profile fields."),
 }
+
+# Packages outside modules/ that the dashboard shows like a module, in their own sidebar section. hosting/ is the
+# apps layer: the org's own apps, which run on a hosting provider and are not Platform code.
+LAYERS = {
+    "hosting": ModuleInfo(
+        "Hosting",
+        "Deploys the org's apps to a hosting provider, and rolls back to an earlier tag.",
+        needs=(RUNPOD, Need("github", "GitHub", optional=True)),
+    ),
+}
+
+
+def folder(name: str) -> Path:
+    """The folder of a module, a sub-module key such as points.store, or a layer such as hosting."""
+    if name in LAYERS:
+        return ROOT / name
+    module, _, sub = name.partition(".")
+    return ROOT / "modules" / module / "submodules" / sub if sub else ROOT / "modules" / module
+
+
+def info(name: str) -> ModuleInfo | None:
+    """How the dashboard shows a module, a sub-module or a layer, or None. A sub-module has the needs of its module."""
+    sub = submodules.get(name)
+    if sub is not None:
+        parent = CATALOG.get(sub.module)
+        return ModuleInfo(sub.title, sub.description, parent.needs if parent else ())
+    return CATALOG.get(name) or LAYERS.get(name)
+
 
 # The modules that a new org starts with, in addition to Core. Each other module that an org can switch off starts off.
 NEW_ORG_MODULES: tuple[str, ...] = ()
@@ -132,20 +163,20 @@ MODEL_MODULES = [
     "modules.alerts.models",
     "modules.feeds.models",
     "modules.auth.models",
-    "modules.games.models",
+    "modules.bot.submodules.games.models",
+    "modules.bot.submodules.leetcode.models",
     "modules.knowledge.models",
-    "modules.leetcode.models",
     "modules.mcp.models",
     "modules.calendar.models",
     "modules.godfather.models",
     "modules.organizations.models",
     "modules.points.models",
-    "modules.runpod.models",
-    "modules.storefront.models",
+    "hosting.models",
+    "modules.points.submodules.store.models",
     "modules.submodules.models",
     "modules.superadmin.models",
     "modules.uptime.models",
-    "modules.users.models",
+    "modules.members.models",
 ]
 
 # Importing a jobs module registers its jobs with core.jobs
@@ -156,12 +187,12 @@ JOB_MODULES = [
     "core.webhooks",
     "modules.alerts.jobs",
     "modules.auth.jobs",
-    "modules.points.jobs",
+    "modules.points.submodules.checkins.jobs",
     "modules.calendar.jobs",
-    "modules.runpod.jobs",
+    "hosting.jobs",
     "modules.knowledge.jobs",
     "modules.submodules.jobs",
-    "modules.leetcode.jobs",
+    "modules.bot.submodules.leetcode.jobs",
     "modules.godfather.jobs",
     "modules.feeds.jobs",
     "modules.uptime.jobs",
@@ -173,8 +204,10 @@ TOOL_MODULES = [
     "modules.organizations.tools",
     "modules.calendar.tools",
     "modules.points.tools",
+    "modules.points.submodules.checkins.tools",
+    "modules.points.submodules.leaderboard.tools",
     "modules.knowledge.tools",
-    "modules.runpod.tools",
+    "hosting.tools",
     "modules.submodules.tools",
     "modules.dashboard.tools",
     "modules.alerts.tools",
@@ -182,10 +215,10 @@ TOOL_MODULES = [
     "modules.godfather.tools",
     "modules.integrations.tools",
     "modules.uptime.tools",
-    "modules.users.tools",
+    "modules.members.tools",
     "modules.bot.tools",
-    "modules.storefront.tools",
-    "modules.leetcode.tools",
+    "modules.points.submodules.store.tools",
+    "modules.bot.submodules.leetcode.tools",
     "modules.superadmin.tools",
 ]
 
@@ -195,7 +228,18 @@ def _load(names: list[str]) -> None:
         importlib.import_module(name)
 
 
+def submodule_packages() -> list[str]:
+    return [f"modules.{module}.submodules.{name}" for module, names in SUBMODULES.items() for name in names]
+
+
+def load_submodules() -> None:
+    """Register the SUBMODULE of each folder in SUBMODULES."""
+    submodules.load(submodule_packages())
+
+
 def load_models() -> None:
+    """Every sub-module, then every model."""
+    load_submodules()
     _load(MODEL_MODULES)
 
 

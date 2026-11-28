@@ -20,7 +20,7 @@ const modules: Module[] = [
     icon: ShoppingBag,
     name: 'Merch store',
     text: 'Members spend points. Officers manage products and orders.',
-    href: '/docs/modules/storefront',
+    href: '/docs/modules/store',
   },
   {
     icon: CalendarDays,
@@ -53,7 +53,7 @@ const modules: Module[] = [
     icon: Rocket,
     name: 'Hosting',
     text: 'Deploy org apps with health checks and rollback.',
-    href: '/docs/modules/runpod-apps',
+    href: '/docs/modules/hosting',
   },
   {
     icon: Plug,

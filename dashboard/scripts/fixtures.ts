@@ -23,6 +23,8 @@ export interface ModuleState {
   name: string;
   description: string;
   enabled: boolean;
+  parent?: string;
+  shared?: boolean;
 }
 
 interface Need {
@@ -234,16 +236,18 @@ export const BRANDING: Branding = { logo_url: null, accent_color: '#2563eb', web
 
 export const MODULES: ModuleState[] = [
   { name: 'points', description: 'Points, leaderboards and event check-ins', enabled: true },
-  { name: 'storefront', description: 'Merch store paid with points', enabled: true },
   { name: 'calendar', description: 'Notion to Google Calendar sync and the public events feed', enabled: true },
-  { name: 'games', description: "Jeopardy games in the org's Discord server", enabled: true },
-  { name: 'leetcode', description: "Daily LeetCode post in the org's channel, with solve checks", enabled: true },
   { name: 'godfather', description: "GPU and CPU pods on the org's RunPod account that members SSH into", enabled: true },
-  { name: 'feeds', description: 'New job listings and hackathons posted to Discord webhooks', enabled: true },
+  { name: 'feeds', description: 'New job listings and hackathons posted to an alert destination', enabled: true },
   { name: 'uptime', description: 'Checks of sites and Hosting apps, with an event when one goes down or up', enabled: true },
   { name: 'knowledge', description: 'Pages and documents that agents search', enabled: true },
   { name: 'integrations', description: 'Tools of the services the org connects, for agents', enabled: true },
-  { name: 'runpod', description: 'Apps the org deploys to a hosting provider', enabled: true },
+  { name: 'hosting', description: 'Apps the org deploys to a hosting provider', enabled: true },
+  { name: 'bot.leetcode', description: 'Posts the daily LeetCode question in a Discord channel and checks who solved it.', enabled: true, parent: 'bot', shared: false },
+  { name: 'bot.games', description: "Jeopardy games in the org's Discord server.", enabled: true, parent: 'bot', shared: false },
+  { name: 'points.leaderboard', description: 'Members ranked by points, for officers, the public page and agents.', enabled: true, parent: 'points', shared: false },
+  { name: 'points.checkins', description: 'Gives event points to each member on an attendance CSV.', enabled: true, parent: 'points', shared: false },
+  { name: 'points.store', description: 'A merch store that members pay for with points.', enabled: true, parent: 'points', shared: false },
 ];
 
 // The modules on the Explore page, as GET /api/dashboard/<org>/modules returns them. enabled comes from MODULES.
@@ -256,19 +260,20 @@ const need = (key: string, label: string, connected: boolean, extra: Partial<Nee
   ...extra,
 });
 const CATALOG = [
-  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'Storage', switchable: true, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], submodules: ['asu'] },
-  { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Storage', switchable: true, needs: [], submodules: [] },
-  { name: 'storefront', title: 'Store', description: "A merch store that members pay for with points.", category: 'Storage', switchable: true, needs: [], submodules: [] },
-  { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI and agents', switchable: true, needs: [], submodules: [] },
-  { name: 'feeds', title: 'Feeds', description: 'Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.', category: 'Automations', switchable: true, needs: [], submodules: ['careers'] },
-  { name: 'calendar', title: 'Calendar sync', description: "Copies Notion events to Google Calendar and the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], submodules: [] },
-  { name: 'uptime', title: 'Uptime', description: "Checks the org's sites and Hosting apps, with an event when one goes down or comes back.", category: 'Automations', switchable: true, needs: [], submodules: [] },
-  { name: 'leetcode', title: 'LeetCode', description: "Posts the daily LeetCode question in a Discord channel and checks who solved it.", category: 'Bots', switchable: true, needs: [need('discord', 'Discord bot', true)], submodules: [] },
-  { name: 'games', title: 'Games', description: "Jeopardy games in the org's Discord server.", category: 'Bots', switchable: true, needs: [need('discord', 'Discord bot', true)], submodules: [] },
-  { name: 'godfather', title: 'Godfather', description: "GPU and CPU pods that members connect to with the Godfather CLI.", category: 'Compute', switchable: true, needs: [need('runpod', 'RunPod', true)], submodules: [] },
-  { name: 'runpod', title: 'Hosting', description: "Deploys the org's apps to a hosting provider, and rolls back to an earlier tag.", category: 'Compute', switchable: true, needs: [need('runpod', 'RunPod', true), need('github', 'GitHub', true, { optional: true })], submodules: [] },
+  { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Members', switchable: true, needs: [], submodules: ['points.leaderboard', 'points.checkins', 'points.store'], shared_content: [] },
+  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'AI', switchable: true, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], submodules: [], shared_content: ['asu'] },
+  { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI', switchable: true, needs: [], submodules: [], shared_content: [] },
+  { name: 'feeds', title: 'Feeds', description: 'Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.', category: 'Automations', switchable: true, needs: [], submodules: [], shared_content: ['careers'] },
+  { name: 'calendar', title: 'Calendar sync', description: "Copies Notion events to Google Calendar and the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], submodules: [], shared_content: [] },
+  { name: 'uptime', title: 'Uptime', description: "Checks the org's sites and Hosting apps, with an event when one goes down or comes back.", category: 'Automations', switchable: true, needs: [], submodules: [], shared_content: [] },
+  { name: 'bot.leetcode', title: 'LeetCode', description: "Posts the daily LeetCode question in a Discord channel and checks who solved it.", category: 'Discord', parent: 'bot', switchable: true, needs: [need('discord', 'Discord bot', true)], submodules: [], shared_content: [] },
+  { name: 'bot.games', title: 'Games', description: "Jeopardy games in the org's Discord server.", category: 'Discord', parent: 'bot', switchable: true, needs: [need('discord', 'Discord bot', true)], submodules: [], shared_content: [] },
+  { name: 'godfather', title: 'Godfather', description: "GPU and CPU pods that members connect to with the Godfather CLI.", category: 'Compute', switchable: true, needs: [need('runpod', 'RunPod', true)], submodules: [], shared_content: [] },
 ];
-const CATEGORIES = ['Storage', 'AI and agents', 'Automations', 'Bots', 'Compute'];
+const LAYERS = [
+  { name: 'hosting', title: 'Hosting', description: "Deploys the org's apps to a hosting provider, and rolls back to an earlier tag.", category: null, switchable: true, needs: [need('runpod', 'RunPod', true), need('github', 'GitHub', true, { optional: true })], submodules: [], shared_content: [] },
+];
+const CATEGORIES = ['Members', 'AI', 'Automations', 'Discord', 'Compute'];
 const SUBMODULES: Record<string, Submodule> = {
   asu: { name: 'asu', title: 'Arizona State University', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.' },
   careers: { name: 'careers', title: 'Internships and hackathons', description: 'Alert feeds for software internships, new grad roles and upcoming hackathons.' },
@@ -283,23 +288,26 @@ const MODULE_LIMITS: Record<string, ModuleLimit[]> = {
     { key: 'knowledge.embeddings_per_day', label: 'Texts embedded a day (knowledge and agent memory)', window: 'day', paid_by: 'metered' },
   ],
   godfather: [{ key: 'godfather.pods', label: 'Pods', window: null, paid_by: 'org' }],
-  runpod: [{ key: 'runpod.apps', label: 'Hosting apps', window: null, paid_by: 'org' }],
+  hosting: [{ key: 'runpod.apps', label: 'Hosting apps', window: null, paid_by: 'org' }],
   uptime: [{ key: 'uptime.monitors', label: 'Uptime monitors', window: null, paid_by: 'org' }],
   alerts: [{ key: 'alerts.destinations', label: 'Alert destinations', window: null, paid_by: 'org' }],
 };
 
 export function moduleCatalog(states: ModuleState[] = MODULES) {
   const enabled = Object.fromEntries(states.map((m) => [m.name, m.enabled]));
-  return {
-    categories: CATEGORIES,
-    modules: CATALOG.map((m) => ({
-      ...m,
-      enabled: enabled[m.name] ?? true,
-      ready: m.needs.every((n) => n.connected || n.optional),
-      submodules: m.submodules.map((p) => SUBMODULES[p]),
-      limits: MODULE_LIMITS[m.name] ?? [],
-    })),
-  };
+  const card = (m: (typeof CATALOG)[number] | (typeof LAYERS)[number]) => ({
+    ...m,
+    parent: 'parent' in m ? m.parent : null,
+    enabled: enabled[m.name] ?? true,
+    ready: m.needs.every((n) => n.connected || n.optional),
+    submodules: m.submodules.map((key) => {
+      const state = states.find((x) => x.name === key);
+      return { key, title: key === 'points.store' ? 'Store' : key === 'points.checkins' ? 'Check-ins' : 'Leaderboard', description: state?.description ?? '', shared: false, enabled: state?.enabled ?? true };
+    }),
+    shared_content: m.shared_content.map((p) => SUBMODULES[p]),
+    limits: MODULE_LIMITS[m.name] ?? [],
+  });
+  return { categories: CATEGORIES, modules: CATALOG.map(card), layers: LAYERS.map(card) };
 }
 
 // The titles of the modules that need each integration.
@@ -1119,7 +1127,7 @@ export function fixtures(now: number = Date.now()) {
       editable: false,
       source: 'deployment',
       testable: true,
-      used_by: ['auth', 'leetcode'],
+      used_by: ['auth', 'bot.leetcode'],
     },
     {
       key: 'embeddings',
@@ -1164,12 +1172,12 @@ export function fixtures(now: number = Date.now()) {
       key: 'github',
       title: 'GitHub',
       description: "Connect the org's GitHub repos with a read-only token.",
-      docs: 'modules/runpod-apps',
+      docs: 'modules/hosting',
       fields: [field('github_token', 'Access token', 'A fine-grained token with read access to Actions and Contents.', -9 * DAY)],
       editable: true,
       source: 'org',
       testable: true,
-      used_by: ['dashboard', 'runpod'],
+      used_by: ['dashboard', 'hosting'],
     },
     {
       key: 'google',
@@ -1213,7 +1221,7 @@ export function fixtures(now: number = Date.now()) {
       editable: true,
       source: 'org',
       testable: true,
-      used_by: ['godfather', 'runpod'],
+      used_by: ['godfather', 'hosting'],
     },
     {
       key: 'searxng',
@@ -1289,13 +1297,13 @@ export function fixtures(now: number = Date.now()) {
     ['pod.started', 'Pods started', 'A pod starts or restarts, by an officer, a tool or its schedule.', 'godfather'],
     ['pod.stopped', 'Pods stopped', 'A pod stops or is terminated, by an officer, a tool or its schedule.', 'godfather'],
     ['app.deployed', 'App deploys', 'An app deploy ends: healthy, or failed with the reason.', null],
-    ['order.created', 'Store orders', 'A member places an order in the store.', 'storefront'],
+    ['order.created', 'Store orders', 'A member places an order in the store.', 'points.store'],
     ['member.joined', 'New members', 'A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it.', null],
     ['knowledge.crawl_failed', 'Knowledge crawl failures', 'A crawl of a knowledge source fails.', null],
     ['monitor.down', 'Monitors down', 'An uptime monitor finds its address down.', 'uptime'],
     ['monitor.up', 'Monitors up', 'An uptime monitor that was down finds its address up again.', 'uptime'],
     ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
-    ['leetcode.post_failed', 'LeetCode post failures', 'The bot could not post the daily LeetCode question. Sent once a day.', 'leetcode'],
+    ['leetcode.post_failed', 'LeetCode post failures', 'The bot could not post the daily LeetCode question. Sent once a day.', 'bot.leetcode'],
   ].map(([key, label, description, module]) => ({ key, label, description, module }));
   const webhook = (
     id: number,
@@ -1390,8 +1398,8 @@ export function fixtures(now: number = Date.now()) {
       python: '3.12.7',
     }),
     errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/hosting (mutation)', '/robotics/hosting (mutation)', 4, -26 * MINUTE, -1 * DAY),
-    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
-    errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
+    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/members/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
+    errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/bot/submodules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
   ];
   const serverErrors = [
     errorGroup(22, 'worker', null, 'OperationalError', 'job failed name=knowledge.crawl_due: database is locked', 'core/jobs.py:_execute', null, 26, -2 * DAY, -9 * DAY),
@@ -1630,7 +1638,7 @@ export function fixtures(now: number = Date.now()) {
     ['knowledge.sources', 'knowledge', 'Sources', 'sources', null, 1000, [212, 880, 0]],
     ['knowledge.uploads_per_day', 'knowledge', 'Files uploaded a day', 'files', 'day', 500, [4, 12, 0]],
     ['mcp.calls_per_minute', 'mcp', 'Tool calls a minute (MCP and /api/tools)', 'calls', 'minute', 300, [18, 120, 2]],
-    ['runpod.apps', 'runpod', 'Hosting apps', 'apps', null, 25, [5, 2, 0]],
+    ['runpod.apps', 'hosting', 'Hosting apps', 'apps', null, 25, [5, 2, 0]],
     ['uptime.monitors', 'uptime', 'Uptime monitors', 'monitors', null, 50, [8, 3, 0]],
   ];
   const limitCatalog = limitSpecs.map(([key, module, label, unit, window, value]) => ({
@@ -1648,7 +1656,7 @@ export function fixtures(now: number = Date.now()) {
     { 'knowledge.sources': 1200, 'mcp.calls_per_minute': null },
     {},
   ];
-  const offFor: Set<string>[] = [new Set(), new Set(['runpod']), new Set(['knowledge', 'godfather', 'runpod'])];
+  const offFor: Set<string>[] = [new Set(), new Set(['hosting']), new Set(['knowledge', 'godfather', 'hosting'])];
   const limitRows = (i: number) =>
     limitSpecs.map(([key, module, , , , value, used], n) => {
       const override = key in overridesFor[i];
@@ -1826,7 +1834,7 @@ export function fixtures(now: number = Date.now()) {
         officer_role_id: o.officer_role_id,
         created_at: at(-(120 - i * 20) * DAY),
         members: [members.length, 64, 23, 9][i] ?? 0,
-        modules_on: ['knowledge', 'points', 'storefront', 'calendar', 'godfather', 'runpod', 'feeds'].slice(0, [7, 4, 3, 2][i] ?? 0),
+        modules_on: ['knowledge', 'points', 'points.store', 'calendar', 'godfather', 'hosting', 'feeds'].slice(0, [7, 4, 3, 2][i] ?? 0),
         near: orgLimits.find((l) => l.org.id === o.id)?.near ?? [],
         open_errors: i === 0 ? orgErrors.length : 0,
         last_activity: at(-[5, 25, 240, 30 * 24 * 60][i] * MINUTE),

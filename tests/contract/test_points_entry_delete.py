@@ -7,9 +7,9 @@ from tests.contract.conftest import MEMBER_EMAIL
 
 def _add_entry(org_prefix: str, event: str, points: float) -> int:
     from core.db import db_connect
+    from modules.members.models import User
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.users.models import User
 
     with db_connect.SessionLocal() as db:
         org = db.query(Organization).filter_by(prefix=org_prefix).one()

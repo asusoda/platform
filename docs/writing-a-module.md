@@ -30,7 +30,7 @@ If `service.py` has more than one concern, split it into more Flask-free files. 
 | Org secrets | `secrets.declare(...)` or `secrets.declare_prefix(...)` from `core/secrets.py`, at the top of `service.py` |
 | Limits | `limits.declare(...)` from `core/limits.py`, at the top of `service.py`, for each thing that can grow or cost money. See [limits.md](./limits.md) |
 | Outside services | `register(...)` and `use(...)` from `core/integrations/registry.py`. See [integrations.md](./integrations.md) |
-| Flask-free files | `service.py`, `models.py`, `jobs.py` and `tools.py` are in the "service modules do not import Flask" contract in `pyproject.toml` by wildcard. Add each other Flask-free file, such as `crawl.py`, to that list |
+| Flask-free files | `service.py`, `models.py`, `jobs.py` and `tools.py` are in the "service modules do not import Flask" contract in `pyproject.toml` by the `modules.**.<file>` wildcard, which also covers sub-modules. Add each other Flask-free file, such as `crawl.py`, to that list |
 | Dashboard page | An entry in `PAGES` in `dashboard/src/pages/registry.tsx`, with `module` and the sidebar section of the module's category |
 | Routes | `tests/contract/routes.txt`: run `UPDATE_ROUTES=1 uv run pytest tests/contract/test_routes.py` |
 | Docs | The module `README.md`, a row under its category in `modules/README.md` and in the module table of `README.md`, the `Modules:` line in `AGENTS.md`, and each table in `docs/data-model.md` |
@@ -67,6 +67,18 @@ If orgs can turn the module off:
 4. In a job that runs for all orgs, skip an org when `organizations.module_enabled(org, "<name>")` is false.
 5. Add the name to the expected dict in `tests/contract/test_modules.py`.
 6. A new org starts with the module off. To start new orgs with it on, add it to `NEW_ORG_MODULES` in `modules/manifest.py`.
+
+### Sub-module
+
+A sub-module is a part of a module with its own switch, such as `points.store`. It is on only while its module is on. To add one:
+
+1. Make the folder `modules/<module>/submodules/<name>/` with the files it needs, like a module.
+2. In its `__init__.py`, set `SUBMODULE = Submodule("<module>", "<name>", "<Title>", "<one line>")` from `core/submodules.py`. Give `on_enable` to run code when an org turns it on.
+3. Add the name to `SUBMODULES["<module>"]` in `modules/manifest.py`, and list its `models.py`, `jobs.py` and `tools.py` there by their full path.
+4. Use the key `<module>.<name>` in `module=` on the `Mount` or `endpoint_modules`, on each `@tool`, and in `module_enabled`.
+5. Add a `README.md` and a row in `modules/README.md`. A sub-module with no entry in an org's switches is off, so a migration that adds one to existing orgs sets the key.
+
+`hosting/` is a layer, not a module: it is next to `modules/`, in no category, and `LAYERS` in `modules/manifest.py` lists it.
 
 ## Routes
 
@@ -125,4 +137,4 @@ The route helpers and the tool runner return its message and status. A tool func
 
 ## Example
 
-`modules/runpod/` is a small module with every file: `service.py`, `api.py` on `machine_route`, `models.py`, `jobs.py` and `tools.py`. `modules/feeds/` is the example for `officer_route`.
+`modules/feeds/` is a small module with `service.py`, `api.py` on `officer_route`, `models.py`, `jobs.py` and `tools.py`. `hosting/api.py` is the example for `machine_route`.

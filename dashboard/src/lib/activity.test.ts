@@ -38,7 +38,7 @@ describe('timeline rows', () => {
     ]);
     expect(rows.map((r) => [r.kind, r.module, r.tone])).toEqual([
       ['error', 'errors', 'bad'],
-      ['event', 'runpod', 'ok'],
+      ['event', 'hosting', 'ok'],
     ]);
   });
 
@@ -68,7 +68,7 @@ describe('timeline rows', () => {
       message_url: 'https://discord.com/channels/1/2/3',
       created_at: '2026-11-28T08:00:00Z',
     };
-    expect(fromDeliveries([post])[0]).toMatchObject({ kind: 'post', module: 'leetcode', href: post.message_url, link: undefined });
+    expect(fromDeliveries([post])[0]).toMatchObject({ kind: 'post', module: 'bot.leetcode', href: post.message_url, link: undefined });
   });
 
   it('merges every source newest first, whatever form the time has', () => {

@@ -124,24 +124,28 @@ exclude_dirs = ["tests", "node_modules", ".venv"]
 
 # Module boundaries, checked in CI by `lint-imports` (docs/writing-a-module.md).
 [tool.importlinter]
-root_packages = ["core", "modules", "submodules"]
+root_packages = ["core", "hosting", "modules", "submodules"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "core imports no module"
 type = "forbidden"
 source_modules = ["core"]
-forbidden_modules = ["modules", "submodules"]
+forbidden_modules = ["hosting", "modules", "submodules"]
 
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
 type = "forbidden"
 # Every service, models, jobs and tools file, by wildcard. List each other Flask-free file below.
 source_modules = [
-    "modules.*.service",
-    "modules.*.models",
-    "modules.*.jobs",
-    "modules.*.tools",
+    "modules.**.service",
+    "modules.**.models",
+    "modules.**.jobs",
+    "modules.**.tools",
+    "hosting.service",
+    "hosting.models",
+    "hosting.jobs",
+    "hosting.tools",
     "modules.alerts.delivery",
     "modules.feeds.github_jobs",
     "modules.feeds.hackathons",
@@ -150,7 +154,9 @@ source_modules = [
     "modules.auth.machine_tokens",
     "modules.auth.scopes",
     "modules.auth.tokens",
-    "modules.bot",
+    "modules.bot.bot",
+    "modules.bot.cogs",
+    "modules.bot.factory",
     "modules.calendar.clients",
     "modules.calendar.dates",
     "modules.calendar.errors",
@@ -174,9 +180,9 @@ source_modules = [
     "modules.dashboard.errors",
     "modules.dashboard.notices",
     "modules.dashboard.trends",
-    "modules.games.cog",
-    "modules.games.jeopardy",
-    "modules.games.ui",
+    "modules.bot.submodules.games.cog",
+    "modules.bot.submodules.games.jeopardy",
+    "modules.bot.submodules.games.ui",
     "modules.integrations.github_guard",
     "modules.integrations.google",
     "modules.integrations.mcp_client",
@@ -196,9 +202,9 @@ source_modules = [
     "modules.knowledge.fts",
     "modules.knowledge.search",
     "modules.knowledge.settings",
-    "modules.leetcode.client",
-    "modules.leetcode.cog",
-    "modules.leetcode.daily",
+    "modules.bot.submodules.leetcode.client",
+    "modules.bot.submodules.leetcode.cog",
+    "modules.bot.submodules.leetcode.daily",
     "modules.manifest",
     "modules.mcp.client_auth",
     "modules.mcp.edges",
@@ -226,10 +232,10 @@ source_modules = [
     "modules.submodules.text",
     "modules.submodules.types",
     "modules.submodules.web",
-    "modules.points.csv_import",
-    "modules.runpod.app_mcp",
-    "modules.runpod.shared",
-    "modules.runpod.templates",
+    "modules.points.submodules.checkins.csv_import",
+    "hosting.app_mcp",
+    "hosting.shared",
+    "hosting.templates",
     "modules.uptime.probe",
     "submodules",
 ]

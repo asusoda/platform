@@ -11,11 +11,13 @@ const uptime: CatalogModule = {
   title: 'Uptime',
   description: 'Checks sites.',
   category: 'Automations',
+  parent: null,
   switchable: true,
   enabled: true,
   ready: true,
   needs: [],
   submodules: [],
+  shared_content: [],
   limits: [{ key: 'uptime.monitors', label: 'Uptime monitors', window: null, paid_by: 'org' }],
 };
 
@@ -48,7 +50,7 @@ const limitRow = {
 const table = {
   '/api/organizations/': [SODA],
   '/api/organizations/1/modules': { modules: [] },
-  '/api/dashboard/soda/modules': { categories: ['Automations'], modules: [uptime, calendar] },
+  '/api/dashboard/soda/modules': { categories: ['Automations'], modules: [uptime, calendar], layers: [] },
   '/api/organizations/1/limits': { limits: [limitRow] },
   '/api/dashboard/soda/tool-groups': { allowed: null, groups: [{ key: 'uptime', layer: 'module', tools: 4 }] },
   '/api/dashboard/soda/notifications': {

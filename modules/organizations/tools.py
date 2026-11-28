@@ -20,7 +20,7 @@ def org_info(db, org, caller):
 
 @tool(
     "modules.set",
-    description='Turn optional modules on or off, for example {"points": false}.',
+    description='Turn modules and sub-modules on or off, for example {"points": false} or {"points.store": true}.',
     scope="settings:write",
     input_schema={
         "type": "object",

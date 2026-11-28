@@ -47,7 +47,7 @@ flask --app main org|jobs|config ...
 | `dashboard/`, `site/` | Dashboard and member store (Vite), docs and landing site. SoDA serves the dashboard at admin.thesoda.io |
 | `docs/` | Guides, indexed in `docs/README.md` |
 
-Modules: alerts, auth, bot, calendar, dashboard, feeds, games, godfather, integrations, knowledge, leetcode, mcp, organizations, points, public, runpod, storefront, submodules, superadmin, uptime, users.
+Modules: alerts, auth, bot, calendar, dashboard, feeds, godfather, integrations, knowledge, mcp, members, organizations, points, public, submodules, superadmin, uptime. Sub-modules: bot.leetcode, bot.games, points.leaderboard, points.checkins, points.store. Layer: hosting.
 
 ## Rules
 

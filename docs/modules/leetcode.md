@@ -1,11 +1,11 @@
 # LeetCode
 
-Posts the LeetCode daily question in a Discord channel of the org. Members link their LeetCode handle, and Platform checks who solved the question. The `leetcode` switch turns the org's post on and off.
+Posts the LeetCode daily question in a Discord channel of the org. Members link their LeetCode handle, and Platform checks who solved the question. The `bot.leetcode` switch turns the org's post on and off.
 
 ## Set it up
 
-1. Turn on the `leetcode` module in Settings > Modules.
-2. On the LeetCode page (Automations > Bots > LeetCode), set:
+1. Turn on the `bot.leetcode` sub-module in Explore.
+2. On the LeetCode page (Discord > LeetCode), set:
    - **Channel**: the Discord channel for the post.
    - **Role ping**: a role to mention in the post. Optional.
    - **Daily time**: the time of the post.

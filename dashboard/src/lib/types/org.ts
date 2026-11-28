@@ -14,7 +14,9 @@ export type OrganizationDetail = Organization & {
 
 export type Branding = { logo_url: string | null; accent_color: string | null; website_url: string | null };
 
-export type ModuleState = { name: string; description: string; enabled: boolean };
+// A switch of GET /api/organizations/<id>/modules. A sub-module, such as points.store, names its parent module and
+// is on only when the parent is on.
+export type ModuleState = { name: string; description: string; enabled: boolean; parent?: string; shared?: boolean };
 
 // An integration or a setting that a module needs. connected says whether the org or the deployment set it.
 export type ModuleNeed = {
@@ -25,24 +27,33 @@ export type ModuleNeed = {
   connected: boolean;
 };
 
+// Shared content in submodules/ that a module reads, such as the ASU pages for Knowledge.
 export type ModuleSubmodule = { name: string; title: string; description: string };
 
-// A module on Explore. ready is false while a need that is not optional is not connected.
+// A sub-module of a module card, with its own switch key such as points.store.
+export type SubmoduleSwitch = { key: string; title: string; description: string; shared: boolean; enabled: boolean };
+
+// A module, a sub-module card (Discord) or a layer (Hosting) on Explore. ready is false while a need that is not
+// optional is not connected.
 export type CatalogModule = {
   name: string;
   title: string;
   description: string;
-  category: string;
+  // null for a layer
+  category: string | null;
+  // The parent module of a sub-module card, such as bot for bot.leetcode
+  parent: string | null;
   switchable: boolean;
   enabled: boolean;
   ready: boolean;
   needs: ModuleNeed[];
-  submodules: ModuleSubmodule[];
+  submodules: SubmoduleSwitch[];
+  shared_content: ModuleSubmodule[];
   // The limits this module's use counts against
   limits: { key: string; label: string; window: string | null; paid_by: 'org' | 'metered' }[];
 };
 
-export type ModuleCatalog = { categories: string[]; modules: CatalogModule[] };
+export type ModuleCatalog = { categories: string[]; modules: CatalogModule[]; layers: CatalogModule[] };
 
 export type SecretState = { name: string; description: string; set: boolean };
 

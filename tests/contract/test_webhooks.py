@@ -200,8 +200,8 @@ def test_failed_crawl_sends_knowledge_crawl_failed(client, officer_headers, sent
 
 def test_new_member_sends_member_joined(client, officer_headers, sent):
     from core.db import db_connect
-    from modules.users import service as users
-    from modules.users.models import User, UserOrganizationMembership
+    from modules.members import service as users
+    from modules.members.models import User, UserOrganizationMembership
 
     _create(client, officer_headers, events=["member.joined"])
     username = f"wh{uuid.uuid4().hex[:8]}"
@@ -224,9 +224,9 @@ def test_new_member_sends_member_joined(client, officer_headers, sent):
 
 
 def test_pod_and_deploy_messages(client, officer_headers, sent):
+    from hosting import service as apps
+    from hosting.models import App, AppDeployment
     from modules.godfather import base as godfather
-    from modules.runpod import service as apps
-    from modules.runpod.models import App, AppDeployment
 
     _create(client, officer_headers, events=["pod.started", "pod.stopped", "app.deployed"])
     godfather.announce(_ais_id(), "gpu-1", "pod123", "start", "the session schedule")
@@ -281,7 +281,7 @@ def test_events_of_a_module_that_is_off_are_kept_and_not_sent(client, officer_he
 
     hook = _create(client, officer_headers, events=["order.created", "errors"]).get_json()
     switch = f"/api/organizations/{_ais_id()}/modules"
-    assert client.put(switch, json={"modules": {"storefront": False}}, headers=officer_headers).status_code == 200
+    assert client.put(switch, json={"modules": {"points.store": False}}, headers=officer_headers).status_code == 200
     try:
         listing = client.get(BASE, headers=officer_headers).get_json()
         assert "order.created" not in {e["key"] for e in listing["events"]}
@@ -297,7 +297,7 @@ def test_events_of_a_module_that_is_off_are_kept_and_not_sent(client, officer_he
         db = db_connect.SessionLocal()
         org = db.query(Organization).filter_by(prefix="ais").one()
         db.close()
-        client.put(switch, json={"modules": {"storefront": True}}, headers=officer_headers)
+        client.put(switch, json={"modules": {"points.store": True}}, headers=officer_headers)
         assert org is not None
 
 

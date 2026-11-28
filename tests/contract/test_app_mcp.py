@@ -2,7 +2,7 @@
 
 import pytest
 
-from modules.runpod import app_mcp, service
+from hosting import app_mcp, service
 
 from .test_runpod_apps import MANIFEST, FakeRunPod, _issue, _name
 
@@ -30,7 +30,7 @@ def test_an_app_adopts_a_pod_and_its_mcp_address_is_the_pod_proxy(client, manage
     assert response.get_json()["pod_id"] == "8pgxxcyb1slrc6"
 
     from core.db import db_connect
-    from modules.runpod.service import _find
+    from hosting.service import _find
 
     db = db_connect.SessionLocal()
     try:

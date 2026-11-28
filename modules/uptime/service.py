@@ -19,10 +19,10 @@ from core import hosting, limits, net, webhooks
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import iso, utcnow
+from hosting.models import App
 from modules.auth import scopes
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.runpod.models import App
 
 from . import probe
 from .models import UptimeCheck, UptimeMonitor

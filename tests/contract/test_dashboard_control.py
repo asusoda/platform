@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from modules.runpod import service as apps
+from hosting import service as apps
 
 from .test_runpod_apps import MANIFEST, FakeRunPod
 

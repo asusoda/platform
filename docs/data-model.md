@@ -104,17 +104,17 @@ erDiagram
 | --- | --- |
 | core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `notifications` (each webhook event of an org, shown in Notifications), `org_limits` (the superadmin's limit overrides for each org), `deployment_secrets` (secrets of the deployment, such as a shared app's admin token), `usage_counters` (what each org used of a rate limit in each window) |
 | organizations | `organizations`, `organization_configs` and `officers` (not used) |
-| users | `users`, `user_organization_memberships` |
+| members | `users`, `user_organization_memberships` |
 | points | `points`, `points_imports` (one row for each attendance CSV import, with its progress, counts and row errors; the newest 50 for each org) |
-| storefront | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
+| points.store | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
 | auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only, scopes, and per-integration `limits`), `sessions` (not used) |
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |
-| games | `jeopardy_game`, `active_game` (one active game for the deployment) |
-| leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |
+| bot.games | `jeopardy_game`, `active_game` (one active game for the deployment) |
+| bot.leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |
 | knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload). A source and its chunks belong to an org, or with no org to a shared submodule (`submodule_id`) |
 | submodules | `submodules` (one row for each submodule), `submodule_subscriptions` (the orgs that subscribe to each) |
 | godfather | `compute_pods` (with pod admin and the image digest and version), `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days), `compute_cli_codes` (one-time CLI sign-in codes, 2 minutes) |
-| runpod | `runpod_apps` (with no org for a shared app), `runpod_deployments`, `shared_app_subscriptions` (the orgs that use a shared app, and whom Platform invited) |
+| hosting | `runpod_apps` (with no org for a shared app), `runpod_deployments`, `shared_app_subscriptions` (the orgs that use a shared app, and whom Platform invited) |
 | alerts | `webhooks` (the destinations of each org and their events), `deliveries` (each message sent or tried, kept 30 days) |
 | feeds | `alert_feeds`, `alert_posts`, `alert_runs` (one row for each feed run) |
 | mcp | `oauth_clients` (MCP clients that registered themselves, secret encrypted with `SECRETS_KEY`, and cached Client ID Metadata Documents with `cache_until`), `oauth_requests` (open OAuth requests and codes, hash only, with the scopes and limits that the officer chose), `oauth_grants` (approved connections: the machine token of kind `oauth`, the refresh token hash, and the last officer check), `oauth_assertions` (the `jti` hash of each used client assertion, until it expires) |
@@ -122,7 +122,7 @@ erDiagram
 | uptime | `uptime_monitors`, `uptime_checks` (one row for each check, kept `UPTIME_RETENTION_DAYS`, default 30) |
 | jobs | `procrastinate_*` (Postgres only, from the Procrastinate SQL, not from models) |
 
-The `godfather` tables keep the `compute_` names of the module's old name. The `feeds` tables keep the `alert_` names.
+The `godfather` tables keep the `compute_` names of the module's old name. The `feeds` tables keep the `alert_` names. The `hosting` tables keep the `runpod_` names, and the `members` tables keep the `users` names.
 
 `compute_pods` and `runpod_apps` have a `provider` column: the name of the hosting provider in `core/hosting.py`. Migration `dde330bf1668` added it with the default `runpod`, so existing rows stay on RunPod.
 
