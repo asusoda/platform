@@ -11,6 +11,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 from core import limits, net, secrets
 from core.errors import ServiceError
@@ -36,6 +37,8 @@ class Field:
     secret: bool = True
     # The org can leave an optional field empty and still use its own keys
     optional: bool = False
+    # A url field that must be https: the integration sends its key to this URL
+    https_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -161,6 +164,7 @@ def save(db, org_id: int, key: str, values: object, actor: str | None) -> None:
         raise IntegrationError(f"Unknown fields: {', '.join(sorted(unknown))}")
     changes = cast(dict[str, Any], values)
     kinds = {f.name: f.kind for f in integration.fields}
+    https_only = {f.name for f in integration.fields if f.https_only}
     if any(v is not None for v in changes.values()) and not secrets.configured():
         raise IntegrationError("SECRETS_KEY is not configured on this server")
     for name, value in changes.items():
@@ -173,6 +177,8 @@ def save(db, org_id: int, key: str, values: object, actor: str | None) -> None:
                 net.check_public(str(value))
             except ValueError as e:
                 raise IntegrationError(str(e)) from e
+            if name in https_only and urlsplit(str(value)).scheme != "https":
+                raise IntegrationError("Use an https URL: the key would be sent in clear text")
     saved = {s["name"] for s in secrets.list_secrets(db, org_id) if s["set"]} & names
     after = (saved | {n for n, v in changes.items() if v is not None}) - {n for n, v in changes.items() if v is None}
     if after and not _org_set(integration, after):
