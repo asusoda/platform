@@ -6,10 +6,10 @@ Routes for the superadmins of the deployment (the Discord user ids in `SYS_ADMIN
 
 | File | Holds |
 | --- | --- |
-| `api.py` | `/check`, `/dashboard`, `/orgs`, `/guild_roles/<guild_id>`, `/add_org/<guild_id>`, `/remove_org/<org_id>`, `/update_officer_role/<org_id>`, `/audit`, `/publishers`, `/errors`, `/server`, `/server/services`, `/server/services/<name>` (PUT), `/limits`, `/limits/<org_id>` (GET, PUT), `/shared-apps` and `/shared-apps/<name>` (GET, PUT, DELETE), `/shared-apps/<name>/deploy`, `/rollback`, `/pod`, `/secrets` (PUT), `/action`, `/logs`; `/server/services/<name>/action` and `/logs` |
+| `api.py` | Thin routes that read the request and call `service.py` or the module that owns the data: `/check`, `/dashboard`, `/orgs`, `/guild_roles/<guild_id>`, `/add_org/<guild_id>`, `/remove_org/<org_id>`, `/update_officer_role/<org_id>`, `/audit`, `/publishers`, `/errors`, `/server`, `/server/services`, `/server/services/<name>` (PUT), `/limits`, `/limits/<org_id>` (GET, PUT), `/shared-apps` and `/shared-apps/<name>` (GET, PUT, DELETE), `/shared-apps/<name>/deploy`, `/rollback`, `/pod`, `/secrets` (PUT), `/action`, `/logs`; `/server/services/<name>/action` and `/logs` |
 | `models.py` | `ServiceOwner`: the owner the superadmin set for a service |
 | `tools.py` | The `server.*` tools for superadmins: status, services, logs, control, the runner's named commands, and the opt-in shell |
-| `service.py` | The superadmin check, servers with no org, an officer's orgs, server roles, role checks, `add_organization()` (a new org through `organizations.service.create_organization`), `org_list()` (every org with its members, modules on, limits near, open errors and last audit time), `server()` (the server's health, the bot and the job queue), `server_services()` and `set_service_owner()` (the host agent's services and their owners) and each org's limits (`all_limits`, `org_limits`, `set_org_limits`) |
+| `service.py` | The superadmin check, the dashboard (`dashboard()`: servers with no org, every org, an officer's orgs), server lookup and roles (`find_guild`, `roles_of_guild`), `set_officer_role()`, `change_errors()`, `add_organization()` (a new org through `organizations.service.create_organization`), `org_list()` (every org with its members, modules on, limits near, open errors and last audit time), `server()` (the server's health, the bot and the job queue), `server_services()` and `set_service_owner()` (the host agent's services and their owners) and each org's limits (`all_limits`, `org_limits`, `set_org_limits`) |
 
 ## Surface
 

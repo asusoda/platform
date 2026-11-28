@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy import Table, delete, func, or_, select, update
 
-from core import host, hosting, jobs
+from core import error_log, host, hosting, jobs
 from core import limits as core_limits
 from core.audit import AuditEntry
 from core.config import superadmin_ids
@@ -102,7 +102,7 @@ def officer_orgs(directory, orgs: list[Organization], officer_id: object) -> lis
             if directory.check_user_membership(officer_id, org.guild_id):
                 found.append(org)
         except (ValueError, DiscordUnavailable) as e:
-            logger.debug(f"Error checking organization {org.name}: {e}")
+            logger.debug("officer org check skipped org_id=%s guild_id=%s: %s", org.id, org.guild_id, e)
     return found
 
 
@@ -121,6 +121,89 @@ def role_in_guild(directory, guild_id: Any, role_id: Any) -> bool:
     """Whether the guild has the role. Raises ValueError when an id is not a number."""
     role_ids = {role["id"] for role in directory.get_guild_roles(int(guild_id))}
     return str(int(role_id)) in role_ids
+
+
+def find_org(db, org_id: int) -> Organization:
+    org = db.query(Organization).filter_by(id=org_id).first()
+    if org is None:
+        raise ServiceError("Organization not found", 404)
+    return org
+
+
+def ready_directory(directory):
+    """The Discord directory when the bot is ready. Raises ServiceError 503 when it is not."""
+    if directory is None or not directory.is_ready():
+        raise ServiceError("Bot not available", 503)
+    return directory
+
+
+def find_guild(directory, guild_id: object) -> dict:
+    """A guild that the bot is in. Raises ServiceError: 503 with no bot, 400 for a bad id, 404 for no guild."""
+    ready_directory(directory)
+    try:
+        number = int(str(guild_id))
+    except ValueError as e:
+        logger.warning("superadmin guild refused: guild_id=%r is not a number", guild_id)
+        raise ServiceError("Invalid guild ID format", 400) from e
+    guild = directory.get_guild(number)
+    if not guild:
+        logger.warning("superadmin guild refused: the bot is not in guild_id=%s", number)
+        raise ServiceError("Guild not found", 404)
+    return guild
+
+
+def dashboard(db, directory, officer_id: object) -> dict:
+    """Guilds without an org, every org, and the orgs whose guild has the officer. Raises ServiceError 503."""
+    ready_directory(directory)
+    guilds = directory.list_guilds()
+    orgs = db.query(Organization).all()
+    return {
+        "available_guilds": available_guilds(guilds, orgs),
+        "existing_orgs": [org.to_dict() for org in orgs],
+        "officer_orgs": [org.to_dict() for org in officer_orgs(directory, orgs, officer_id)],
+    }
+
+
+def roles_of_guild(directory, guild_id: object) -> list[dict]:
+    """The roles of a guild that the bot is in, as guild_roles gives them. Raises ServiceError."""
+    find_guild(directory, guild_id)
+    return guild_roles(directory, int(str(guild_id)))
+
+
+def set_officer_role(db, directory, org_id: int, data: Any) -> dict:
+    """Set the org's officer role, after a check that its guild has the role. An empty id clears it. Commits."""
+    if not data or "officer_role_id" not in data:
+        raise ServiceError("officer_role_id is required", 400)
+    officer_role_id = data["officer_role_id"]
+    ready_directory(directory)
+    org = find_org(db, org_id)
+    try:
+        if not directory.get_guild(int(org.guild_id)):
+            logger.warning("officer role refused: the bot is not in guild_id=%s org_id=%s", org.guild_id, org_id)
+            raise ServiceError("Guild not found", 404)
+        if officer_role_id and not role_in_guild(directory, org.guild_id, officer_role_id):
+            logger.warning("officer role refused: role_id=%s is not in guild_id=%s", officer_role_id, org.guild_id)
+            raise ServiceError("Role not found in guild", 404)
+    except (ValueError, AttributeError) as e:
+        logger.warning("officer role refused: role_id=%r org_id=%s: %s", officer_role_id, org_id, e)
+        raise ServiceError("Invalid role ID format", 400) from e
+    org.officer_role_id = officer_role_id
+    db.commit()
+    logger.info("officer role set org_id=%s role_id=%s", org_id, officer_role_id)
+    return {"message": f"Officer role updated successfully for {org.name}", "organization": org.to_dict()}
+
+
+ERROR_ACTIONS = ("resolve", "reopen")
+MAX_ERROR_IDS = 200
+
+
+def change_errors(db, action: str, ids: Any) -> dict:
+    """Resolve or reopen error groups of any org. Raises ServiceError: 404 for another action, 400 for bad ids."""
+    if action not in ERROR_ACTIONS:
+        raise ServiceError("Unknown action", 404)
+    if not isinstance(ids, list) or not ids or len(ids) > MAX_ERROR_IDS or not all(isinstance(i, int) for i in ids):
+        raise ServiceError(f"ids must be a list of 1 to {MAX_ERROR_IDS} error ids", 400)
+    return {"changed": error_log.set_resolved(db, ids, resolved=action == "resolve", actor="superadmin")}
 
 
 def prefix_for(name: str, guild_id: object) -> str:
