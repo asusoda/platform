@@ -23,10 +23,10 @@ from core.integrations.registry import use
 from core.log import get_logger
 from modules.alerts import delivery
 from modules.alerts.models import Delivery
-from modules.leetcode import client, service
-from modules.leetcode.models import LeetCodeDaily
+from modules.bot.submodules.leetcode import client, service
+from modules.bot.submodules.leetcode.models import LeetCodeDaily
 
-use("discord", "leetcode")
+use("discord", "bot.leetcode")
 
 logger = get_logger("leetcode.daily")
 
@@ -114,7 +114,7 @@ def targets(db) -> list[Target]:
     for org in db.query(Organization).filter_by(is_active=True).order_by(Organization.id):
         settings = (org.config or {}).get("leetcode") or {}
         channel = _int(settings.get("channel_id"), f"org {org.id} leetcode channel_id")
-        if channel is None or not organizations.module_enabled(org, "leetcode"):
+        if channel is None or not organizations.module_enabled(org, "bot.leetcode"):
             continue
         found.append(
             Target(

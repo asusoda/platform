@@ -52,8 +52,18 @@ def grouped(specs: list[ToolSpec], kind: str) -> dict[str, list[ToolSpec]]:
 
 
 def owner(name: str, specs: list[ToolSpec]) -> str:
-    """The module of a module domain: the module most of its tools belong to, else the domain name."""
-    counts = Counter(spec.module for spec in specs if spec.module)
+    """The module of a module domain, such as points or points.store for store.
+
+    The module or sub-module named like the domain, else the parent module named like it, else the module most
+    of its tools belong to, else the domain name.
+    """
+    found = [spec.module for spec in specs if spec.module]
+    named = [m for m in found if m == name or m.endswith(f".{name}")]
+    if named:
+        return named[0]
+    if any(m.partition(".")[0] == name for m in found):
+        return name
+    counts = Counter(found)
     return counts.most_common(1)[0][0] if counts else name
 
 

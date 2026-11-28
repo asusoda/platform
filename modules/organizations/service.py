@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 
 from sqlalchemy.orm.attributes import flag_modified
 
-from core import secrets
+from core import secrets, submodules
 from core.errors import ServiceError
 from modules.auth import machine_tokens, scopes
-from modules.manifest import NEW_ORG_MODULES
+from modules.manifest import NEW_ORG_MODULES, load_submodules
 from modules.organizations.models import Organization
 
 scopes.declare("org:read", "Read the org's name, description, settings and enabled modules")
@@ -30,10 +30,7 @@ scopes.declare(
 # NEW_ORG_MODULES of modules/manifest.py on and the rest of these off.
 OPTIONAL_MODULES = {
     "points": "Points, leaderboards and event check-ins",
-    "storefront": "Merch store paid with points",
     "calendar": "Notion to Google Calendar sync and the public events feed",
-    "games": "Jeopardy games in the org's Discord server",
-    "leetcode": "Daily LeetCode post in the org's channel, with solve checks",
     "godfather": "GPU and CPU pods on the org's RunPod account that members SSH into",
     "feeds": "New job listings and hackathons posted to an alert destination",
     "uptime": "Checks of sites and Hosting apps, with an event when one goes down or up",
@@ -41,6 +38,20 @@ OPTIONAL_MODULES = {
     "integrations": "Tools of the services the org connects, for agents",
     "hosting": "Apps the org deploys to a hosting provider",
 }
+
+# Old switch keys, accepted on write for one release and saved under the new key. Responses use the new keys only.
+LEGACY_SWITCHES = {
+    "runpod": "hosting",
+    "storefront": "points.store",
+    "leetcode": "bot.leetcode",
+    "games": "bot.games",
+}
+
+
+def switch_keys() -> list[str]:
+    """Every key an org can turn on or off: the optional modules, then each sub-module as <module>.<name>."""
+    load_submodules()
+    return [*OPTIONAL_MODULES, *submodules.SUBMODULES]
 
 
 class ModuleError(ValueError):
@@ -83,17 +94,37 @@ def name_for_guild(db, guild_id: object) -> str | None:
 
 
 def module_enabled(org: Organization, name: str) -> bool:
+    """Whether a module or a sub-module is on. A sub-module is on when its module is on and its own switch is on.
+
+    A missing module switch is on. A missing sub-module switch is off.
+    """
+    settings = (org.config or {}).get("modules") or {}
+    module, _, sub = name.partition(".")
+    if sub:
+        return module_enabled(org, module) and settings.get(name) is True
     if name not in OPTIONAL_MODULES:
         return True
-    settings = (org.config or {}).get("modules") or {}
     return settings.get(name, True) is not False
 
 
 def module_states(org: Organization) -> list[dict]:
-    return [
+    """Each switch and whether it is on. A sub-module row names its parent and is on only when the parent is on."""
+    load_submodules()
+    rows = [
         {"name": name, "description": description, "enabled": module_enabled(org, name)}
         for name, description in OPTIONAL_MODULES.items()
     ]
+    rows += [
+        {
+            "name": sub.key,
+            "description": sub.description,
+            "enabled": module_enabled(org, sub.key),
+            "parent": sub.module,
+            "shared": sub.shared,
+        }
+        for sub in submodules.SUBMODULES.values()
+    ]
+    return rows
 
 
 def limits(db, org: Organization) -> list[dict]:
@@ -106,24 +137,44 @@ def limits(db, org: Organization) -> list[dict]:
 
 
 def new_org_switches() -> dict[str, bool]:
-    """The module switches of a new org: on for the modules in NEW_ORG_MODULES, off for the others."""
-    return {name: name in NEW_ORG_MODULES for name in OPTIONAL_MODULES}
+    """The switches of a new org: on for the modules in NEW_ORG_MODULES, off for the other modules and every
+    sub-module."""
+    return {name: name in NEW_ORG_MODULES for name in switch_keys()}
+
+
+def switch_key(name: str) -> str:
+    """The current key for a switch name, which may be a legacy key such as storefront."""
+    return LEGACY_SWITCHES.get(name, name)
 
 
 def set_modules(db, org: Organization, changes: object) -> list[dict]:
-    """Turn modules on or off. `changes` maps module name to a bool. Commits."""
+    """Turn modules and sub-modules on or off. `changes` maps a switch key (or a legacy key) to a bool. Commits.
+
+    A sub-module that goes from off to on runs its on_enable after the commit.
+    """
     if not isinstance(changes, dict) or not changes:
         raise ModuleError("Send a non-empty object of module name to true or false")
+    keys = switch_keys()
+    mapped: dict[str, bool] = {}
     for name, enabled in changes.items():
-        if name not in OPTIONAL_MODULES:
+        key = switch_key(name)
+        if key not in keys:
             raise ModuleError(f"Unknown or required module: {name}")
         if not isinstance(enabled, bool):
             raise ModuleError(f"Value for {name} must be true or false")
+        mapped[key] = enabled
+    turned_on = [
+        sub for key, on in mapped.items() if on and (sub := submodules.get(key)) and not module_enabled(org, key)
+    ]
     config = dict(cast(dict, org.config) or {})
-    config["modules"] = {**(config.get("modules") or {}), **changes}
+    config["modules"] = {**(config.get("modules") or {}), **mapped}
     org.config = config
     flag_modified(org, "config")
     db.commit()
+    for sub in turned_on:
+        hook = sub.on_enable
+        if hook is not None and module_enabled(org, sub.key):
+            hook(db, org.id)
     return module_states(org)
 
 
@@ -151,11 +202,16 @@ def create_organization(
         raise OrganizationError(f"Prefix {prefix} is taken")
     if db.query(Organization).filter_by(guild_id=str(guild_id)).first():
         raise OrganizationError(f"Guild {guild_id} already has an organization")
-    unknown = [m for m in (*modules_on, *modules_off) if m not in OPTIONAL_MODULES]
+    keys = switch_keys()
+    unknown = [m for m in (*modules_on, *modules_off) if switch_key(m) not in keys]
     if unknown:
         raise OrganizationError(f"Unknown or required module: {', '.join(unknown)}")
     config = OrganizationSettings().to_dict()
-    config["modules"] = new_org_switches() | dict.fromkeys(modules_on, True) | dict.fromkeys(modules_off, False)
+    config["modules"] = (
+        new_org_switches()
+        | dict.fromkeys(map(switch_key, modules_on), True)
+        | dict.fromkeys(map(switch_key, modules_off), False)
+    )
     org = Organization(
         name=name,
         prefix=prefix,

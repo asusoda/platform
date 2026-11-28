@@ -9,7 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from core import webhooks
 from core.log import get_logger
-from modules.leetcode.models import LeetCodeLink, LeetCodeSolve
+from modules.bot.submodules.leetcode.models import LeetCodeLink, LeetCodeSolve
 
 logger = get_logger("leetcode.service")
 
@@ -22,7 +22,7 @@ webhooks.declare(
     "leetcode.post_failed",
     "LeetCode post failures",
     "The bot could not post the daily LeetCode question. Sent once a day; the post is tried again every 5 minutes.",
-    "leetcode",
+    "bot.leetcode",
 )
 
 

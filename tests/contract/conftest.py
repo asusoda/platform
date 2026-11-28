@@ -8,6 +8,14 @@ import pytest
 OFFICER_DISCORD_ID = "900000000000000001"
 MEMBER_DISCORD_ID = "900000000000000002"
 MEMBER_EMAIL = "alice@asu.edu"
+# The seeded orgs have every sub-module on, as the migration leaves an org that had every feature on
+SUBMODULES_ON = {
+    "bot.leetcode": True,
+    "bot.games": True,
+    "points.leaderboard": True,
+    "points.checkins": True,
+    "points.store": True,
+}
 
 NOTION_PAGE = {
     "id": "notion-page-1",
@@ -63,7 +71,7 @@ def _seed(db_connect):
     from modules.members.models import User, UserOrganizationMembership
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.storefront.models import Order, OrderItem, Product
+    from modules.points.submodules.store.models import Order, OrderItem, Product
 
     db = next(db_connect.get_db())
     try:
@@ -74,9 +82,16 @@ def _seed(db_connect):
             officer_role_id="2001",
             notion_database_id="notion-db-soda",
             is_active=True,
-            config={},
+            config={"modules": SUBMODULES_ON},
         )
-        ais = Organization(name="AI Society", prefix="ais", guild_id="1002", officer_role_id="2002", is_active=True)
+        ais = Organization(
+            name="AI Society",
+            prefix="ais",
+            guild_id="1002",
+            officer_role_id="2002",
+            is_active=True,
+            config={"modules": SUBMODULES_ON},
+        )
         db.add_all([soda, ais])
         db.flush()
 

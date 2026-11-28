@@ -327,7 +327,15 @@
     "shape": [
       {
         "calendar_sync_enabled": "bool",
-        "config": {},
+        "config": {
+          "modules": {
+            "bot.games": "bool",
+            "bot.leetcode": "bool",
+            "points.checkins": "bool",
+            "points.leaderboard": "bool",
+            "points.store": "bool"
+          }
+        },
         "created_at": "string",
         "description": "null",
         "google_calendar_id": "null",
@@ -346,7 +354,15 @@
       },
       {
         "calendar_sync_enabled": "bool",
-        "config": {},
+        "config": {
+          "modules": {
+            "bot.games": "bool",
+            "bot.leetcode": "bool",
+            "points.checkins": "bool",
+            "points.leaderboard": "bool",
+            "points.store": "bool"
+          }
+        },
         "created_at": "string",
         "description": "null",
         "google_calendar_id": "null",

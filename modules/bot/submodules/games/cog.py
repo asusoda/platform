@@ -6,8 +6,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from core.db import db_connect
 from modules.bot.bot import BotFork
-from modules.games.jeopardy.game import JeopardyGame
-from modules.games.ui import QuestionPost
+from modules.bot.submodules.games.jeopardy.game import JeopardyGame
+from modules.bot.submodules.games.ui import QuestionPost
 
 
 def server_name(guild: discord.Guild) -> str:

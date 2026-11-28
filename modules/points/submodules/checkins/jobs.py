@@ -1,7 +1,7 @@
-"""Points jobs."""
+"""Check-in jobs: the attendance CSV import."""
 
 from core.jobs import job
-from modules.points.csv_import import process_csv_in_background
+from modules.points.submodules.checkins.csv_import import process_csv_in_background
 
 
 @job("points.import_event_csv", once=("import_id",))

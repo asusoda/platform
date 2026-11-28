@@ -44,14 +44,16 @@ def test_org_create_with_modules_on_and_off(cli, client, remove_org):
             "--guild-id",
             "1009",
             "--on",
-            "points,calendar",
+            "points,calendar,storefront",
             "--off",
-            "storefront",
+            "feeds",
         ]
     )
     assert result.exit_code == 0, result.output
     assert "points=on" in result.output and "calendar=on" in result.output and "feeds=off" in result.output
-    assert client.get("/api/storefront/clitest/products").status_code == 404
+    # storefront is the legacy key of points.store
+    assert "points.store=on" in result.output and "storefront" not in result.output
+    assert client.get("/api/storefront/clitest/products").status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -75,6 +77,7 @@ def test_org_modules_switches(cli, restore_soda_config):
     assert result.exit_code == 0, result.output
     assert "calendar=off" in result.output
     assert "calendar=on" in cli.invoke(args=["org", "modules", "soda", "--on", "calendar"]).output
+    assert "bot.games=off" in cli.invoke(args=["org", "modules", "soda", "--off", "games"]).output
 
 
 def test_jobs_list_and_run(cli):

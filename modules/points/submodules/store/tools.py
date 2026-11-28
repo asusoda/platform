@@ -1,7 +1,7 @@
 """Store tools: products and orders."""
 
 from core.tools import tool
-from modules.storefront import service
+from modules.points.submodules.store import service
 
 IDS = {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": service.MAX_IDS}
 STATUS = {"type": "string", "enum": service.ORDER_STATUSES}
@@ -19,7 +19,7 @@ PRODUCT = {
     "store.products",
     description="The store's products: name, description, price in points, stock, image and category.",
     scope="store:read",
-    module="storefront",
+    module="points.store",
 )
 def store_products(db, org, caller):
     return {"products": [service.product_dict(p) for p in service.products(db, int(org.id))]}
@@ -29,7 +29,7 @@ def store_products(db, org, caller):
     "store.orders",
     description="The store's orders, newest first, with the buyer, status, message and items.",
     scope="store:read",
-    module="storefront",
+    module="points.store",
     input_schema={"type": "object", "properties": {"status": STATUS}, "additionalProperties": False},
 )
 def store_orders(db, org, caller, status: str | None = None):
@@ -40,7 +40,7 @@ def store_orders(db, org, caller, status: str | None = None):
     "store.save_product",
     description="Add a product, or change the product with id. A new product needs name, price and stock.",
     scope="store:write",
-    module="storefront",
+    module="points.store",
     input_schema={
         "type": "object",
         "properties": {"id": {"type": "integer"}, **PRODUCT},
@@ -56,7 +56,7 @@ def store_save_product(db, org, caller, id: int | None = None, **data):
     "store.delete_products",
     description="Delete products by id, up to 100. If one id is missing or has orders, nothing changes.",
     scope="store:write",
-    module="storefront",
+    module="points.store",
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
 )
 def store_delete_products(db, org, caller, ids: list[int]):
@@ -71,7 +71,7 @@ def store_delete_products(db, org, caller, ids: list[int]):
         "A cancelled order cannot change to another status."
     ),
     scope="store:write",
-    module="storefront",
+    module="points.store",
     input_schema={
         "type": "object",
         "properties": {"ids": IDS, "status": STATUS, "message": {"type": ["string", "null"], "maxLength": 2000}},
@@ -91,7 +91,7 @@ def store_update_orders(db, org, caller, ids: list[int], **data):
         "and its points are refunded."
     ),
     scope="store:write",
-    module="storefront",
+    module="points.store",
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
 )
 def store_delete_orders(db, org, caller, ids: list[int]):

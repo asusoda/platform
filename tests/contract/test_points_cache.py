@@ -122,7 +122,7 @@ def test_an_api_write_tells_the_other_processes(client, officer_headers, notices
 
 
 def test_the_csv_job_tells_the_other_processes(app, notices, remove_cache_check_points):
-    from modules.points import jobs
+    from modules.points.submodules.checkins import jobs
 
     csv_text = f"First Name,Last Name,Email,Checked-In Date\nAlice,A,{MEMBER_EMAIL},2026-10-01\n"
     jobs.import_event_csv(csv_text, "Cache check", 2, "soda")

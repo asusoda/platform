@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture
 def db(app):
     from core.db import db_connect
-    from modules.leetcode.models import LeetCodeLink, LeetCodeSolve
+    from modules.bot.submodules.leetcode.models import LeetCodeLink, LeetCodeSolve
 
     session = db_connect.SessionLocal()
     yield session
@@ -19,7 +19,7 @@ def db(app):
 
 
 def test_link_solve_and_rank(db):
-    from modules.leetcode import service
+    from modules.bot.submodules.leetcode import service
 
     service.link(db, "1", "alice_lc")
     service.link(db, "1", "alice_new")
@@ -50,7 +50,7 @@ QUESTION = {
 @pytest.fixture
 def daily_env(db, monkeypatch):
     from core.config import config
-    from modules.leetcode.models import LeetCodeDaily
+    from modules.bot.submodules.leetcode.models import LeetCodeDaily
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", "555", raising=False)
     monkeypatch.setattr(config, "LEETCODE_ROLE_PING", "777", raising=False)
@@ -77,7 +77,7 @@ def _at(hour, minute=0, day=8):
 
 
 def test_daily_post_happens_once_after_the_time(db, daily_env):
-    from modules.leetcode import daily
+    from modules.bot.submodules.leetcode import daily
 
     sent, send = daily_env
     reacted: list = []
@@ -97,7 +97,7 @@ def test_daily_post_happens_once_after_the_time(db, daily_env):
 
 def test_a_failed_post_gives_the_day_back(db, daily_env):
     from core.integrations.discord import DiscordUnavailable
-    from modules.leetcode import daily
+    from modules.bot.submodules.leetcode import daily
 
     _, send = daily_env
 
@@ -110,7 +110,7 @@ def test_a_failed_post_gives_the_day_back(db, daily_env):
 
 
 def test_verify_records_and_announces_each_solve_once(db, daily_env):
-    from modules.leetcode import daily, service
+    from modules.bot.submodules.leetcode import daily, service
 
     sent, send = daily_env
     daily.post_daily(db, _at(9), lambda: QUESTION, send, lambda *a: None)
@@ -135,7 +135,7 @@ def test_verify_records_and_announces_each_solve_once(db, daily_env):
 def test_verify_skips_a_member_whose_read_fails(db, daily_env, error):
     import aiohttp
 
-    from modules.leetcode import daily, service
+    from modules.bot.submodules.leetcode import daily, service
 
     sent, send = daily_env
     daily.post_daily(db, _at(9), lambda: QUESTION, send, lambda *a: None)
@@ -154,7 +154,7 @@ def test_verify_skips_a_member_whose_read_fails(db, daily_env, error):
 
 def test_no_channel_means_no_post(db, daily_env, monkeypatch):
     from core.config import config
-    from modules.leetcode import daily
+    from modules.bot.submodules.leetcode import daily
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
     assert daily.post_daily(db, _at(10), lambda: QUESTION) == {}
@@ -169,7 +169,7 @@ def soda(db, client, officer_headers):
     db.refresh(org)
     config = dict(org.config or {})
     config.pop("leetcode", None)
-    config.get("modules", {}).pop("leetcode", None)
+    config["modules"] = {**config.get("modules", {}), "bot.leetcode": True}
     org.config = config
     db.commit()
 
@@ -210,7 +210,7 @@ def test_bad_leetcode_settings_are_refused(client, officer_headers, soda, body):
 
 
 def test_each_org_gets_its_own_post_and_member_only_announcements(db, daily_env, client, officer_headers, soda):
-    from modules.leetcode import daily, service
+    from modules.bot.submodules.leetcode import daily, service
 
     sent, send = daily_env
     _settings(client, officer_headers, soda.id, {"channel_id": "999999", "role_ping": "888888", "daily_time": "10:00"})
@@ -238,11 +238,13 @@ def test_each_org_gets_its_own_post_and_member_only_announcements(db, daily_env,
 
 def test_turning_leetcode_off_stops_the_orgs_post(db, daily_env, client, officer_headers, soda, monkeypatch):
     from core.config import config
-    from modules.leetcode import daily
+    from modules.bot.submodules.leetcode import daily
 
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
     _settings(client, officer_headers, soda.id, {"channel_id": "999999"})
-    client.put(f"/api/organizations/{soda.id}/modules", json={"modules": {"leetcode": False}}, headers=officer_headers)
+    client.put(
+        f"/api/organizations/{soda.id}/modules", json={"modules": {"bot.leetcode": False}}, headers=officer_headers
+    )
     db.expire_all()
     assert daily.post_daily(db, _at(10), lambda: QUESTION) == {}
 
@@ -253,7 +255,7 @@ def test_an_orgs_daily_post_is_logged_and_a_failure_is_logged_once_a_day(
     from core import webhooks
     from core.config import config
     from core.integrations.discord import DiscordUnavailable
-    from modules.leetcode import daily
+    from modules.bot.submodules.leetcode import daily
 
     _, send = daily_env
     monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)

@@ -14,8 +14,9 @@ from modules.auth.routes import officer_route
 from modules.members import service as users
 from modules.members.models import User, UserOrganizationMembership
 from modules.organizations import service as organizations
-from modules.points import csv_import, service
+from modules.points import service
 from modules.points.models import Points
+from modules.points.submodules.checkins import csv_import
 
 logger = get_logger(__name__)
 

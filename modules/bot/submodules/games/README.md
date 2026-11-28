@@ -1,6 +1,6 @@
-# games
+# bot.games
 
-Runs Jeopardy games in an org's Discord server. Officers upload games, select the active one and run it with the bot commands. `GameCog` makes the team roles and channels, posts questions and keeps the scoreboard.
+A sub-module of `bot`, switch `bot.games`. Runs Jeopardy games in an org's Discord server. Officers upload games, select the active one and run it with the bot commands. `GameCog` makes the team roles and channels, posts questions and keeps the scoreboard.
 
 ## Files
 
@@ -15,7 +15,7 @@ Runs Jeopardy games in an org's Discord server. Officers upload games, select th
 
 ## Surface
 
-- Routes: `/api/bot`. Each route needs an officer of an org that has the `games` switch on. For another officer, each route returns 404. The superadmin always passes. The routes that run a game need the bot in the API process (`current_app.auth_bot`), so they fail under gunicorn.
+- Routes: `/api/bot`. Each route needs an officer of an org that has the `bot.games` switch on. For another officer, each route returns 404. The superadmin always passes. The routes that run a game need the bot in the API process (`current_app.auth_bot`), so they fail under gunicorn.
 - Jobs: none.
 - Tools: none.
 - Flow: `POST /setactivegame?name=...` sets the game and makes its channels, roles and announcement in the Discord server of the caller's org. Members enroll with a reaction. `POST /startactivegame` puts each member in one team and starts the game. If the caller is an officer in more than one server of the bot, set `guild_id`. While a game is set up, `/setactivegame` returns 409 until `/cleanactivegame` removes it.

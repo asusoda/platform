@@ -8,9 +8,9 @@ from core.http.responses import error_handler, internal_error
 from modules.auth.access import member_details_allowed
 from modules.members.models import User, UserOrganizationMembership
 from modules.organizations.service import find_by_prefix
-from modules.points import service as points
 from modules.points.models import Points
-from modules.storefront.models import Order, Product
+from modules.points.submodules.leaderboard import service as leaderboards
+from modules.points.submodules.store.models import Order, Product
 
 public_blueprint = Blueprint(
     "public",
@@ -43,7 +43,7 @@ def get_leaderboard(org_prefix):
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        leaderboard_data = points.public_leaderboard(db, org, member_details_allowed(org))
+        leaderboard_data = leaderboards.public_leaderboard(db, org, member_details_allowed(org))
 
     except Exception:
         return internal_error("get_leaderboard")
@@ -64,7 +64,7 @@ def get_global_leaderboard():
     """Get global leaderboard (legacy endpoint - all organizations combined)"""
     db = next(db_connect.get_db())
     try:
-        leaderboard = points.global_leaderboard(db)
+        leaderboard = leaderboards.global_leaderboard(db)
     except Exception:
         return internal_error("get_global_leaderboard")
     finally:

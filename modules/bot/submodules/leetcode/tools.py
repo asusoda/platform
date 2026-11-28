@@ -1,7 +1,7 @@
 """LeetCode daily post tools."""
 
 from core.tools import ToolError, tool
-from modules.leetcode import service
+from modules.bot.submodules.leetcode import service
 
 SNOWFLAKE = {"type": ["string", "null"], "pattern": service.SNOWFLAKE.pattern}
 
@@ -10,7 +10,7 @@ SNOWFLAKE = {"type": ["string", "null"], "pattern": service.SNOWFLAKE.pattern}
     "leetcode.settings",
     description="The org's daily LeetCode post: channel_id, role_ping and daily_time (HH:MM).",
     scope="org:read",
-    module="leetcode",
+    module="bot.leetcode",
 )
 def leetcode_settings(db, org, caller):
     return {"settings": service.settings(org)}
@@ -20,7 +20,7 @@ def leetcode_settings(db, org, caller):
     "leetcode.update_settings",
     description="Change the daily LeetCode post. null clears a value; a missing key is kept.",
     scope="settings:write",
-    module="leetcode",
+    module="bot.leetcode",
     input_schema={
         "type": "object",
         "properties": {

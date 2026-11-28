@@ -14,9 +14,9 @@ from modules.members.models import User, UserOrganizationMembership
 from modules.members.service import get_or_create_user, get_or_create_user_from_clerk
 from modules.organizations.service import find_by_prefix
 from modules.points.models import Points
-from modules.storefront import service
-from modules.storefront.api import place_order, price_mismatch, storefront_blueprint
-from modules.storefront.models import Order
+from modules.points.submodules.store import service
+from modules.points.submodules.store.api import place_order, price_mismatch, storefront_blueprint
+from modules.points.submodules.store.models import Order
 
 __all__ = ["storefront_blueprint"]
 

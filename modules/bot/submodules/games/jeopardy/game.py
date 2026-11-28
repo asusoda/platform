@@ -3,10 +3,10 @@ import uuid
 import discord
 
 from core.log import get_logger
-from modules.games.jeopardy.question import JeopardyQuestion
-from modules.games.jeopardy.team import Team
+from modules.bot.submodules.games.jeopardy.question import JeopardyQuestion
+from modules.bot.submodules.games.jeopardy.team import Team
 
-logger = get_logger("modules.games.jeopardy.Jeopardy")
+logger = get_logger("modules.bot.submodules.games.jeopardy.Jeopardy")
 
 
 class JeopardyGame:

@@ -8,8 +8,8 @@ from core.db import db_connect
 from core.log import get_logger
 from modules.bot.bot import BotFork
 from modules.bot.cogs.helper import HelperCog
-from modules.games.cog import GameCog
-from modules.leetcode.cog import LeetCodeCog
+from modules.bot.submodules.games.cog import GameCog
+from modules.bot.submodules.leetcode.cog import LeetCodeCog
 
 logger = get_logger(__name__)
 

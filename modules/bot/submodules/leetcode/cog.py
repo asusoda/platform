@@ -4,13 +4,13 @@ import discord
 from discord.ext import commands
 
 from core.log import get_logger
-from modules.leetcode import service
-from modules.leetcode.client import (
+from modules.bot.submodules.leetcode import service
+from modules.bot.submodules.leetcode.client import (
     fetch_daily_question,
     fetch_random_question,
     fetch_recent_ac_submissions,
 )
-from modules.leetcode.daily import question_embed
+from modules.bot.submodules.leetcode.daily import question_embed
 
 logger = get_logger("leetcode.cog")
 

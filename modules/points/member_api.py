@@ -16,6 +16,7 @@ from modules.members import service as users
 from modules.members.models import User, UserOrganizationMembership
 from modules.points import service
 from modules.points.api import ORG_NOT_FOUND, active_org, points_blueprint
+from modules.points.submodules.leaderboard import service as leaderboards
 
 __all__ = ["points_blueprint"]
 
@@ -182,7 +183,7 @@ def get_org_leaderboard(org_prefix):
         return cached_json(
             org_key(org_prefix, "points", "leaderboard", bool(show_email)),
             LEADERBOARD_CACHE_TTL,
-            lambda: service.officer_leaderboard(db, organization, bool(show_email)),
+            lambda: leaderboards.officer_leaderboard(db, organization, bool(show_email)),
         )
     except Exception:
         logger.exception("leaderboard failed org=%s", org_prefix)

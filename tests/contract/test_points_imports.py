@@ -104,8 +104,8 @@ def test_a_run_cannot_be_queued_twice(app, monkeypatch):
 
 def test_a_job_queued_before_the_runs_existed_still_runs(app, cleanup):
     from core.db import db_connect
-    from modules.points import jobs
     from modules.points.models import Points
+    from modules.points.submodules.checkins import jobs
 
     jobs.import_event_csv(CSV, EVENT, 2, "soda")
     with db_connect.SessionLocal() as db:

@@ -83,7 +83,7 @@ def _org_with_data(prefix):
     from modules.members.models import User, UserOrganizationMembership
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.storefront.models import Order, OrderItem, Product
+    from modules.points.submodules.store.models import Order, OrderItem, Product
     from modules.submodules.models import Submodule
 
     db = db_connect.SessionLocal()
@@ -116,7 +116,7 @@ def test_remove_org_deletes_its_rows_and_keeps_shared_ones(client, monkeypatch):
     from modules.members.models import User
     from modules.organizations.models import Organization
     from modules.points.models import Points
-    from modules.storefront.models import Order, OrderItem
+    from modules.points.submodules.store.models import Order, OrderItem
     from modules.submodules.models import Submodule
 
     monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)

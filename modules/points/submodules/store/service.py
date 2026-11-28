@@ -12,11 +12,11 @@ from core.log import get_logger
 from modules.auth import scopes
 from modules.members.models import User
 from modules.points.models import Points
-from modules.storefront.models import Order, OrderItem, Product
+from modules.points.submodules.store.models import Order, OrderItem, Product
 
 logger = get_logger(__name__)
 
-webhooks.declare("order.created", "Store orders", "A member places an order in the store.", "storefront")
+webhooks.declare("order.created", "Store orders", "A member places an order in the store.", "points.store")
 scopes.declare("store:read", "Read the store's products and orders, with the name and email of each buyer")
 scopes.declare("store:write", "Add, change and delete products, and change the status of orders or delete them")
 

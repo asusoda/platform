@@ -274,7 +274,7 @@ def get_organization_limits(org_id):
 @organizations_blueprint.route("/<int:org_id>/modules", methods=["PUT"])
 @auth_required
 def update_organization_modules(org_id):
-    """Turn optional modules on or off. Body: {"modules": {"storefront": false}}."""
+    """Turn optional modules on or off. Body: {"modules": {"points.store": false}}."""
     data = request.get_json(silent=True) or {}
     db = next(db_connect.get_db())
     try:
@@ -294,14 +294,14 @@ def update_organization_modules(org_id):
 @auth_required
 def get_organization_leetcode(org_id):
     """The org's daily LeetCode post settings."""
-    from modules.leetcode import service as leetcode
+    from modules.bot.submodules.leetcode import service as leetcode
 
     db = next(db_connect.get_db())
     try:
         org = db.query(Organization).filter_by(id=org_id, is_active=True).first()
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-        return jsonify({"settings": leetcode.settings(org), "enabled": service.module_enabled(org, "leetcode")})
+        return jsonify({"settings": leetcode.settings(org), "enabled": service.module_enabled(org, "bot.leetcode")})
     finally:
         db.close()
 
@@ -310,7 +310,7 @@ def get_organization_leetcode(org_id):
 @auth_required
 def update_organization_leetcode(org_id):
     """Change the daily post settings. Body: {"channel_id": "...", "role_ping": "...", "daily_time": "09:00"}."""
-    from modules.leetcode import service as leetcode
+    from modules.bot.submodules.leetcode import service as leetcode
 
     data = request.get_json(silent=True)
     db = next(db_connect.get_db())
@@ -322,7 +322,7 @@ def update_organization_leetcode(org_id):
             saved = leetcode.save_settings(db, org, data)
         except leetcode.SettingsError as e:
             return jsonify({"error": str(e)}), 400
-        return jsonify({"settings": saved, "enabled": service.module_enabled(org, "leetcode")})
+        return jsonify({"settings": saved, "enabled": service.module_enabled(org, "bot.leetcode")})
     finally:
         db.close()
 

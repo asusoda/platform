@@ -1,27 +1,12 @@
 """Points tools."""
 
 from core.tools import tool
-from modules.points import csv_import, service
+from modules.points import service
+from modules.points.submodules.checkins import csv_import
 
 MEMBER = {"type": "string", "minLength": 1, "maxLength": 255, "description": "Email, uuid, username or Discord id"}
 EVENT = {"type": "string", "minLength": 1, "maxLength": 255}
 ENTRY_IDS = {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": service.MAX_IDS}
-MAX_CSV = 2_000_000
-
-
-@tool(
-    "points.leaderboard",
-    description="Top members by points in this organization. Names and totals only.",
-    scope="points:read",
-    module="points",
-    input_schema={
-        "type": "object",
-        "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 10}},
-        "additionalProperties": False,
-    },
-)
-def points_leaderboard(db, org, caller, limit: int = 10):
-    return {"leaderboard": service.leaderboard(db, org, limit)}
 
 
 @tool(
@@ -100,30 +85,6 @@ def _delete_preview(db, org, caller, ids: list[int] | None = None, event: str | 
 )
 def points_delete(db, org, caller, ids: list[int] | None = None, event: str | None = None):
     return service.delete_entries(db, int(org.id), ids, event)
-
-
-@tool(
-    "points.import_csv",
-    description=(
-        "Give event_points to each checked-in row of an attendance CSV, once per email, in the background. "
-        "A row with no member makes one. points.imports shows the progress and the errors of the run."
-    ),
-    scope="points:write",
-    module="points",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "content": {"type": "string", "minLength": 1, "maxLength": MAX_CSV},
-            "event_name": EVENT,
-            "event_points": {"type": "integer", "minimum": -100000, "maximum": 100000},
-        },
-        "required": ["content", "event_name", "event_points"],
-        "additionalProperties": False,
-    },
-)
-def points_import_csv(db, org, caller, content: str, event_name: str, event_points: int):
-    run = csv_import.queue(db, org, content, event_name, event_points, caller.actor)
-    return {"queued": True, "import_id": run.id}
 
 
 @tool(

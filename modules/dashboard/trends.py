@@ -10,7 +10,7 @@ from modules.knowledge.models import KnowledgeRun
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.points.models import Points
-from modules.storefront.models import Order
+from modules.points.submodules.store.models import Order
 
 DEFAULT_DAYS = 30
 MAX_DAYS = 90
@@ -86,7 +86,7 @@ def trends(db, org: Organization, days: int = DEFAULT_DAYS) -> dict:
             Points.organization_id == org_id, Points.timestamp >= since, Points.points > 0
         )
         series.append(_series("points", "Points given", "points", dates, ((t, p or 0, False) for t, p in rows)))
-    if on("storefront"):
+    if on("points.store"):
         rows = db.query(Order.created_at).filter(Order.organization_id == org_id, Order.created_at >= since)
         series.append(_series("orders", "Store orders", "orders", dates, ((t, 1, False) for (t,) in rows)))
     # Knowledge is always on, so its chart shows only when the window has data.

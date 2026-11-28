@@ -281,7 +281,7 @@ def test_events_of_a_module_that_is_off_are_kept_and_not_sent(client, officer_he
 
     hook = _create(client, officer_headers, events=["order.created", "errors"]).get_json()
     switch = f"/api/organizations/{_ais_id()}/modules"
-    assert client.put(switch, json={"modules": {"storefront": False}}, headers=officer_headers).status_code == 200
+    assert client.put(switch, json={"modules": {"points.store": False}}, headers=officer_headers).status_code == 200
     try:
         listing = client.get(BASE, headers=officer_headers).get_json()
         assert "order.created" not in {e["key"] for e in listing["events"]}
@@ -297,7 +297,7 @@ def test_events_of_a_module_that_is_off_are_kept_and_not_sent(client, officer_he
         db = db_connect.SessionLocal()
         org = db.query(Organization).filter_by(prefix="ais").one()
         db.close()
-        client.put(switch, json={"modules": {"storefront": True}}, headers=officer_headers)
+        client.put(switch, json={"modules": {"points.store": True}}, headers=officer_headers)
         assert org is not None
 
 

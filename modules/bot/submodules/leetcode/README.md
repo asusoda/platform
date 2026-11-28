@@ -1,6 +1,6 @@
-# leetcode
+# bot.leetcode
 
-Posts the LeetCode daily question in an org's Discord channel, records which linked members solved it, and adds LeetCode slash commands.
+A sub-module of `bot`, switch `bot.leetcode`. Posts the LeetCode daily question in an org's Discord channel, records which linked members solved it, and adds LeetCode slash commands.
 
 ## Files
 
@@ -14,7 +14,7 @@ Posts the LeetCode daily question in an org's Discord channel, records which lin
 
 ## Surface
 
-- Routes: none of its own. Officers set `channel_id`, `role_ping` and `daily_time` with `GET` and `PUT /api/organizations/<org_id>/leetcode`. The `leetcode` switch turns off the org's post.
+- Routes: none of its own. Officers set `channel_id`, `role_ping` and `daily_time` with `GET` and `PUT /api/organizations/<org_id>/leetcode`. The `bot.leetcode` switch turns off the org's post.
 - Jobs: `leetcode.post_daily`, schedule `*/5 * * * *`; `leetcode.verify`, schedule `*/10 * * * *`.
 - Tools: `leetcode.settings` (scope `org:read`); `leetcode.update_settings` (scope `settings:write`).
 - Tables: `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily`. Each org post is also a `deliveries` row (`modules/alerts`).
