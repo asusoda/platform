@@ -178,7 +178,7 @@ def test_openrouter_key_and_test(client, officer_headers, cleared, monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     entry = _by_key(client.get(BASE, headers=officer_headers).get_json())["openrouter"]
     assert entry["source"] is None and entry["testable"] is True
-    assert set(entry["used_by"]) == {"agents", "knowledge"}
+    assert set(entry["used_by"]) == {"knowledge"}
     missing = client.post(f"{BASE}/openrouter/test", headers=officer_headers).get_json()
     assert missing == {"ok": False, "message": "Set an OpenRouter API key first"}
 

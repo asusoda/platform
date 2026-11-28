@@ -242,9 +242,7 @@ export const MODULES: ModuleState[] = [
   { name: 'feeds', description: 'New job listings and hackathons posted to Discord webhooks', enabled: true },
   { name: 'uptime', description: 'Checks of sites and Hosting apps, with an event when one goes down or up', enabled: true },
   { name: 'knowledge', description: 'Pages and documents that agents search', enabled: true },
-  { name: 'agents', description: "Conversations, memories and pending actions of the org's agents", enabled: true },
   { name: 'integrations', description: 'Tools of the services the org connects, for agents', enabled: true },
-  { name: 'accounts', description: 'Accounts that members connect for agents to read', enabled: true },
   { name: 'runpod', description: 'Apps the org deploys to a hosting provider', enabled: true },
 ];
 
@@ -261,8 +259,6 @@ const CATALOG = [
   { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'Storage', switchable: true, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], submodules: ['asu'] },
   { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Storage', switchable: true, needs: [], submodules: [] },
   { name: 'storefront', title: 'Store', description: "A merch store that members pay for with points.", category: 'Storage', switchable: true, needs: [], submodules: [] },
-  { name: 'accounts', title: 'Member accounts', description: "Members connect their Google Calendar, and agents read it for the member.", category: 'Storage', switchable: true, needs: [need('ACCOUNTS_BASE_URL', 'ACCOUNTS_BASE_URL setting', true, { kind: 'setting' })], submodules: [] },
-  { name: 'agents', title: 'Agent memory', description: "Conversations, memories and pending actions that the org's agents keep for each member, through the API.", category: 'AI and agents', switchable: true, needs: [need('openrouter', 'OpenRouter', false, { optional: true })], submodules: [] },
   { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI and agents', switchable: true, needs: [], submodules: [] },
   { name: 'feeds', title: 'Feeds', description: 'Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.', category: 'Automations', switchable: true, needs: [], submodules: ['careers'] },
   { name: 'calendar', title: 'Calendar sync', description: "Copies Notion events to Google Calendar and the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], submodules: [] },
@@ -313,8 +309,6 @@ const unlocks = (key: string) => UNLOCKS.filter(([k]) => k === key).map(([, titl
 const SCOPES = {
   'knowledge:read': "Search the organization's knowledge and public sources",
   'knowledge:write': "Write and delete the organization's knowledge sources",
-  'agents:read': 'Read conversations, memories and profiles of members the agent talks to',
-  'agents:write': 'Write conversations, memories, profiles and pending actions for members',
   'calendar:read': "Read the org's upcoming events",
   'points:read': "Read the org's points leaderboard (names and totals, no emails or student IDs)",
   'apps:read': 'List apps on RunPod, their pods and deployments',
@@ -342,7 +336,7 @@ const SCOPES = {
 const SCOPE_GROUPS = [
   { title: 'Org', scopes: ['org:read'] },
   { title: 'Members', scopes: ['members:read', 'points:read', 'points:write'] },
-  { title: 'Content and agents', scopes: ['calendar:read', 'knowledge:read', 'knowledge:write', 'agents:read', 'agents:write'] },
+  { title: 'Content', scopes: ['calendar:read', 'knowledge:read', 'knowledge:write'] },
   { title: 'Hosting', scopes: ['apps:read', 'apps:deploy', 'apps:manage', 'godfather:manage'] },
   { title: 'Access and keys', scopes: ['tokens:manage'] },
 ];
@@ -367,9 +361,9 @@ const INTEGRATIONS = [
     title: 'Embeddings',
     connected: true,
     scopes: [],
-    through: ['agents:read', 'agents:write', 'knowledge:read', 'knowledge:write'],
+    through: ['knowledge:read', 'knowledge:write'],
     limits: [],
-    used_by: ['agents', 'knowledge'],
+    used_by: ['knowledge'],
   },
   { key: 'firecrawl', title: 'Firecrawl', connected: false, scopes: [], through: ['knowledge:write'], limits: [], used_by: ['knowledge'] },
   {
@@ -423,8 +417,6 @@ const INTEGRATIONS = [
 ];
 
 const SCOPE_USES = {
-  'agents:read': ['embeddings'],
-  'agents:write': ['embeddings'],
   'knowledge:read': ['embeddings', 'searxng'],
   'knowledge:write': ['embeddings', 'firecrawl'],
   'calendar:read': ['notion'],
@@ -457,7 +449,6 @@ function trends(now: number) {
       series('jobs', 'Job runs', 'runs', 40, 6, 9),
       series('points', 'Points given', 'points', 60, 45),
       series('orders', 'Store orders', 'orders', 3, 3),
-      series('questions', 'Questions to agents', 'questions', 55, 30),
       series('feed_posts', 'Webhook posts', 'posts', 9, 7),
     ],
   };
@@ -471,7 +462,7 @@ export function fixtures(now: number = Date.now()) {
       id: 11,
       name: 'Claude',
       kind: 'oauth',
-      scopes: ['knowledge:read', 'agents:read', 'agents:write', 'calendar:read', 'github:read'],
+      scopes: ['knowledge:read', 'calendar:read', 'github:read'],
       limits: { github: { repos: ['my-org/*'] } },
       display: 'plat_4hQ2',
       created_by: 'officer',
@@ -1028,8 +1019,6 @@ export function fixtures(now: number = Date.now()) {
         crawled: sources.filter((x) => x.crawl).length,
         failing: sources.filter((x) => x.crawl?.last_error).map((x) => ({ key: x.key, url: x.url, error: x.crawl!.last_error })),
       },
-      agents: { conversations: 1290, active_7_days: 342, members_7_days: 87, memories: 2140, pending_actions: 2 },
-      accounts: { linked: { google: 41 } },
       tokens: {
         tokens: tokens.map(({ name, kind, scopes, last_used_at }) => ({ name, kind, scopes, last_used_at })),
         cli_tokens: 58,
@@ -1140,7 +1129,7 @@ export function fixtures(now: number = Date.now()) {
       editable: true,
       source: 'org',
       testable: true,
-      used_by: ['agents', 'knowledge'],
+      used_by: ['knowledge'],
     },
     {
       key: 'firecrawl',
@@ -1198,7 +1187,7 @@ export function fixtures(now: number = Date.now()) {
       editable: true,
       source: null,
       testable: true,
-      used_by: ['agents', 'knowledge'],
+      used_by: ['knowledge'],
     },
     {
       key: 'runpod',
@@ -1593,8 +1582,6 @@ export function fixtures(now: number = Date.now()) {
 
   // Per-org limits (core/limits.py): [key, module, label, unit, window, default, used by each org]
   const limitSpecs: LimitSpec[] = [
-    ['agents.conversations', 'agents', 'Agent conversations', 'conversations', null, 5000, [1290, 310, 0]],
-    ['agents.memories', 'agents', 'Agent memories', 'memories', null, 20000, [2140, 860, 0]],
     ['alerts.destinations', 'alerts', 'Alert destinations', 'destinations', null, 20, [5, 0, 1]],
     ['godfather.pods', 'godfather', 'Pods', 'pods', null, 10, [4, 9, 0]],
     ['knowledge.embeddings_per_day', 'knowledge', 'Texts embedded a day (knowledge and agent memory)', 'texts', 'day', 500000, [12840, 431200, 0]],
@@ -1652,7 +1639,7 @@ export function fixtures(now: number = Date.now()) {
       last_crawl: at(-40 * MINUTE),
       subscribed: true,
       subscribers: 3,
-      modules: ['accounts', 'knowledge'],
+      modules: ['knowledge'],
     },
     {
       name: 'careers',

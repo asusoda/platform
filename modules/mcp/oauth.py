@@ -36,14 +36,13 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken, ProtectedRes
 from pydantic import AnyHttpUrl, AnyUrl, ValidationError
 from sqlalchemy.exc import IntegrityError
 
-from core import audit, net
+from core import audit, net, sign_in
 from core import secrets as org_secrets
 from core.config import config, superadmin_ids
 from core.db import db_connect
 from core.integrations.discord import DiscordDirectory, DiscordUnavailable
 from core.log import get_logger
 from core.time import utcnow
-from modules.accounts import providers
 from modules.auth import machine_tokens
 from modules.auth.models import MachineToken
 from modules.auth.scopes import SCOPES
@@ -150,7 +149,7 @@ def url_problem(url: str) -> str | None:
 
 def configured_url() -> str:
     """MCP_PUBLIC_URL, else <ACCOUNTS_BASE_URL>/mcp, else "". A URL with no path gets /mcp."""
-    url = config.MCP_PUBLIC_URL or (f"{providers.base_url()}/mcp" if providers.base_url() else "")
+    url = config.MCP_PUBLIC_URL or (f"{sign_in.base_url()}/mcp" if sign_in.base_url() else "")
     if url and urlparse(url).path in ("", "/"):
         url = url.rstrip("/") + "/mcp"
     return url.rstrip("/")

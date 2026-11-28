@@ -23,16 +23,14 @@ def declare(name: str, description: str, integration: str | None = None, uses: t
 # a group.
 GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Org", ("org", "settings", "activity", "submodules")),
-    ("Members", ("members", "discord", "points", "store", "accounts")),
-    ("Content and agents", ("calendar", "knowledge", "feeds", "agents", "asu")),
+    ("Members", ("members", "discord", "points", "store")),
+    ("Content", ("calendar", "knowledge", "feeds", "asu")),
     ("Hosting", ("apps", "godfather", "uptime", "server")),
     ("Access and keys", ("tokens", "secrets", "integrations", "webhooks")),
 )
 
-# Scopes that give tokens, secrets, keys or the access tokens of members. The "Read and write" preset leaves them out.
-ADMIN = frozenset(
-    {"tokens:manage", "secrets:manage", "integrations:manage", "webhooks:manage", "accounts:token", "server:manage"}
-)
+# Scopes that give tokens, secrets or keys. The "Read and write" preset leaves them out.
+ADMIN = frozenset({"tokens:manage", "secrets:manage", "integrations:manage", "webhooks:manage", "server:manage"})
 
 
 def is_read(name: str) -> bool:

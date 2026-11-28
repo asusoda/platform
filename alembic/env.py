@@ -53,7 +53,6 @@ def _ensure_sqlite_parent_dir_exists() -> None:
 UNMODELED_INDEXES = {
     "ix_knowledge_chunks_embedding_hnsw",
     "ix_knowledge_chunks_content_fts",
-    "ix_agent_profile_nodes_embedding_hnsw",
 }
 
 

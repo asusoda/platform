@@ -17,12 +17,10 @@ A rate counter starts again at the start of each window, in UTC. The `usage_coun
 | --- | --- | --- | --- |
 | `knowledge.sources` | knowledge | Sources, crawled, uploaded or written by a client | 1,000 |
 | `knowledge.passages` | knowledge | Passages of the current versions of all sources | 250,000 |
-| `knowledge.embeddings_per_day` | knowledge | Texts embedded a day, for knowledge and agent memory | 500,000 |
+| `knowledge.embeddings_per_day` | knowledge | Texts embedded a day, for knowledge | 500,000 |
 | `knowledge.uploads_per_day` | knowledge | Files uploaded a day | 500 |
 | `knowledge.jobs_per_day` | knowledge | Crawls, re-indexes and re-embeds that an officer or a token starts | 200 |
 | `knowledge.renders_per_day` | knowledge | Pages rendered in the shared browser a day. 0 turns rendering off for the org | 0 |
-| `agents.conversations` | agents | Agent conversations, for Agent memory | 5,000 |
-| `agents.memories` | agents | Agent memories, for Agent memory | 20,000 |
 | `godfather.pods` | godfather | Pods | 10 |
 | `runpod.apps` | runpod | Hosting apps | 25 |
 | `runpod.server_apps` | runpod | Apps on This server | 2 |
@@ -92,5 +90,4 @@ An override can be a whole number, `null` (no limit) or `"default"` (remove the 
 
 - Container limits cap each service, not each org. One org can still use all of the API's memory.
 - Data is kept apart by `organization_id` in the code. The database does not enforce it.
-- Agent conversations and memories have no count limit, only `AGENT_RETENTION_DAYS`.
 - Points, store, calendar and LeetCode data have no limits. They are small.

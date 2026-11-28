@@ -21,8 +21,8 @@ CATEGORIES = {
         "superadmin",
         "users",
     ],
-    "Storage": ["knowledge", "points", "storefront", "accounts"],
-    "AI and agents": ["agents", "integrations"],
+    "Storage": ["knowledge", "points", "storefront"],
+    "AI and agents": ["integrations"],
     "Automations": ["feeds", "calendar", "uptime"],
     "Bots": ["leetcode", "games"],
     "Compute": ["godfather", "runpod"],
@@ -61,16 +61,6 @@ RUNPOD = Need("runpod", "RunPod")
 
 # Each module as the dashboard shows it. tests/test_module_layout.py checks that each module has an entry.
 CATALOG = {
-    "accounts": ModuleInfo(
-        "Member accounts",
-        "Members connect their Google Calendar, and agents read it for the member.",
-        needs=(Need("ACCOUNTS_BASE_URL", "ACCOUNTS_BASE_URL setting", kind="setting"),),
-    ),
-    "agents": ModuleInfo(
-        "Agent memory",
-        "Conversations, memories and pending actions that the org's agents keep for each member, through the API.",
-        needs=(Need("openrouter", "OpenRouter", optional=True),),
-    ),
     "auth": ModuleInfo(
         "Sign-in", "Discord sign-in for officers and members, tokens and access checks.", (DISCORD_BOT,)
     ),
@@ -139,9 +129,7 @@ MODEL_MODULES = [
     "core.limits",
     "core.secrets",
     "core.webhooks",
-    "modules.accounts.models",
     "modules.feeds.models",
-    "modules.agents.models",
     "modules.auth.models",
     "modules.games.models",
     "modules.knowledge.models",
@@ -167,8 +155,6 @@ JOB_MODULES = [
     "modules.auth.jobs",
     "modules.points.jobs",
     "modules.calendar.jobs",
-    "modules.agents.jobs",
-    "modules.accounts.jobs",
     "modules.runpod.jobs",
     "modules.knowledge.jobs",
     "modules.submodules.jobs",

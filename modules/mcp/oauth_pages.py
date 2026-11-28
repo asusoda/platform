@@ -21,13 +21,12 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
-from core import audit
+from core import audit, sign_in
 from core.config import config
 from core.db import db_connect
 from core.integrations import registry
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
-from modules.accounts import providers
 from modules.auth import machine_tokens
 from modules.auth import scopes as scope_info
 from modules.auth.scopes import SCOPES
@@ -177,7 +176,7 @@ async def login(request: Request) -> Response:
     found = await to_thread.run_sync(_session, lambda db: oauth.find_request(db, key, signed_in=False) is not None)
     if not found or not key:
         return _message(f"This sign-in expired or did not start here. {AGAIN}", 400)
-    redirect = RedirectResponse(providers.discord_consent_url(config.CLIENT_ID, key, callback_url()), 302)
+    redirect = RedirectResponse(sign_in.discord_consent_url(config.CLIENT_ID, key, callback_url()), 302)
     return _with_cookie(redirect, key)
 
 
@@ -396,9 +395,9 @@ async def callback(request: Request) -> Response:
         )
     try:
         discord_id = await to_thread.run_sync(
-            providers.discord_user_id, config.CLIENT_ID, config.CLIENT_SECRET, code, callback_url()
+            sign_in.discord_user_id, config.CLIENT_ID, config.CLIENT_SECRET, code, callback_url()
         )
-    except providers.ProviderError:
+    except sign_in.SignInError:
         return _with_cookie(_message(f"Discord sign-in failed. {AGAIN}", 502), None)
     response, consent_key = await to_thread.run_sync(_session, _signed_in, key, discord_id)
     return _with_cookie(response, consent_key)

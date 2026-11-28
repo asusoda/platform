@@ -5,7 +5,6 @@ from collections.abc import Iterable
 
 from core.audit import AuditEntry
 from core.time import utcnow
-from modules.agents.models import AgentConversation, AgentMessage
 from modules.feeds.models import AlertFeed, AlertRun
 from modules.knowledge.models import KnowledgeRun
 from modules.organizations import service as organizations
@@ -90,17 +89,7 @@ def trends(db, org: Organization, days: int = DEFAULT_DAYS) -> dict:
     if on("storefront"):
         rows = db.query(Order.created_at).filter(Order.organization_id == org_id, Order.created_at >= since)
         series.append(_series("orders", "Store orders", "orders", dates, ((t, 1, False) for (t,) in rows)))
-    # Agents and knowledge are always on, so their charts show only when the window has data.
-    rows = (
-        db.query(AgentMessage.created_at)
-        .join(AgentConversation, AgentConversation.id == AgentMessage.conversation_id)
-        .filter(
-            AgentConversation.organization_id == org_id,
-            AgentMessage.created_at >= since,
-            AgentMessage.role == "user",
-        )
-    )
-    series.append(_series("questions", "Questions to agents", "questions", dates, ((t, 1, False) for (t,) in rows)))
+    # Knowledge is always on, so its chart shows only when the window has data.
     rows = db.query(KnowledgeRun.started_at, KnowledgeRun.error).filter(
         KnowledgeRun.organization_id == org_id, KnowledgeRun.started_at >= since
     )
@@ -112,6 +101,5 @@ def trends(db, org: Organization, days: int = DEFAULT_DAYS) -> dict:
             .filter(AlertFeed.organization_id == org_id, AlertRun.started_at >= since)
         )
         series.append(_series("feed_posts", "Webhook posts", "posts", dates, ((t, p or 0, False) for t, p, _ in rows)))
-    always_on = {"questions", "knowledge"}
-    series = [item for item in series if item["key"] not in always_on or item["total"]]
+    series = [item for item in series if item["key"] != "knowledge" or item["total"]]
     return {"days": days, "series": series, "generated_at": utcnow().isoformat()}
