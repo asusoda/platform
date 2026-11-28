@@ -51,9 +51,6 @@
 /api/calendar/<org_prefix>/setup OPTIONS,POST calendar.setup_organization_calendar
 /api/calendar/<org_prefix>/sync OPTIONS,POST calendar.sync_organization_calendar
 /api/calendar/debug/organizations GET,HEAD,OPTIONS calendar.debug_organizations
-/api/calendar/delete-all-events OPTIONS,POST calendar.delete_all_calendar_events
-/api/calendar/events GET,HEAD,OPTIONS calendar.get_calendar_events_for_frontend
-/api/calendar/notion-webhook OPTIONS,POST calendar.notion_webhook
 /api/calendar/sync-all OPTIONS,POST calendar.sync_all_organizations
 /api/compute/<string:org_prefix>/cli/login GET,HEAD,OPTIONS godfather.cli_sign_in
 /api/compute/<string:org_prefix>/cli/token OPTIONS,POST godfather.cli_token
@@ -176,7 +173,6 @@
 /api/organizations/<int:org_id>/limits GET,HEAD,OPTIONS organizations.get_organization_limits
 /api/organizations/<int:org_id>/modules GET,HEAD,OPTIONS organizations.get_organization_modules
 /api/organizations/<int:org_id>/modules OPTIONS,PUT organizations.update_organization_modules
-/api/organizations/<int:org_id>/roles GET,HEAD,OPTIONS organizations.get_organization_roles
 /api/organizations/<int:org_id>/secrets GET,HEAD,OPTIONS organizations.list_organization_secrets
 /api/organizations/<int:org_id>/secrets/<string:name> DELETE,OPTIONS organizations.delete_organization_secret
 /api/organizations/<int:org_id>/secrets/<string:name> OPTIONS,PUT organizations.set_organization_secret
@@ -187,12 +183,9 @@
 /api/organizations/<int:org_id>/tokens/<int:token_id> DELETE,OPTIONS organizations.revoke_machine_token
 /api/points/ GET,HEAD,OPTIONS points.index
 /api/points/<string:org_prefix>/add_points OPTIONS,POST points.add_points_to_org
-/api/points/<string:org_prefix>/assignPoints OPTIONS,POST points.assign_points_to_org
 /api/points/<string:org_prefix>/assign_points OPTIONS,POST points.assign_points_to_org
 /api/points/<string:org_prefix>/delete_points DELETE,OPTIONS points.delete_points_by_event
 /api/points/<string:org_prefix>/entries/<int:entry_id> DELETE,OPTIONS points.delete_entry
-/api/points/<string:org_prefix>/getUserPoints GET,HEAD,OPTIONS points.get_user_points_in_org
-/api/points/<string:org_prefix>/getUserTotalPoints GET,HEAD,OPTIONS points.get_user_total_points_in_org
 /api/points/<string:org_prefix>/get_points GET,HEAD,OPTIONS points.get_org_points
 /api/points/<string:org_prefix>/imports GET,HEAD,OPTIONS points.list_imports
 /api/points/<string:org_prefix>/imports/<int:import_id> GET,HEAD,OPTIONS points.get_import
@@ -208,7 +201,6 @@
 /api/public/<string:org_prefix>/stats GET,HEAD,OPTIONS public.get_organization_stats
 /api/public/<string:org_prefix>/users GET,HEAD,OPTIONS public.get_organization_users
 /api/public/favicon.ico GET,HEAD,OPTIONS public.favicon
-/api/public/getnextevent GET,HEAD,OPTIONS public.get_next_event
 /api/public/leaderboard GET,HEAD,OPTIONS public.get_global_leaderboard
 /api/public/static/public/<path:filename> GET,HEAD,OPTIONS public.static
 /api/storefront/<string:org_prefix>/checkout OPTIONS,POST storefront.clerk_checkout
@@ -281,7 +273,6 @@
 /api/users/<string:org_prefix>/createUser OPTIONS,POST users.create_user_in_org
 /api/users/<string:org_prefix>/discord/roles GET,HEAD,OPTIONS users.discord_roles
 /api/users/<string:org_prefix>/discord/sync OPTIONS,POST users.discord_sync
-/api/users/<string:org_prefix>/submit-form OPTIONS,POST users.handle_form_submission_in_org
 /api/users/<string:org_prefix>/user GET,HEAD,OPTIONS,POST users.user_in_org
 /api/users/<string:org_prefix>/users GET,HEAD,OPTIONS users.get_organization_users
 /api/users/<string:org_prefix>/users OPTIONS,POST users.add_user_to_organization

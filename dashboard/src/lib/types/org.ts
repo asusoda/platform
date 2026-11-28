@@ -6,8 +6,6 @@ export type OrganizationDetail = Organization & {
   description: string | null;
   is_active: boolean;
   officer_role_id: string | null;
-  points_per_message: number | null;
-  points_cooldown: number | null;
   created_at: string | null;
   updated_at: string | null;
 };

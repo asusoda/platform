@@ -1,202 +1,99 @@
+"""Officer and public routes of the store. The logic and the bodies are in service.py.
+
+The officer routes accept an inactive org too, so they do not use officer_route.
+"""
+
 from flask import Blueprint, g, jsonify, request
 
 from core.db import db_connect
-from core.http.responses import error_handler
+from core.errors import ServiceError
+from core.http.responses import error, error_handler
 from modules.auth.access import decide
 from modules.auth.decorators import auth_required, dual_auth_required, org_officer_required
-from modules.members.models import User, UserOrganizationMembership
 from modules.organizations.service import find_by_prefix
 from modules.points.submodules.store import service
-from modules.points.submodules.store.models import Product
 
 storefront_blueprint = Blueprint("storefront", __name__)
 
 
-def price_mismatch(org_prefix, total_amount, priced) -> bool:
-    """True if the order must be refused because the client's prices differ from the catalog.
+def in_org(org_prefix, view, *args):
+    """Run view(db, org, *args) for the org with this prefix, active or not, and return its result as JSON.
 
-    priced holds (product, quantity, client unit price). A mismatch is logged as
-    checkout_price_mismatch, and refused only when ACCESS_ENFORCE is true.
+    view returns a body or (body, status). No org gets 404. A StoreError becomes its message and status.
     """
-    if not service.prices_mismatch(total_amount, priced):
-        return False
-    return decide("checkout_price_mismatch", org=org_prefix)
+    db = db_connect.SessionLocal()
+    try:
+        org = find_by_prefix(db, org_prefix)
+        if not org:
+            return error("Organization not found", 404)
+        result = view(db, org, *args)
+    except ServiceError as e:
+        db.rollback()
+        return error(e.message, e.status)
+    finally:
+        db.close()
+    body, status = result if isinstance(result, tuple) else (result, 200)
+    return jsonify(body), status
+
+
+def refuse_price_change(org_prefix):
+    """Whether a checkout whose client prices differ from the catalog is refused.
+
+    The mismatch is logged as checkout_price_mismatch, and refused only when ACCESS_ENFORCE is true.
+    """
+    return lambda: decide("checkout_price_mismatch", org=org_prefix)
+
+
+def place_order(org_prefix, total_amount: float, items, user_for):
+    """Check out for the user that user_for(db, org) returns, as an active member of the org. 201 with the order."""
+
+    def view(db, org):
+        user = service.active_buyer(db, org.id, user_for(db, org))
+        placed = service.checkout(
+            db, org.id, user, total_amount, items, refuse_price_change(org_prefix), status="completed"
+        )
+        return service.placed_json(placed, "Order placed and points deducted successfully", "points_deducted"), 201
+
+    return in_org(org_prefix, view)
 
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["GET"])
 @error_handler
 def get_products(org_prefix):
-    """Get all products for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        products = service.products(db, org.id)
-        return jsonify(
-            [
-                {
-                    "id": p.id,
-                    "name": p.name,
-                    "description": p.description,
-                    "price": p.price,
-                    "stock": p.stock,
-                    "image_url": p.image_url,
-                    "category": p.category,
-                    "organization_id": p.organization_id,
-                    "created_at": p.created_at.isoformat() if p.created_at else None,
-                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
-                }
-                for p in products
-            ]
-        ), 200
-    finally:
-        db.close()
+    """Every product of the org."""
+    return in_org(org_prefix, lambda db, org: service.product_list(db, org.id))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["GET"])
 @error_handler
 def get_product(org_prefix, product_id):
-    """Get a specific product by ID for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        product = service.product(db, product_id, org.id)
-        if not product:
-            return jsonify({"error": "Product not found"}), 404
-
-        return jsonify(
-            {
-                "id": product.id,
-                "name": product.name,
-                "description": product.description,
-                "price": product.price,
-                "stock": product.stock,
-                "image_url": product.image_url,
-                "category": product.category,
-                "organization_id": product.organization_id,
-                "created_at": product.created_at.isoformat() if product.created_at else None,
-                "updated_at": product.updated_at.isoformat() if product.updated_at else None,
-            }
-        ), 200
-    finally:
-        db.close()
+    """One product of the org."""
+    return in_org(org_prefix, lambda db, org: service.product_detail(db, product_id, org.id))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/products", methods=["POST"])
 @auth_required
 @error_handler
 def create_product(org_prefix):
-    """Create a new product for an organization"""
-    data = request.get_json()
-
-    if not data.get("name"):
-        return jsonify({"error": "Product name is required"}), 400
-    if not data.get("price"):
-        return jsonify({"error": "Product price is required"}), 400
-    if not data.get("stock"):
-        return jsonify({"error": "Product stock is required"}), 400
-
-    category = service.normalize_category(data.get("category"))
-
-    new_product = Product(
-        name=data["name"],
-        description=data.get("description", ""),
-        price=float(data["price"]),
-        stock=int(data["stock"]),
-        image_url=data.get("image_url", ""),
-        category=category,
-    )
-
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        created_product = service.create_product(db, new_product, org.id)
-        return jsonify(
-            {
-                "message": "Product created successfully",
-                "id": created_product.id,
-                "product": {
-                    "id": created_product.id,
-                    "name": created_product.name,
-                    "description": created_product.description,
-                    "price": created_product.price,
-                    "stock": created_product.stock,
-                    "image_url": created_product.image_url,
-                    "category": created_product.category,
-                    "organization_id": created_product.organization_id,
-                },
-            }
-        ), 201
-    finally:
-        db.close()
+    """Add a product to the org. 201 with the product."""
+    row = service.new_product(request.get_json())
+    return in_org(org_prefix, lambda db, org: (service.add_product(db, org.id, row), 201))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["PUT"])
 @auth_required
 @error_handler
 def update_product(org_prefix, product_id):
-    """Update a product for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        product = service.product(db, product_id, org.id)
-        if not product:
-            return jsonify({"error": "Product not found"}), 404
-
-        data = request.get_json()
-        service.change_product(product, data)
-        db.commit()
-        return jsonify(
-            {
-                "message": "Product updated successfully",
-                "product": {
-                    "id": product.id,
-                    "name": product.name,
-                    "description": product.description,
-                    "price": product.price,
-                    "stock": product.stock,
-                    "image_url": product.image_url,
-                    "category": product.category,
-                    "organization_id": product.organization_id,
-                },
-            }
-        ), 200
-    finally:
-        db.close()
+    """Change the product fields that the body has."""
+    return in_org(org_prefix, lambda db, org: service.update_product(db, org.id, product_id, request.get_json()))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/products/<int:product_id>", methods=["DELETE"])
 @auth_required
 @error_handler
 def delete_product(org_prefix, product_id):
-    """Delete a product for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        try:
-            success = service.delete_product(db, product_id, org.id)
-        except service.StoreError as e:
-            return jsonify({"error": e.message}), e.status
-        if not success:
-            return jsonify({"error": "Product not found"}), 404
-
-        return jsonify({"message": "Product deleted successfully"}), 200
-    finally:
-        db.close()
+    """Delete a product that no order has."""
+    return in_org(org_prefix, lambda db, org: service.remove_product(db, org.id, product_id))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["GET"])
@@ -204,230 +101,65 @@ def delete_product(org_prefix, product_id):
 @org_officer_required
 @error_handler
 def get_orders(org_prefix):
-    """Get all orders for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
+    """Every order of the org, with its buyer and the points it holds."""
 
+    def view(db, org):
         orders = service.orders(db, org.id)
         held = service.held_points(db, org.id, [o.id for o in orders])
-        return jsonify([service.order_dict(o, held[o.id]) for o in orders]), 200
-    finally:
-        db.close()
+        return [service.order_dict(o, held[o.id]) for o in orders]
+
+    return in_org(org_prefix, view)
 
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["GET"])
 @auth_required
 @error_handler
 def get_order(org_prefix, order_id):
-    """Get a specific order by ID for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        order = service.order(db, order_id, org.id)
-        if not order:
-            return jsonify({"error": "Order not found"}), 404
-
-        return jsonify(
-            {
-                "id": order.id,
-                "user_id": order.user_id,
-                "total_amount": order.total_amount,
-                "status": order.status,
-                "created_at": order.created_at.isoformat(),
-                "updated_at": order.updated_at.isoformat() if order.updated_at else None,
-                "organization_id": order.organization_id,
-                "items": [
-                    {
-                        "id": item.id,
-                        "product_id": item.product_id,
-                        "quantity": item.quantity,
-                        "price_at_time": item.price_at_time,
-                    }
-                    for item in order.items
-                ],
-            }
-        ), 200
-    finally:
-        db.close()
+    """One order of the org with its items."""
+    return in_org(org_prefix, lambda db, org: service.order_detail(db, order_id, org.id))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/orders", methods=["POST"])
 @dual_auth_required
 @error_handler
 def create_order(org_prefix):
-    """Create a new order for an organization with dual authentication"""
+    """Check out for the signed-in user, found by the email of the Clerk or platform token."""
     data = request.get_json()
     user_email = g.get("clerk_user_email")
-
     if not user_email or "@" not in user_email:
-        return jsonify({"error": "Authenticated user email is missing or invalid"}), 400
-    if not data.get("total_amount"):
-        return jsonify({"error": "Total amount is required"}), 400
-    if not data.get("items") or len(data["items"]) == 0:
-        return jsonify({"error": "Order items are required"}), 400
-    try:
-        total_amount = service.parse_total(data["total_amount"])
-    except service.StoreError as e:
-        return jsonify({"error": e.message}), e.status
-
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        user = db.query(User).filter(User.email == user_email).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        membership = (
-            db.query(UserOrganizationMembership)
-            .filter(
-                UserOrganizationMembership.user_id == user.id,
-                UserOrganizationMembership.organization_id == org.id,
-                UserOrganizationMembership.is_active,
-            )
-            .first()
-        )
-        if not membership:
-            return jsonify({"error": "User is not a member of this organization"}), 403
-
-        return place_order(db, org, user, org_prefix, total_amount, data["items"])
-    finally:
-        db.close()
-
-
-def place_order(db, org, user, org_prefix, total_amount: float, items):
-    """Price the items from the catalog, then write the order, the stock change and the points charge in one commit.
-
-    The charge is the catalog total, not the client's total. Returns the response of the checkout routes.
-    """
-    try:
-        order_items, priced = service.price_items(db, org.id, items)
-        if price_mismatch(org_prefix, total_amount, priced):
-            return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
-        created_order = service.place_order(db, org.id, user, order_items, priced, status="completed")
-    except service.StoreError as e:
-        return jsonify({"error": e.message}), e.status
-
-    return jsonify(
-        {
-            "message": "Order placed and points deducted successfully",
-            "id": created_order.id,
-            "points_deducted": service.points_number(created_order.total_amount),
-            "order": {
-                "id": created_order.id,
-                "user_id": created_order.user_id,
-                "total_amount": created_order.total_amount,
-                "status": created_order.status,
-                "created_at": created_order.created_at.isoformat() if created_order.created_at else None,
-            },
-        }
-    ), 201
+        return error("Authenticated user email is missing or invalid", 400)
+    total_amount = service.order_totals(data)
+    return place_order(
+        org_prefix, total_amount, data["items"], lambda db, org: service.clerk_buyer(db, org.id, user_email, None)
+    )
 
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["PUT"])
 @auth_required
 @error_handler
 def update_order_status(org_prefix, order_id):
-    """Update order status for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        order = service.order(db, order_id, org.id, for_update=True)
-        if not order:
-            return jsonify({"error": "Order not found"}), 404
-
-        data = request.get_json()
-        try:
-            service.change_order(db, order, data)
-        except service.StoreError as e:
-            return jsonify({"error": e.message}), e.status
-        db.commit()
-        return jsonify(
-            {
-                "message": "Order updated successfully",
-                "order": {
-                    "id": order.id,
-                    "user_id": order.user_id,
-                    "total_amount": order.total_amount,
-                    "status": order.status,
-                    "message": order.message,
-                    "updated_at": order.updated_at.isoformat() if order.updated_at else None,
-                },
-            }
-        ), 200
-    finally:
-        db.close()
+    """Change the status or message of an order. A cancel gives back the stock and the points."""
+    return in_org(org_prefix, lambda db, org: service.update_order(db, org.id, order_id, request.get_json()))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/orders/<int:order_id>", methods=["DELETE"])
 @auth_required
 @error_handler
 def delete_order(org_prefix, order_id):
-    """Delete an order for an organization"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        order = service.order(db, order_id, org.id, for_update=True)
-        if not order:
-            return jsonify({"error": "Order not found"}), 404
-
-        service.remove_order(db, order, org.id)
-        db.commit()
-        return jsonify({"message": "Order deleted successfully"}), 200
-    finally:
-        db.close()
+    """Delete an order. Unless it is cancelled or delivered, the stock and the points go back."""
+    return in_org(org_prefix, lambda db, org: service.delete_order(db, org.id, order_id))
 
 
 @storefront_blueprint.route("/<string:org_prefix>/store", methods=["GET"])
 @error_handler
 def get_store_products(org_prefix):
-    """Get all available products for public store front"""
-    db = next(db_connect.get_db())
-    try:
-        org = find_by_prefix(db, org_prefix)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 404
-
-        products = service.products(db, org.id)
-        available_products = [p for p in products if p.stock > 0]
-
-        return jsonify(
-            {
-                "organization": {"name": org.name, "prefix": org.prefix, "description": org.description},
-                "products": [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "description": p.description,
-                        "price": p.price,
-                        "stock": p.stock,
-                        "image_url": p.image_url,
-                    }
-                    for p in available_products
-                ],
-            }
-        ), 200
-    finally:
-        db.close()
+    """The public store: the org and its products in stock."""
+    return in_org(org_prefix, service.store_front)
 
 
 @storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])
 @auth_required
 @error_handler
 def purchase_products(org_prefix):
-    """Public endpoint for customers to purchase products (Discord auth)"""
+    """The same checkout as create_order."""
     return create_order(org_prefix)

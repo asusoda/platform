@@ -3,27 +3,9 @@ from typing import Any
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
 
 from core.db import Base
 from core.time import utcnow
-
-
-class Session(Base):
-    """Table kept for schema compatibility; no code reads it."""
-
-    __tablename__ = "sessions"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    data: Mapped[Any] = mapped_column(JSON, nullable=False)
-    expiry: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, default=func.utcnow())
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime, default=func.utcnow(), onupdate=func.utcnow()
-    )
-
-    def __repr__(self):
-        return f"<Session {self.session_id}>"
 
 
 class RefreshToken(Base):

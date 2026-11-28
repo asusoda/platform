@@ -293,21 +293,6 @@ def user_in_org(org_prefix):
         db.close()
 
 
-@users_blueprint.route("/<string:org_prefix>/submit-form", methods=["POST"])
-def handle_form_submission_in_org(org_prefix):
-    try:
-        data = request.get_json()
-
-        discordID = data.get("discordID")
-        role = data.get("role")
-
-    except Exception:
-        logger.exception("Error while handling form submission for org_prefix=%s", org_prefix)
-        return jsonify({"error": "An internal error occurred while processing the form."}), 500
-
-    return jsonify({"message": "recieved id: " + discordID + " and role: " + role}), 200
-
-
 @users_blueprint.route("/<string:org_prefix>/users", methods=["GET"])
 @auth_required
 @error_handler

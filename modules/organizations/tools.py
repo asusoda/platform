@@ -74,7 +74,7 @@ def org_set_branding(db, org, caller, **changes):
 
 @tool(
     "org.settings",
-    description="The org's name, prefix, description, points for each message and the cooldown between them.",
+    description="The org's name, prefix and description.",
     scope="org:read",
 )
 def org_settings(db, org, caller):
@@ -83,14 +83,12 @@ def org_settings(db, org, caller):
 
 @tool(
     "org.update_settings",
-    description="Change the description, the points a member gets for a message, or the cooldown in seconds.",
+    description="Change the org's description.",
     scope="settings:write",
     input_schema={
         "type": "object",
         "properties": {
             "description": {"type": ["string", "null"], "maxLength": service.MAX_DESCRIPTION},
-            "points_per_message": {"type": "integer", "minimum": 0, "maximum": 1000},
-            "points_cooldown": {"type": "integer", "minimum": 0, "maximum": 86400},
         },
         "minProperties": 1,
         "additionalProperties": False,

@@ -199,3 +199,148 @@ def test_org_list_needs_no_bot(client, monkeypatch, app):
     assert soda["members"] > 0
     assert "config" not in soda
     assert client.get("/api/superadmin/orgs", headers=headers_for("123")).status_code == 403
+
+
+# The org delete refuses while the org has a pod, so the every-table test leaves this table empty
+POD_TABLES = {"compute_pods"}
+
+
+def _org_fk(column) -> bool:
+    return any(fk.column.table.name == "organizations" for fk in column.foreign_keys)
+
+
+def _value(column, token: str):
+    """A value of the column's type for a NOT NULL column: token for text, cut to the column's length."""
+    import datetime
+
+    import sqlalchemy as sa
+
+    if isinstance(column.type, sa.Enum):
+        return column.type.enums[0]
+    if isinstance(column.type, sa.JSON):
+        return {}
+    if type(column.type).__name__ == "VECTOR":
+        return [0.0] * column.type.dim
+    python_type = column.type.python_type
+    if python_type is str:
+        return token[: getattr(column.type, "length", None) or len(token)]
+    if python_type is bool:
+        return False
+    if python_type in (int, float):
+        return python_type(1)
+    if python_type is datetime.datetime:
+        return datetime.datetime(2026, 1, 1)
+    if python_type is datetime.date:
+        return datetime.date(2026, 1, 1)
+    if python_type in (dict, list):
+        return python_type()
+    if python_type is bytes:
+        return token.encode()
+    raise AssertionError(f"No test value for {column.table.name}.{column.name} ({column.type})")
+
+
+def _insert(db, table, org_id: int | None, prefix: str, parents: dict[str, dict]) -> dict:
+    """Insert one row and return it. Org FKs get org_id, other FKs the parent row in parents, NOT NULL columns a
+    test value."""
+    row = {}
+    for column in table.columns:
+        fks = list(column.foreign_keys)
+        if fks and _org_fk(column):
+            row[column.name] = org_id
+        elif fks:
+            parent = fks[0].column.table.name
+            if parent in parents:
+                row[column.name] = parents[parent][fks[0].column.name]
+            elif not column.nullable:
+                raise AssertionError(f"{table.name}.{column.name} needs a {parent} row")
+        elif column.primary_key and column.autoincrement in (True, "auto") and column.type.python_type is int:
+            continue
+        elif not column.nullable and column.default is None and column.server_default is None:
+            row[column.name] = _value(column, f"{prefix}-{table.name}-{column.name}")
+    pk = list(table.primary_key.columns)[0]
+    row_id = db.execute(table.insert().values(row)).inserted_primary_key[0]
+    return dict(db.execute(table.select().where(pk == row_id)).one()._mapping)
+
+
+def _fill_every_org_table(db, org_id: int, prefix: str, shared: dict[str, dict]) -> dict[str, dict]:
+    """One row in each table that belongs to the org, directly or through a parent row. Returns the rows by table.
+
+    A table with a NOT NULL FK to a table that is not the org's, such as users, gets the row of shared.
+    A SET NULL org FK gets a row too: the delete keeps it and clears the FK.
+    """
+    from core.db import Base
+
+    ids: dict[str, dict] = {}
+    for table in Base.metadata.sorted_tables:
+        if table.name in POD_TABLES or table.name == "organizations":
+            continue
+        parents = {fk.column.table.name for fk in table.foreign_keys} - {"organizations"}
+        if not any(_org_fk(c) for c in table.columns) and not parents & set(ids):
+            continue
+        for parent in parents - set(ids) - set(shared):
+            parent_table = Base.metadata.tables[parent]
+            if parent_table.name in POD_TABLES:
+                break
+            shared[parent] = _insert(db, parent_table, None, f"shared-{prefix}", {})
+        else:
+            ids[table.name] = _insert(db, table, org_id, prefix, {**shared, **ids})
+    db.commit()
+    return ids
+
+
+def test_remove_org_deletes_a_row_in_every_org_table(client, monkeypatch):
+    import uuid
+
+    from sqlalchemy import select
+
+    from core.config import config
+    from core.db import Base, db_connect
+    from modules.organizations.models import Organization
+    from modules.superadmin.service import delete_organization
+
+    monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
+    db = db_connect.SessionLocal()
+    orgs: dict[str, int] = {}
+    shared: dict[str, dict] = {}
+    doomed: dict[str, dict] = {}
+    kept: dict[str, dict] = {}
+    try:
+        for prefix in ("every", "keeper"):
+            org = Organization(name=prefix, prefix=prefix, guild_id=str(uuid.uuid4().int)[:18], is_active=True)
+            db.add(org)
+            db.flush()
+            orgs[prefix] = int(org.id)
+        doomed = _fill_every_org_table(db, orgs["every"], "every", shared)
+        kept = _fill_every_org_table(db, orgs["keeper"], "keeper", shared)
+        assert set(doomed) == set(kept)
+        assert {"points", "orders", "order_items", "machine_tokens", "knowledge_chunks"} <= set(doomed)
+
+        response = client.delete(f"/api/superadmin/remove_org/{orgs['every']}", headers=headers_for(SUPERADMIN_ID))
+        assert response.status_code == 200, response.get_json()
+
+        db.expire_all()
+        assert db.get(Organization, orgs["every"]) is None
+        for name, row in doomed.items():
+            table = Base.metadata.tables[name]
+            pk = list(table.primary_key.columns)[0]
+            row_id = row[pk.name]
+            org_columns = [c for c in table.columns if _org_fk(c)]
+            if org_columns and all(fk.ondelete == "SET NULL" for c in org_columns for fk in c.foreign_keys):
+                left = db.execute(select(*org_columns).where(pk == row_id)).one()
+                assert all(value is None for value in left), name
+            else:
+                assert db.execute(select(pk).where(pk == row_id)).first() is None, name
+            assert db.execute(select(pk).where(pk == kept[name][pk.name])).first() is not None, name
+    finally:
+        db.rollback()
+        if "keeper" in orgs and db.get(Organization, orgs["keeper"]) is not None:
+            delete_organization(db, orgs["keeper"])
+        if "every" in orgs and db.get(Organization, orgs["every"]) is not None:
+            delete_organization(db, orgs["every"])
+        for table in reversed(Base.metadata.sorted_tables):
+            pk = list(table.primary_key.columns)[0]
+            ids = [rows[table.name][pk.name] for rows in (doomed, kept, shared) if table.name in rows]
+            if ids:
+                db.execute(table.delete().where(pk.in_(ids)))
+        db.commit()
+        db.close()

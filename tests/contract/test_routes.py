@@ -24,3 +24,23 @@ def test_route_inventory(app):
         ROUTES.write_text(actual)
     assert ROUTES.exists(), "No routes.txt. Run UPDATE_ROUTES=1 uv run pytest tests/contract/test_routes.py"
     assert actual == ROUTES.read_text()
+
+
+# Routes removed in #455 because no client calls them
+REMOVED_ROUTES = [
+    ("POST", "/api/points/soda/assignPoints"),
+    ("GET", "/api/points/soda/getUserPoints?discord_id=1"),
+    ("GET", "/api/points/soda/getUserTotalPoints?discord_id=1"),
+    ("POST", "/api/users/soda/submit-form"),
+    ("GET", "/api/public/getnextevent"),
+    ("GET", "/api/organizations/1/roles"),
+    ("GET", "/api/calendar/events"),
+    ("POST", "/api/calendar/delete-all-events"),
+    ("POST", "/api/calendar/notion-webhook"),
+]
+
+
+def test_removed_routes_answer_404(client, officer_headers):
+    for method, path in REMOVED_ROUTES:
+        response = client.open(path, method=method, json={}, headers=officer_headers)
+        assert response.status_code == 404, path

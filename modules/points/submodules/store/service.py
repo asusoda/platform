@@ -1,7 +1,8 @@
-"""Product and order queries for the storefront. No Flask here."""
+"""Products, orders and checkout of the store, and the bodies its routes return. No Flask here."""
 
 import math
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from sqlalchemy import func
@@ -10,6 +11,7 @@ from core import webhooks
 from core.errors import ServiceError
 from core.log import get_logger
 from modules.auth import scopes
+from modules.members import service as members
 from modules.members.models import User
 from modules.points.models import Points
 from modules.points.submodules.store.models import Order, OrderItem, Product
@@ -465,3 +467,297 @@ def delete_orders(db, organization_id, ids: list[int]) -> dict:
         remove_order(db, row, organization_id)
     db.commit()
     return {"deleted": sorted(ids)}
+
+
+# Bodies of the store routes
+
+PRICES_CHANGED = "Prices have changed. Reload the store and try again."
+
+
+def _iso(value) -> str | None:
+    return value.isoformat() if value else None
+
+
+def catalog_json(found: Product) -> dict:
+    """A product with its timestamps, as the product list and the product route return it."""
+    return {**product_dict(found), "created_at": _iso(found.created_at), "updated_at": _iso(found.updated_at)}
+
+
+def product_list(db, organization_id) -> list[dict]:
+    """Every product of the org."""
+    return [catalog_json(p) for p in products(db, organization_id)]
+
+
+def product_detail(db, product_id, organization_id) -> dict:
+    """One product of the org. Raises StoreError 404 when it is missing."""
+    found = product(db, product_id, organization_id)
+    if not found:
+        raise StoreError("Product not found", 404)
+    return catalog_json(found)
+
+
+def new_product(data: dict) -> Product:
+    """A product from the officer's form, not yet added. Raises StoreError when name, price or stock is empty."""
+    for key in ("name", "price", "stock"):
+        if not data.get(key):
+            raise StoreError(f"Product {key} is required")
+    return Product(
+        name=data["name"],
+        description=data.get("description", ""),
+        price=float(data["price"]),
+        stock=int(data["stock"]),
+        image_url=data.get("image_url", ""),
+        category=normalize_category(data.get("category")),
+    )
+
+
+def add_product(db, organization_id, row: Product) -> dict:
+    """Add the product to the org. Commits."""
+    created = create_product(db, row, organization_id)
+    return {"message": "Product created successfully", "id": created.id, "product": product_dict(created)}
+
+
+def update_product(db, organization_id, product_id, data: dict) -> dict:
+    """Set the product fields that data has. Commits. Raises StoreError 404 when the product is missing."""
+    found = product(db, product_id, organization_id)
+    if not found:
+        raise StoreError("Product not found", 404)
+    change_product(found, data)
+    db.commit()
+    return {"message": "Product updated successfully", "product": product_dict(found)}
+
+
+def remove_product(db, organization_id, product_id) -> dict:
+    """Delete the product. Commits. Raises StoreError 404 when it is missing and 409 when an order has it."""
+    if not delete_product(db, product_id, organization_id):
+        raise StoreError("Product not found", 404)
+    return {"message": "Product deleted successfully"}
+
+
+def order_detail(db, order_id, organization_id) -> dict:
+    """One order of the org with its items. Raises StoreError 404 when it is missing."""
+    found = order(db, order_id, organization_id)
+    if not found:
+        raise StoreError("Order not found", 404)
+    return {
+        "id": found.id,
+        "user_id": found.user_id,
+        "total_amount": found.total_amount,
+        "status": found.status,
+        "created_at": found.created_at.isoformat(),
+        "updated_at": _iso(found.updated_at),
+        "organization_id": found.organization_id,
+        "items": [
+            {"id": i.id, "product_id": i.product_id, "quantity": i.quantity, "price_at_time": i.price_at_time}
+            for i in found.items
+        ],
+    }
+
+
+def update_order(db, organization_id, order_id, data: dict) -> dict:
+    """Set the status and message of the order, with the row locked. Commits.
+
+    Raises StoreError 404 when the order is missing, and the errors of change_order.
+    """
+    found = order(db, order_id, organization_id, for_update=True)
+    if not found:
+        raise StoreError("Order not found", 404)
+    change_order(db, found, data)
+    db.commit()
+    return {
+        "message": "Order updated successfully",
+        "order": {
+            "id": found.id,
+            "user_id": found.user_id,
+            "total_amount": found.total_amount,
+            "status": found.status,
+            "message": found.message,
+            "updated_at": _iso(found.updated_at),
+        },
+    }
+
+
+def delete_order(db, organization_id, order_id) -> dict:
+    """Delete the order, with the row locked, as remove_order does. Commits. Raises StoreError 404 when missing."""
+    found = order(db, order_id, organization_id, for_update=True)
+    if not found:
+        raise StoreError("Order not found", 404)
+    remove_order(db, found, organization_id)
+    db.commit()
+    return {"message": "Order deleted successfully"}
+
+
+def _store_product(found: Product, timestamps: bool) -> dict:
+    row = {
+        "id": found.id,
+        "name": found.name,
+        "description": found.description,
+        "price": found.price,
+        "stock": found.stock,
+        "image_url": found.image_url,
+    }
+    if timestamps:
+        row |= {"created_at": _iso(found.created_at), "updated_at": _iso(found.updated_at)}
+    return row
+
+
+def store_front(db, org, timestamps: bool = False) -> dict:
+    """The org and its products in stock. timestamps adds created_at and updated_at to each product."""
+    return {
+        "organization": {"name": org.name, "prefix": org.prefix, "description": org.description},
+        "products": [_store_product(p, timestamps) for p in products(db, org.id) if p.stock > 0],
+    }
+
+
+def order_totals(data: dict) -> float:
+    """The client's total of an order body. Raises StoreError when the total or the items are missing or bad."""
+    if not data.get("total_amount"):
+        raise StoreError("Total amount is required")
+    if not data.get("items") or len(data["items"]) == 0:
+        raise StoreError("Order items are required")
+    return parse_total(data["total_amount"])
+
+
+def active_buyer(db, organization_id, user: User | None) -> User:
+    """The user, who must be an active member of the org. Raises StoreError 404 or 403."""
+    if not user:
+        raise StoreError("User not found", 404)
+    if not members.active_membership(db, user.id, organization_id):
+        raise StoreError("User is not a member of this organization", 403)
+    return user
+
+
+def checkout(
+    db,
+    organization_id,
+    user: User,
+    total_amount: float,
+    items,
+    refuse_price_change: Callable[[], bool],
+    *,
+    status: str,
+    discord_user_id=None,
+) -> Order:
+    """Price the items from the catalog, then write the order, the stock change and the points in one commit.
+
+    The charge is the catalog total, not the client's total. When the client's prices differ from the catalog,
+    refuse_price_change() says whether to refuse the order with StoreError 409.
+    """
+    order_items, priced = price_items(db, organization_id, items)
+    if prices_mismatch(total_amount, priced) and refuse_price_change():
+        raise StoreError(PRICES_CHANGED, 409)
+    return place_order(db, organization_id, user, order_items, priced, status=status, discord_user_id=discord_user_id)
+
+
+def placed_json(placed: Order, message: str, points_key: str) -> dict:
+    """The body of a placed order. points_key names the points it took or holds."""
+    return {
+        "message": message,
+        "id": placed.id,
+        points_key: points_number(placed.total_amount),
+        "order": {
+            "id": placed.id,
+            "user_id": placed.user_id,
+            "total_amount": placed.total_amount,
+            "status": placed.status,
+            "created_at": _iso(placed.created_at),
+        },
+    }
+
+
+def _member_items(found: Order) -> list[dict]:
+    return [
+        {
+            "id": item.id,
+            "product_id": item.product_id,
+            "quantity": item.quantity,
+            "price_at_time": item.price_at_time,
+            "product_name": item.product.name if item.product else "Unknown Product",
+        }
+        for item in found.items
+    ]
+
+
+def member_orders(db, organization_id, user_id) -> list[dict]:
+    """The member's orders in the org, newest first, with the items and the points each order holds."""
+    rows = (
+        db.query(Order)
+        .filter(Order.organization_id == organization_id, Order.user_id == user_id)
+        .order_by(Order.created_at.desc())
+        .all()
+    )
+    held = held_points(db, organization_id, [o.id for o in rows])
+    return [
+        {
+            "id": o.id,
+            "total_amount": o.total_amount,
+            "status": o.status,
+            "message": o.message,
+            "created_at": o.created_at.isoformat(),
+            "updated_at": _iso(o.updated_at),
+            "items": _member_items(o),
+            "points_held": held[o.id],
+        }
+        for o in rows
+    ]
+
+
+def member_order(db, organization_id, discord_id, order_id) -> dict:
+    """One order of the member with this Discord id. Raises StoreError 404 when either is missing."""
+    user = db.query(User).filter_by(discord_id=discord_id).first() if discord_id else None
+    found = (
+        db.query(Order)
+        .filter(Order.id == order_id, Order.organization_id == organization_id, Order.user_id == user.id)
+        .first()
+        if user
+        else None
+    )
+    if not found:
+        raise StoreError("Order not found", 404)
+    return {
+        "id": found.id,
+        "total_amount": found.total_amount,
+        "status": found.status,
+        "created_at": found.created_at.isoformat(),
+        "updated_at": _iso(found.updated_at),
+        "items": _member_items(found),
+    }
+
+
+def wallet(db, organization_id, user: User) -> dict:
+    """The user's points in the org and the newest 20 entries."""
+    total = (
+        db.query(func.sum(Points.points))
+        .filter(Points.user_id == user.id, Points.organization_id == organization_id)
+        .scalar()
+        or 0
+    )
+    rows = (
+        db.query(Points)
+        .filter_by(user_id=user.id, organization_id=organization_id)
+        .order_by(Points.timestamp.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "email": user.email,
+        "total_points": total,
+        "points_breakdown": [
+            {"points": p.points, "event": p.event, "timestamp": _iso(p.timestamp), "awarded_by": p.awarded_by_officer}
+            for p in rows
+        ],
+    }
+
+
+def member_wallet(db, organization_id, discord_id) -> dict:
+    """The wallet of the active member with this Discord id. Raises StoreError 404 or 403."""
+    user = db.query(User).filter_by(discord_id=discord_id).first() if discord_id else None
+    return wallet(db, organization_id, active_buyer(db, organization_id, user))
+
+
+def clerk_buyer(db, organization_id, email: str | None, clerk_user) -> User | None:
+    """The user with this email. With a Clerk user, a missing user is created as a member of the org."""
+    user = db.query(User).filter(User.email == email).first()
+    if not user and clerk_user:
+        user = members.get_or_create_user_from_clerk(db, organization_id, clerk_user, email)
+    return user

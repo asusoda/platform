@@ -323,17 +323,16 @@ Caution: end a folder prefix with `/`. If you do not, `/api/bot` also turns off 
 
 1. Set `DISABLED_ROUTES` in the server's `.env`.
 2. Restart the API: `docker compose restart api`. The API reads `.env` when it starts.
-3. Make sure that a turned-off path returns 404: `curl -i https://<api host>/api/public/getnextevent`.
+3. Make sure that a turned-off path returns 404: `curl -i https://<api host>/api/bot/`.
 
-The example AIS server sets these prefixes, because the routes are broken:
+The example AIS server sets this prefix, because the routes are broken:
 
 | Prefix | Fault |
 | --- | --- |
-| `/api/public/getnextevent` | The view returns no response, so each call returns 500 |
 | `/api/bot/` | The game routes read `current_app.auth_bot`, which gunicorn never sets. Some also call `db_connect` methods that do not exist |
 
 ```bash
-DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
+DISABLED_ROUTES=/api/bot/
 ```
 
 ## Health, logs and errors

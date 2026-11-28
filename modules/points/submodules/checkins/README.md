@@ -6,7 +6,7 @@ A sub-module of `points`, switch `points.checkins`. Gives event points to each m
 
 | File | Holds |
 | --- | --- |
-| `csv_import.py` | The attendance CSV import: the run row, the parse, the award in batches of 25 rows, and `changed()`, which drops the org's cached reads in every process |
+| `csv_import.py` | The attendance CSV import: the upload checks (`queue_upload()`), the run row, the parse, the award in batches of 25 rows, and `changed()`, which drops the org's cached reads in every process |
 | `jobs.py` | The CSV import job |
 | `tools.py` | The `points.import_csv` tool |
 
