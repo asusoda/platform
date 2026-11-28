@@ -332,3 +332,54 @@ def test_app_templates_and_providers(client):
     headers = _issue("apps:read")
     assert isinstance(_result(client, headers, "hosting.templates")["templates"], list)
     assert all("configured" in p for p in _result(client, headers, "hosting.providers")["providers"])
+
+
+def _create_child(client, headers, name):
+    child = _result(
+        client,
+        headers,
+        "access.create_token",
+        name=name,
+        kind="agent",
+        scopes=["tokens:manage", "org:read"],
+        confirm=True,
+    )
+    return child["id"], {"Authorization": f"Bearer {child['token']}"}
+
+
+def test_child_tokens_stop_when_the_parent_is_revoked(client):
+    from modules.auth import machine_tokens
+
+    parent = _issue("tokens:manage", "org:read", name="parent-agent")
+    child_id, child = _create_child(client, parent, "child")
+    grandchild_id, grandchild = _create_child(client, child, "grandchild")
+    assert _call(client, grandchild, "org.info").status_code == 200
+
+    listed = _result(client, parent, "access.tokens")["tokens"]
+    parent_row = next(t for t in listed if t["name"] == "parent-agent")
+    db = db_connect.SessionLocal()
+    try:
+        assert machine_tokens.revoke(db, 1, parent_row["id"])
+        active = {t["id"] for t in machine_tokens.list_active(db, 1)}
+    finally:
+        db.close()
+    assert _call(client, child, "org.info").status_code == 401
+    assert _call(client, grandchild, "org.info").status_code == 401
+    assert child_id not in active and grandchild_id not in active
+
+
+def test_a_child_is_refused_when_a_parent_is_revoked_without_the_cascade(client):
+    from core.time import utcnow
+    from modules.auth.models import MachineToken
+
+    parent = _issue("tokens:manage", "org:read", name="bulk-parent")
+    _, child = _create_child(client, parent, "child-of-bulk")
+    _, grandchild = _create_child(client, child, "grandchild-of-bulk")
+    db = db_connect.SessionLocal()
+    try:
+        db.query(MachineToken).filter_by(name="bulk-parent", revoked_at=None).update({"revoked_at": utcnow()})
+        db.commit()
+    finally:
+        db.close()
+    assert _call(client, child, "org.info").status_code == 401
+    assert _call(client, grandchild, "org.info").status_code == 401
