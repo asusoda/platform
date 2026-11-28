@@ -10,10 +10,9 @@ logger = get_logger("modules.bot.discord_modules.bot")
 
 
 class BotFork(commands.Bot):
-    """The Discord bot. Holds the active game and runs cog commands for the API."""
+    """The Discord bot. Runs cog commands for the API."""
 
     def __init__(self, *args, **kwargs):
-        self.active_game = None
         super().__init__(*args, **kwargs, guild_ids=[])
 
     async def on_ready(self):
