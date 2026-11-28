@@ -54,6 +54,8 @@ export type NewPod = {
   is_public: boolean;
   allowed_users: string[];
   member_setup?: MemberSetup | null;
+  // One UUID for each open form, so a repeated submit gets the same pod
+  request_id: string;
 };
 
 export type PodSession = {

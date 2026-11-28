@@ -7,26 +7,37 @@ import pytest
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.serialization import SSHCertificate, load_ssh_public_identity
 
+from tests.contract import runpod_v2
 from tests.contract.conftest import MEMBER_DISCORD_ID
 
 
 class FakeRunPod:
+    """The org's RunPod account. Create bodies must match the v2 spec; pods are the spec's example pod."""
+
     def __init__(self):
         self.pods: dict[str, dict] = {}
         self.calls: list[tuple] = []
+        self.made = 0
 
     def create_pod(self, body):
-        pod_id = f"pod{len(self.pods) + 1}"
+        runpod_v2.check(body, "CreatePodRequest")
+        self.made += 1
+        pod_id = f"pod{self.made}"
         self.calls.append(("create", body))
-        self.pods[pod_id] = {
-            "id": pod_id,
-            "status": "RUNNING",
-            "cost": 0.2,
-            "dataCenterId": "US-TX-3",
-            "gpu": {"id": "NVIDIA A40", "count": 1},
-            "runtime": {"ports": [{"ip": "203.0.113.5", "private": 22, "public": 40022, "type": "tcp"}]},
-        }
+        self.pods[pod_id] = runpod_v2.pod(
+            id=pod_id,
+            name=body["name"],
+            status="RUNNING",
+            cost=0.2,
+            dataCenterId="US-TX-3",
+            gpu={"id": "NVIDIA A40", "count": 1, "vcpuCount": 9, "memory": 50},
+            ssh={"proxy": None, "direct": None},
+            runtime={"ports": [{"ip": "203.0.113.5", "private": 22, "public": 40022, "type": "tcp"}]},
+        )
         return self.pods[pod_id]
+
+    def list_pods(self):
+        return list(self.pods.values())
 
     def get_pod(self, pod_id):
         return self.pods.get(pod_id)
@@ -85,8 +96,12 @@ class FakeRunPod:
         self.calls.append(("stop", pod_id))
         self.pods[pod_id]["status"] = "EXITED"
 
+    def restart_pod(self, pod_id):
+        self.calls.append(("restart", pod_id))
+        self.pods[pod_id]["status"] = "RUNNING"
+
     def delete_pod(self, pod_id):
-        from core.integrations.runpod import RunPodError
+        from core.hosting.runpod import RunPodError
 
         self.calls.append(("delete", pod_id))
         if pod_id not in self.pods:
@@ -813,7 +828,7 @@ def test_cli_messages_and_pod_image_come_from_config(app, client, officer_header
 
 
 def test_runpod_refusal_reaches_the_dashboard(client, officer_headers, runpod, monkeypatch):
-    from core.integrations.runpod import RunPodError
+    from core.hosting.runpod import RunPodError
 
     def refuse(body):
         raise RunPodError("RunPod answered 422: cpu.vcpuCount is required", 422)
@@ -835,6 +850,107 @@ def test_pod_list_reads_v2_fields(client, officer_headers, runpod):
     pod = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"][0]
     assert pod["cost_per_hour"] == 0.2
     assert pod["machine"] == {"gpuTypeId": "NVIDIA A40", "dataCenterId": "US-TX-3"}
+
+
+# Idempotent create: request_id and adopting a pod after a timeout
+
+
+REQUEST_ID = "5f0c1b9e-3a2d-4c8e-9b71-2d6f0e8a4c13"
+
+
+def _soda_id(db):
+    from modules.organizations.models import Organization
+
+    return db.query(Organization.id).filter_by(prefix="soda").scalar()
+
+
+def test_the_same_request_id_twice_gives_one_pod(client, officer_headers, runpod):
+    first = _create(client, officer_headers, request_id=REQUEST_ID)
+    again = _create(client, officer_headers, request_id=REQUEST_ID.upper())
+    assert (first.status_code, again.status_code) == (201, 201)
+    assert first.get_json()["pod"]["id"] == again.get_json()["pod"]["id"] == "pod1"
+    assert [c[0] for c in runpod.calls] == ["create"]
+    pods = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"]
+    assert [p["id"] for p in pods] == ["pod1"]
+    assert _create(client, officer_headers, request_id="not-a-uuid").status_code == 400
+
+
+def test_two_creates_at_once_give_one_201_and_one_409(client, officer_headers, runpod):
+    from core.db import db_connect
+    from modules.godfather import service
+
+    seen: list[object] = []
+    create = runpod.create_pod
+
+    def create_while_the_same_request_arrives(body):
+        # The second call with the request_id arrives while the first one waits for RunPod
+        db = db_connect.SessionLocal()
+        try:
+            listed = service.list_pods(db, _soda_id(db), runpod)
+            seen.append([(p["id"], p["status"]) for p in listed])
+            service.create_pod(db, _soda_id(db), {"name": "workshop", "request_id": REQUEST_ID}, None, "img", runpod)
+        except service.GodfatherError as e:
+            seen.append(e.status)
+        finally:
+            db.close()
+        return create(body)
+
+    runpod.create_pod = create_while_the_same_request_arrives
+    assert _create(client, officer_headers, request_id=REQUEST_ID).status_code == 201
+    assert seen == [[(f"pending-{REQUEST_ID}", "PROVISIONING")], 409]
+    assert [c[0] for c in runpod.calls] == ["create"]
+
+
+def test_the_request_id_is_unique_for_each_org(app, runpod):
+    from sqlalchemy.exc import IntegrityError
+
+    from core.db import db_connect
+    from modules.godfather.models import ComputePod
+
+    db = db_connect.SessionLocal()
+    try:
+        org_id = _soda_id(db)
+        db.add(ComputePod(organization_id=org_id, pod_id="a1", name="a", request_id=REQUEST_ID))
+        db.add(ComputePod(organization_id=org_id, pod_id="b1", name="b", request_id=REQUEST_ID))
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
+    finally:
+        db.close()
+
+
+def test_a_create_that_times_out_adopts_the_pod_by_name(client, officer_headers, runpod):
+    from core.hosting.runpod import RunPodError
+
+    create = runpod.create_pod
+    runpod.pods["old1"] = runpod_v2.pod(id="old1", name="workshop", status="TERMINATED")
+
+    def made_then_timed_out(body):
+        create(body)
+        raise RunPodError("RunPod could not be reached")
+
+    runpod.create_pod = made_then_timed_out
+    response = _create(client, officer_headers, request_id=REQUEST_ID)
+    assert response.status_code == 201, response.get_json()
+    assert response.get_json()["pod"]["id"] == "pod1"
+    assert set(runpod.pods) == {"old1", "pod1"}
+    pods = client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"]
+    assert [(p["id"], p["status"]) for p in pods] == [("pod1", "RUNNING")]
+
+
+def test_a_refused_create_leaves_no_row_and_adopts_nothing(client, officer_headers, runpod):
+    from core.hosting.runpod import RunPodError
+
+    runpod.pods["podx"] = runpod_v2.pod(id="podx", name="workshop", status="RUNNING")
+
+    def refuse(body):
+        raise RunPodError("RunPod answered 400: no capacity", 400)
+
+    runpod.create_pod = refuse
+    assert _create(client, officer_headers, request_id=REQUEST_ID).status_code == 400
+    assert client.get("/api/compute/soda/pods", headers=officer_headers).get_json()["pods"] == []
+    runpod.create_pod = FakeRunPod.create_pod.__get__(runpod)
+    assert _create(client, officer_headers, request_id=REQUEST_ID).status_code == 201
 
 
 # Who is on a pod: access, recent connections and live sessions.

@@ -1,8 +1,10 @@
-"""RunPod REST client (api.runpod.io/v2) and the runpod hosting provider.
+"""RunPod REST client (api.runpod.io/v2), the runpod hosting provider and the runpod integration.
 
-Each org uses its own API key, stored as an org secret.
+Each org uses its own API key, stored as an org secret. Godfather and hosting share it. The paths and fields
+follow https://api.runpod.io/v2/openapi.json; tests/contract/fixtures/runpod_v2/ holds bodies copied from it.
 """
 
+import math
 from typing import Any
 from urllib.parse import quote
 
@@ -18,7 +20,10 @@ BASE_URL = "https://api.runpod.io/v2"
 TIMEOUT_SECONDS = 30
 SECRET_NAME = "runpod_api_key"  # nosec B105 - the name of an org secret, not its value
 # Manifest fields that only This server reads
-SERVER_ONLY = ("memory", "cpus", "publish", "volumes", "command", "workdir", "group", "alias")
+SERVER_ONLY = ("publish", "volumes", "command", "workdir", "group", "alias")
+# RunPod gives a persistent volume of at least this size, and only to a GPU pod
+MIN_PERSISTENT_GB = 10
+MIN_VCPUS = 2
 
 
 class RunPodError(hosting.HostingError):
@@ -68,7 +73,16 @@ class RunPodClient:
             raise RunPodError("RunPod sent a response that is not JSON") from e
 
     def list_pods(self) -> list[dict]:
-        return self._request("GET", "/pods") or []
+        """Every pod on the account, from each page of GET /pods."""
+        pods: list[dict] = []
+        path = "/pods"
+        while True:
+            page = self._request("GET", path) or {}
+            pods.extend(page.get("pods") or [])
+            cursor = (page.get("pagination") or {}).get("nextCursor")
+            if not cursor or not (page.get("pagination") or {}).get("hasNextPage"):
+                return pods
+            path = f"/pods?cursor={quote(str(cursor), safe='')}"
 
     def get_pod(self, pod_id: str) -> dict | None:
         try:
@@ -84,11 +98,17 @@ class RunPodClient:
     def update_pod(self, pod_id: str, body: dict) -> dict:
         return self._request("PATCH", f"/pods/{quote(pod_id, safe='')}", body)
 
+    def _action(self, pod_id: str, action: str) -> Any:
+        return self._request("POST", f"/pods/{quote(pod_id, safe='')}/action", {"action": action})
+
     def start_pod(self, pod_id: str) -> Any:
-        return self._request("POST", f"/pods/{quote(pod_id, safe='')}/start")
+        return self._action(pod_id, "start")
 
     def stop_pod(self, pod_id: str) -> Any:
-        return self._request("POST", f"/pods/{quote(pod_id, safe='')}/stop")
+        return self._action(pod_id, "stop")
+
+    def restart_pod(self, pod_id: str) -> Any:
+        return self._action(pod_id, "restart")
 
     def delete_pod(self, pod_id: str) -> Any:
         return self._request("DELETE", f"/pods/{quote(pod_id, safe='')}")
@@ -97,6 +117,39 @@ class RunPodClient:
         """RunPod's GPU types with their pod stock for one GPU on cloud (SECURE or COMMUNITY)."""
         query = f"include=AVAILABILITY&product=POD&count=1&cloud={quote(cloud, safe='')}"
         return (self._request("GET", f"/catalog/gpus?{query}") or {}).get("gpus") or []
+
+    def cpu_types(self) -> list[dict]:
+        """RunPod's CPU flavors for pods: id, vcpu min and max, ramGbPerVcpu and price."""
+        return (self._request("GET", "/catalog/cpus?product=POD") or {}).get("cpus") or []
+
+
+def _power_of_two(value: float) -> int:
+    """The smallest power of two at or above value, and at least MIN_VCPUS."""
+    return max(MIN_VCPUS, 1 << max(0, math.ceil(value) - 1).bit_length())
+
+
+def smallest_cpu(flavors: list[dict], memory_mb: int, cpus: float) -> dict:
+    """The cheapest CPU pod of the catalog with at least memory_mb of memory and cpus vCPUs, as {id, vcpuCount}.
+
+    The vCPU count is a power of two, at least 2. A flavor's memory is its ramGbPerVcpu times the vCPU count.
+    Raises RunPodError when no flavor is big enough.
+    """
+    options = []
+    for flavor in flavors:
+        low, high = (flavor.get("vcpu") or {}).get("min", MIN_VCPUS), (flavor.get("vcpu") or {}).get("max", 0)
+        per_vcpu_mb = float(flavor.get("ramGbPerVcpu") or 0) * 1024
+        if per_vcpu_mb <= 0:
+            continue
+        count = _power_of_two(max(cpus, low, memory_mb / per_vcpu_mb))
+        if count > high:
+            continue
+        price = float((flavor.get("price") or {}).get("securePerVcpu") or 0) * count
+        options.append((price, count, str(flavor["id"])))
+    if not options:
+        # 400: the request cannot be placed, as RunPod answers a body it refuses
+        raise RunPodError(f"No CPU flavor has {memory_mb} MB with {cpus} vCPUs", 400)
+    _, count, flavor_id = min(options)
+    return {"id": flavor_id, "vcpuCount": count}
 
 
 def proxy_url(pod_id: str, port: int, path: str) -> str:
@@ -124,14 +177,15 @@ class RunPodProvider:
     def status(self, pod: dict | None) -> str:
         if pod is None:
             return "GONE"
-        return str(pod.get("status") or pod.get("desiredStatus") or "UNKNOWN")
+        return str(pod.get("status") or "UNKNOWN")
+
+    def pod_name(self, pod: dict) -> str | None:
+        return pod.get("name")
 
     def machine(self, pod: dict | None) -> dict | None:
         """The pod's hardware and data center, from the v2 pod fields."""
         if not pod:
             return None
-        if isinstance(pod.get("machine"), dict):
-            return pod["machine"]
         gpu, cpu = pod.get("gpu") or {}, pod.get("cpu") or {}
         machine = {
             "gpuTypeId": gpu.get("id") if isinstance(gpu, dict) else None,
@@ -141,18 +195,14 @@ class RunPodProvider:
         return {k: v for k, v in machine.items() if v} or None
 
     def ssh_address(self, pod: dict) -> tuple[str, int] | None:
-        """(host, port) of a running pod's SSH port, from either shape RunPod reports."""
-        mappings = pod.get("portMappings")
-        if isinstance(mappings, dict) and pod.get("publicIp") and mappings.get("22"):
-            return str(pod["publicIp"]), int(mappings["22"])
+        """(host, port) of a running pod's SSH port: ssh.direct, or the runtime port with private 22."""
         direct = (pod.get("ssh") or {}).get("direct")
         if isinstance(direct, dict) and direct.get("host") and direct.get("port"):
             return str(direct["host"]), int(direct["port"])
         runtime = pod.get("runtime") or {}
         for port in runtime.get("ports") or []:
-            private = port.get("private", port.get("privatePort"))
-            if private == 22 and port.get("ip") and port.get("isIpPublic", True):
-                return str(port["ip"]), int(port.get("public") or port.get("publicPort") or 22)
+            if port.get("private") == 22 and port.get("ip") and port.get("public"):
+                return str(port["ip"]), int(port["public"])
         return None
 
     def proxy_url(self, pod_id: str, port: int, path: str) -> str:
@@ -167,16 +217,34 @@ class RunPodProvider:
             return False
 
     def validate(self, manifest: dict) -> None:
-        if ("gpu" in manifest) == ("cpu" in manifest):
-            raise hosting.HostingError("A RunPod app needs gpu or cpu, not both")
+        if "gpu" in manifest and "cpu" in manifest:
+            raise hosting.HostingError("A RunPod app takes gpu or cpu, not both")
         if "path" not in manifest.get("health", {}):
             raise hosting.HostingError("A RunPod app needs a health path; tcp checks are for This server")
         used = [field for field in SERVER_ONLY if field in manifest]
         if used:
             raise hosting.HostingError(f"RunPod does not take {', '.join(used)}; those fields are for This server")
+        persistent = (manifest.get("mounts") or {}).get("persistent")
+        if persistent is not None and "gpu" not in manifest:
+            raise hosting.HostingError("RunPod gives mounts.persistent only to a GPU pod")
+        if isinstance(persistent, dict) and int(persistent.get("size") or 0) < MIN_PERSISTENT_GB:
+            raise hosting.HostingError(f"RunPod needs mounts.persistent.size of at least {MIN_PERSISTENT_GB} GB")
 
-    def request(self, app_name: str, org_prefix: str | None, pod_id: str | None, manifest: dict, image: str, env: dict):
-        """The RunPod v2 call: POST /pods for a new pod, PATCH /pods/<id> to change one."""
+    def request(
+        self,
+        app_name: str,
+        org_prefix: str | None,
+        pod_id: str | None,
+        manifest: dict,
+        image: str,
+        env: dict,
+        client: hosting.HostingClient | None,
+    ):
+        """The RunPod v2 call: POST /pods for a new pod, PATCH /pods/<id> to change one.
+
+        A new pod with no gpu and no cpu gets the smallest CPU flavor for memory and cpus, from the catalog.
+        PATCH cannot change the hardware or the mounts, so it leaves them out.
+        """
         body: dict[str, Any] = {"image": image, "env": env}
         for field in ("disk", "ports", "args", "registry"):
             if field in manifest:
@@ -187,6 +255,11 @@ class RunPodProvider:
         for field in ("gpu", "cpu", "cloud", "dataCenterIds", "mounts"):
             if field in manifest:
                 body[field] = manifest[field]
+        if "gpu" not in body and "cpu" not in body:
+            catalog = getattr(client, "cpu_types", None)
+            if catalog is None:
+                raise RunPodError("Connect RunPod first: it picks a CPU flavor for memory and cpus", 400)
+            body["cpu"] = smallest_cpu(catalog(), int(manifest.get("memory") or 0), float(manifest.get("cpus") or 0))
         return "POST", "/pods", body
 
 

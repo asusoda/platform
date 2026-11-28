@@ -62,8 +62,33 @@ All fields of the create body are optional. `provider` names the hosting provide
   "env": {"HF_HOME": "/workspace/hf"},
   "is_public": false,
   "allowed_users": [],
-  "member_setup": {"repo": "https://github.com/org/workshop.git", "script": "pip install --user -r workshop/requirements.txt"}
+  "member_setup": {"repo": "https://github.com/org/workshop.git", "script": "pip install --user -r workshop/requirements.txt"},
+  "request_id": "5f0c1b9e-3a2d-4c8e-9b71-2d6f0e8a4c13"
 }
+```
+
+### Safe retries
+
+`request_id` is a UUID that the client makes once for each pod it wants. The dashboard makes one for each open New pod form, and the `godfather.create_pod` tool takes one. Send the same id on a retry:
+
+- Platform saves the row with that id before it calls RunPod. A second request with the id answers 201 with the same pod, or 409 while the first request still waits for RunPod.
+- When the create call times out or RunPod answers 5xx, Platform looks for a pod with the same name that no row has, and keeps it. Else the row goes, and the request fails as before.
+- While RunPod has not answered, `GET /pods` shows the pod as `PROVISIONING` with the id `pending-<request_id>`. Members do not see it.
+
+A request without `request_id` works as before, and still keeps a pod that a timed out create made.
+
+```mermaid
+sequenceDiagram
+  participant UI as New pod form
+  participant API
+  participant RP as RunPod
+  UI->>API: POST /pods, request_id
+  API->>API: save row pending-request_id
+  API->>RP: POST /v2/pods
+  UI->>API: same request again
+  API-->>UI: 409, still being created
+  RP-->>API: pod (or timeout: find the pod by name)
+  API->>API: save the pod id
 ```
 
 ### Member setup
@@ -180,12 +205,12 @@ Officers manage pods on the dashboard Godfather page, `/<org>/godfather`. From i
 
 ## Adding a hosting provider
 
-A hosting provider is the cloud that Godfather pods and apps run on. `core/hosting.py` has the interface and the registry. The providers are RunPod (`core/integrations/runpod.py`) and This server (`core/integrations/server.py`); Godfather refuses a provider whose `godfather` is false. `GET /api/dashboard/<org>/hosting/providers` lists the providers with `configured` for the org, and the dashboard shows them in its Provider selects.
+A hosting provider is the cloud that Godfather pods and apps run on. `core/hosting/__init__.py` has the interface and the registry. The providers are RunPod (`core/hosting/runpod.py`) and This server (`core/hosting/server.py`). Godfather and hosting share the one `runpod` integration, the org secret `runpod_api_key`. Godfather refuses a provider whose `godfather` is false. `GET /api/dashboard/<org>/hosting/providers` lists the providers with `configured` for the org, and the dashboard shows them in its Provider selects.
 
 1. Write a client with the `HostingClient` calls: `list_pods`, `get_pod`, `create_pod`, `update_pod`, `start_pod`, `stop_pod` and `delete_pod`. Raise a `HostingError` subclass with the provider's HTTP status when a call fails. A missing pod gives `None` from `get_pod`.
 2. Write a provider class with `name`, `title` and `integration`, and the methods `configured`, `client`, `status`, `machine`, `ssh_address` and `proxy_url`. `status` returns `RUNNING` for a running pod and `GONE` for `None`.
 3. Register an integration for the provider's keys in `core/integrations/registry.py`, so officers connect it on Integrations.
-4. Call `hosting.register()` in the module, and add the module to `PROVIDER_MODULES` in `core/hosting.py`.
+4. Call `hosting.register()` in the module, and add the module to `PROVIDER_MODULES` in `core/hosting/__init__.py`.
 5. The create bodies of Godfather pods (`pod_request` in `modules/godfather/pod_spec.py`) and of app manifests follow the RunPod v2 API. Map them to the new provider's API in its client, or give the provider its own request builder.
 6. Show the provider's own fields in `dashboard/src/pages/godfather/new-pod.tsx` when it is selected, as the RunPod hardware fields are.
 

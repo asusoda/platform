@@ -1,0 +1,11 @@
+{
+ "disk": 50,
+ "gpu": {
+  "count": 1,
+  "id": "NVIDIA GeForce RTX 4090",
+  "minRamPerGpu": 32,
+  "minVcpuCountPerGpu": 8
+ },
+ "image": "runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404",
+ "name": "pytorch-training"
+}

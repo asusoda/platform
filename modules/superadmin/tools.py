@@ -10,7 +10,7 @@ with its command line.
 from core import audit
 from core.errors import ServiceError
 from core.hosting import HostingError
-from core.integrations import server as runner
+from core.hosting import server as runner
 from core.tools import ToolError, tool
 from modules.auth import scopes
 

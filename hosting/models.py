@@ -19,7 +19,7 @@ class App(Base):
     name: Mapped[str] = mapped_column(String(63), nullable=False)
     # The hosting provider the app runs on, a name in core.hosting.PROVIDERS
     provider: Mapped[str] = mapped_column(String(32), nullable=False, default="runpod", server_default="runpod")
-    manifest: Mapped[str] = mapped_column(Text, nullable=False)  # JSON, validated by service.MANIFEST_SCHEMA
+    manifest: Mapped[str] = mapped_column(Text, nullable=False)  # JSON, validated by manifest.MANIFEST_SCHEMA
     # owner/name whose manifest file is read on each deploy
     repo: Mapped[str | None] = mapped_column(String(201), nullable=True)
     manifest_path: Mapped[str | None] = mapped_column(String(200), nullable=True)

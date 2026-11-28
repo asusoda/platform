@@ -11,7 +11,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from core import secrets
-from core.integrations import github, runpod
+from core.hosting import runpod
+from core.integrations import github
 from modules.auth import machine_tokens, scopes
 from modules.integrations import github_guard, oauth
 

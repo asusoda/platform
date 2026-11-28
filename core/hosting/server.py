@@ -174,6 +174,9 @@ class ServerProvider:
             state, state.upper()
         )
 
+    def pod_name(self, pod: dict) -> str | None:
+        return pod.get("app")
+
     def machine(self, pod: dict | None) -> dict | None:
         if not pod:
             return None
@@ -212,8 +215,17 @@ class ServerProvider:
         if "memory" not in manifest:
             raise hosting.HostingError("An app on This server needs memory, in MB")
 
-    def request(self, app_name: str, org_prefix: str | None, pod_id: str | None, manifest: dict, image: str, env: dict):
-        """The runner request a deploy makes, as (method, path, body)."""
+    def request(
+        self,
+        app_name: str,
+        org_prefix: str | None,
+        pod_id: str | None,
+        manifest: dict,
+        image: str,
+        env: dict,
+        client: hosting.HostingClient | None,
+    ):
+        """The runner request a deploy makes, as (method, path, body). The runner needs no catalog: client is unused."""
         container_ports = [int(p.split("/")[0]) for p in manifest.get("ports") or []]
         published = {int(k): int(v) for k, v in (manifest.get("publish") or {}).items()}
         ports = [{"container": c, "host": published.get(c)} for c in sorted({*container_ports, *published})]

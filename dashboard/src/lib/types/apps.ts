@@ -43,16 +43,17 @@ export type DeployPreview = {
 };
 
 // A pod as the RunPod REST API returns it. Only the fields the dashboard reads are named.
+// A pod as the RunPod v2 API returns it: GET /v2/pods/{id}.
 export type RunPodPod = {
   id?: string;
   name?: string;
-  desiredStatus?: string;
+  status?: string;
   image?: string;
-  costPerHr?: number | string;
-  publicIp?: string | null;
-  lastStartedAt?: string | null;
-  gpu?: { displayName?: string; count?: number } | null;
-  machine?: { gpuDisplayName?: string; cpuTypeId?: string; location?: string; dataCenterId?: string } | null;
+  cost?: number;
+  startedAt?: string | null;
+  gpu?: { id?: string; count?: number } | null;
+  cpu?: { id?: string; vcpuCount?: number } | null;
+  dataCenterId?: string | null;
   [field: string]: unknown;
 };
 
