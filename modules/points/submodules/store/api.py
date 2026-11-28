@@ -3,13 +3,13 @@
 The officer routes accept an inactive org too, so they do not use officer_route.
 """
 
-from flask import Blueprint, g, request
+from flask import Blueprint, g, jsonify, request
 
 from core.db import db_connect
+from core.errors import ServiceError
 from core.http.responses import error, error_handler
 from modules.auth.access import decide
 from modules.auth.decorators import auth_required, dual_auth_required, org_officer_required
-from modules.auth.routes import respond
 from modules.organizations.service import find_by_prefix
 from modules.points.submodules.store import service
 
@@ -17,18 +17,23 @@ storefront_blueprint = Blueprint("storefront", __name__)
 
 
 def in_org(org_prefix, view, *args):
-    """Run view(db, org, *args) for the org with this prefix, active or not, and make the result a response.
+    """Run view(db, org, *args) for the org with this prefix, active or not, and return its result as JSON.
 
-    No org gets 404. A StoreError becomes its message and status.
+    view returns a body or (body, status). No org gets 404. A StoreError becomes its message and status.
     """
     db = db_connect.SessionLocal()
     try:
         org = find_by_prefix(db, org_prefix)
         if not org:
             return error("Organization not found", 404)
-        return respond(db, view, org, *args)
+        result = view(db, org, *args)
+    except ServiceError as e:
+        db.rollback()
+        return error(e.message, e.status)
     finally:
         db.close()
+    body, status = result if isinstance(result, tuple) else (result, 200)
+    return jsonify(body), status
 
 
 def refuse_price_change(org_prefix):
