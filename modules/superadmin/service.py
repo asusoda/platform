@@ -1,15 +1,17 @@
-"""Superadmin logic: guilds without an org, an officer's orgs, guild roles, new orgs, the server's health and
-services, and each org's limits. No Flask here."""
+"""Superadmin logic: guilds without an org, an officer's orgs, guild roles, new orgs, the org list, the server's
+health and services, and each org's limits. No Flask here."""
 
 import re
 from typing import Any
 
-from sqlalchemy import Table, delete, or_, select, update
+from sqlalchemy import Table, delete, func, or_, select, update
 
 from core import host, hosting, jobs
 from core import limits as core_limits
+from core.audit import AuditEntry
 from core.config import superadmin_ids
 from core.db import Base
+from core.error_log import ErrorGroup
 from core.errors import ServiceError
 from core.integrations import server as runner
 from core.integrations.discord import DiscordUnavailable
@@ -17,10 +19,10 @@ from core.log import get_logger
 from core.time import utcnow
 from modules.godfather.models import ComputePod
 from modules.organizations import service as organizations
-from modules.organizations.config import OrganizationSettings
 from modules.organizations.models import Organization
 from modules.runpod.models import App
 from modules.superadmin.models import ServiceOwner
+from modules.users.models import UserOrganizationMembership
 
 logger = get_logger(__name__)
 
@@ -129,20 +131,78 @@ def prefix_for(name: str, guild_id: object) -> str:
     return f"{prefix[:16]}_org" if prefix in organizations.RESERVED_PREFIXES else prefix
 
 
-def new_organization(guild: dict) -> Organization:
-    """An unsaved org for a guild, with a prefix from the guild name, default settings and new-org module switches."""
-    return Organization(
-        name=guild["name"],
-        guild_id=guild["id"],
-        prefix=prefix_for(guild["name"], guild["id"]),
-        description=f"Discord server: {guild['name']}",
-        icon_url=guild["icon_url"],
-        config={**OrganizationSettings().to_dict(), "modules": organizations.new_org_switches()},
-    )
+def add_organization(db, guild: dict) -> Organization:
+    """Create the org for a guild through organizations.create_organization, with a prefix from the guild name.
+
+    Raises ServiceError: 409 when the prefix is taken or the guild has an org, 400 for any other refusal. Commits.
+    """
+    prefix = prefix_for(guild["name"], guild["id"])
+    if organizations.find_by_prefix(db, prefix) is not None:
+        raise ServiceError(f"The prefix {prefix} is already taken", 409)
+    if db.query(Organization.id).filter_by(guild_id=str(guild["id"])).first() is not None:
+        raise ServiceError(f"Guild {guild['id']} already has an organization", 409)
+    try:
+        org = organizations.create_organization(
+            db,
+            name=guild["name"],
+            prefix=prefix,
+            guild_id=str(guild["id"]),
+            description=f"Discord server: {guild['name']}",
+        )
+    except organizations.OrganizationError as e:
+        db.rollback()
+        raise ServiceError(str(e), 400) from e
+    org.icon_url = guild.get("icon_url")
+    db.commit()
+    logger.info("org added id=%s prefix=%s guild=%s", org.id, org.prefix, org.guild_id)
+    return org
 
 
 # A limit is near when the org uses this share of it or more
 NEAR = 0.8
+
+
+def org_list(db) -> list[dict]:
+    """Every org with its member count, modules on, limits near, open errors and last audit time. Needs no bot."""
+    orgs = db.query(Organization).order_by(Organization.name).all()
+    members = dict(
+        db.query(UserOrganizationMembership.organization_id, func.count(UserOrganizationMembership.id))
+        .group_by(UserOrganizationMembership.organization_id)
+        .all()
+    )
+    errors = dict(
+        db.query(ErrorGroup.org, func.count(ErrorGroup.id))
+        .filter(ErrorGroup.resolved_at.is_(None), ErrorGroup.org.isnot(None))
+        .group_by(ErrorGroup.org)
+        .all()
+    )
+    audited = dict(
+        db.query(AuditEntry.org, func.max(AuditEntry.created_at))
+        .filter(AuditEntry.org.isnot(None))
+        .group_by(AuditEntry.org)
+        .all()
+    )
+    rows = []
+    for org in orgs:
+        last = audited.get(org.prefix)
+        rows.append(
+            {
+                "id": org.id,
+                "name": org.name,
+                "prefix": org.prefix,
+                "guild_id": org.guild_id,
+                "icon_url": org.icon_url,
+                "is_active": org.is_active,
+                "officer_role_id": org.officer_role_id,
+                "created_at": org.created_at.isoformat() if org.created_at else None,
+                "members": members.get(org.id, 0),
+                "modules_on": [m["name"] for m in organizations.module_states(org) if m["enabled"]],
+                "near": org_limits(db, org)["near"],
+                "open_errors": errors.get(org.prefix, 0),
+                "last_activity": last.isoformat() if last else None,
+            }
+        )
+    return rows
 
 
 def server(db, bot_ready: bool | None) -> dict:

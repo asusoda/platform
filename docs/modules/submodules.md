@@ -74,7 +74,7 @@ Platform checks the parameters of a live query before it gets a page. An unknown
 - **Fetch:** the deployment's Firecrawl (`FIRECRAWL_URL`), not an org's. Without it, the shared browser (`BROWSER_URL`) renders thin pages; these renders count against no org.
 - **Passages:** the deployment's chunk settings (`KNOWLEDGE_CHUNK_CHARS`), not an org's.
 - **Vectors:** the deployment's embedder (`EMBEDDINGS_URL`). Vector search reads only passages of the org's own model, so an org with its own embedding model finds the shared pages by text search.
-- **Runs:** a crawl of a shared page is not in an org's run log. Its last error stays on the page and shows on the Superadmin page.
+- **Runs:** a crawl of a shared page is not in an org's run log. Its last error stays on the page and shows on the Sub-modules page of the superadmin space.
 
 ## Settings
 

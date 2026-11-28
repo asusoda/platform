@@ -59,7 +59,7 @@ The dashboard shows who pays:
 
 The value for an org is the first of these that is set:
 
-1. The org's override. The superadmin sets it on the Superadmin page or with `PUT /api/superadmin/limits/<org_id>`. The `org_limits` table keeps it.
+1. The org's override. The superadmin sets it on the Limits page of the superadmin space (`/admin/limits`) or with `PUT /api/superadmin/limits/<org_id>`. The `org_limits` table keeps it.
 2. `LIMIT_<KEY>` in `.env`: the key in upper case, with `_` for `.`. For example, `LIMIT_KNOWLEDGE_SOURCES=200`. The value `unlimited` removes the limit.
 3. The default in the table above.
 
@@ -69,7 +69,7 @@ An override can be a whole number, `null` (no limit) or `"default"` (remove the 
 
 - Officers see the limits of the modules that are on, and what the org uses, on Settings. `GET /api/organizations/<org_id>/limits` returns the same list.
 - Agents call the `org.limits` tool (scope `org:read`).
-- The superadmin sees each org, its use and its overrides on the Superadmin page, with `GET /api/superadmin/limits`. A limit that the org uses 80% of or more is marked.
+- The superadmin sees each org, its use and its overrides on `/admin/limits`, with `GET /api/superadmin/limits`. A limit that the org uses 80% of or more is marked.
 
 ## Other protections
 

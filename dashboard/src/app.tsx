@@ -7,6 +7,8 @@ import { LoginPage } from './pages/login';
 import { MemberGodfatherPage } from './pages/member-godfather';
 import { MemberStorePage } from './pages/member-store';
 import { MemberLoginPage } from './pages/member-store/login';
+import { ADMIN_PAGES } from './pages/admin/registry';
+import { AdminShell } from './pages/admin/shell';
 import { OrganizationsPage } from './pages/orgs';
 import { PAGES, pageElement, REDIRECTS } from './pages/registry';
 
@@ -14,7 +16,7 @@ function SignedIn({ children }: { children: ReactNode }) {
   return tokens.access() ? children : <Navigate to="/login" replace />;
 }
 
-// The org pages and redirects come from pages/registry.tsx.
+// The org pages and redirects come from pages/registry.tsx, the superadmin pages from pages/admin/registry.tsx.
 export function App() {
   return (
     <Routes>
@@ -24,6 +26,12 @@ export function App() {
       <Route path="/store/:prefix/login" element={<MemberLoginPage />} />
       <Route path="/godfather/:prefix" element={<MemberGodfatherPage />} />
       <Route path="/" element={<SignedIn><OrganizationsPage /></SignedIn>} />
+      <Route path="/admin" element={<SignedIn><AdminShell /></SignedIn>}>
+        {ADMIN_PAGES.map(({ path, page: Page }) =>
+          path ? <Route key={path} path={path} element={<Page />} /> : <Route key="index" index element={<Page />} />,
+        )}
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Route>
       <Route path="/:org" element={<SignedIn><Shell /></SignedIn>}>
         {PAGES.map((p) =>
           p.path ? (

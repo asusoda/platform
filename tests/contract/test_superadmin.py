@@ -1,4 +1,4 @@
-"""Superadmin: adding an org for a Discord server."""
+"""Superadmin: adding an org for a Discord server, and the org list."""
 
 from modules.superadmin.service import prefix_for
 
@@ -158,3 +158,44 @@ def test_remove_org_refuses_while_an_app_has_a_pod(client, monkeypatch):
     response = client.delete(f"/api/superadmin/remove_org/{org_id}", headers=headers_for(SUPERADMIN_ID))
     assert response.status_code == 409
     assert "Delete them first" in response.get_json()["error"]
+
+
+def test_add_org_creates_the_org_with_new_org_modules(client, monkeypatch, app):
+    from core.config import config
+    from core.db import db_connect
+    from modules.organizations.models import Organization
+    from modules.organizations.service import new_org_switches
+
+    monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
+    guild = {"id": "880088", "name": "Admin", "icon_url": "https://cdn.example/icon.png"}
+    monkeypatch.setattr(app, "discord_directory", Guilds(guild=guild))
+    response = client.post("/api/superadmin/add_org/880088", headers=headers_for(SUPERADMIN_ID))
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json() == {"message": "Organization Admin added successfully!"}
+
+    db = db_connect.SessionLocal()
+    try:
+        org = db.query(Organization).filter_by(guild_id="880088").one()
+        assert org.prefix == "admin_org"
+        assert org.icon_url == guild["icon_url"]
+        assert org.config is not None
+        assert org.config["modules"] == new_org_switches()
+        assert client.post("/api/superadmin/add_org/880088", headers=headers_for(SUPERADMIN_ID)).status_code == 409
+        db.delete(org)
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_org_list_needs_no_bot(client, monkeypatch, app):
+    from core.config import config
+
+    monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
+    monkeypatch.setattr(app, "discord_directory", Guilds(ready=False))
+    response = client.get("/api/superadmin/orgs", headers=headers_for(SUPERADMIN_ID))
+    assert response.status_code == 200, response.get_json()
+    soda = next(o for o in response.get_json()["orgs"] if o["prefix"] == "soda")
+    assert {"members", "modules_on", "near", "open_errors", "last_activity", "officer_role_id"} <= set(soda)
+    assert soda["members"] > 0
+    assert "config" not in soda
+    assert client.get("/api/superadmin/orgs", headers=headers_for("123")).status_code == 403
