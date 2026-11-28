@@ -6,9 +6,9 @@ A sub-module of `points`, switch `points.store`. A merch store paid with points.
 
 | File | Holds |
 | --- | --- |
-| `api.py` | `storefront_blueprint`; product, order and store routes |
-| `member_api.py` | Member routes on the same blueprint: `/members/...`, `/orders/<email>`, `/wallet/<email>`, `/checkout` |
-| `service.py` | Product and order queries and changes, category clean-up, catalog pricing of an order, `place_order` (the balance lock, the points charge or hold), the refund and `held_points`; declares `store:read` and `store:write` |
+| `api.py` | `storefront_blueprint`; product, order and store routes, and `in_org()`, which runs a service call for the org in the URL |
+| `member_api.py` | Member routes on the same blueprint (`member_view`): `/members/...`, `/orders/<email>`, `/wallet/<email>`, `/checkout` |
+| `service.py` | Product and order queries and changes, category clean-up, catalog pricing of an order, `checkout()` and `place_order()` (the balance lock, the points charge or hold), the refund, `held_points` and the bodies of the routes; declares `store:read` and `store:write` |
 | `tools.py` | The `store.*` tools |
 | `models.py` | Products, orders, order items |
 
@@ -22,5 +22,5 @@ A sub-module of `points`, switch `points.store`. A merch store paid with points.
 
 ## Known gaps
 
-- Views in `api.py` and `member_api.py` open their own session, query and commit. `service.py` has only the shared queries.
+- The officer routes accept an inactive org, so they use `in_org()` and not `officer_route`, which refuses one.
 - Each order lists its `points_held` with one query for the whole list (`held_points`), from the `Storefront Purchase` and `Refund` rows of `points`. An order id in the event name is the only link between an order and its points rows.
