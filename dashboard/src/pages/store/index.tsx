@@ -9,7 +9,7 @@ import { OrderDialog } from './order-form';
 import { OrdersTab } from './orders';
 import { ProductForm } from './product-form';
 import { ProductsTab } from './products';
-import { useStore } from './shared';
+import { OPEN, pointsSpent, useStore } from './shared';
 
 const TABS = [
   { id: 'products', label: 'Products' },
@@ -23,7 +23,7 @@ export function StorePage() {
   const [viewing, setViewing] = useState<Order | null>(null);
   const { products, orders } = useStore(prefix);
   const byId = useMemo(() => new Map((products.data ?? []).map((p) => [p.id, p])), [products.data]);
-  const open = (orders.data ?? []).filter((o) => o.status === 'pending' || o.status === 'processing' || o.status === 'shipped');
+  const open = (orders.data ?? []).filter((o) => OPEN.has(o.status));
   const add = () => setEditing('new');
   return (
     <>
@@ -46,7 +46,7 @@ export function StorePage() {
         <Stat label="Open orders" value={orders.data ? open.length : '-'} sub="Not delivered yet" icon={<ShoppingBag className="size-4" />} />
         <Stat
           label="Points spent"
-          value={orders.data ? compact(orders.data.reduce((n, o) => n + o.total_amount, 0)) : '-'}
+          value={orders.data ? compact(pointsSpent(orders.data)) : '-'}
           sub={orders.data ? `${orders.data.length} orders` : undefined}
         />
       </StatGrid>
