@@ -19,7 +19,7 @@ Core modules are always on. The Explore page of the dashboard does not show them
 | [public](public/README.md) | Open reads | |
 | [submodules](submodules/README.md) | Loads the submodules in `submodules/`. Explore shows each submodule under the module that reads it | |
 | [superadmin](superadmin/README.md) | Orgs, limits, the server's services and the shared apps, for the whole deployment | |
-| [users](users/README.md) | Members and memberships | |
+| [members](members/README.md) | Members and memberships | |
 
 ## Storage
 

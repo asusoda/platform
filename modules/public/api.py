@@ -6,11 +6,11 @@ from sqlalchemy import func
 from core.db import db_connect
 from core.http.responses import error_handler, internal_error
 from modules.auth.access import member_details_allowed
+from modules.members.models import User, UserOrganizationMembership
 from modules.organizations.service import find_by_prefix
 from modules.points import service as points
 from modules.points.models import Points
 from modules.storefront.models import Order, Product
-from modules.users.models import User, UserOrganizationMembership
 
 public_blueprint = Blueprint(
     "public",

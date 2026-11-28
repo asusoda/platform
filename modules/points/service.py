@@ -7,10 +7,10 @@ from sqlalchemy import and_, case, func, or_
 
 from core.errors import ServiceError
 from modules.auth import scopes
+from modules.members import service as users
+from modules.members.models import User, UserOrganizationMembership
 from modules.organizations.models import Organization
 from modules.points.models import Points
-from modules.users import service as users
-from modules.users.models import User, UserOrganizationMembership
 
 scopes.declare("points:read", "Read the org's points leaderboard (names and totals, no emails or student IDs)")
 scopes.declare("points:write", "Award points, delete point entries and import event attendance CSVs")

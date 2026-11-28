@@ -9,11 +9,9 @@ from core.log import get_logger
 from modules.auth import access
 from modules.auth.decorators import auth_required
 from modules.auth.routes import officer_route
-from modules.organizations import service as organizations
-from modules.points import service as points
-from modules.users import service as users
-from modules.users.models import User, UserOrganizationMembership
-from modules.users.service import (
+from modules.members import service as users
+from modules.members.models import User, UserOrganizationMembership
+from modules.members.service import (
     active_members,
     active_membership,
     link_or_create_user,
@@ -21,6 +19,8 @@ from modules.users.service import (
     member_input,
     merge_profile_fields,
 )
+from modules.organizations import service as organizations
+from modules.points import service as points
 
 logger = get_logger(__name__)
 

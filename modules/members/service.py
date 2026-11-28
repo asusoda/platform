@@ -14,7 +14,7 @@ from core.errors import ServiceError
 from core.integrations.discord import DiscordDirectory, DiscordUnavailable
 from core.log import get_logger
 from modules.auth import scopes
-from modules.users.models import User, UserOrganizationMembership
+from modules.members.models import User, UserOrganizationMembership
 
 logger = get_logger(__name__)
 

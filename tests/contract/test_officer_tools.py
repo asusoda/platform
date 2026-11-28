@@ -93,7 +93,7 @@ def test_points_tools_need_their_scopes_and_module(client, officer_headers, rest
 @pytest.fixture
 def new_member():
     """Removes the member that a test adds."""
-    from modules.users.models import User, UserOrganizationMembership
+    from modules.members.models import User, UserOrganizationMembership
 
     email = "tool-member@asu.edu"
     yield email
@@ -122,7 +122,7 @@ def test_members_list_add_and_update(client, new_member):
 
 
 def test_discord_sync_previews_before_it_adds(client, monkeypatch):
-    from modules.users import service as users
+    from modules.members import service as users
 
     class Directory:
         def is_ready(self):

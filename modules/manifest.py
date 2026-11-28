@@ -19,7 +19,7 @@ CATEGORIES = {
         "public",
         "submodules",
         "superadmin",
-        "users",
+        "members",
     ],
     "Storage": ["knowledge", "points", "storefront"],
     "AI and agents": ["integrations"],
@@ -115,7 +115,7 @@ CATALOG = {
     "uptime": ModuleInfo(
         "Uptime", "Checks the org's sites and Hosting apps, with an event when one goes down or comes back."
     ),
-    "users": ModuleInfo("Member list", "The members of the org and their profile fields."),
+    "members": ModuleInfo("Member list", "The members of the org and their profile fields."),
 }
 
 # The modules that a new org starts with, in addition to Core. Each other module that an org can switch off starts off.
@@ -145,7 +145,7 @@ MODEL_MODULES = [
     "modules.submodules.models",
     "modules.superadmin.models",
     "modules.uptime.models",
-    "modules.users.models",
+    "modules.members.models",
 ]
 
 # Importing a jobs module registers its jobs with core.jobs
@@ -182,7 +182,7 @@ TOOL_MODULES = [
     "modules.godfather.tools",
     "modules.integrations.tools",
     "modules.uptime.tools",
-    "modules.users.tools",
+    "modules.members.tools",
     "modules.bot.tools",
     "modules.storefront.tools",
     "modules.leetcode.tools",

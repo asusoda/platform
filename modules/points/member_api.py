@@ -12,10 +12,10 @@ from core.http.request_log import bearer_token
 from core.log import get_logger
 from modules.auth.access import decide, discord_directory
 from modules.auth.tokens import token_manager
+from modules.members import service as users
+from modules.members.models import User, UserOrganizationMembership
 from modules.points import service
 from modules.points.api import ORG_NOT_FOUND, active_org, points_blueprint
-from modules.users import service as users
-from modules.users.models import User, UserOrganizationMembership
 
 __all__ = ["points_blueprint"]
 

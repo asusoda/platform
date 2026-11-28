@@ -10,7 +10,7 @@ Each org route checks access. The audit log records each change that an officer 
 
 | Module | Does |
 | --- | --- |
-| `points`, `users` | Members, event points, leaderboards, CSV imports |
+| `points`, `members` | Members, event points, leaderboards, CSV imports |
 | `storefront` | A merch store paid in points, with prices checked on the server |
 | `calendar` | Notion events synced to Google Calendar, with the credentials of each org |
 | `leetcode`, `games` | The daily LeetCode post and Jeopardy in Discord |

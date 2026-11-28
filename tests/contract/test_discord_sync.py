@@ -27,7 +27,7 @@ def server(monkeypatch):
 def _soda_members(client, officer_headers):
     """Active SoDA members by Discord id, as {name, username}."""
     from core.db import db_connect
-    from modules.users.models import User, UserOrganizationMembership
+    from modules.members.models import User, UserOrganizationMembership
 
     db = db_connect.SessionLocal()
     try:

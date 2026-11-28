@@ -4,10 +4,10 @@ from core.db import db_connect
 from core.http.responses import error_handler
 from modules.auth.access import decide
 from modules.auth.decorators import auth_required, dual_auth_required, org_officer_required
+from modules.members.models import User, UserOrganizationMembership
 from modules.organizations.service import find_by_prefix
 from modules.storefront import service
 from modules.storefront.models import Product
-from modules.users.models import User, UserOrganizationMembership
 
 storefront_blueprint = Blueprint("storefront", __name__)
 

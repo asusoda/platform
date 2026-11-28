@@ -10,9 +10,9 @@ from core import webhooks
 from core.errors import ServiceError
 from core.log import get_logger
 from modules.auth import scopes
+from modules.members.models import User
 from modules.points.models import Points
 from modules.storefront.models import Order, OrderItem, Product
-from modules.users.models import User
 
 logger = get_logger(__name__)
 

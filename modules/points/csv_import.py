@@ -8,10 +8,10 @@ from core import jobs
 from core.cache import publish
 from core.db import db_connect
 from core.log import get_logger
+from modules.members.models import User, UserOrganizationMembership
+from modules.members.service import manage_user_in_organization
 from modules.organizations import service as organizations
 from modules.points.models import Points, PointsImport
-from modules.users.models import User, UserOrganizationMembership
-from modules.users.service import manage_user_in_organization
 
 logger = get_logger(__name__)
 

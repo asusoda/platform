@@ -1,8 +1,8 @@
 """Member tools: list, add and change the org's members, and add the members of its Discord server."""
 
 from core.tools import ToolError, tool
+from modules.members import service
 from modules.points import service as points
-from modules.users import service
 
 FIELDS = {
     "name": {"type": "string", "maxLength": 255},

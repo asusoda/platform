@@ -30,7 +30,7 @@ The Alerts page has two cards. Destinations lists each destination with its stat
 | `pod.root_access` | Root on a pod | `modules/godfather/connections.py` | An officer gets a one-hour root certificate for a pod with pod admin on |
 | `app.deployed` | App deploys | `modules/runpod/service.py` | A deploy of an org's app, on RunPod or This server, becomes healthy or fails. A shared app has no org, so its deploys show only on the Shared apps page of the superadmin space |
 | `order.created` | Store orders | `modules/storefront/service.py` | A member places an order |
-| `member.joined` | New members | `modules/users/service.py` | A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it |
+| `member.joined` | New members | `modules/members/service.py` | A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it |
 | `knowledge.crawl_failed` | Knowledge crawl failures | `modules/knowledge/runs.py` | A crawl of a knowledge source fails |
 | `monitor.down` | Monitors down | `modules/uptime/service.py` | A monitor's first check is down, or a check is down after an up check. See [Uptime](./modules/uptime.md) |
 | `monitor.up` | Monitors up | `modules/uptime/service.py` | A check is up after a down check |

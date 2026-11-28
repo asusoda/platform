@@ -1390,7 +1390,7 @@ export function fixtures(now: number = Date.now()) {
       python: '3.12.7',
     }),
     errorGroup(39, 'browser', ORG.prefix, 'ApiError', 'Could not reach the API. It may be restarting or have stopped mid-request.', '/robotics/hosting (mutation)', '/robotics/hosting (mutation)', 4, -26 * MINUTE, -1 * DAY),
-    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/users/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
+    errorGroup(35, 'api', ORG.prefix, 'KeyError', "Error in sync_members: 'guild_id'", 'modules/members/service.py:sync_discord_members', '/api/users/<string:org_prefix>/discord/sync', 3, -3 * HOUR, -3 * HOUR),
     errorGroup(30, 'bot', ORG.prefix, 'HTTPException', '403 Forbidden (error code: 50013): Missing Permissions', 'modules/leetcode/service.py:post_daily', null, 2, -9 * HOUR, -2 * DAY),
   ];
   const serverErrors = [

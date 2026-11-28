@@ -11,11 +11,11 @@ from core.log import get_logger
 from modules.auth.access import awarded_by, is_org_officer
 from modules.auth.decorators import auth_required
 from modules.auth.routes import officer_route
+from modules.members import service as users
+from modules.members.models import User, UserOrganizationMembership
 from modules.organizations import service as organizations
 from modules.points import csv_import, service
 from modules.points.models import Points
-from modules.users import service as users
-from modules.users.models import User, UserOrganizationMembership
 
 logger = get_logger(__name__)
 

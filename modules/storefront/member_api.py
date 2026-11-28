@@ -10,13 +10,13 @@ from sqlalchemy import func
 from core.db import db_connect
 from core.http.responses import error_handler
 from modules.auth.decorators import dual_auth_required, member_required
+from modules.members.models import User, UserOrganizationMembership
+from modules.members.service import get_or_create_user, get_or_create_user_from_clerk
 from modules.organizations.service import find_by_prefix
 from modules.points.models import Points
 from modules.storefront import service
 from modules.storefront.api import place_order, price_mismatch, storefront_blueprint
 from modules.storefront.models import Order
-from modules.users.models import User, UserOrganizationMembership
-from modules.users.service import get_or_create_user, get_or_create_user_from_clerk
 
 __all__ = ["storefront_blueprint"]
 

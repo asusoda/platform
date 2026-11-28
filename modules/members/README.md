@@ -1,4 +1,4 @@
-# users
+# members
 
 Members and their org memberships. Officer routes list, show, create and update an org's members and their profile fields, and add the members of the org's Discord server.
 

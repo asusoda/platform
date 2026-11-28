@@ -21,10 +21,10 @@ def db(app):
 def mug(app):
     """A 300-point product in SoDA with stock 10, and 1000 points for Alice. Both are removed after the test."""
     from core.db import db_connect
+    from modules.members.models import User
     from modules.organizations.models import Organization
     from modules.points.models import Points
     from modules.storefront.models import Order, OrderItem, Product
-    from modules.users.models import User
 
     session = db_connect.SessionLocal()
     soda = session.query(Organization).filter_by(prefix="soda").one()
@@ -49,8 +49,8 @@ def mug(app):
 
 
 def _balance(db) -> float:
+    from modules.members.models import User
     from modules.points.models import Points
-    from modules.users.models import User
 
     db.expire_all()
     alice = db.query(User).filter_by(email=MEMBER_EMAIL).one()
@@ -267,8 +267,8 @@ def test_member_reads_own_order(member_client, client, clerk_headers, mug):
 
 
 def test_member_cannot_read_another_members_order(member_client, db):
+    from modules.members.models import User
     from modules.storefront.models import Order
-    from modules.users.models import User
 
     bob = db.query(User).filter_by(email="bob@asu.edu").one()
     order = Order(organization_id=1, user_id=bob.id, total_amount=5, status="pending")
@@ -316,10 +316,10 @@ def test_global_leaderboard_groups_every_selected_column(client, app):
 
 
 def test_csv_import_adds_the_membership(app, db):
+    from modules.members.models import User, UserOrganizationMembership
     from modules.organizations.models import Organization
     from modules.points.csv_import import process_csv_in_background
     from modules.points.models import Points
-    from modules.users.models import User, UserOrganizationMembership
 
     soda = db.query(Organization).filter_by(prefix="soda").one()
     ais = db.query(Organization).filter_by(prefix="ais").one()
@@ -346,10 +346,10 @@ def test_two_orders_at_once_cannot_spend_the_same_points(app):
     import threading
 
     from core.db import db_connect
+    from modules.members.models import User
     from modules.points.models import Points
     from modules.storefront import service
     from modules.storefront.models import Order, OrderItem, Product
-    from modules.users.models import User
 
     if db_connect.engine.dialect.name != "postgresql":
         pytest.skip("Row locks need Postgres (set TEST_DATABASE_URL)")

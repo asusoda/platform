@@ -19,13 +19,13 @@ from modules.feeds.models import AlertFeed, AlertPost
 from modules.godfather.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
 from modules.manifest import CATALOG, CATEGORIES, CORE, Need
+from modules.members.models import UserOrganizationMembership
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.points.models import Points
 from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
 from modules.submodules import catalog as submodules
-from modules.users.models import UserOrganizationMembership
 
 from . import notices
 

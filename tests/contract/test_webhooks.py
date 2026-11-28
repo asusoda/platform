@@ -200,8 +200,8 @@ def test_failed_crawl_sends_knowledge_crawl_failed(client, officer_headers, sent
 
 def test_new_member_sends_member_joined(client, officer_headers, sent):
     from core.db import db_connect
-    from modules.users import service as users
-    from modules.users.models import User, UserOrganizationMembership
+    from modules.members import service as users
+    from modules.members.models import User, UserOrganizationMembership
 
     _create(client, officer_headers, events=["member.joined"])
     username = f"wh{uuid.uuid4().hex[:8]}"

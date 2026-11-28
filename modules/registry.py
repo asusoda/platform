@@ -18,6 +18,7 @@ from modules.games.api import game_blueprint
 from modules.godfather.api import godfather_blueprint
 from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint, well_known_blueprint
+from modules.members.api import users_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
 from modules.points.member_api import points_blueprint
@@ -27,7 +28,6 @@ from modules.storefront.member_api import storefront_blueprint
 from modules.submodules.api import asu_blueprint, submodules_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.uptime.api import uptime_blueprint
-from modules.users.api import users_blueprint
 
 
 @dataclass(frozen=True)

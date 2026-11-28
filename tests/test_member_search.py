@@ -2,7 +2,7 @@
 
 from core.integrations.discord import DiscordDirectory
 from modules.godfather.members import member_page
-from modules.users.service import discord_roles
+from modules.members.service import discord_roles
 
 
 class FakeResponse:
