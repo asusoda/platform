@@ -2,88 +2,82 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Gauge, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { UseBar } from '../../components/limits';
-import { Badge, Button, Card, CardHeader, Dialog, DocsLink, EmptyState, ErrorNote, FormActions, Input, Mono, Select, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
+import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, FormActions, Input, Mono, PageHeader, Select, SkeletonRows, Table, Td, Th, Tr } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import { byUse, limitText } from '../../lib/limits';
 import type { AllLimits, LimitChange, LimitRow, OrgLimits } from '../../lib/types';
 
 const KEY = ['superadmin-limits'];
 
-// Each org, the limits it is near, and its most used limits. Edit opens the org's limits.
-export function ResourcesCard() {
+// Each org, the limits it is near, and its most used limits. Limits opens the org's limits.
+export function LimitsPage() {
   const [open, setOpen] = useState<OrgLimits | null>(null);
   const all = useQuery({ queryKey: KEY, queryFn: () => api<AllLimits>('/api/superadmin/limits') });
   const orgs = all.data?.orgs ?? [];
   return (
-    <Card>
-      <CardHeader
-        title="Resources"
-        hint="Marked at 80% of a limit."
-        action={<DocsLink page="codebase/limits" />}
-      />
-      {all.error ? (
-        <div className="p-4">
-          <ErrorNote error={all.error} />
-        </div>
-      ) : null}
-      {all.isLoading ? <SkeletonRows rows={3} /> : null}
-      {all.data && !orgs.length ? (
-        <EmptyState icon={Gauge} title="No organizations">
-          Add an org to see its use.
-        </EmptyState>
-      ) : null}
-      {orgs.length ? (
-        <Table>
-          <thead>
-            <tr>
-              <Th>Organization</Th>
-              <Th className="hidden w-1/3 md:table-cell">Most used</Th>
-              <Th>
-                <span className="sr-only">Actions</span>
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {orgs.map((o) => {
-              const top = byUse(o.limits.filter((row) => row.enabled && row.value !== null)).slice(0, 2);
-              return (
-                <Tr key={o.org.id}>
-                  <Td className="w-full max-w-0">
-                    <div className="truncate font-medium">{o.org.name}</div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Mono className="truncate">{o.org.prefix}</Mono>
-                      {o.near.length ? <Badge tone="warn">Near {o.near.length} {o.near.length === 1 ? 'limit' : 'limits'}</Badge> : null}
-                      {o.overrides.length ? <Badge tone="active">{o.overrides.length} set for this org</Badge> : null}
-                    </div>
-                  </Td>
-                  <Td className="hidden md:table-cell">
-                    <div className="space-y-2">
-                      {top.map((row) => (
-                        <div key={row.key}>
-                          <div className="truncate text-xs">{row.label}</div>
-                          <UseBar row={row} />
-                        </div>
-                      ))}
-                    </div>
-                  </Td>
-                  <Td>
-                    <div className="flex justify-end">
-                      <Button onClick={() => setOpen(o)} aria-label={`Limits of ${o.org.name}`}>
-                        <SlidersHorizontal className="size-4" />
-                        <span className="hidden sm:inline">Limits</span>
-                      </Button>
-                    </div>
-                  </Td>
-                </Tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      ) : null}
-      <Dialog open={open !== null} onClose={() => setOpen(null)} title="Limits" description={open?.org.name} wide>
-        {open ? <LimitsForm key={open.org.id} org={open} onClose={() => setOpen(null)} /> : null}
-      </Dialog>
-    </Card>
+    <>
+      <PageHeader title="Limits" description="Marked at 80% of a limit." docs="codebase/limits" />
+      <Card>
+        {all.error ? (
+          <div className="p-4">
+            <ErrorNote error={all.error} />
+          </div>
+        ) : null}
+        {all.isLoading ? <SkeletonRows rows={3} /> : null}
+        {all.data && !orgs.length ? <EmptyState icon={Gauge} title="No organizations" /> : null}
+        {orgs.length ? (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Organization</Th>
+                <Th className="hidden w-1/3 md:table-cell">Most used</Th>
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {orgs.map((o) => {
+                const top = byUse(o.limits.filter((row) => row.enabled && row.value !== null)).slice(0, 2);
+                return (
+                  <Tr key={o.org.id}>
+                    <Td className="w-full max-w-0">
+                      <div className="truncate font-medium">{o.org.name}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Mono className="truncate">{o.org.prefix}</Mono>
+                        {o.near.length ? <Badge tone="warn">Near {o.near.length} {o.near.length === 1 ? 'limit' : 'limits'}</Badge> : null}
+                        {o.overrides.length ? <Badge tone="active">{o.overrides.length} set for this org</Badge> : null}
+                      </div>
+                    </Td>
+                    <Td className="hidden md:table-cell">
+                      <div className="space-y-2">
+                        {top.map((row) => (
+                          <div key={row.key}>
+                            <div className="truncate text-xs">{row.label}</div>
+                            <UseBar row={row} />
+                          </div>
+                        ))}
+                      </div>
+                    </Td>
+                    <Td>
+                      <div className="flex justify-end">
+                        <Button onClick={() => setOpen(o)} aria-label={`Limits of ${o.org.name}`}>
+                          <SlidersHorizontal className="size-4" />
+                          <span className="hidden sm:inline">Limits</span>
+                        </Button>
+                      </div>
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        ) : null}
+        <Dialog open={open !== null} onClose={() => setOpen(null)} title="Limits" description={open?.org.name} wide>
+          {open ? <LimitsForm key={open.org.id} org={open} onClose={() => setOpen(null)} /> : null}
+        </Dialog>
+      </Card>
+    </>
   );
 }
 

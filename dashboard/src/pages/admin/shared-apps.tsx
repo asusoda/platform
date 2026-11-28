@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Boxes, KeyRound, Plus, Rocket, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, Card, CardHeader, Dialog, DocsLink, EmptyState, ErrorNote, Field, FormActions, Input, Mono, SkeletonRows, Table, Td, Textarea, Th, Tr } from '../../components/ui';
+import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, Field, FormActions, Input, Mono, PageHeader, SkeletonRows, Table, Td, Textarea, Th, Tr } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import { deployTone } from '../../lib/format';
 import type { SharedAppAdmin } from '../../lib/types';
@@ -110,7 +110,7 @@ function Secrets({ app, onDone }: { app: SharedAppAdmin; onDone: () => void }) {
 }
 
 // Apps the deployment owns on This server. Orgs subscribe to them on the Shared tab of Explore.
-export function SharedAppsCard() {
+export function SharedAppsPage() {
   const refresh = useRefresh();
   const [open, setOpen] = useState<Open>(null);
   const list = useQuery({ queryKey: KEY, queryFn: () => api<{ apps: SharedAppAdmin[] }>(BASE), refetchInterval: 30_000 });
@@ -118,80 +118,80 @@ export function SharedAppsCard() {
   const apps = list.data?.apps ?? [];
   const close = () => setOpen(null);
   return (
-    <Card>
-      <CardHeader
+    <>
+      <PageHeader
         title="Shared apps"
-        hint="Owned by the deployment, used by orgs."
+        description="Owned by the deployment, used by orgs."
+        docs="modules/runpod-apps#shared-apps"
         action={
-          <div className="flex items-center gap-2">
-            <DocsLink page="modules/runpod-apps#shared-apps" />
-            <Button onClick={() => setOpen({ kind: 'register' })} aria-label="Register shared app">
-              <Plus className="size-4" /> <span className="hidden sm:inline">Register</span>
-            </Button>
-          </div>
+          <Button onClick={() => setOpen({ kind: 'register' })}>
+            <Plus className="size-4" /> Register
+          </Button>
         }
       />
-      {list.error || rollback.error ? (
-        <div className="p-4">
-          <ErrorNote error={list.error ?? rollback.error} />
-        </div>
-      ) : null}
-      {list.isLoading ? <SkeletonRows rows={2} /> : null}
-      {list.data && !apps.length ? <EmptyState icon={Boxes} title="No shared apps" /> : null}
-      {apps.length ? (
-        <Table>
-          <thead>
-            <tr>
-              <Th>App</Th>
-              <Th className="hidden sm:table-cell">Tag</Th>
-              <Th>Status</Th>
-              <Th className="hidden md:table-cell">Orgs</Th>
-              <Th>
-                <span className="sr-only">Actions</span>
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {apps.map((a) => (
-              <Tr key={a.name}>
-                <Td className="w-full max-w-0">
-                  <div className="truncate font-medium">{a.name}</div>
-                  <Mono className="block truncate">{a.url ?? `shared-${a.name}`}</Mono>
-                </Td>
-                <Td className="hidden sm:table-cell">
-                  <Mono className="text-fg">{a.current_tag ?? '-'}</Mono>
-                </Td>
-                <Td>
-                  <Badge tone={a.latest_deployment ? deployTone(a.latest_deployment.status) : 'muted'}>{a.latest_deployment?.status ?? 'not deployed'}</Badge>
-                </Td>
-                <Td className="hidden text-muted tabular-nums md:table-cell">{a.subscribers}</Td>
-                <Td>
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" title="Deploy" aria-label={`Deploy ${a.name}`} onClick={() => setOpen({ kind: 'deploy', app: a })}>
-                      <Rocket className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" title="Roll back" aria-label={`Roll back ${a.name}`} disabled={rollback.isPending} onClick={() => rollback.mutate(a.name)}>
-                      <RotateCcw className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" title="Secrets" aria-label={`Secrets of ${a.name}`} onClick={() => setOpen({ kind: 'secrets', app: a })}>
-                      <KeyRound className="size-4" />
-                    </Button>
-                  </div>
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : null}
-      <Dialog open={open?.kind === 'register'} onClose={close} title="Register shared app" wide>
-        {open?.kind === 'register' ? <Register onDone={close} /> : null}
-      </Dialog>
-      <Dialog open={open?.kind === 'deploy'} onClose={close} title={open?.kind === 'deploy' ? `Deploy ${open.app.name}` : ''}>
-        {open?.kind === 'deploy' ? <Deploy app={open.app} onDone={close} /> : null}
-      </Dialog>
-      <Dialog open={open?.kind === 'secrets'} onClose={close} title={open?.kind === 'secrets' ? `Secret of ${open.app.name}` : ''}>
-        {open?.kind === 'secrets' ? <Secrets app={open.app} onDone={close} /> : null}
-      </Dialog>
-    </Card>
+      <Card>
+        {list.error || rollback.error ? (
+          <div className="p-4">
+            <ErrorNote error={list.error ?? rollback.error} />
+          </div>
+        ) : null}
+        {list.isLoading ? <SkeletonRows rows={2} /> : null}
+        {list.data && !apps.length ? <EmptyState icon={Boxes} title="No shared apps" /> : null}
+        {apps.length ? (
+          <Table>
+            <thead>
+              <tr>
+                <Th>App</Th>
+                <Th className="hidden sm:table-cell">Tag</Th>
+                <Th>Status</Th>
+                <Th className="hidden md:table-cell">Orgs</Th>
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {apps.map((a) => (
+                <Tr key={a.name}>
+                  <Td className="w-full max-w-0">
+                    <div className="truncate font-medium">{a.name}</div>
+                    <Mono className="block truncate">{a.url ?? `shared-${a.name}`}</Mono>
+                  </Td>
+                  <Td className="hidden sm:table-cell">
+                    <Mono className="text-fg">{a.current_tag ?? '-'}</Mono>
+                  </Td>
+                  <Td>
+                    <Badge tone={a.latest_deployment ? deployTone(a.latest_deployment.status) : 'muted'}>{a.latest_deployment?.status ?? 'not deployed'}</Badge>
+                  </Td>
+                  <Td className="hidden text-muted tabular-nums md:table-cell">{a.subscribers}</Td>
+                  <Td>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" title="Deploy" aria-label={`Deploy ${a.name}`} onClick={() => setOpen({ kind: 'deploy', app: a })}>
+                        <Rocket className="size-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Roll back" aria-label={`Roll back ${a.name}`} disabled={rollback.isPending} onClick={() => rollback.mutate(a.name)}>
+                        <RotateCcw className="size-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Secrets" aria-label={`Secrets of ${a.name}`} onClick={() => setOpen({ kind: 'secrets', app: a })}>
+                        <KeyRound className="size-4" />
+                      </Button>
+                    </div>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : null}
+        <Dialog open={open?.kind === 'register'} onClose={close} title="Register shared app" wide>
+          {open?.kind === 'register' ? <Register onDone={close} /> : null}
+        </Dialog>
+        <Dialog open={open?.kind === 'deploy'} onClose={close} title={open?.kind === 'deploy' ? `Deploy ${open.app.name}` : ''}>
+          {open?.kind === 'deploy' ? <Deploy app={open.app} onDone={close} /> : null}
+        </Dialog>
+        <Dialog open={open?.kind === 'secrets'} onClose={close} title={open?.kind === 'secrets' ? `Secret of ${open.app.name}` : ''}>
+          {open?.kind === 'secrets' ? <Secrets app={open.app} onDone={close} /> : null}
+        </Dialog>
+      </Card>
+    </>
   );
 }

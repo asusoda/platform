@@ -1,13 +1,16 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ActivityList } from '../../components/activity-list';
-import { Button, Card, CardHeader, ErrorNote, Select, SkeletonRows } from '../../components/ui';
+import { Button, Card, ErrorNote, PageHeader, Select, SkeletonRows } from '../../components/ui';
 import { api } from '../../lib/api';
 import type { AuditEntry } from '../../lib/types';
+import { useOrgPrefixes } from './shared';
 
 const PAGE = 50;
 
-export function AuditCard({ prefixes }: { prefixes: string[] }) {
+// The audit log of every org and of the server, newest first, 50 at a time.
+export function AuditPage() {
+  const prefixes = useOrgPrefixes();
   const [org, setOrg] = useState('');
   const log = useInfiniteQuery({
     queryKey: ['superadmin-audit', org],
@@ -23,20 +26,20 @@ export function AuditCard({ prefixes }: { prefixes: string[] }) {
   const entries = log.data?.pages.flatMap((p) => p.entries) ?? [];
   return (
     <>
+      <PageHeader
+        title="Audit log"
+        action={
+          <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by org" className="w-44 sm:w-52">
+            <option value="">All organizations</option>
+            {prefixes.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+        }
+      />
       <Card>
-        <CardHeader
-          title="Audit log"
-          action={
-            <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by org" className="h-8 w-40 text-xs sm:w-48">
-              <option value="">All organizations</option>
-              {prefixes.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </Select>
-          }
-        />
         {log.error ? (
           <div className="p-4">
             <ErrorNote error={log.error} />

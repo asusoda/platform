@@ -5,7 +5,7 @@ Sources of text that agents search, such as web pages, handbooks and FAQs. A cli
 ## Access
 
 - Writers and searchers use a machine token with `knowledge:write`, `knowledge:read` or both. The org is the org of the token.
-- Search covers the caller's org and the public sources. A public source shows in the results of every org. Thus only publishers can write one. The superadmin marks publishers on the Superadmin page of the dashboard (`PUT /api/superadmin/publishers/<org_id>` with `{"publisher": true}`). Orgs in `KNOWLEDGE_PUBLISHERS` (org prefixes, comma-separated) are publishers too.
+- Search covers the caller's org and the public sources. A public source shows in the results of every org. Thus only publishers can write one. The superadmin marks publishers on the Publishers page of the superadmin space (`/admin/publishers`, `PUT /api/superadmin/publishers/<org_id>` with `{"publisher": true}`). Orgs in `KNOWLEDGE_PUBLISHERS` (org prefixes, comma-separated) are publishers too.
 - List, read and delete cover only the caller's org.
 - Officers upload documents, manage crawls, change the search settings and test search on the Knowledge page of the dashboard, with no token.
 

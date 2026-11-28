@@ -280,6 +280,7 @@
 /api/superadmin/limits GET,HEAD,OPTIONS superadmin.get_limits
 /api/superadmin/limits/<int:org_id> GET,HEAD,OPTIONS superadmin.get_org_limits
 /api/superadmin/limits/<int:org_id> OPTIONS,PUT superadmin.put_org_limits
+/api/superadmin/orgs GET,HEAD,OPTIONS superadmin.get_orgs
 /api/superadmin/publishers GET,HEAD,OPTIONS superadmin.get_publishers
 /api/superadmin/publishers/<int:org_id> OPTIONS,PUT superadmin.put_publisher
 /api/superadmin/remove_org/<int:org_id> DELETE,OPTIONS superadmin.remove_organization

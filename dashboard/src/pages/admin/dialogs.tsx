@@ -1,19 +1,21 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { Button, Code, ErrorNote, Field, FormActions, Input, Mono, Select } from '../../components/ui';
 import { api, send } from '../../lib/api';
-import { useCurrentOrg } from '../../lib/org';
-import type { AvailableGuild, GuildRole, OrganizationDetail } from '../../lib/types';
+import type { AvailableGuild, GuildRole, SuperadminOrg } from '../../lib/types';
 import { explain, useRefreshOrgs } from './shared';
+
+// The dashboard paths that cannot be a prefix, as RESERVED_PREFIXES in modules/organizations/service.py.
+const RESERVED = new Set(['admin', 'auth', 'login', 'store', 'godfather']);
 
 // The prefix the server gives a new organization, from prefix_for in modules/superadmin/service.py.
 function prefixFor(name: string, guildId: string): string {
   const prefix = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20).replace(/_+$/, '');
-  return prefix.length >= 2 ? prefix : `org_${guildId.slice(-6)}`;
+  if (prefix.length < 2) return `org_${guildId.slice(-6)}`;
+  return RESERVED.has(prefix) ? `${prefix.slice(0, 16)}_org` : prefix;
 }
 
-export function OfficerRoleDialog({ org, onClose }: { org: OrganizationDetail; onClose: () => void }) {
+export function OfficerRoleDialog({ org, onClose }: { org: SuperadminOrg; onClose: () => void }) {
   const refresh = useRefreshOrgs();
   const [role, setRole] = useState(org.officer_role_id ?? '');
   const roles = useQuery({
@@ -69,17 +71,14 @@ export function OfficerRoleDialog({ org, onClose }: { org: OrganizationDetail; o
   );
 }
 
-export function RemoveDialog({ org, onClose }: { org: OrganizationDetail; onClose: () => void }) {
+export function RemoveDialog({ org, onClose }: { org: SuperadminOrg; onClose: () => void }) {
   const refresh = useRefreshOrgs();
-  const navigate = useNavigate();
-  const { prefix } = useCurrentOrg();
   const [typed, setTyped] = useState('');
   const remove = useMutation({
     mutationFn: () => send(`/api/superadmin/remove_org/${org.id}`, 'DELETE'),
     onSuccess: () => {
       refresh(org);
       onClose();
-      if (org.prefix === prefix) navigate('/');
     },
   });
   return (
