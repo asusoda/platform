@@ -9,7 +9,7 @@ import { MemberSetupFields, NO_SETUP, setupBody } from './member-setup';
 import { UsersEditor } from './members';
 import { godfatherPath, useGodfatherSettings, useRefreshGodfather } from './shared';
 
-// Defaults and limits match pod_request in modules/godfather/service.py.
+// Defaults and limits match pod_request in modules/godfather/pod_spec.py.
 const DEFAULT_GPU = 'NVIDIA RTX A4000';
 const DEFAULT_CPU = 'cpu3c';
 const RESERVED_PREFIX = 'GODFATHER_';
