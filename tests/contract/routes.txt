@@ -228,6 +228,8 @@
 /api/points/<string:org_prefix>/getUserPoints GET,HEAD,OPTIONS points.get_user_points_in_org
 /api/points/<string:org_prefix>/getUserTotalPoints GET,HEAD,OPTIONS points.get_user_total_points_in_org
 /api/points/<string:org_prefix>/get_points GET,HEAD,OPTIONS points.get_org_points
+/api/points/<string:org_prefix>/imports GET,HEAD,OPTIONS points.list_imports
+/api/points/<string:org_prefix>/imports/<int:import_id> GET,HEAD,OPTIONS points.get_import
 /api/points/<string:org_prefix>/leaderboard GET,HEAD,OPTIONS points.get_org_leaderboard
 /api/points/<string:org_prefix>/member_login OPTIONS,POST points.member_login
 /api/points/<string:org_prefix>/member_profile GET,HEAD,OPTIONS points.get_member_profile

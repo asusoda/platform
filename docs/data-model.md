@@ -105,7 +105,7 @@ erDiagram
 | core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `notifications` (each webhook event of an org, shown in Notifications), `org_limits` (the superadmin's limit overrides for each org), `deployment_secrets` (secrets of the deployment, such as a shared app's admin token), `usage_counters` (what each org used of a rate limit in each window) |
 | organizations | `organizations`, `organization_configs` and `officers` (not used) |
 | users | `users`, `user_organization_memberships` |
-| points | `points` |
+| points | `points`, `points_imports` (one row for each attendance CSV import, with its progress, counts and row errors; the newest 50 for each org) |
 | storefront | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
 | auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only, scopes, and per-integration `limits`), `sessions` (not used) |
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |

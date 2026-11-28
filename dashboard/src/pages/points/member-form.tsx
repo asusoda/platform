@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button, Dialog, Field, FormActions, Input } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { PointsMember } from '../../lib/types';
-import { memberChanges, memberKey } from './shared';
+import { memberChanges, memberKey, refreshPoints } from './shared';
 
 const EMPTY = { email: '', name: '', asu_id: '', academic_standing: '', major: '' };
 
@@ -46,7 +46,7 @@ export function MemberDialog({
           });
     },
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: ['points', prefix] });
+      refreshPoints(client, prefix);
       onClose();
     },
   });

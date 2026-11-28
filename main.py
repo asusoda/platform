@@ -9,7 +9,7 @@ import discord
 from flask import Flask, abort, jsonify, request
 from flask_cors import CORS
 
-from core import jobs
+from core import cache, jobs
 from core.config import config
 from core.http.audit_hook import register_audit
 from core.http.cached import register_cache_invalidation
@@ -121,6 +121,12 @@ register_cache_invalidation(app)
 def start_job_scheduler():
     """Start the inline job scheduler when the API serves. Importing main for a CLI command starts nothing."""
     jobs.start_inline_scheduler()
+
+
+@app.before_request
+def start_cache_listener():
+    """Start the thread that drops cached reads when another process writes (Postgres only)."""
+    cache.start_listener()
 
 
 @app.before_request

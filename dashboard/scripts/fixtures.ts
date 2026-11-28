@@ -1527,6 +1527,28 @@ export function fixtures(now: number = Date.now()) {
     ]),
   );
 
+  // CSV import runs: one that runs, and one that ended with two failed rows.
+  const pointsImports = [
+    { id: 9, event: 'Build night', points: 10, status: 'running', rows_total: 300, rows_done: 125, awarded: 118, skipped: 4, errors: [], created_by: 'officer', created_at: at(-2 * MINUTE), finished_at: null },
+    {
+      id: 8,
+      event: 'Robot demo day',
+      points: 25,
+      status: 'done',
+      rows_total: 42,
+      rows_done: 42,
+      awarded: 38,
+      skipped: 2,
+      errors: [
+        { row: 17, email: null, message: 'The row has no email or no name' },
+        { row: 31, email: 'sam@example', message: 'Could not add the member: Invalid email' },
+      ],
+      created_by: 'officer',
+      created_at: at(-9 * DAY),
+      finished_at: at(-9 * DAY + MINUTE),
+    },
+  ];
+
   // Store: products and the orders members placed.
   const product = (id: number, name: string, category: string, price: number, stock: number, updated: number) => ({
     id,
@@ -1571,6 +1593,8 @@ export function fixtures(now: number = Date.now()) {
       quantity: qty,
       price_at_time: products[pid - 1].price,
     })),
+    // A cancelled order gave its points back. Order 42 was placed before member orders held points.
+    points_held: status === 'cancelled' || id === 42 ? 0 : items.reduce((n, [pid, qty]) => n + products[pid - 1].price * qty, 0),
   });
   const orders = [
     order(44, 2, 'pending', -3 * HOUR, [
@@ -1989,6 +2013,8 @@ export function fixtures(now: number = Date.now()) {
     },
     [`/api/points/${ORG.prefix}/get_points` as const]: pointEntries,
     ...pointsHistory,
+    [`/api/points/${ORG.prefix}/imports` as const]: { imports: pointsImports },
+    [`/api/points/${ORG.prefix}/imports/8` as const]: pointsImports[1],
     [`/api/storefront/${ORG.prefix}/products` as const]: products,
     [`/api/storefront/${ORG.prefix}/orders` as const]: orders,
     [`/api/calendar/${ORG.prefix}/events` as const]: {

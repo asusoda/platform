@@ -24,7 +24,10 @@ export type MemberOrder = {
   status: string;
   created_at: string;
   items: { id: number; product_id: number; quantity: number; price_at_time: number; product_name: string }[];
+  points_held: number;
 };
+// The answer of POST /members/orders. points_held is the points the order took from the balance.
+export type PlacedOrder = { id: number; points_held: number; order: { id: number; status: string; total_amount: number } };
 export type MemberProfile = { user: { name: string | null; email: string | null }; current_organization: { points: number } };
 export type CartLine = { product: StoreProduct; quantity: number };
 

@@ -1,189 +1,35 @@
-from flask import Blueprint, jsonify, request, session
+"""Officer routes of points: members, point entries, awards and the attendance CSV imports.
 
-from core import jobs
+The member and public routes (store sign-in, member profile, leaderboard) are in member_api.py.
+"""
+
+from flask import Blueprint, jsonify, request
+
 from core.db import db_connect
 from core.http.cached import cached_json, org_key
-from core.http.request_log import bearer_token
-from core.log import logger
-from modules.auth.access import awarded_by, decide, discord_directory, is_org_officer
+from core.log import get_logger
+from modules.auth.access import awarded_by, is_org_officer
 from modules.auth.decorators import auth_required
 from modules.auth.routes import officer_route
-from modules.auth.tokens import token_manager
 from modules.organizations import service as organizations
-from modules.points import service
+from modules.points import csv_import, service
 from modules.points.models import Points
 from modules.users import service as users
 from modules.users.models import User, UserOrganizationMembership
 
+logger = get_logger(__name__)
+
 points_blueprint = Blueprint("points", __name__, template_folder=None, static_folder=None)
 
-LEADERBOARD_CACHE_TTL = 300  # seconds
-# Officer lists change through this process, which drops them at once, and through the bot, which this TTL covers
+# Writes in this process drop the officer lists at once; writes elsewhere drop them through core.cache.publish
 OFFICER_LIST_TTL = 30  # seconds
+MAX_CSV_BYTES = 2_000_000
 
 ORG_NOT_FOUND = "Organization not found"
 
 
-def _org(db, org_prefix):
+def active_org(db, org_prefix):
     return organizations.find_by_prefix(db, org_prefix, active_only=True)
-
-
-@points_blueprint.route("/", methods=["GET"])
-def index():
-    return jsonify({"message": "Points"}), 200
-
-
-def _clerk_email() -> str | None:
-    """The email of the Clerk session token on this request, or None."""
-    from modules.auth import clerk
-
-    token = bearer_token()
-    if not token:
-        return None
-    try:
-        result = clerk.verify_clerk_token(token)
-    except Exception:
-        logger.debug("Clerk token verification failed in member_login", exc_info=True)
-        return None
-    return result[0] if result else None
-
-
-@points_blueprint.route("/<string:org_prefix>/member_login", methods=["POST"])
-def member_login(org_prefix):
-    """Link or create the member for the store and keep them in the session."""
-    data = request.json
-
-    if not data:
-        return jsonify({"error": "Request data is required"}), 400
-
-    # The caller proves the email with a Clerk session token for it
-    verified_email = _clerk_email()
-    claimed_email = str(data.get("email") or "").strip().lower()
-    if not verified_email or verified_email.lower() != claimed_email:
-        if decide("member_login_unverified", org=org_prefix):
-            return jsonify({"error": "Sign in to log in as this member"}), 403
-
-    db = next(db_connect.get_db())
-    try:
-        organization = _org(db, org_prefix)
-        if not organization:
-            return jsonify({"error": ORG_NOT_FOUND}), 404
-
-        fields = users.member_input(data)
-        user_data = {
-            key: fields.get(key) for key in ("name", "username", "email", "student_id", "class_standing", "major")
-        }
-        user = users.link_or_create_user(organization.id, user_data, session.get("discord_id"))
-        if not user:
-            return jsonify({"error": "Failed to create or link user account"}), 500
-
-        session["member_user_id"] = user.id
-        session["member_org_id"] = organization.id
-
-        return jsonify(
-            {
-                "message": "Login successful",
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    "asu_id": user.student_id,
-                    "discord_linked": bool(user.discord_id),
-                },
-                "organization": {"id": organization.id, "name": organization.name, "prefix": organization.prefix},
-            }
-        ), 200
-
-    except Exception as e:
-        logger.error(f"Error in getPointsByUser: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred while retrieving user points"}), 500
-    finally:
-        db.close()
-
-
-@points_blueprint.route("/<string:org_prefix>/member_profile", methods=["GET"])
-def get_member_profile(org_prefix):
-    """The signed-in member's profile, orgs and points. A Discord session (the store sign-in) comes first."""
-    discord_id = session.get("discord_id")
-    member_user_id = session.get("member_user_id")
-    if not discord_id and not member_user_id:
-        return jsonify({"error": "Member not logged in"}), 401
-
-    db = next(db_connect.get_db())
-    try:
-        from modules.organizations.models import Organization
-
-        organization = _org(db, org_prefix)
-        if not organization:
-            return jsonify({"error": ORG_NOT_FOUND}), 404
-
-        if discord_id:
-            # As member_required: the Discord user must be in the org's server
-            directory = discord_directory()
-            if directory is None or not directory.is_ready():
-                return jsonify({"error": "Discord bot not available"}), 503
-            if not directory.check_user_membership(int(discord_id), int(organization.guild_id)):
-                return jsonify({"error": "You must be a member of this organization to access this resource"}), 403
-            user = db.query(User).filter_by(discord_id=str(discord_id)).first()
-        else:
-            user = db.query(User).filter_by(id=member_user_id).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        memberships = db.query(UserOrganizationMembership).filter_by(user_id=user.id, is_active=True).all()
-
-        org_data = []
-        total_points_all_orgs = 0
-        current_org_points = 0
-        current_membership = next((m for m in memberships if m.organization_id == organization.id), None)
-
-        for membership in memberships:
-            org = db.query(Organization).filter_by(id=membership.organization_id).first()
-            if org:
-                org_points = service.total_points(db, user.id, org.id) or 0
-                org_data.append(
-                    {
-                        "id": org.id,
-                        "name": org.name,
-                        "prefix": org.prefix,
-                        "description": org.description,
-                        "points": org_points,
-                        "is_current": org.id == organization.id,
-                    }
-                )
-                total_points_all_orgs += org_points
-                if org.id == organization.id:
-                    current_org_points = org_points
-
-        return jsonify(
-            {
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    **users.member_fields(user, current_membership),
-                    "major": user.major,
-                    "discord_linked": bool(user.discord_id),
-                    "created_at": user.created_at.isoformat() if user.created_at else None,
-                },
-                "current_organization": {
-                    "id": organization.id,
-                    "name": organization.name,
-                    "prefix": organization.prefix,
-                    "points": current_org_points,
-                },
-                "organizations": org_data,
-                "total_points_all_orgs": total_points_all_orgs,
-            }
-        ), 200
-
-    except Exception as e:
-        logger.error(f"Error in getAllPointsByUser: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred while retrieving user points across organizations"}), 500
-    finally:
-        db.close()
 
 
 @points_blueprint.route("/<string:org_prefix>/users", methods=["POST"])
@@ -191,9 +37,9 @@ def get_member_profile(org_prefix):
 def manage_user(org_prefix):
     """Create, update or link a member of the org."""
     data = request.json
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
@@ -218,21 +64,14 @@ def manage_user(org_prefix):
             {
                 "message": message,
                 "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    **users.member_fields(user, membership),
-                    "major": user.major,
-                    "discord_linked": bool(user.discord_id),
+                    **service.member_json(user, membership),
                     "created_at": user.created_at.isoformat() if user.created_at else None,
                 },
                 "organization": {"name": organization.name, "prefix": organization.prefix},
             }
         ), 201 if "created" in message else 200
-
-    except Exception as e:
-        logger.error(f"Error in createOrUpdateUserByOrgPrefix: {e}", exc_info=True)
+    except Exception:
+        logger.exception("member save failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while creating or updating user"}), 500
     finally:
         db.close()
@@ -243,23 +82,17 @@ def manage_user(org_prefix):
 def add_points_to_org(org_prefix):
     """Add points to a member found by Discord id, else by email, uuid or username."""
     data = request.json
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 400
 
-        user = None
         discord_id = data.get("user_discord_id")
         user_identifier = data.get("user_identifier")
-
         if not discord_id and not user_identifier:
-            return (
-                jsonify({"error": "Either 'user_discord_id' or 'user_identifier' must be provided"}),
-                400,
-            )
-        if discord_id:
-            user = db.query(User).filter_by(discord_id=discord_id).first()
+            return jsonify({"error": "Either 'user_discord_id' or 'user_identifier' must be provided"}), 400
+        user = db.query(User).filter_by(discord_id=discord_id).first() if discord_id else None
         if not user and user_identifier:
             user = users.find_by_identifier(db, user_identifier)
         if not user:
@@ -269,10 +102,9 @@ def add_points_to_org(org_prefix):
             db, organization.id, user, data["points"], data.get("event"), awarded_by(data.get("awarded_by_officer"))
         )
         return jsonify(service.point_json(point)), 201
-
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Error in addPointsToUserByAsuId: {e}", exc_info=True)
+        logger.exception("add_points failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while adding points"}), 400
     finally:
         db.close()
@@ -282,9 +114,9 @@ def add_points_to_org(org_prefix):
 @auth_required
 def get_org_users(org_prefix):
     """The org's active members with their points."""
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
@@ -300,10 +132,9 @@ def get_org_users(org_prefix):
             return {"organization": organization_json, "total_users": len(users_data), "users": users_data}
 
         return cached_json(org_key(org_prefix, "points", "users"), OFFICER_LIST_TTL, build)
-
-    except Exception as e:
-        logger.error(f"Error in uploadEventCSV: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred while processing CSV upload"}), 400
+    except Exception:
+        logger.exception("member list failed org=%s", org_prefix)
+        return jsonify({"error": "An error occurred while retrieving the members"}), 400
     finally:
         db.close()
 
@@ -312,9 +143,9 @@ def get_org_users(org_prefix):
 @auth_required
 def get_org_points(org_prefix):
     """Every point entry in the org."""
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
@@ -325,81 +156,55 @@ def get_org_points(org_prefix):
             return [service.point_json(point) for point in points]
 
         return cached_json(org_key(org_prefix, "points", "entries"), OFFICER_LIST_TTL, build)
-
-    except Exception as e:
-        logger.error(f"Error in getAllPointsRecords: {e}", exc_info=True)
+    except Exception:
+        logger.exception("point entries failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while retrieving points records"}), 400
     finally:
         db.close()
 
 
-def _leaderboard_show_email():
-    """(show_email, None), or (None, error response) when the Bearer token is expired or bad."""
-    token = bearer_token()
-    if not token:
-        return False, None
+def _event_points(value: str) -> int:
+    """The points of a CSV upload as a whole number. Raises PointsError 400 for any other value."""
     try:
-        if token_manager.is_token_valid(token) and not token_manager.is_token_expired(token):
-            return True, None
-        if token_manager.is_token_expired(token):
-            return None, (jsonify({"message": "Token is expired!"}), 403)
-    except Exception:
-        return None, (jsonify({"message": "Token is invalid!"}), 401)
-    return False, None
+        return int(value.strip())
+    except (AttributeError, ValueError):
+        raise service.PointsError("event_points must be a whole number") from None
 
 
-@points_blueprint.route("/<string:org_prefix>/leaderboard", methods=["GET"])
-def get_org_leaderboard(org_prefix):
-    """The org's leaderboard. A valid platform token shows emails; without one it shows uuids."""
-    show_email, refusal = _leaderboard_show_email()
-    if refusal is not None:
-        return refusal
-
-    db = next(db_connect.get_db())
-    try:
-        organization = _org(db, org_prefix)
-        if not organization:
-            return jsonify({"error": ORG_NOT_FOUND}), 404
-
-        return cached_json(
-            org_key(org_prefix, "points", "leaderboard", bool(show_email)),
-            LEADERBOARD_CACHE_TTL,
-            lambda: service.officer_leaderboard(db, organization, bool(show_email)),
-        )
-
-    except Exception as e:
-        logger.error(f"Error in getLeaderboard: {e}", exc_info=True)
-        return jsonify({"error": "An error occurred while retrieving leaderboard"}), 400
-    finally:
-        db.close()
-
-
-@points_blueprint.route("/<string:org_prefix>/uploadEventCSV", methods=["POST"])
-@auth_required
-def upload_event_csv(org_prefix):
-    """Queue the points.import_event_csv job for an attendance CSV."""
+@officer_route(points_blueprint, "/uploadEventCSV", ["POST"])
+def upload_event_csv(db, org):
+    """Add a CSV import run and queue the points.import_event_csv job for it. 202 with the run's id."""
     if "file" not in request.files or "event_name" not in request.form or "event_points" not in request.form:
-        return jsonify({"error": "Missing required fields"}), 400
-
+        return {"error": "Missing required fields"}, 400
     file = request.files["file"]
-    event_name = request.form["event_name"]
-    event_points = int(request.form["event_points"])
-
+    event_points = _event_points(request.form["event_points"])
     if not file.filename or not file.filename.endswith(".csv"):
-        return jsonify({"error": "File must be a CSV"}), 400
+        return {"error": "File must be a CSV"}, 400
+    raw = file.stream.read(MAX_CSV_BYTES + 1)
+    if len(raw) > MAX_CSV_BYTES:
+        return {"error": "The CSV is larger than 2 MB"}, 413
+    try:
+        content = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return {"error": "The CSV must be UTF-8 text"}, 400
 
-    file_content = file.stream.read().decode("utf-8")
+    run = csv_import.queue(db, org, content, request.form["event_name"], event_points, awarded_by(None))
+    return {"message": "File is being processed in the background.", "import_id": run.id}, 202
 
-    # The job worker runs it, or a thread on SQLite
-    jobs.defer(
-        "points.import_event_csv",
-        file_content=file_content,
-        event_name=event_name,
-        event_points=event_points,
-        org_prefix=org_prefix,
-    )
 
-    return jsonify({"message": "File is being processed in the background."}), 202
+@officer_route(points_blueprint, "/imports", ["GET"])
+def list_imports(db, org):
+    """The org's newest 20 CSV import runs."""
+    return {"imports": csv_import.runs(db, org.id)}
+
+
+@officer_route(points_blueprint, "/imports/<int:import_id>", ["GET"])
+def get_import(db, org, import_id):
+    """One CSV import run of the org, with its progress and row errors."""
+    run = csv_import.run(db, org.id, import_id)
+    if run is None:
+        return {"error": "Import not found"}, 404
+    return csv_import.run_json(run)
 
 
 @points_blueprint.route("/<string:org_prefix>/getUserPoints", methods=["GET"])
@@ -410,9 +215,9 @@ def get_user_points_in_org(org_prefix):
     if not discord_id:
         return jsonify({"error": "discord_id parameter is missing"}), 400
 
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
@@ -427,9 +232,8 @@ def get_user_points_in_org(org_prefix):
         return jsonify(
             [{**service.history_json(record), "organization_id": record.organization_id} for record in points_records]
         ), 200
-
-    except Exception as e:
-        logger.error(f"Error in getPointsHistoryByDiscordId: {e}", exc_info=True)
+    except Exception:
+        logger.exception("points history by Discord id failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while retrieving points history"}), 400
     finally:
         db.close()
@@ -443,9 +247,9 @@ def get_user_total_points_in_org(org_prefix):
     if not discord_id:
         return jsonify({"error": "discord_id parameter is missing"}), 400
 
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
@@ -462,9 +266,8 @@ def get_user_total_points_in_org(org_prefix):
                 "total_points": service.total_points(db, user.id, organization.id) or 0.0,
             }
         ), 200
-
-    except Exception as e:
-        logger.error(f"Error in getUserPointsByDiscordId: {e}", exc_info=True)
+    except Exception:
+        logger.exception("total points by Discord id failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while retrieving user points"}), 400
     finally:
         db.close()
@@ -476,9 +279,9 @@ def get_user_total_points_in_org(org_prefix):
 def assign_points_to_org(org_prefix):
     """Add points to an active member found by email, uuid or username."""
     data = request.json
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
@@ -490,7 +293,6 @@ def assign_points_to_org(org_prefix):
         user = users.find_by_identifier(db, data["user_identifier"])
         if not user:
             return jsonify({"error": "User not found"}), 404
-
         if not users.active_membership(db, user.id, organization.id):
             return jsonify({"error": "User is not a member of this organization"}), 400
 
@@ -502,7 +304,6 @@ def assign_points_to_org(org_prefix):
             data.get("event"),
             awarded_by(data.get("awarded_by_officer")),
         )
-
         return jsonify(
             {
                 "message": "Points assigned successfully",
@@ -511,10 +312,9 @@ def assign_points_to_org(org_prefix):
                 "organization": {"name": organization.name, "prefix": organization.prefix},
             }
         ), 201
-
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Error in addPointsByDiscordId: {e}", exc_info=True)
+        logger.exception("assign_points failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while adding points"}), 500
     finally:
         db.close()
@@ -528,14 +328,13 @@ def delete_points_by_event(org_prefix):
     if not data or "user_email" not in data or "event" not in data:
         return jsonify({"error": "user_email and event are required"}), 400
 
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
-
         try:
-            points_entry = service.delete_event_entry(db, organization.id, data["user_email"], data["event"])
+            entry = service.delete_event_entry(db, organization.id, data["user_email"], data["event"])
         except service.PointsError as e:
             return jsonify({"error": e.message}), e.status
 
@@ -543,19 +342,18 @@ def delete_points_by_event(org_prefix):
             {
                 "message": "Points deleted successfully",
                 "deleted_points": {
-                    "points": points_entry.points,
-                    "event": points_entry.event,
-                    "timestamp": points_entry.timestamp.isoformat() if points_entry.timestamp else None,
-                    "awarded_by_officer": points_entry.awarded_by_officer,
-                    "user_id": points_entry.user_id,
-                    "organization_id": points_entry.organization_id,
+                    "points": entry.points,
+                    "event": entry.event,
+                    "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
+                    "awarded_by_officer": entry.awarded_by_officer,
+                    "user_id": entry.user_id,
+                    "organization_id": entry.organization_id,
                 },
             }
         ), 200
-
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Error in deletePointsById: {e}", exc_info=True)
+        logger.exception("delete_points failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while deleting points"}), 500
     finally:
         db.close()
@@ -572,12 +370,11 @@ def delete_entry(db, org, entry_id):
 def update_user_fields_endpoint(org_prefix, user_identifier):
     """Update the fields sent for an active member. Legacy keys name their columns."""
     data = request.json
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
-
         try:
             result = users.update_member(db, organization.id, user_identifier, data)
         except users.MemberError as e:
@@ -587,29 +384,18 @@ def update_user_fields_endpoint(org_prefix, user_identifier):
 
         if errors:
             return jsonify({"error": "Some fields failed to update", "details": errors}), 400
-
         if not updated_fields:
             return jsonify({"message": "No fields to update"}), 200
-
         return jsonify(
             {
                 "message": f"Updated fields: {', '.join(updated_fields)}",
                 "updated_fields": updated_fields,
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    **users.member_fields(user, membership),
-                    "major": user.major,
-                    "discord_linked": bool(user.discord_id),
-                },
+                "user": service.member_json(user, membership),
             }
         ), 200
-
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Error in updateUserPointsByAsuId: {e}", exc_info=True)
+        logger.exception("member update failed org=%s member=%s", org_prefix, user_identifier)
         return jsonify({"error": "An error occurred while updating user points"}), 500
     finally:
         db.close()
@@ -619,42 +405,31 @@ def update_user_fields_endpoint(org_prefix, user_identifier):
 @auth_required
 def get_user_points_in_org_by_identifier(org_prefix, user_identifier):
     """An active member's total and points history in the org."""
-    db = next(db_connect.get_db())
+    db = db_connect.SessionLocal()
     try:
-        organization = _org(db, org_prefix)
+        organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
 
         user = users.find_by_identifier(db, user_identifier)
         if not user:
             return jsonify({"error": "User not found"}), 404
-
         membership = users.active_membership(db, user.id, organization.id)
         if not membership:
             return jsonify({"error": "User is not a member of this organization"}), 400
-
-        total_points = service.total_points(db, user.id, organization.id) or 0
-        points_records = service.history(db, user.id, organization.id)
 
         # Student ids and profile fields only go to the org's officers, also while ACCESS_ENFORCE is off
         details = {**users.member_fields(user, membership), "major": user.major} if is_org_officer(organization) else {}
         return jsonify(
             {
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "email": user.email,
-                    "username": user.username,
-                    **details,
-                },
+                "user": {"id": user.id, "name": user.name, "email": user.email, "username": user.username, **details},
                 "organization": {"name": organization.name, "prefix": organization.prefix},
-                "total_points": total_points,
-                "points_history": [service.history_json(record) for record in points_records],
+                "total_points": service.total_points(db, user.id, organization.id) or 0,
+                "points_history": [service.history_json(r) for r in service.history(db, user.id, organization.id)],
             }
         ), 200
-
-    except Exception as e:
-        logger.error(f"Error in getUserPointsByAsuId: {e}", exc_info=True)
+    except Exception:
+        logger.exception("member points failed org=%s member=%s", org_prefix, user_identifier)
         return jsonify({"error": "An error occurred while retrieving user points"}), 500
     finally:
         db.close()

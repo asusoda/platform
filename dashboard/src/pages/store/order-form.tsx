@@ -6,6 +6,8 @@ import { Button, Dialog, Field, FormActions, Select, Table, Td, Textarea, Th, Tr
 import { send } from '../../lib/api';
 import { compact, when } from '../../lib/format';
 import type { Order, Product } from '../../lib/types';
+import { refreshPoints } from '../points/shared';
+import { heldLabel } from './shared';
 
 // The statuses update_order_status accepts. A checkout order starts as completed, which officers cannot set.
 const STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -43,7 +45,8 @@ function OrderForm({ prefix, order, products, onDone }: { prefix: string; order:
   const [status, setStatus] = useState(order.status);
   const [message, setMessage] = useState(order.message ?? '');
   const changed = status !== order.status || message !== (order.message ?? '');
-  const refresh = () => client.invalidateQueries({ queryKey: ['store', prefix] });
+  // A cancel or a delete can give points back, so every page with a points total loads again
+  const refresh = () => refreshPoints(client, prefix);
   const save = useMutation({
     // The route refuses a status it does not know, so the status goes only when it changed.
     mutationFn: () =>
@@ -97,6 +100,11 @@ function OrderForm({ prefix, order, products, onDone }: { prefix: string; order:
               <Td />
               <Td className="text-right font-medium tabular-nums">{compact(order.total_amount)}</Td>
             </Tr>
+            <Tr>
+              <Td className="text-muted">Points held</Td>
+              <Td />
+              <Td className="text-right text-muted tabular-nums">{heldLabel(order)}</Td>
+            </Tr>
           </tbody>
         </Table>
       </div>
@@ -127,8 +135,12 @@ function OrderForm({ prefix, order, products, onDone }: { prefix: string; order:
           className="ml-auto"
           disabled={remove.isPending}
           onClick={() => {
-            const stock = CLOSED.has(order.status) ? 'Stock does not change.' : 'Its items go back into stock.';
-            void confirm(`Delete order #${order.id}? ${stock} The member does not get the points back.`, 'Delete').then((yes) => {
+            const effect = CLOSED.has(order.status)
+              ? 'Stock and points do not change.'
+              : order.points_held > 0
+                ? `Its items go back into stock and the member gets ${compact(order.points_held)} points back.`
+                : 'Its items go back into stock.';
+            void confirm(`Delete order #${order.id}? ${effect}`, 'Delete').then((yes) => {
               if (yes) remove.mutate();
             });
           }}
