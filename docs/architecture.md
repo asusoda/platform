@@ -138,7 +138,7 @@ flowchart TB
 | Container caps | A memory and CPU cap on each service | [Operations](./operations.md#container-limits) |
 | Apps | Each app is its own container or pod, never a Platform process | [Hosting apps](./modules/runpod-apps.md) |
 
-The superadmins (`SYS_ADMIN`) see the server's health and each org's use on the Superadmin page, and set each org's limits. Superadmin routes refuse every other caller.
+The superadmins (`SYS_ADMIN`) see the server's health and each org's use in the superadmin space at `/admin`, and set each org's limits. Superadmin routes refuse every other caller.
 
 ## Jobs
 

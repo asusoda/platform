@@ -12,7 +12,6 @@ import {
   Cpu,
   Server,
   Settings,
-  ShieldCheck,
   ShoppingBag,
   Trophy,
   Megaphone,
@@ -22,7 +21,6 @@ import type { ComponentType, ReactNode } from 'react';
 import { ModuleGate } from '../components/module-gate';
 import { overviewQuery } from '../lib/queries';
 import { ActivityPage } from './activity';
-import { AdminPage } from './admin';
 import { HackathonWebhookPage, JobWebhookPage } from './feeds';
 import { CalendarPage } from './calendar';
 import { ExplorePage } from './explore';
@@ -66,8 +64,6 @@ export type PageEntry = {
   module?: string | string[];
   // With one module set, the page shows a module-off note in place of its content when the module is off.
   gate?: boolean;
-  // Only the superadmin sees the page in the sidebar.
-  superadmin?: boolean;
   // The page has no sidebar item. Links on another page open it. The first part of path selects the sidebar item.
   hidden?: boolean;
   page: ComponentType;
@@ -97,11 +93,11 @@ export const PAGES: PageEntry[] = [
   { path: 'connections', label: 'Connections', icon: Plug, section: 'bottom', page: ConnectionsPage },
   { path: 'activity', label: 'Activity', icon: Activity, section: 'bottom', page: ActivityPage },
   { path: 'settings', label: 'Settings', icon: Settings, section: 'bottom', page: SettingsPage },
-  { path: 'admin', label: 'Superadmin', icon: ShieldCheck, section: 'bottom', superadmin: true, page: AdminPage },
 ];
 
-// Old org paths that open another page. to is relative to the old path.
+// Old org paths that open another page. to is relative to the old path, or absolute when it starts with /.
 export const REDIRECTS: { path: string; to: string }[] = [
+  { path: 'admin', to: '/admin' },
   { path: 'ci', to: '../activity?tab=ci' },
   { path: 'notifications', to: '../activity' },
   { path: 'modules', to: '../explore' },
