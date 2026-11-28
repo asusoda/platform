@@ -55,7 +55,7 @@ const SCREENS: Screen[] = [
     before: async (page) => {
       await page.getByRole('button', { name: 'New token' }).click();
       await page.getByPlaceholder('sparky-engine').fill('events-bot');
-      await page.getByRole('button', { name: /^Content and agents/ }).click();
+      await page.getByRole('button', { name: /^Content/ }).click();
       await page.getByLabel('knowledge:read').check();
       await page.getByLabel('calendar:read').check();
       await page.getByLabel('github:read').check();

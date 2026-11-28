@@ -18,8 +18,6 @@ const sections: Record<string, Section> = {
   modules: {
     title: 'Modules',
     pages: [
-      ['modules/accounts.md', 'accounts'],
-      ['modules/agents.md', 'agents'],
       ['modules/calendar.md', 'calendar'],
       ['modules/discord-bot.md', 'discord-bot'],
       ['modules/feeds.md', 'feeds'],

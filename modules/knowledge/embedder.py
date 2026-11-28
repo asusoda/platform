@@ -208,6 +208,4 @@ register(
     )
 )
 use("embeddings", "knowledge")
-use("embeddings", "agents")
 use("openrouter", "knowledge")
-use("openrouter", "agents")

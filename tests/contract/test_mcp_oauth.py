@@ -26,8 +26,8 @@ def signed_in() -> dict:
 def oauth_client(app, monkeypatch, signed_in):
     from starlette.testclient import TestClient
 
+    from core import sign_in
     from core.config import config
-    from modules.accounts import providers
     from modules.mcp import oauth_requests
     from modules.mcp.server import build_app
 
@@ -38,10 +38,10 @@ def oauth_client(app, monkeypatch, signed_in):
     def discord_user_id(client_id, client_secret, code, redirect_uri):
         assert redirect_uri == f"{PUBLIC}/oauth/callback"
         if code == "bad":
-            raise providers.ProviderError("Discord sign-in failed")
+            raise sign_in.SignInError("Discord sign-in failed")
         return signed_in["discord_id"]
 
-    monkeypatch.setattr(providers, "discord_user_id", discord_user_id)
+    monkeypatch.setattr(sign_in, "discord_user_id", discord_user_id)
     with TestClient(build_app(host="api.club.test"), base_url=HOST, follow_redirects=False) as test_client:
         yield test_client
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, BellRing, Boxes, Bot, CalendarClock, Coins, Cpu, Database, GitBranch, ShoppingBag, Users } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BellRing, Boxes, CalendarClock, Coins, Cpu, Database, GitBranch, ShoppingBag, Users } from 'lucide-react';
 import { Link } from 'react-router';
 import { ActivityList } from '../components/activity-list';
 import { moduleLabel } from '../components/notifications';
@@ -80,15 +80,6 @@ export function OverviewPage() {
               value={s.godfather.pods.length}
               sub={`${s.godfather.sessions.length} upcoming sessions`}
               icon={<Cpu className="size-4" />}
-            />
-          ) : null,
-          on('agents') ? (
-            <Stat
-              key="agents"
-              label="Agent conversations"
-              value={compact(s.agents.active_7_days)}
-              sub={`${s.agents.members_7_days} members this week`}
-              icon={<Bot className="size-4" />}
             />
           ) : null,
           on('knowledge') ? (

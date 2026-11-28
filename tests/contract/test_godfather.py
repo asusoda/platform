@@ -597,10 +597,10 @@ def test_deleting_and_terminating_clear_sessions(client, officer_headers, runpod
 def _cli_sign_in(client, monkeypatch, discord_id=MEMBER_DISCORD_ID):
     import re
 
-    from modules.accounts import providers
+    from core import sign_in
 
     monkeypatch.setenv("ACCOUNTS_BASE_URL", "https://platform.example")
-    monkeypatch.setattr(providers, "discord_user_id", lambda *args, **kwargs: discord_id)
+    monkeypatch.setattr(sign_in, "discord_user_id", lambda *args, **kwargs: discord_id)
     start = client.get("/api/compute/soda/cli/login")
     assert start.status_code == 302 and "discord.com" in start.location
     assert "redirect_uri=https%3A%2F%2Fplatform.example%2Fapi%2Fcompute%2Fcli%2Fcallback" in start.location
@@ -644,11 +644,11 @@ def test_cli_token_follows_server_membership(app, client, officer_headers, runpo
 def _loopback_sign_in(app, monkeypatch, verifier="v" * 43, discord_id=MEMBER_DISCORD_ID):
     from urllib.parse import parse_qs, urlparse
 
-    from modules.accounts import providers
+    from core import sign_in
     from modules.godfather import cli_login
 
     monkeypatch.setenv("ACCOUNTS_BASE_URL", "https://platform.example")
-    monkeypatch.setattr(providers, "discord_user_id", lambda *args, **kwargs: discord_id)
+    monkeypatch.setattr(sign_in, "discord_user_id", lambda *args, **kwargs: discord_id)
     browser = app.test_client()
     query = (
         f"port=53682&state=cli-state-123&code_challenge={cli_login.challenge_for(verifier)}&code_challenge_method=S256"

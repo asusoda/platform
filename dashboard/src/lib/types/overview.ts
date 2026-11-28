@@ -40,14 +40,6 @@ export type Overview = {
     feeds: { feeds: FeedSummary[] };
     apps: { apps: AppSummary[] };
     knowledge: { sources: number; crawled: number; failing: { key: string; url: string | null; error: string }[] };
-    agents: {
-      conversations: number;
-      active_7_days: number;
-      members_7_days: number;
-      memories: number;
-      pending_actions: number;
-    };
-    accounts: { linked: Record<string, number> };
     tokens: { tokens: { name: string; kind: string; scopes: string[]; last_used_at: string | null }[]; cli_tokens: number };
   };
   problems: Problem[];

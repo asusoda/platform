@@ -25,8 +25,6 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 
 | Page | Module |
 | --- | --- |
-| [Accounts](./modules/accounts.md) | Google Calendar sign-in for a member |
-| [Agents](./modules/agents.md) | Conversations, memories, profile graph and turns for agents |
 | [Calendar](./modules/calendar.md) | Notion events synced to Google Calendar |
 | [Discord bot](./modules/discord-bot.md) | The bot process, its setup and its commands |
 | [Feeds](./modules/feeds.md) | Job listings and hackathons posted to Discord channels |

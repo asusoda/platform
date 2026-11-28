@@ -9,13 +9,12 @@ from urllib.parse import urlencode
 
 from flask import Blueprint, jsonify, redirect, request, send_file, session
 
-from core import audit
+from core import audit, sign_in
 from core.config import config
 from core.db import db_connect
 from core.errors import ServiceError
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
-from modules.accounts import providers
 from modules.auth import access
 from modules.auth.routes import member_view, officer_route, respond
 from modules.organizations import service as organizations
@@ -391,12 +390,12 @@ def _page(message: str, token: str | None = None, status: int = 200):
 
 
 def _callback_url() -> str:
-    return f"{providers.base_url()}/api/compute/cli/callback"
+    return f"{sign_in.base_url()}/api/compute/cli/callback"
 
 
 @godfather_blueprint.route("/<string:org_prefix>/cli/login", methods=["GET"])
 def cli_sign_in(org_prefix):
-    if not providers.base_url():
+    if not sign_in.base_url():
         return _page("This server has no ACCOUNTS_BASE_URL, so Discord sign-in is not set up.", status=503)
     try:
         cli = cli_login.loopback(
@@ -409,7 +408,7 @@ def cli_sign_in(org_prefix):
         return _page(f"{e.message}. {_sign_in_again()}", status=400)
     state = secrets.token_urlsafe(24)
     session["godfather_cli_login"] = {"state": state, "org_prefix": org_prefix, "cli": cli}
-    return redirect(providers.discord_consent_url(config.CLIENT_ID, state, _callback_url()))
+    return redirect(sign_in.discord_consent_url(config.CLIENT_ID, state, _callback_url()))
 
 
 @godfather_blueprint.route("/cli/callback", methods=["GET"])
@@ -418,10 +417,10 @@ def cli_callback():
     if not started.get("state") or started["state"] != request.args.get("state") or not request.args.get("code"):
         return _page(f"This sign-in was not started here, or was cancelled. {_sign_in_again()}", status=400)
     try:
-        discord_id = providers.discord_user_id(
+        discord_id = sign_in.discord_user_id(
             config.CLIENT_ID, config.CLIENT_SECRET, request.args["code"], _callback_url()
         )
-    except providers.ProviderError:
+    except sign_in.SignInError:
         return _page(f"Discord sign-in failed. {_sign_in_again()}", status=502)
     db = db_connect.SessionLocal()
     try:

@@ -28,13 +28,11 @@ Core modules are always on. The Explore page of the dashboard does not show them
 | [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | `knowledge` |
 | [points](points/README.md) | Points, leaderboards and CSV imports | `points` |
 | [storefront](storefront/README.md) | Merch store paid in points | `storefront` |
-| [accounts](accounts/README.md) | Google Calendar sign-in for a member | `accounts` |
 
 ## AI and agents
 
 | Module | Does | Org switch |
 | --- | --- | --- |
-| [agents](agents/README.md) | Conversations, memories, profile graph and pending actions for agents | `agents` |
 | [integrations](integrations/README.md) | Tools of connected services (GitHub) passed through to their MCP servers | `integrations` |
 
 ## Automations

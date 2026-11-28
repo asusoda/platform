@@ -113,7 +113,7 @@ Some MCP servers take no API key. The officer signs in with the service, and the
 
 - The API must have a public URL in `ACCOUNTS_BASE_URL`. The service sends the browser back to `<ACCOUNTS_BASE_URL>/api/dashboard/integrations/oauth/callback`.
 - Notion: nothing to set up. Platform finds the sign-in URLs from the MCP server and registers itself as a client.
-- Google: Platform uses the Google OAuth app of connected accounts, `ACCOUNTS_GOOGLE_CLIENT_ID` and `ACCOUNTS_GOOGLE_CLIENT_SECRET`. In Google Cloud, add the callback URL above to the app's redirect URIs, and turn on the Gmail, Drive and Calendar MCP APIs. Google's MCP servers are a Developer Preview, so the project must be enrolled.
+- Google: Platform uses its Google OAuth app, `ACCOUNTS_GOOGLE_CLIENT_ID` and `ACCOUNTS_GOOGLE_CLIENT_SECRET`. In Google Cloud, add the callback URL above to the app's redirect URIs, and turn on the Gmail, Drive and Calendar MCP APIs. Google's MCP servers are a Developer Preview, so the project must be enrolled.
 - A sign-in must finish within 15 minutes.
 
 ### Sign in to ASU
@@ -170,9 +170,9 @@ A setting stays in `.env` when it is the same for every org or when it is about 
 
 - Server and security: `DATABASE_URL`, `SECRET_KEY`, `SECRETS_KEY`, `ACCESS_ENFORCE`, `DISABLED_ROUTES`, `SENTRY_DSN`, `LOG_FORMAT`, `JOBS_BACKEND`, `MCP_PORT`.
 - The one Discord app and the sign-in: `BOT_TOKEN`, `CLIENT_ID`, `CLIENT_SECRET`, `REDIRECT_URI`, `SYS_ADMIN`, the Clerk keys.
-- The OAuth apps of connected accounts (`ACCOUNTS_*`). Their callback URLs are on the API, so one app serves every org.
+- The Google OAuth app (`ACCOUNTS_GOOGLE_*`) and the public URL of the API (`ACCOUNTS_BASE_URL`). The callback URL is on the API, so one app serves every org.
 - URLs of the frontends and CORS: `CLIENT_URL`, `DASHBOARD_URL`, `CORS_EXTRA_ORIGINS`.
-- Limits and schedules of jobs: `CALENDAR_SYNC_CRON`, `AUDIT_RETENTION_DAYS`, `ERROR_RETENTION_DAYS`, `ERROR_WEBHOOK_URL`, `AGENT_RETENTION_DAYS`, `UPTIME_RETENTION_DAYS`, `KNOWLEDGE_CRAWL_*`, `SUBMODULE_QUERY_MAX_CHARS`.
+- Limits and schedules of jobs: `CALENDAR_SYNC_CRON`, `AUDIT_RETENTION_DAYS`, `ERROR_RETENTION_DAYS`, `ERROR_WEBHOOK_URL`, `UPTIME_RETENTION_DAYS`, `KNOWLEDGE_CRAWL_*`, `SUBMODULE_QUERY_MAX_CHARS`.
 - `GODFATHER_CLI_NAME`: the name of the one CLI that talks to this API.
 
 These settings moved to the dashboard, and the `.env` value is now the default for orgs that set none:

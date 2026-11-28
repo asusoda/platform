@@ -44,13 +44,10 @@ def test_overview_covers_every_module(client, officer_headers, clean):
         "feeds",
         "apps",
         "knowledge",
-        "agents",
-        "accounts",
         "tokens",
     }
     assert body["sections"]["members"]["total"] >= 1
     assert body["problems"] == [{"module": "feeds", "subject": "jobs", "message": "README unreachable"}]
-    assert "content" not in str(body["sections"]["agents"])
 
 
 def test_overview_needs_an_officer(client):

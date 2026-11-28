@@ -30,8 +30,8 @@ import hashlib
 from typing import cast
 from urllib.parse import urlparse, urlsplit
 
+from core import sign_in
 from core.config import config
-from modules.accounts import providers
 
 LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "[::1]", "::1")
 # The client authentication of a document client: none (a public client with PKCE), or a signed assertion
@@ -82,7 +82,7 @@ def url_problem(url: str) -> str | None:
 
 def configured_url() -> str:
     """MCP_PUBLIC_URL, else <ACCOUNTS_BASE_URL>/mcp, else "". A URL with no path gets /mcp."""
-    url = config.MCP_PUBLIC_URL or (f"{providers.base_url()}/mcp" if providers.base_url() else "")
+    url = config.MCP_PUBLIC_URL or (f"{sign_in.base_url()}/mcp" if sign_in.base_url() else "")
     if url and urlparse(url).path in ("", "/"):
         url = url.rstrip("/") + "/mcp"
     return url.rstrip("/")

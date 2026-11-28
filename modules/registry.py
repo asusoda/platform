@@ -9,8 +9,6 @@ from dataclasses import dataclass, field
 from flask import Blueprint, Flask, jsonify, request
 
 from core.db import db_connect
-from modules.accounts.api import accounts_blueprint
-from modules.agents.api import agents_blueprint
 from modules.alerts.api import alerts_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
@@ -54,9 +52,7 @@ MOUNTS = [
     Mount(storefront_blueprint, "/api/storefront", module="storefront"),
     Mount(tools_blueprint, "/api/tools"),
     Mount(well_known_blueprint, "/.well-known"),
-    Mount(agents_blueprint, "/api/agents", module="agents"),
     Mount(knowledge_blueprint, "/api/knowledge"),
-    Mount(accounts_blueprint, "/api/accounts", module="accounts"),
     Mount(apps_blueprint, "/api/apps"),
     Mount(submodules_blueprint, "/api/submodules"),
     Mount(asu_blueprint, "/api/asu"),

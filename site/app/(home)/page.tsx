@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ArrowRight, ArrowUpRight, Bell, Bot, CalendarDays, Code, Cpu, FileSearch, Gamepad2, KeyRound, Lock, Newspaper, Plug, Rocket, ScrollText, ShieldCheck, ShoppingBag, Timer, Users } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bell, CalendarDays, Code, Cpu, FileSearch, Gamepad2, Lock, Newspaper, Plug, Rocket, ScrollText, ShieldCheck, ShoppingBag, Timer, Users } from 'lucide-react';
 import { DemoVideo } from '@/components/demo-video';
 import { Contributors } from '@/components/contributors';
 import { BuiltBy, OrgMarks } from '@/components/org-marks';
@@ -47,13 +47,6 @@ const modules: Module[] = [
     name: 'Knowledge search',
     text: 'Search over org documents and public pages.',
     href: '/docs/modules/knowledge',
-  },
-  { icon: Bot, name: 'Agent memory', text: 'Conversations and memories for each member.', href: '/docs/modules/agents' },
-  {
-    icon: KeyRound,
-    name: 'Member accounts',
-    text: 'A member\'s Google Calendar, for agents to use.',
-    href: '/docs/modules/accounts',
   },
   { icon: Cpu, name: 'Godfather pods', text: 'GPU and CPU pods that members reach over SSH.', href: '/docs/modules/godfather' },
   {

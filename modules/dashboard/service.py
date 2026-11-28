@@ -1,7 +1,6 @@
 """One read-only view of an organization across every module. No Flask here.
 
-Every number comes from the database; nothing here calls RunPod, Discord or a source. Agent data
-appears only as counts, never content.
+Every number comes from the database; nothing here calls RunPod, Discord or a source.
 """
 
 import datetime
@@ -13,8 +12,6 @@ from core import audit
 from core import limits as core_limits
 from core.integrations import registry as integrations
 from core.time import iso, utcnow
-from modules.accounts.models import AccountGrant
-from modules.agents.models import AgentConversation, AgentMemory, AgentPendingAction
 from modules.auth import scopes
 from modules.auth.models import MachineToken
 from modules.feeds import service as feed_service
@@ -48,8 +45,6 @@ def overview(db, org: Organization) -> dict:
         "feeds": _feeds(db, org_id, now),
         "apps": _apps(db, org_id),
         "knowledge": _knowledge(db, org_id),
-        "agents": _agents(db, org_id, now),
-        "accounts": _accounts(db, org_id),
         "tokens": _tokens(db, org_id, now),
     }
     entries = audit.list_entries(db, org=org.prefix, limit=200)
@@ -224,29 +219,6 @@ def _knowledge(db, org_id: int) -> dict:
         "crawled": crawled.count(),
         "failing": [{"key": s.key, "url": s.url, "error": (s.last_error or "")[:300]} for s in failing],
     }
-
-
-def _agents(db, org_id: int, now: datetime.datetime) -> dict:
-    conversations = db.query(AgentConversation).filter_by(organization_id=org_id)
-    since = now - datetime.timedelta(days=7)
-    active = conversations.filter(AgentConversation.updated_at >= since)
-    return {
-        "conversations": conversations.count(),
-        "active_7_days": active.count(),
-        "members_7_days": active.with_entities(AgentConversation.discord_id).distinct().count(),
-        "memories": db.query(AgentMemory).filter_by(organization_id=org_id).count(),
-        "pending_actions": db.query(AgentPendingAction).filter_by(organization_id=org_id, status="pending").count(),
-    }
-
-
-def _accounts(db, org_id: int) -> dict:
-    rows = (
-        db.query(AccountGrant.provider, func.count(AccountGrant.id))
-        .filter(AccountGrant.organization_id == org_id)
-        .group_by(AccountGrant.provider)
-        .all()
-    )
-    return {"linked": dict(rows)}
 
 
 def _tokens(db, org_id: int, now: datetime.datetime) -> dict:
