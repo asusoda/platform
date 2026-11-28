@@ -12,11 +12,9 @@ class GameSessionProtocol(Protocol):
 
     def get_member_role(self, member: discord.User | discord.Member | None) -> discord.Role | None:
         """The team role of the member, or None."""
-        ...
 
     def save(self) -> None:
         """Write the game state."""
-        ...
 
 
 class QuestionPost(discord.ui.View):
