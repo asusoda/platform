@@ -10,7 +10,7 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `db/` | `Base` (`base.py`), `DBConnect`, the `db_connect` instance and `session()` (`session.py`) |
 | `errors.py`, `time.py` | `ServiceError`, the error a service raises with an HTTP status; `utcnow()` and `iso()` for naive UTC times |
 | `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres, threads on SQLite (at most `JOB_THREADS` at a time). A job with `once` runs once at a time for the same arguments; a second `defer()` raises `JobBusy`. A failed job with an org argument sends the `job.failed` webhook event |
-| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) |
+| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) and `GUARDRAILS`, one row for each tool: writes, confirm and rate class, with the `tools.<class>_per_minute` limits |
 | `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
 | `error_log.py` | The `error_groups` table, `ErrorLogHandler` that records log lines at ERROR and above, `capture()`, and the `error_log.prune` job |
 | `webhooks.py` | The `webhooks` table, the event registry (`declare()`), `emit()` that posts an event to the org's webhooks in a thread, and the kinds (Discord). See [docs/webhooks.md](../docs/webhooks.md) |

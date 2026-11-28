@@ -16,7 +16,7 @@ from typing import Any
 from core import secrets
 from core.integrations import registry
 from core.log import get_logger
-from core.tools import CONFIRM_NOTE, ToolError, ToolSpec
+from core.tools import REMOTE_READ, REMOTE_WRITE, ToolError, ToolSpec, with_confirm
 from modules.auth.machine_tokens import MachineCaller
 from modules.integrations import mcp_client
 from modules.integrations.servers import SERVERS, RemoteServer
@@ -77,15 +77,14 @@ def _spec(server: RemoteServer, tool: dict, write: bool) -> ToolSpec:
     schema: dict[str, Any] = dict(given) if isinstance(given, dict) else {"type": "object"}
     description = str(tool.get("description") or "")[:2000]
     if write:
-        schema["properties"] = {**(schema.get("properties") or {}), "confirm": {"type": "boolean"}}
-        description += CONFIRM_NOTE
+        schema, description = with_confirm(schema, description)
     return ToolSpec(
         name=name,
         description=description,
         scope=server.write_scope if write else server.read_scope,
         func=partial(_call, server, str(tool["name"]), write),
         input_schema=schema,
-        confirm=write,
+        guard=REMOTE_WRITE if write else REMOTE_READ,
         integration=server.integration,
     )
 

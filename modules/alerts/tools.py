@@ -68,7 +68,6 @@ def webhooks_test(db, org, caller, id: int):
     "access.delete_webhook",
     description="Delete webhooks by id, up to 20. If one id is missing, nothing changes.",
     scope="webhooks:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"ids": {"type": "array", "items": WEBHOOK_ID, "minItems": 1, "maxItems": service.MAX_IDS}},

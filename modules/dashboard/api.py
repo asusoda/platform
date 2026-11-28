@@ -22,6 +22,7 @@ from modules.integrations import oauth
 from modules.knowledge import crawl, documents, embedder, reembed, runs, settings
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
+from modules.mcp import service as tool_groups
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.runpod import service as apps
@@ -96,6 +97,18 @@ def list_integrations(db, org):
         "oauth": oauth.status(db, _org_id(org)),
         "secrets_key": secrets.configured(),
     }
+
+
+@_route("/tool-groups", ["GET"])
+def list_tool_groups(db, org):
+    """The tool groups that the org's tokens can reach over MCP and /api/tools."""
+    return tool_groups.listing(org)
+
+
+@_route("/tool-groups", ["PUT"])
+def set_tool_groups(db, org):
+    """Body: {"groups": [...] or null}. null allows every group."""
+    return tool_groups.set_groups(db, org, json_body().get("groups"))
 
 
 @_route("/submodules/asu/signin", ["GET"])

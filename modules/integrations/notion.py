@@ -282,7 +282,6 @@ def _paragraphs(content: str) -> list[dict]:
         "required": ["parent_id", "parent_type", "title"],
         "additionalProperties": False,
     },
-    confirm=True,
     integration="notion",
     available=connected,
 )

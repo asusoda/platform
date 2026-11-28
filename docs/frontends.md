@@ -61,6 +61,7 @@ The dashboard uses these officer routes in `modules/dashboard/`:
 | `GET /api/dashboard/<org>/trends?days=30` | One series per chart, a value per UTC day (7 to 90 days). Modules that are off have no series |
 | `GET /api/dashboard/<org>/ci` | The latest runs for each listed repo, kept in a cache for 120 seconds |
 | `PUT /api/dashboard/<org>/ci/repos` | Sets the repo list: `{"repos": ["owner/name"]}`, 20 or fewer |
+| `GET`, `PUT /api/dashboard/<org>/tool-groups` | Gets or sets the tool groups the org's tokens can reach: `{"groups": [...]}`, or `null` for every group. `GET` gives `allowed` and `groups` (`key`, `layer`, `tools`) |
 | `GET`, `PUT /api/dashboard/<org>/branding` | Gets or sets `logo_url` (https), `accent_color` (`#RRGGBB`) and `website_url` (https). An empty string or null removes a value |
 | `/api/dashboard/<org>/webhooks/...` | List, add, change, delete and test alert destinations. See [webhooks.md](./webhooks.md) |
 | `/api/dashboard/<org>/hosting/providers` | The hosting providers: `name`, `title`, `integration` and `configured` for the org. The Provider selects disable a provider that is not configured and link to Integrations |

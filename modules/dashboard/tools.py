@@ -64,7 +64,6 @@ def notifications_reopen(db, org, caller, ids: list[str]):
     "activity.delete_notification",
     description="Delete events from the notification list by id. A problem cannot be deleted; resolve it instead.",
     scope="settings:write",
-    confirm=True,
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
 )
 def notifications_delete(db, org, caller, ids: list[str]):
@@ -122,7 +121,6 @@ def errors_reopen(db, org, caller, ids: list[int]):
     "activity.delete_error",
     description="Delete errors by id. An error that happens again after a delete starts a new entry.",
     scope="settings:write",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"ids": ERROR_IDS},
@@ -164,7 +162,6 @@ def integrations_list(db, org, caller):
     "connections.save",
     description="Set or clear an integration's fields. A null value clears that field; a missing field is kept.",
     scope="integrations:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {
@@ -197,7 +194,6 @@ def integrations_test(db, org, caller, key: str):
     "connections.disconnect",
     description="Sign out of an integration that an officer connected with a sign-in, such as Notion or Google.",
     scope="integrations:manage",
-    confirm=True,
     input_schema={"type": "object", "properties": {"key": KEY}, "required": ["key"], "additionalProperties": False},
 )
 def integrations_disconnect(db, org, caller, key: str):

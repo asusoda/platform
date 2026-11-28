@@ -22,7 +22,6 @@ def org_info(db, org, caller):
     "modules.set",
     description='Turn optional modules on or off, for example {"points": false}.',
     scope="settings:write",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"modules": {"type": "object", "additionalProperties": {"type": "boolean"}, "minProperties": 1}},
@@ -117,7 +116,6 @@ def secrets_list(db, org, caller):
     "access.set_secret",
     description="Save one org secret. It replaces the old value. The value is stored encrypted and never returned.",
     scope="secrets:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"name": SECRET_NAME, "value": {"type": "string", "minLength": 1, "maxLength": 20000}},
@@ -137,7 +135,6 @@ def secrets_set(db, org, caller, name: str, value: str):
     "access.delete_secret",
     description="Delete org secrets by name, up to 50.",
     scope="secrets:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"names": {"type": "array", "items": SECRET_NAME, "minItems": 1, "maxItems": 50}},
@@ -165,7 +162,6 @@ def tokens_list(db, org, caller):
         "The result has the token value once; it cannot be read again."
     ),
     scope="tokens:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {
@@ -186,7 +182,6 @@ def tokens_create(db, org, caller, **data):
     "access.revoke_token",
     description="Revoke machine tokens by id, up to 100. If one id is not an active token, nothing changes.",
     scope="tokens:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"ids": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 100}},

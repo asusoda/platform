@@ -235,6 +235,33 @@ flowchart TD
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `hosting.deploy` and `hosting.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 
+### Guardrails and tool groups
+
+`GUARDRAILS` in `core/tools.py` has one row for each tool: whether it writes, whether it needs confirm, and its rate class. `@tool` refuses a name with no row. A pass-through tool of a connected service takes the server's `readOnlyHint`: a read is a plain read, and a write needs confirm and is `costly`. `readOnlyHint`, `destructiveHint` and `read_only` in `GET /api/tools` come from the row, not from the scope name.
+
+| Rate class | Limit | For |
+| --- | --- | --- |
+| `normal` | only `mcp.calls_per_minute` | most tools |
+| `live` | `tools.live_per_minute` | calls to outside sources: `search`, `knowledge.web_search`, `connections.test` |
+| `costly` | `tools.costly_per_minute` | jobs, deploys and pods, and writes of a connected service |
+| `send` | `tools.send_per_minute` | messages that leave Platform: `google.gmail_send`, `access.test_webhook` |
+
+An org can let its tokens reach only some tool groups. A group is the part of a tool name before the first dot, such as `points` or `github`. Officers set the list with `PUT /api/dashboard/<org>/tool-groups` (`{"groups": [...]}`, or `null` for every group); `GET` gives it with each group's layer. No list means every group. A list is closed: a group that a new module adds is off until an officer adds it. `batch`, `guide` and the modules gateway are always allowed, and each tool they run is checked. A token reaches a tool only when its scopes allow it and its org allows the group.
+
+```mermaid
+flowchart TD
+  C[tool call] --> R1["mcp.calls_per_minute"]
+  R1 --> F{"tool exists, scope, module on, group allowed?"}
+  F -->|no| N404[404, like an unknown tool]
+  F -->|yes| V[validate arguments]
+  V --> CF{"confirm row and no confirm=true?"}
+  CF -->|yes| PV[preview, nothing changes]
+  CF -->|no| RC{"rate class limit left?"}
+  RC -->|no| T429[429]
+  RC -->|yes| RUN[run the tool]
+  RUN --> AU[audit row]
+```
+
 No tool returns a secret value or a webhook URL. `access.create_token` returns the new token once. It gives only the scopes and limits of the calling token, and the new token expires no later than the calling token. A write tool that takes `ids` changes up to 100 rows in one commit; if one id is missing, nothing changes. To send many calls in one request, use `batch` with `{"calls": [{"tool", "arguments"}], "stop_on_error"}`. Its result has one entry for each call: `tool`, `ok`, `result` or `error`, and `status`.
 
 The flows that need a browser have no tool: the OAuth sign-in to an integration, the ASU sign-in, file upload and download on a pod, and the Godfather CLI sign-in. Superadmin routes and member routes have no tool.

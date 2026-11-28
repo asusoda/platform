@@ -109,3 +109,8 @@ export type Submodule = {
   // What the submodule brings and who pays for each part
   parts: { kind: 'pages' | 'queries' | 'feeds'; count: number; paid_by: 'org' | 'shared'; module: string }[];
 };
+
+// GET /api/dashboard/<org>/tool-groups. allowed is null when every group is allowed.
+export type ToolGroupLayer = 'base' | 'service' | 'module';
+export type ToolGroup = { key: string; layer: ToolGroupLayer; tools: number | null };
+export type ToolGroups = { allowed: string[] | null; groups: ToolGroup[] };

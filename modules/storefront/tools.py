@@ -57,7 +57,6 @@ def store_save_product(db, org, caller, id: int | None = None, **data):
     description="Delete products by id, up to 100. If one id is missing or has orders, nothing changes.",
     scope="store:write",
     module="storefront",
-    confirm=True,
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
 )
 def store_delete_products(db, org, caller, ids: list[int]):
@@ -93,7 +92,6 @@ def store_update_orders(db, org, caller, ids: list[int], **data):
     ),
     scope="store:write",
     module="storefront",
-    confirm=True,
     input_schema={"type": "object", "properties": {"ids": IDS}, "required": ["ids"], "additionalProperties": False},
 )
 def store_delete_orders(db, org, caller, ids: list[int]):

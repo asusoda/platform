@@ -30,6 +30,7 @@ import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
 import type { MachineToken, TokenIntegration } from '../lib/types';
+import { ToolGroupsCard } from './tool-groups';
 
 type TokenList = {
   tokens: MachineToken[];
@@ -555,6 +556,7 @@ export function ConnectionsPage() {
           <EmptyState icon={KeyRound} title="No service tokens" />
         )}
       </Card>
+      {org ? <ToolGroupsCard prefix={org.prefix} /> : null}
       <Dialog open={adding} onClose={() => setAdding(false)} title="New service token" wide>
         {adding && org && list.data ? (
           <NewToken

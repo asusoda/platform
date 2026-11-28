@@ -347,6 +347,21 @@ const SCOPE_GROUPS = [
   { title: 'Access and keys', scopes: ['tokens:manage'] },
 ];
 const ADMIN_SCOPES = ['tokens:manage'];
+
+// The tool groups of the org, as GET /api/dashboard/<org>/tool-groups gives them
+const toolGroup = (layer: 'base' | 'service' | 'module') => ([key, tools]: [string, number | null]) => ({ key, layer, tools });
+const TOOL_GROUPS = {
+  allowed: ['access', 'activity', 'calendar', 'github', 'knowledge', 'org', 'search'],
+  groups: [
+    ...(
+      [['access', 10], ['activity', 11], ['connections', 4], ['discord', 6], ['hosting', 16], ['members', 5], ['modules', 4], ['org', 8], ['search', 1], ['server', 7]] as [string, number][]
+    ).map(toolGroup('base')),
+    ...([['github', null], ['google', 10], ['notion', 4], ['runpod', null]] as [string, number | null][]).map(toolGroup('service')),
+    ...(
+      [['calendar', 5], ['feeds', 6], ['godfather', 17], ['knowledge', 17], ['leetcode', 2], ['points', 6], ['store', 6], ['uptime', 6]] as [string, number][]
+    ).map(toolGroup('module')),
+  ],
+};
 const SCOPE_PRESETS = [
   { key: 'read', label: 'Read only', scopes: Object.keys(SCOPES).filter((s) => s.endsWith(':read')).sort() },
   { key: 'write', label: 'Read and write', scopes: Object.keys(SCOPES).filter((s) => !ADMIN_SCOPES.includes(s)).sort() },
@@ -1790,6 +1805,7 @@ export function fixtures(now: number = Date.now()) {
     '/api/superadmin/audit': { entries: crossAudit },
     '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding` as const]: BRANDING,
+    [`/api/dashboard/${ORG.prefix}/tool-groups` as const]: TOOL_GROUPS,
     [`/api/dashboard/${ORG.prefix}/overview` as const]: overview,
     [`/api/dashboard/${ORG.prefix}/modules` as const]: moduleCatalog(),
     [`/api/dashboard/${ORG.prefix}/integrations` as const]: {
