@@ -109,7 +109,7 @@ The server reaches the database as `db:5432` and Redis as `redis:6379`. Deploy t
 
 ## Shared apps
 
-A shared app is an app that the deployment owns on This server and every org uses, such as the vault. It is an app with no org: the superadmin registers, deploys, rolls back and sets its secrets on the Shared apps card of the Superadmin page (`/api/superadmin/shared-apps`). Its container is `shared-<name>`, on the network `shared-apps`, and the runner checks it against the `shared` section of its policy. Its secrets are deployment secrets named `shared_<app>_<key>`. A dash in the app name is written as two underscores, so one app's secret cannot match another's. Name the secret in `secret_env`.
+A shared app is an app that the deployment owns on This server and every org uses, such as the vault. It is an app with no org: the superadmin registers, deploys, rolls back and sets its secrets on the Shared apps page of the superadmin space (`/admin/shared-apps`, `/api/superadmin/shared-apps`). Its container is `shared-<name>`, on the network `shared-apps`, and the runner checks it against the `shared` section of its policy. Its secrets are deployment secrets named `shared_<app>_<key>`. A dash in the app name is written as two underscores, so one app's secret cannot match another's. Name the secret in `secret_env`.
 
 A shared app with no `access`, such as the embedding server, is the deployment's own: orgs do not see it or subscribe to it. An org subscribes on the Shared tab of Explore (`PUT /api/dashboard/<org>/shared-apps/<name>/subscription` with `{"emails": [...]}`). The manifest's `access` field says what a subscription does:
 

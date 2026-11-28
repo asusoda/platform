@@ -1,5 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronsUpDown, Globe, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from 'lucide-react';
+import {
+  ChevronsUpDown,
+  Globe,
+  LogOut,
+  Menu,
+  Monitor,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ShieldCheck,
+  Sun,
+  X,
+} from 'lucide-react';
 import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAccentColor } from '../lib/branding';
@@ -14,6 +26,9 @@ import { OrgMark } from './org-mark';
 import { MOD_KEY, Tooltip } from './tooltip';
 import { cx } from './ui';
 
+// The path of the superadmin space. The org switcher offers it to the superadmin.
+export const ADMIN_PATH = '/admin';
+
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System theme', icon: Monitor },
   { value: 'light', label: 'Light theme', icon: Sun },
@@ -25,20 +40,46 @@ const itemClass =
   'flex h-8 shrink-0 items-center gap-2.5 overflow-hidden rounded-md px-3 text-sm whitespace-nowrap transition-colors duration-150';
 const quietItem = 'text-muted hover:bg-panel-2/70 hover:text-fg';
 const labelClass = (collapsed: boolean) => cx('truncate transition-opacity duration-150', collapsed && 'opacity-0');
+const iconButton =
+  'flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-panel-2 hover:text-fg';
 
-// The page entry for the current URL: /<org>/<path>.
-function useCurrentPage(): PageEntry | undefined {
+// What the sidebar parts get: whether the sidebar is a rail, and what to do after a link opens a page.
+export type SidebarState = { collapsed: boolean; onNavigate?: () => void };
+
+// The page entry for the current URL, /<space>/<path>, from a list of pages.
+export function useCurrentEntry<T extends { path: string }>(pages: T[]): T | undefined {
   const { pathname } = useLocation();
   const path = pathname.split('/')[2] ?? '';
-  return PAGES.find((p) => p.path === path);
+  return pages.find((p) => p.path === path);
 }
 
-function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
-  const { org, prefix } = useCurrentOrg();
-  const { data } = useOrganizations();
-  const branding = useBranding(prefix);
-  const navigate = useNavigate();
-  const name = org?.name ?? prefix;
+// The mark of the superadmin space, in the size of an org mark.
+export function AdminMark({ className }: { className?: string }) {
+  return (
+    <span aria-hidden className={cx('flex shrink-0 items-center justify-center rounded-md bg-fg text-bg', className ?? 'size-6')}>
+      <ShieldCheck className="size-[60%]" />
+    </span>
+  );
+}
+
+// The box at the top of the sidebar: the current space and a select that opens another one.
+export function Switcher({
+  collapsed,
+  name,
+  sub,
+  mark,
+  value,
+  options,
+  onPick,
+}: {
+  collapsed: boolean;
+  name: string;
+  sub: string;
+  mark: ReactNode;
+  value: string;
+  options: { value: string; label: string }[];
+  onPick: (value: string) => void;
+}) {
   return (
     <Tooltip label={name} disabled={!collapsed}>
       <label
@@ -47,21 +88,21 @@ function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
           collapsed ? 'w-10 border-transparent hover:bg-panel-2/70' : 'w-full border-line bg-panel shadow-xs hover:bg-panel-2',
         )}
       >
-        <OrgMark name={name} logoUrl={branding.data?.logo_url} className="size-7" />
+        {mark}
         <span className={cx('min-w-0 flex-1 leading-tight', labelClass(collapsed))}>
           <span className="block truncate font-medium">{name}</span>
-          <span className="block truncate font-mono text-[11px] text-muted">{prefix}</span>
+          <span className="block truncate font-mono text-[11px] text-muted">{sub}</span>
         </span>
         <ChevronsUpDown className="mr-1 size-4 shrink-0 text-muted" />
         <select
           aria-label="Organization"
           className="absolute inset-0 cursor-pointer opacity-0"
-          value={prefix}
-          onChange={(e) => navigate(`/${e.target.value}`)}
+          value={value}
+          onChange={(e) => onPick(e.target.value)}
         >
-          {data?.map((o) => (
-            <option key={o.id} value={o.prefix}>
-              {o.name}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
@@ -171,136 +212,55 @@ function NavItem({
   );
 }
 
-function Nav({ collapsed = false, onNavigate, className = 'w-[248px]' }: { collapsed?: boolean; onNavigate?: () => void; className?: string }) {
-  const { org, prefix } = useCurrentOrg();
-  const signOut = useSignOut();
-  const client = useQueryClient();
-  const { data: superadmin } = useSuperadmin();
-  const modules = useModules(org?.id).data?.modules;
-  const website = useBranding(prefix).data?.website_url;
-  // A module is hidden only when the API says it is off. A page with a list of modules is hidden when all are off.
-  const off = (name: string) => modules?.some((m) => m.name === name && !m.enabled) ?? false;
-  const shown = (page: PageEntry) =>
-    !page.hidden && (!page.superadmin || superadmin) && !(page.module && [page.module].flat().every(off));
-  const sections = SECTIONS.map((s) => ({
-    id: s.id,
-    title: 'title' in s ? s.title : undefined,
-    items: PAGES.filter((p) => p.section === s.id && shown(p)),
-  })).filter((s) => s.items.length);
+export type NavLinkItem = { to: string; end?: boolean; label: string; icon: ComponentType<{ className?: string }>; onPrefetch?: () => void };
+export type NavSection = { id: string; title?: string; items: NavLinkItem[] };
+
+// The page links of the sidebar, in sections. The first section has no header.
+export function SidebarNav({ sections, collapsed, onNavigate }: SidebarState & { sections: NavSection[] }) {
   return (
-    <div className={cx('flex h-full flex-col', className)}>
-      <div className="p-2">
-        <OrgSwitcher collapsed={collapsed} />
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-2 pb-2 [scrollbar-width:thin]">
-        <nav aria-label="Pages" className="flex flex-col">
-          {sections.map((section, i) => (
-            <div key={section.id} role="group" aria-label={section.title} className="flex flex-col gap-0.5">
-              {i ? <SectionSlot title={section.title} collapsed={collapsed} /> : null}
-              {section.items.map(({ path, label, icon, prefetch }) => (
-                <NavItem
-                  key={label}
-                  to={`/${prefix}${path ? `/${path}` : ''}`}
-                  end={!path}
-                  label={label}
-                  icon={icon}
-                  collapsed={collapsed}
-                  onNavigate={onNavigate}
-                  onPrefetch={prefetch && prefix ? () => prefetch(client, prefix) : undefined}
-                />
-              ))}
-            </div>
-          ))}
-        </nav>
-        {website ? (
-          <div className="mt-3 flex flex-col">
-            <Tooltip label={new URL(website).host} disabled={!collapsed}>
-              <a
-                href={website}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={collapsed ? `Website: ${new URL(website).host}` : undefined}
-                className={cx(itemClass, quietItem, collapsed ? 'w-10' : 'w-full')}
-              >
-                <Globe className="size-4 shrink-0" />
-                <span className={labelClass(collapsed)}>{new URL(website).host}</span>
-              </a>
-            </Tooltip>
+    <nav aria-label="Pages" className="flex flex-col">
+      {sections
+        .filter((s) => s.items.length)
+        .map((section, i) => (
+          <div key={section.id} role="group" aria-label={section.title} className="flex flex-col gap-0.5">
+            {i ? <SectionSlot title={section.title} collapsed={collapsed} /> : null}
+            {section.items.map((item) => (
+              <NavItem key={item.to} {...item} collapsed={collapsed} onNavigate={onNavigate} />
+            ))}
           </div>
-        ) : null}
-      </div>
-      <div className="border-t border-line p-2">
-        {collapsed ? (
-          <div className="flex flex-col gap-0.5">
-            <ThemeCycle />
-            <Tooltip label="Sign out">
-              <button type="button" aria-label="Sign out" onClick={signOut} className={cx(itemClass, quietItem, 'w-10 cursor-pointer')}>
-                <LogOut className="size-4 shrink-0" />
-              </button>
-            </Tooltip>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2">
-            <button type="button" onClick={signOut} className={cx(itemClass, quietItem, 'cursor-pointer')}>
+        ))}
+    </nav>
+  );
+}
+
+function SidebarFooter({ collapsed }: { collapsed: boolean }) {
+  const signOut = useSignOut();
+  return (
+    <div className="border-t border-line p-2">
+      {collapsed ? (
+        <div className="flex flex-col gap-0.5">
+          <ThemeCycle />
+          <Tooltip label="Sign out">
+            <button type="button" aria-label="Sign out" onClick={signOut} className={cx(itemClass, quietItem, 'w-10 cursor-pointer')}>
               <LogOut className="size-4 shrink-0" />
-              Sign out
             </button>
-            <ThemeSwitch />
-          </div>
-        )}
-      </div>
+          </Tooltip>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <button type="button" onClick={signOut} className={cx(itemClass, quietItem, 'cursor-pointer')}>
+            <LogOut className="size-4 shrink-0" />
+            Sign out
+          </button>
+          <ThemeSwitch />
+        </div>
+      )}
     </div>
   );
 }
 
-// The bar above each page: the sidebar button and where the page is, as Org / Section / Page.
-function TopBar({ collapsed, onToggle, onMenu }: { collapsed: boolean; onToggle: () => void; onMenu: () => void }) {
-  const { org, prefix } = useCurrentOrg();
-  const branding = useBranding(prefix);
-  const page = useCurrentPage();
-  const name = org?.name ?? prefix;
-  const section = SECTIONS.find((s) => s.id === page?.section);
-  const sectionTitle = section && 'title' in section ? section.title : undefined;
-  const iconButton =
-    'flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-panel-2 hover:text-fg';
-  return (
-    <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-line bg-bg/85 px-3 backdrop-blur-md sm:px-4">
-      <button type="button" aria-label="Open menu" className={cx(iconButton, 'md:hidden')} onClick={onMenu}>
-        <Menu className="size-[18px]" />
-      </button>
-      <span className="hidden md:contents">
-        <Tooltip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} keys={[MOD_KEY, 'B']} side="bottom">
-          <button
-            type="button"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-keyshortcuts="Control+B Meta+B ["
-            aria-expanded={!collapsed}
-            className={iconButton}
-            onClick={onToggle}
-          >
-            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          </button>
-        </Tooltip>
-      </span>
-      <span aria-hidden className="mx-1 h-4 w-px bg-line-strong" />
-      <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
-        <ol className="flex min-w-0 items-center gap-1.5 text-sm">
-          <li className="flex min-w-0 items-center">
-            <Link to={`/${prefix}`} className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 text-muted transition-colors hover:text-fg">
-              <OrgMark name={name} logoUrl={branding.data?.logo_url} className="size-5" />
-              <span className="truncate">{name}</span>
-            </Link>
-          </li>
-          {sectionTitle ? <Crumb className="hidden sm:flex">{sectionTitle}</Crumb> : null}
-          {page ? <Crumb current>{page.label}</Crumb> : null}
-        </ol>
-      </nav>
-      <NotificationsBell />
-    </header>
-  );
-}
-
-function Crumb({ children, current, className }: { children: ReactNode; current?: boolean; className?: string }) {
+// One crumb of the top bar after the first, with a slash before it.
+export function Crumb({ children, current, className }: { children: ReactNode; current?: boolean; className?: string }) {
   return (
     <li className={cx('flex min-w-0 items-center gap-1.5', className)}>
       <span aria-hidden className="text-muted/50">
@@ -313,25 +273,35 @@ function Crumb({ children, current, className }: { children: ReactNode; current?
   );
 }
 
-export function Shell() {
+// The first crumb: the mark and name of the space, as a link to its home page.
+export function HomeCrumb({ to, mark, name }: { to: string; mark: ReactNode; name: string }) {
+  return (
+    <li className="flex min-w-0 items-center">
+      <Link to={to} className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 text-muted transition-colors hover:text-fg">
+        {mark}
+        <span className="truncate">{name}</span>
+      </Link>
+    </li>
+  );
+}
+
+// The frame of a space: the sidebar (or the drawer on a phone), the top bar with the crumbs, and the page.
+// header and nav fill the sidebar; the footer with sign out and the theme is the same in every space.
+export function Frame({
+  header,
+  nav,
+  crumbs,
+  actions,
+}: {
+  header: (state: SidebarState) => ReactNode;
+  nav: (state: SidebarState) => ReactNode;
+  crumbs: ReactNode;
+  actions?: ReactNode;
+}) {
   const [drawer, setDrawer] = useState(false);
   const [collapsed, toggle] = useSidebarCollapsed();
-  const { org, prefix } = useCurrentOrg();
-  const branding = useBranding(prefix);
-  const page = useCurrentPage();
   const { pathname } = useLocation();
-  const client = useQueryClient();
-  useAccentColor(branding.data?.accent_color);
-  const name = org?.name ?? prefix;
 
-  // The page requests start with the org list, not after the module check of a gated page.
-  useEffect(() => {
-    if (page?.prefetch && prefix) page.prefetch(client, prefix);
-  }, [client, page, prefix]);
-
-  useEffect(() => {
-    document.title = page ? `${page.label} - ${name} - Platform` : 'Platform';
-  }, [page, name]);
   useEffect(() => setDrawer(false), [pathname]);
   useEffect(() => {
     if (!drawer) return;
@@ -340,13 +310,44 @@ export function Shell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [drawer]);
 
+  const sidebar = (state: SidebarState, className: string) => (
+    <div className={cx('flex h-full flex-col', className)}>
+      <div className="p-2">{header(state)}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-2 pb-2 [scrollbar-width:thin]">{nav(state)}</div>
+      <SidebarFooter collapsed={state.collapsed} />
+    </div>
+  );
+
   return (
     <div className="shell min-h-screen" data-collapsed={collapsed || undefined}>
       <aside aria-label="Sidebar" className="sticky top-0 hidden h-screen overflow-hidden border-r border-line md:block">
-        <Nav collapsed={collapsed} />
+        {sidebar({ collapsed }, 'w-[248px]')}
       </aside>
       <div className="flex min-w-0 flex-col">
-        <TopBar collapsed={collapsed} onToggle={toggle} onMenu={() => setDrawer(true)} />
+        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-line bg-bg/85 px-3 backdrop-blur-md sm:px-4">
+          <button type="button" aria-label="Open menu" className={cx(iconButton, 'md:hidden')} onClick={() => setDrawer(true)}>
+            <Menu className="size-[18px]" />
+          </button>
+          <span className="hidden md:contents">
+            <Tooltip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} keys={[MOD_KEY, 'B']} side="bottom">
+              <button
+                type="button"
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-keyshortcuts="Control+B Meta+B ["
+                aria-expanded={!collapsed}
+                className={iconButton}
+                onClick={toggle}
+              >
+                {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+              </button>
+            </Tooltip>
+          </span>
+          <span aria-hidden className="mx-1 h-4 w-px bg-line-strong" />
+          <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
+            <ol className="flex min-w-0 items-center gap-1.5 text-sm">{crumbs}</ol>
+          </nav>
+          {actions}
+        </header>
         <main className="mx-auto w-full max-w-6xl min-w-0 px-4 pt-8 pb-16 sm:px-6 lg:px-10">
           <Outlet />
         </main>
@@ -370,11 +371,132 @@ export function Shell() {
           >
             <X className="size-4" />
           </button>
-          <div className="h-full pt-11">
-            <Nav onNavigate={() => setDrawer(false)} className="w-full" />
-          </div>
+          <div className="h-full pt-11">{sidebar({ collapsed: false, onNavigate: () => setDrawer(false) }, 'w-full')}</div>
         </aside>
       </div>
     </div>
+  );
+}
+
+function OrgSwitcher({ collapsed }: SidebarState) {
+  const { org, prefix } = useCurrentOrg();
+  const { data } = useOrganizations();
+  const { data: superadmin } = useSuperadmin();
+  const branding = useBranding(prefix);
+  const navigate = useNavigate();
+  const name = org?.name ?? prefix;
+  const options = (data ?? []).map((o) => ({ value: o.prefix, label: o.name }));
+  if (superadmin) options.push({ value: ADMIN_PATH, label: 'Superadmin' });
+  return (
+    <Switcher
+      collapsed={collapsed}
+      name={name}
+      sub={prefix}
+      mark={<OrgMark name={name} logoUrl={branding.data?.logo_url} className="size-7" />}
+      value={prefix}
+      options={options}
+      onPick={(value) => navigate(value === ADMIN_PATH ? ADMIN_PATH : `/${value}`)}
+    />
+  );
+}
+
+function OrgNav({ collapsed, onNavigate }: SidebarState) {
+  const { org, prefix } = useCurrentOrg();
+  const client = useQueryClient();
+  const modules = useModules(org?.id).data?.modules;
+  const website = useBranding(prefix).data?.website_url;
+  // A module is hidden only when the API says it is off. A page with a list of modules is hidden when all are off.
+  const off = (name: string) => modules?.some((m) => m.name === name && !m.enabled) ?? false;
+  const shown = (page: PageEntry) => !page.hidden && !(page.module && [page.module].flat().every(off));
+  const sections = SECTIONS.map((s) => ({
+    id: s.id,
+    title: 'title' in s ? s.title : undefined,
+    items: PAGES.filter((p) => p.section === s.id && shown(p)).map(({ path, label, icon, prefetch }) => ({
+      to: `/${prefix}${path ? `/${path}` : ''}`,
+      end: !path,
+      label,
+      icon,
+      onPrefetch: prefetch && prefix ? () => prefetch(client, prefix) : undefined,
+    })),
+  }));
+  return (
+    <>
+      <SidebarNav sections={sections} collapsed={collapsed} onNavigate={onNavigate} />
+      {website ? (
+        <div className="mt-3 flex flex-col">
+          <Tooltip label={new URL(website).host} disabled={!collapsed}>
+            <a
+              href={website}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={collapsed ? `Website: ${new URL(website).host}` : undefined}
+              className={cx(itemClass, quietItem, collapsed ? 'w-10' : 'w-full')}
+            >
+              <Globe className="size-4 shrink-0" />
+              <span className={labelClass(collapsed)}>{new URL(website).host}</span>
+            </a>
+          </Tooltip>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+// A link to the superadmin space in the top bar of an org, for the superadmin only.
+function AdminLink() {
+  const { data: superadmin } = useSuperadmin();
+  if (!superadmin) return null;
+  return (
+    <Tooltip label="Superadmin" side="bottom">
+      <Link
+        to={ADMIN_PATH}
+        aria-label="Superadmin"
+        className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:bg-panel-2 hover:text-fg"
+      >
+        <ShieldCheck className="size-4" />
+        <span className="hidden sm:inline">Superadmin</span>
+      </Link>
+    </Tooltip>
+  );
+}
+
+// The shell of an org: its pages from pages/registry.tsx, as Org / Section / Page.
+export function Shell() {
+  const { org, prefix } = useCurrentOrg();
+  const branding = useBranding(prefix);
+  const page = useCurrentEntry(PAGES);
+  const client = useQueryClient();
+  useAccentColor(branding.data?.accent_color);
+  const name = org?.name ?? prefix;
+  const section = SECTIONS.find((s) => s.id === page?.section);
+  const sectionTitle = section && 'title' in section ? section.title : undefined;
+
+  // The page requests start with the org list, not after the module check of a gated page.
+  useEffect(() => {
+    if (page?.prefetch && prefix) page.prefetch(client, prefix);
+  }, [client, page, prefix]);
+
+  useEffect(() => {
+    document.title = page ? `${page.label} - ${name} - Platform` : 'Platform';
+  }, [page, name]);
+
+  return (
+    <Frame
+      header={(state) => <OrgSwitcher {...state} />}
+      nav={(state) => <OrgNav {...state} />}
+      crumbs={
+        <>
+          <HomeCrumb to={`/${prefix}`} mark={<OrgMark name={name} logoUrl={branding.data?.logo_url} className="size-5" />} name={name} />
+          {sectionTitle ? <Crumb className="hidden sm:flex">{sectionTitle}</Crumb> : null}
+          {page ? <Crumb current>{page.label}</Crumb> : null}
+        </>
+      }
+      actions={
+        <>
+          <AdminLink />
+          <NotificationsBell />
+        </>
+      }
+    />
   );
 }
