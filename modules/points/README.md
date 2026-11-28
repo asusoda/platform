@@ -23,4 +23,3 @@ Keeps the points that an org's members earn. Officers add members, give points b
 ## Known gaps
 
 - Most views in `api.py` and `member_api.py` open their own session and query. The member list, point adds and the event and entry deletes are in `service.py`; the leaderboards and the CSV import are in the sub-modules. Move the rest one route at a time, with the contract tests.
-- The camelCase routes (`getUserPoints`, `getUserTotalPoints`) are aliases. See Cleanup in `docs/roadmap.md`.

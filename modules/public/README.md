@@ -19,4 +19,3 @@ Open routes for an org's public pages: leaderboard, member list and stats, and a
 ## Known gaps
 
 - No `service.py`. The views in `api.py` query the tables of points, users and storefront.
-- `/getnextevent` returns no response, so the AIS deployment turns it off with `DISABLED_ROUTES`.

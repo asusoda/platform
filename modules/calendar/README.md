@@ -26,5 +26,5 @@ See [docs/modules/calendar.md](../../docs/modules/calendar.md).
 
 ## Known gaps
 
-- `api.py` has legacy routes (`/events`, `/delete-all-events`, `/notion-webhook`) that return errors. `/sync-all` queries the orgs in the view.
+- `/sync-all` queries the orgs in the view.
 - Views use `error_handler` and open their own session. They do not use `officer_route`.

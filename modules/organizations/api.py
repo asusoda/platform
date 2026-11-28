@@ -225,24 +225,6 @@ def get_organization_calendar_settings(org_id):
         db.close()
 
 
-@organizations_blueprint.route("/<int:org_id>/roles", methods=["GET"])
-@auth_required
-def get_organization_roles(org_id):
-    """Get Discord roles for the organization"""
-    try:
-        # Fixed sample values, not read from Discord
-        roles = [
-            {"id": "123456789", "name": "Officer"},
-            {"id": "987654321", "name": "Member"},
-            {"id": "456789123", "name": "Admin"},
-        ]
-
-        return jsonify(roles)
-    except Exception:
-        logger.exception("Error while fetching organization roles for org_id=%s", org_id)
-        return jsonify({"error": "Internal server error"}), 500
-
-
 @organizations_blueprint.route("/<int:org_id>/modules", methods=["GET"])
 @auth_required
 def get_organization_modules(org_id):

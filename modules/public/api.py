@@ -28,11 +28,6 @@ def favicon():
     )
 
 
-@public_blueprint.route("/getnextevent", methods=["GET"])
-def get_next_event():
-    pass
-
-
 @public_blueprint.route("/<string:org_prefix>/leaderboard", methods=["GET"])
 @error_handler
 def get_leaderboard(org_prefix):

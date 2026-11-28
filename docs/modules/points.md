@@ -54,7 +54,7 @@ All routes are under `/api/points/<org>`.
 | `GET /leaderboard` | The leaderboard. Open to everyone. Emails show only to a signed-in caller |
 | `POST /member_login`, `GET /member_profile` | Member sign-in and profile for the member site |
 
-Officers of the org can use every route except the leaderboard and member routes. `getUserPoints`, `getUserTotalPoints` and `add_points` are older names that SoDA's site still calls.
+Officers of the org can use every route except the leaderboard and member routes. `add_points` is an older route next to `assign_points`; it also finds a member by Discord id.
 
 ## For agents
 

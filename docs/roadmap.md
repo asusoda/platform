@@ -64,13 +64,13 @@ Campus content is a submodule in `submodules/`, such as `submodules/asu`. Anothe
 - [x] Rename `modules/auth/decoraters.py` to `decorators.py`.
 - [x] Move the `users` and membership tables and their helpers to `modules/users`, and the storefront queries to `modules/storefront/service.py`.
 - [ ] Move the rest of the logic in `points/api.py` and `storefront/api.py` into their `service.py`.
-- [ ] Remove dead routes: the camelCase aliases in points, `/api/users/<org>/submit-form`, `/api/public/getnextevent`, `/api/organizations/<id>/roles`, and the legacy calendar routes (`/events`, `/delete-all-events`, `/notion-webhook`).
-- [ ] Remove the unused models `Session`, `OrganizationConfig` and `Officer`, and the unused columns `points_per_message` and `points_cooldown`.
+- [x] Remove dead routes: the camelCase aliases in points, `/api/users/<org>/submit-form`, `/api/public/getnextevent`, `/api/organizations/<id>/roles`, and the legacy calendar routes (`/events`, `/delete-all-events`, `/notion-webhook`).
+- [x] Remove the unused models `Session`, `OrganizationConfig` and `Officer`, and the unused columns `points_per_message` and `points_cooldown`.
 
 ## Known faults
 
 - `error_handler` returns the exception text to the client.
-- `GET /api/organizations/<id>/stats`, `/activity` and `/roles` return fixed sample data.
+- `GET /api/organizations/<id>/stats` and `/activity` return fixed sample data.
 - `GameCog` keeps the game state in memory, and a restart loses it.
 - The calendar sync needs the Notion properties `Name`, `Date`, `Location`, `Description` and `gcal_id`. If one has a different name, the sync skips the event and logs a warning.
 

@@ -13,7 +13,7 @@ Members and their org memberships. Officer routes list, show, create and update 
 
 ## Surface
 
-- Routes: `/api/users`. Routes need an officer of the org, except the index and `/<org_prefix>/submit-form`.
+- Routes: `/api/users`. Routes need an officer of the org, except the index.
 - Discord: `GET /<org_prefix>/discord/roles` lists the server roles. `POST /<org_prefix>/discord/sync` with `roles` (role ids; a member needs one of them; empty for everyone) and `dry_run` adds the server members to the org's members and returns `matched`, `new_users`, `joined` and `already`. A new user gets the Discord id, name and username; the username stays empty when another user has it. Bots are left out. The member list needs the Server Members intent on the bot.
 - Jobs: none.
 - Tools: `members.list`, `members.discord_roles` (scope `members:read`); `members.add`, `members.update`, `members.discord_sync` (confirm; the preview is the dry run) (scope `members:write`).
@@ -24,4 +24,3 @@ Members and their org memberships. Officer routes list, show, create and update 
 ## Known gaps
 
 - Views in `api.py` open their own session, query and commit. `service.py` has the lookups that points and storefront share.
-- `/<org_prefix>/submit-form` is not used. See Cleanup in `docs/roadmap.md`.

@@ -194,39 +194,3 @@ def sync_all_organizations():
         route_error_handler.transaction = None
         if transaction:
             transaction.finish()
-
-
-# Legacy endpoints for backward compatibility (deprecated)
-@calendar_blueprint.route("/notion-webhook", methods=["POST"])
-def notion_webhook():
-    """
-    Legacy webhook endpoint - now delegates to sync-all.
-    """
-    logger.warning("Legacy /notion-webhook endpoint called. This will sync all organizations.")
-    return sync_all_organizations()
-
-
-@calendar_blueprint.route("/events", methods=["GET"])
-def get_calendar_events_for_frontend():
-    """
-    Legacy endpoint - returns error as this requires organization context.
-    """
-    return jsonify(
-        {
-            "status": "error",
-            "message": "This endpoint requires organization context. Use /api/calendar/{org_prefix}/events instead.",
-        }
-    ), 400
-
-
-@calendar_blueprint.route("/delete-all-events", methods=["POST"])
-def delete_all_calendar_events():
-    """
-    Legacy endpoint - returns error as this requires organization context.
-    """
-    return jsonify(
-        {
-            "status": "error",
-            "message": "This endpoint requires organization context. Use organization-specific endpoints instead.",
-        }
-    ), 400
