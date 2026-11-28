@@ -21,6 +21,39 @@ from modules.users.service import get_or_create_user, get_or_create_user_from_cl
 __all__ = ["storefront_blueprint"]
 
 
+def _member_orders(db, organization_id, user_id) -> list[dict]:
+    """The member's orders in the org, newest first, with the items and the points each order holds."""
+    orders = (
+        db.query(Order)
+        .filter(Order.organization_id == organization_id, Order.user_id == user_id)
+        .order_by(Order.created_at.desc())
+        .all()
+    )
+    held = service.held_points(db, organization_id, [o.id for o in orders])
+    return [
+        {
+            "id": o.id,
+            "total_amount": o.total_amount,
+            "status": o.status,
+            "message": o.message,
+            "created_at": o.created_at.isoformat(),
+            "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+            "items": [
+                {
+                    "id": item.id,
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "price_at_time": item.price_at_time,
+                    "product_name": item.product.name if item.product else "Unknown Product",
+                }
+                for item in o.items
+            ],
+            "points_held": held[o.id],
+        }
+        for o in orders
+    ]
+
+
 @storefront_blueprint.route("/<string:org_prefix>/members/store", methods=["GET"])
 @member_required
 @error_handler
@@ -78,36 +111,7 @@ def get_member_orders(org_prefix, **kwargs):
 
     db = next(db_connect.get_db())
     try:
-        orders = (
-            db.query(Order)
-            .filter(Order.organization_id == organization.id, Order.user_id == user.id)
-            .order_by(Order.created_at.desc())
-            .all()
-        )
-
-        return jsonify(
-            [
-                {
-                    "id": o.id,
-                    "total_amount": o.total_amount,
-                    "status": o.status,
-                    "message": o.message,
-                    "created_at": o.created_at.isoformat(),
-                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
-                    "items": [
-                        {
-                            "id": item.id,
-                            "product_id": item.product_id,
-                            "quantity": item.quantity,
-                            "price_at_time": item.price_at_time,
-                            "product_name": item.product.name if item.product else "Unknown Product",
-                        }
-                        for item in o.items
-                    ],
-                }
-                for o in orders
-            ]
-        ), 200
+        return jsonify(_member_orders(db, organization.id, user.id)), 200
     finally:
         db.close()
 
@@ -116,7 +120,7 @@ def get_member_orders(org_prefix, **kwargs):
 @member_required
 @error_handler
 def create_member_order(org_prefix, **kwargs):
-    """Create a new order for authenticated member"""
+    """Place a pending order for the signed-in member. It holds its points until a cancel or a delete."""
     user_discord_id = kwargs.get("user_discord_id")
     organization = kwargs["organization"]
 
@@ -137,30 +141,24 @@ def create_member_order(org_prefix, **kwargs):
         try:
             total_amount = service.parse_total(data["total_amount"])
             order_items, priced = service.price_items(db, organization.id, data["items"])
+            if price_mismatch(org_prefix, total_amount, priced):
+                return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
+            created_order = service.place_order(
+                db, organization.id, user, order_items, priced, status="pending", discord_user_id=user_discord_id
+            )
         except service.StoreError as e:
             return jsonify({"error": e.message}), e.status
-
-        if price_mismatch(org_prefix, total_amount, priced):
-            return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
-
-        service.take_stock(priced)
-        new_order = Order(
-            user_id=user.id,
-            discord_user_id=user_discord_id,  # legacy column
-            total_amount=service.catalog_total(priced),
-            status="pending",
-        )
-        created_order = service.create_order(db, new_order, order_items, organization.id)
         return jsonify(
             {
                 "message": "Order created successfully",
                 "id": created_order.id,
+                "points_held": service.points_number(created_order.total_amount),
                 "order": {
                     "id": created_order.id,
                     "user_id": created_order.user_id,
                     "total_amount": created_order.total_amount,
                     "status": created_order.status,
-                    "created_at": created_order.created_at.isoformat(),
+                    "created_at": created_order.created_at.isoformat() if created_order.created_at else None,
                 },
             }
         ), 201
@@ -295,36 +293,7 @@ def get_user_orders_clerk(org_prefix, user_email):
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        orders = (
-            db.query(Order)
-            .filter(Order.organization_id == organization.id, Order.user_id == user.id)
-            .order_by(Order.created_at.desc())
-            .all()
-        )
-
-        return jsonify(
-            [
-                {
-                    "id": o.id,
-                    "total_amount": o.total_amount,
-                    "status": o.status,
-                    "message": o.message,
-                    "created_at": o.created_at.isoformat(),
-                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
-                    "items": [
-                        {
-                            "id": item.id,
-                            "product_id": item.product_id,
-                            "quantity": item.quantity,
-                            "price_at_time": item.price_at_time,
-                            "product_name": item.product.name if item.product else "Unknown Product",
-                        }
-                        for item in o.items
-                    ],
-                }
-                for o in orders
-            ]
-        ), 200
+        return jsonify(_member_orders(db, organization.id, user.id)), 200
     finally:
         db.close()
 

@@ -7,6 +7,7 @@ from sqlalchemy import and_, case, func, or_
 
 from core.errors import ServiceError
 from modules.auth import scopes
+from modules.organizations.models import Organization
 from modules.points.models import Points
 from modules.users import service as users
 from modules.users.models import User, UserOrganizationMembership
@@ -33,9 +34,44 @@ def totals_by_user(db, organization_id) -> dict[int, float]:
         db.query(Points.user_id, func.sum(Points.points))
         .filter(Points.organization_id == organization_id)
         .group_by(Points.user_id)
-        .tuples()
+        .all()
     )
     return dict(rows)
+
+
+def member_json(user: User, membership: UserOrganizationMembership | None) -> dict:
+    """A member with both student id key sets, the org's profile fields, the major and the Discord link."""
+    return {
+        "id": user.id,
+        "name": user.name,
+        "username": user.username,
+        "email": user.email,
+        **users.member_fields(user, membership),
+        "major": user.major,
+        "discord_linked": bool(user.discord_id),
+    }
+
+
+def member_orgs(db, user_id, current_org_id) -> list[dict]:
+    """Each org the user is an active member of, with the user's points there."""
+    rows = (
+        db.query(Organization)
+        .join(UserOrganizationMembership, UserOrganizationMembership.organization_id == Organization.id)
+        .filter(UserOrganizationMembership.user_id == user_id, UserOrganizationMembership.is_active.is_(True))
+        .order_by(UserOrganizationMembership.id)
+        .all()
+    )
+    return [
+        {
+            "id": org.id,
+            "name": org.name,
+            "prefix": org.prefix,
+            "description": org.description,
+            "points": total_points(db, user_id, org.id) or 0,
+            "is_current": org.id == current_org_id,
+        }
+        for org in rows
+    ]
 
 
 def point_json(point: Points) -> dict:

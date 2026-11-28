@@ -22,7 +22,9 @@ The member site checkout, `POST /checkout`, does these steps.
 
 The request must have a `total_amount` greater than 0, or the route returns 400. If the client total or a client price is not the catalog price, Platform logs `checkout_price_mismatch`. If `ACCESS_ENFORCE` is true, the route also returns 409.
 
-`POST /members/orders` writes a pending order at the catalog total with no points row.
+`POST /members/orders` (the member store in the dashboard) does the same steps and writes a pending order. Its purchase row holds the points until an officer delivers the order, or cancels or deletes it. The answer has `points_held`.
+
+The balance check locks the member's `users` row until the commit, so two orders at the same time cannot both spend the same points. Each order in `GET /orders` and in the member order lists has `points_held`: what its purchase row took, less refunds. A pending order placed before member orders held points has `points_held` 0, and the Store page shows "No points held" on it. The Store stat "Points spent" is the sum of `points_held` of the orders that are not cancelled.
 
 ## Cancel and delete
 
@@ -42,7 +44,7 @@ sequenceDiagram
   Site->>API: POST /checkout with items and total
   API->>DB: Read the catalog price and stock of each product
   API->>API: Compare the client prices and total with the catalog
-  API->>DB: Sum of the member's points rows
+  API->>DB: Lock the member's users row, then sum their points rows
   API-->>Site: 400 if the balance is less than the catalog total
   API->>DB: One commit: lower the stock, write orders, order_items and a negative points row
   API->>API: Send the order.created event
@@ -66,7 +68,6 @@ All routes are under `/api/storefront/<org>`.
 ## Limits
 
 - A new product needs stock of 1 or more.
-- Checkout reads the balance and writes the order with no row lock. Two orders at the same time can spend the same points.
 
 ## Tables
 

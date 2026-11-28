@@ -33,3 +33,19 @@ export type PointsHistory = {
   total_points: number;
   points_history: Omit<PointEntry, 'user_id' | 'organization_id'>[];
 };
+
+// One run of an attendance CSV import, from GET /api/points/<org>/imports/<id>.
+export type PointsImport = {
+  id: number;
+  event: string;
+  points: number;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  rows_total: number | null;
+  rows_done: number;
+  awarded: number;
+  skipped: number;
+  errors: { row: number; email: string | null; message: string }[];
+  created_by: string | null;
+  created_at: string | null;
+  finished_at: string | null;
+};

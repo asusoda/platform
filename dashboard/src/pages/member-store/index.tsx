@@ -5,12 +5,14 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { AuthFrame } from '../../components/auth-frame';
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, OkNote, SkeletonRows } from '../../components/ui';
 import { compact, timeAgo } from '../../lib/format';
+import { POINTS_REFETCH_MS } from '../points/shared';
 import {
   type CartLine,
   freshCart,
   type MemberOrder,
   type MemberProfile,
   memberApi,
+  type PlacedOrder,
   type StoreBody,
   storePath,
 } from './shared';
@@ -37,7 +39,8 @@ export function MemberStorePage() {
   const signInError = useSearchParams()[0].get('error');
   const client = useQueryClient();
   const [cart, setCart] = useState<CartLine[]>(() => loadCart(prefix));
-  const [placed, setPlaced] = useState(false);
+  // The points the last order holds, shown until the member adds to the cart again
+  const [placed, setPlaced] = useState<number | null>(null);
   useEffect(() => {
     try {
       sessionStorage.setItem(`cart_${prefix}`, JSON.stringify(cart));
@@ -68,6 +71,8 @@ export function MemberStorePage() {
     queryFn: () => memberApi<MemberProfile>(`/api/points/${prefix}/member_profile`),
     enabled: signedIn,
     retry: false,
+    // Points that officers add show without a reload
+    refetchInterval: POINTS_REFETCH_MS,
   });
 
   // Ends the API session, which holds the Discord sign-in
@@ -80,17 +85,17 @@ export function MemberStorePage() {
   const total = cart.reduce((n, line) => n + line.product.price * line.quantity, 0);
   const order = useMutation({
     mutationFn: () =>
-      memberApi(`/api/storefront/${prefix}/members/orders`, {
+      memberApi<PlacedOrder>(`/api/storefront/${prefix}/members/orders`, {
         method: 'POST',
         body: JSON.stringify({
           total_amount: total,
           items: cart.map((l) => ({ product_id: l.product.id, quantity: l.quantity, price: l.product.price })),
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (body) => {
       setCart([]);
-      setPlaced(true);
-      client.invalidateQueries({ queryKey: ['member-store', prefix] });
+      setPlaced(body.points_held);
+      void client.invalidateQueries({ queryKey: ['member-store', prefix] });
     },
   });
 
@@ -101,7 +106,7 @@ export function MemberStorePage() {
         .filter((l) => l.quantity > 0),
     );
   const add = (product: StoreBody['products'][number]) => {
-    setPlaced(false);
+    setPlaced(null);
     setCart((lines) =>
       lines.some((l) => l.product.id === product.id) ? lines : [...lines, { product, quantity: 1 }],
     );
@@ -232,7 +237,12 @@ export function MemberStorePage() {
                   <ShoppingCart className="size-4" /> The cart is empty.
                 </p>
               )}
-              {placed ? <OkNote>Order placed. An officer will get it to you.</OkNote> : null}
+              {placed !== null ? (
+                <OkNote>
+                  Order placed. {compact(placed)} points are held for it
+                  {profile.data ? `, and you have ${compact(profile.data.current_organization.points)} left` : ''}. An officer will get it to you.
+                </OkNote>
+              ) : null}
             </div>
           </Card>
           {signedIn ? (
@@ -249,7 +259,10 @@ export function MemberStorePage() {
                       <div className="mt-1 truncate text-xs text-muted">
                         {o.items.map((i) => `${i.quantity} x ${i.product_name}`).join(', ')}
                       </div>
-                      <div className="text-xs text-muted">{timeAgo(o.created_at)}</div>
+                      <div className="text-xs text-muted">
+                        {timeAgo(o.created_at)}
+                        {o.points_held > 0 && o.status !== 'delivered' ? `, ${compact(o.points_held)} points held` : ''}
+                      </div>
                     </li>
                   ))}
                 </ul>

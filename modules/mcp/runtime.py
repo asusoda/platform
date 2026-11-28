@@ -23,7 +23,7 @@ from typing import Any
 import jsonschema
 
 from core import audit, limits
-from core.cache import cache
+from core.cache import publish
 from core.errors import ServiceError
 from core.log import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec, rate_limit
@@ -248,8 +248,8 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             db.commit()
         result = spec.func(db, org, caller, **args)
         if not spec.read_only:
-            # Drops the cached org reads of this process, as an HTTP write does
-            cache.invalidate("org")
+            # Drops the cached org reads of every process, as an HTTP write does
+            publish("org")
         return result
     except ToolError as e:
         status = e.status

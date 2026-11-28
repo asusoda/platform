@@ -8,7 +8,7 @@ A merch store paid with points. Officers manage products and orders. Members buy
 | --- | --- |
 | `api.py` | `storefront_blueprint`; product, order and store routes |
 | `member_api.py` | Member routes on the same blueprint: `/members/...`, `/orders/<email>`, `/wallet/<email>`, `/checkout` |
-| `service.py` | Product and order queries and changes, category clean-up, catalog pricing of an order, the points charge and refund; declares `store:read` and `store:write` |
+| `service.py` | Product and order queries and changes, category clean-up, catalog pricing of an order, `place_order` (the balance lock, the points charge or hold), the refund and `held_points`; declares `store:read` and `store:write` |
 | `tools.py` | The `store.*` tools |
 | `models.py` | Products, orders, order items |
 
@@ -23,4 +23,4 @@ A merch store paid with points. Officers manage products and orders. Members buy
 ## Known gaps
 
 - Views in `api.py` and `member_api.py` open their own session, query and commit. `service.py` has only the shared queries.
-- Checkout reads the balance and writes the order with no row lock. See Known faults in `docs/roadmap.md`.
+- Each order lists its `points_held` with one query for the whole list (`held_points`), from the `Storefront Purchase` and `Refund` rows of `points`. An order id in the event name is the only link between an order and its points rows.

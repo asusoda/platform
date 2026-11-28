@@ -12,7 +12,7 @@ from typing import Any
 
 from flask import Flask, Response, jsonify, request
 
-from core.cache import cache
+from core.cache import cache, publish
 from core.log import get_logger
 
 logger = get_logger(__name__)
@@ -49,12 +49,12 @@ def cached_json(key: tuple[Hashable, ...], ttl: float, build: Callable[[], Any])
 
 
 def register_cache_invalidation(app: Flask) -> None:
-    """Drop every cached org read after a successful API write in this process."""
+    """Drop every cached org read, here and in the other processes, after a successful API write."""
 
     @app.after_request
     def _invalidate(response):
         if request.method in WRITE_METHODS and response.status_code < 400 and request.path.startswith("/api/"):
-            dropped = cache.invalidate("org")
+            dropped = publish("org")
             if dropped:
                 logger.debug("cache invalidated entries=%s path=%s", dropped, request.path)
         return response

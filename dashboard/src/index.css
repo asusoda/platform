@@ -179,10 +179,23 @@ dialog.ui-dialog[open]::backdrop {
   backdrop-filter: blur(2px);
 }
 
+/* A drawer slides in from the right edge. */
+dialog.ui-dialog.ui-drawer {
+  transform: translateX(24px);
+}
+
+dialog.ui-dialog.ui-drawer[open] {
+  transform: none;
+}
+
 @starting-style {
   dialog.ui-dialog[open] {
     opacity: 0;
     transform: translateY(6px) scale(0.98);
+  }
+
+  dialog.ui-dialog.ui-drawer[open] {
+    transform: translateX(24px);
   }
 
   dialog.ui-dialog[open]::backdrop {

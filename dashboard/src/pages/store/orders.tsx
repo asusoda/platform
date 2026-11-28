@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Badge, Card, CardHeader, EmptyState, ErrorNote, ShowMore, SkeletonRows, Table, Td, Th, Tr, useShowMore } from '../../components/ui';
 import { compact, type Tone, timeAgo } from '../../lib/format';
 import type { Order } from '../../lib/types';
-import type { useStore } from './shared';
+import { holdsNothing, type useStore } from './shared';
 
 const statusTone: Record<string, Tone> = {
   pending: 'warn',
@@ -57,7 +57,10 @@ export function OrdersTab({ orders, onOpen }: { orders: ReturnType<typeof useSto
                   <Td className="hidden text-right text-muted tabular-nums sm:table-cell">
                     {o.items.reduce((n, i) => n + i.quantity, 0)}
                   </Td>
-                  <Td className="text-right tabular-nums">{compact(o.total_amount)}</Td>
+                  <Td className="text-right tabular-nums">
+                    {compact(o.total_amount)}
+                    {holdsNothing(o) ? <div className="text-xs whitespace-nowrap text-warn">No points held</div> : null}
+                  </Td>
                   <Td className="hidden sm:table-cell">
                     <Badge tone={statusTone[o.status] ?? 'muted'}>{o.status}</Badge>
                   </Td>
