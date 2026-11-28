@@ -39,13 +39,41 @@ class JeopardyGame:
         self.teams = self._create_teams(game_data["game"]["teams"])
         self.players: list[discord.Member | discord.User] = []
         self.categories = game_data["game"]["categories"]
-        self.category_name = ()
         self.per_category = game_data["game"]["per_category"]
         self.questions = self._create_questions(game_data["questions"])
         self.uuid = uuid.uuid4()
         self.is_announced = False
         self.is_started = False
-        self.messages = []
+
+    @classmethod
+    def from_json(cls, state: dict) -> "JeopardyGame":
+        """The game that to_json() gave this state: the same uuid, flags, scores, question ids and answered flags.
+
+        Players and team members are not in the state. The caller adds them.
+        """
+        info = state["game"]
+        game = cls(
+            {
+                "game": {
+                    "name": info["name"],
+                    "description": info["description"],
+                    "teams": [team["name"] for team in info["teams"]],
+                    "categories": info["categories"],
+                    "per_category": info["per_category"],
+                },
+                "questions": state["questions"],
+            }
+        )
+        game.uuid = uuid.UUID(info["uuid"])
+        game.is_announced = bool(info.get("announced"))
+        game.is_started = bool(info.get("started"))
+        for team, saved in zip(game.teams, info["teams"], strict=True):
+            team.score = int(saved.get("score", 0))
+        for category, questions in game.questions.items():
+            for question, saved in zip(questions, state["questions"][category], strict=True):
+                question.id = saved["id"]
+                question.answered = bool(saved.get("answered"))
+        return game
 
     def to_json(self):
         """
@@ -101,7 +129,6 @@ class JeopardyGame:
                         question["value"],
                     )
                 )
-                self.category_name = category
         return questions_dict
 
     def _create_teams(self, data) -> list[Team]:
@@ -115,58 +142,6 @@ class JeopardyGame:
             list: A list of initialized Team objects.
         """
         return [Team(team_data) for team_data in data]
-
-    def get_question(self, uuid):
-        """
-        Retrieves an unanswered question of a specific value from a given category.
-
-        Args:
-            category (str): The category of the question.
-            value (int): The value of the question.
-
-        Returns:
-            JeopardyQuestion or None: The question object if found, otherwise None.
-        """
-        for questions in self.questions.values():
-            for question in questions:
-                if question.id == uuid:
-                    return question
-        return None
-
-    def mark_question_as_answered(self, category, value):
-        """
-        Marks a question as answered in a specific category and value.
-
-        Args:
-            category (str): The category of the question.
-            value (int): The value of the question.
-
-        Returns:
-            bool: True if the question was successfully marked as answered, False otherwise.
-        """
-        if category in self.questions:
-            for question in self.questions[category]:
-                if question.value == value:
-                    question.answered = True
-                    return True
-        return False
-
-    def add_member_to_team(self, team_name, member):
-        """
-        Adds a Discord member to a specified team.
-
-        Args:
-            team_name (str): The name of the team.
-            member (discord.Member): The Discord member to add.
-
-        Returns:
-            bool: True if the member was successfully added, False otherwise.
-        """
-        team = next((team for team in self.teams if team.name == team_name), None)
-        if team:
-            team.add_team_member(member)
-            return True
-        return False
 
     def award_points(self, team_name, points):
         """
@@ -184,12 +159,6 @@ class JeopardyGame:
             team.add_points(points)
             return True
         return False
-
-    def announce(self):
-        """
-        Marks the game as announced.
-        """
-        self.is_announced = True
 
     def start(self):
         """
@@ -277,21 +246,6 @@ class JeopardyGame:
     def get_board(self):
         """
         Retrieves the board
-        """
-        data: dict[str, list[int | str]] = {}
-        for question in self._all_questions():
-            if question.category not in data.keys():
-                data[question.category] = []
-            if not question.answered:
-                data[question.category].append(question.value)
-            else:
-                data[question.category].append("XXXX")
-
-        return data
-
-    def get_questions_in_sorted_categories_and_by_points(self):
-        """
-        Retrieves the questions in sorted categories and by points
         """
         data: dict[str, list[int | str]] = {}
         for question in self._all_questions():

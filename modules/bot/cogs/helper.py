@@ -17,7 +17,8 @@ class HelperCog(commands.Cog):
     Attributes:
             bot (commands.Bot): The instance of the bot that this cog is part of.
             announcement_channel (discord.TextChannel): A channel for announcements.
-            message_listen_for (list): A list of messages to listen for reactions.
+            message_listen_for (list): The {message_id, emoji} pairs to listen for. GameCog adds the game sign-up
+                posts, and adds them again from active_game after a restart.
     """
 
     def __init__(self, bot: BotFork):
@@ -236,60 +237,48 @@ class HelperCog(commands.Cog):
         return message
 
     def add_to_listner(self, message: discord.Message, emoji: str):
-        """
-        Adds a message to the list of messages to listen for reactions.
-
-        Args:
-        message (discord.Message): The message to add.
-        emoji (str): The emoji to listen for.
-        """
-        self.message_listen_for.append({"message": message, "emoji": emoji})
+        """Listen for this emoji on the message: a reaction adds the member to the game of the message's server."""
+        entry = {"message_id": message.id, "emoji": emoji}
+        if entry not in self.message_listen_for:
+            self.message_listen_for.append(entry)
         logger.debug(f"Added message {message.id} to reaction listener with emoji {emoji}")
 
-    def remove_from_listner(self, message: discord.Message, emoji: str):
-        """
-        Removes a message from the list of messages to listen for reactions.
+    def remove_from_listner(self, message: discord.Message, emoji: str) -> bool:
+        """Stop listening for this emoji on the message. False when it was not listened for."""
+        entry = {"message_id": message.id, "emoji": emoji}
+        if entry not in self.message_listen_for:
+            return False
+        self.message_listen_for.remove(entry)
+        logger.debug(f"Removed message {message.id} from reaction listener with emoji {emoji}")
+        return True
 
-        Args:
-        message (discord.Message): The message to remove.
-        emoji (str): The emoji to stop listening for.
-        """
-        for msg_info in self.message_listen_for:  # Renamed loop variable
-            if msg_info["message"] == message and msg_info["emoji"] == emoji:
-                self.message_listen_for.remove(msg_info)
-                logger.debug(f"Removed message {message.id} from reaction listener with emoji {emoji}")
-                return True
-        return False
-
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
-        """
-        Asynchronous event handler for when a reaction is added to a message.
-
-        Args:
-        reaction (discord.Reaction): The reaction that was added.
-        user (discord.User): The user that added the reaction.
-        """
-        logger.info(f"Reaction {reaction.emoji} added by {user.name} to message {reaction.message.id}")
-        for message in self.message_listen_for:
-            if reaction.message.id == message["message"].id:
-                if reaction.emoji == message["emoji"]:
-                    self.bot.execute("GameCog", "add_member", user)
+    def _listened(self, payload: discord.RawReactionActionEvent) -> bool:
+        """Whether the reaction is a listened emoji on a listened message, from someone other than the bot."""
+        if payload.guild_id is None or (self.bot.user is not None and payload.user_id == self.bot.user.id):
+            return False
+        entry = {"message_id": payload.message_id, "emoji": str(payload.emoji)}
+        return entry in self.message_listen_for
 
     @commands.Cog.listener()
-    async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
-        """
-        Asynchronous event handler for when a reaction is removed from a message.
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        """Add the member who reacted to the game of the server. Raw events also come for messages not in the cache."""
+        if not self._listened(payload) or payload.member is None:
+            return
+        logger.info(f"Sign-up reaction by {payload.user_id} on message {payload.message_id} guild={payload.guild_id}")
+        self.bot.execute("GameCog", "add_member", payload.guild_id, payload.member)
 
-        Args:
-        reaction (discord.Reaction): The reaction that was removed.
-        user (discord.User): The user that removed the reaction.
-        """
-        logger.info(f"Reaction {reaction.emoji} removed by {user.name} from message {reaction.message.id}")
-        for message in self.message_listen_for:
-            if reaction.message.id == message["message"].id:
-                if reaction.emoji == message["emoji"]:
-                    self.bot.execute("GameCog", "remove_member", user)
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        """Remove the member who took back the reaction from the game of the server."""
+        if not self._listened(payload) or payload.guild_id is None:
+            return
+        guild = self.bot.get_guild(payload.guild_id)
+        member = guild.get_member(payload.user_id) if guild is not None else None
+        if member is None:
+            logger.info(f"Sign-up reaction removed by {payload.user_id}, who is not in guild {payload.guild_id}")
+            return
+        logger.info(f"Sign-up reaction removed by {payload.user_id} on message {payload.message_id}")
+        self.bot.execute("GameCog", "remove_member", payload.guild_id, member)
 
     @discord.slash_command(
         name="clear",
