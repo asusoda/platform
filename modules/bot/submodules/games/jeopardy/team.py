@@ -25,15 +25,6 @@ class Team:
         points = int(points)
         self.score += points
 
-    def remove_points(self, points: int) -> None:
-        self.score -= points
-
-    def getScore(self) -> int:
-        return self.score
-
-    def add_team_member(self, member: discord.Member | discord.User) -> None:
-        self.members.append(member)
-
     def to_json(self) -> dict[str, Any]:
         """The team as JSON. Members are their display names."""
         return {"name": self.name, "members": [member.display_name for member in self.members], "score": self.score}

@@ -188,6 +188,7 @@ source_modules = [
     "modules.bot.submodules.games.cog",
     "modules.bot.submodules.games.jeopardy",
     "modules.bot.submodules.games.ui",
+    "modules.bot.submodules.games.session",
     "modules.integrations.github_guard",
     "modules.integrations.google",
     "modules.integrations.mcp_client",
