@@ -150,6 +150,11 @@ deploy:
 				printf '%s=%s\n' "$$SECRET_NAME" "$$(openssl rand -hex 32)" >> .env; \
 			fi; \
 		done; \
+		if grep -qE '^BROWSER_URL=ws://[^/]+/?$$' .env; then \
+			echo -e "$(GREEN)[INFO]$(NC) Adding the BROWSER_SECRET path to BROWSER_URL in .env"; \
+			BROWSER_SECRET_VALUE=$$(grep '^BROWSER_SECRET=' .env | tail -1 | cut -d= -f2-); \
+			sed -i -E "s|^(BROWSER_URL=ws://[^/]+)/?$$|\1/$$BROWSER_SECRET_VALUE|" .env; \
+		fi; \
 		rm -f data/deployed-sha data/rollback-api data/rollback-site; \
 		rm -f .deploy/rollback-api .deploy/rollback-site .deploy/rollback-sha; \
 		RECORDED=""; \

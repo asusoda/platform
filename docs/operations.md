@@ -290,7 +290,7 @@ The `browser` service is a Playwright server with Chromium. Platform uses it for
 - Each page opens a new browser context, with its own cookies and storage, and closes it after the page. The ASU session of an org goes only into the context of that org's request.
 - The browser never connects by itself. `core/browser.py` answers every request of a page from the API process, through `core/net.py`, so a page loads public addresses only, also when DNS answers change. WebSockets are closed, and Chromium starts with a proxy that goes nowhere.
 - The browser is only on `browser-network`, which is internal and which `api`, `worker` and `mcp` join. It cannot reach the internet, Postgres or the other services.
-- The Playwright server listens on a secret path, `BROWSER_SECRET`, so a page cannot start its own browser on it. `make deploy` adds the secret to `.env` when it is missing.
+- The Playwright server listens on a secret path, `BROWSER_SECRET`, so a page cannot start its own browser on it. `make deploy` adds the secret to `.env` when it is missing, and adds it to the path of a `BROWSER_URL` that has no path.
 - `BROWSER_MAX_PAGES` (default 2) caps the browsers that one process opens at one time. `BROWSER_MAX_CLIENTS` (default 2) caps the browsers the server runs; more connections wait. The container is capped at 1 GB and one CPU.
 - An org renders pages only within `knowledge.renders_per_day`, which is 0 by default. Raise it for an org on the Superadmin page. Shared submodule pages count against no org.
 
