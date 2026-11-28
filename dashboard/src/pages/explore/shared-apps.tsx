@@ -107,11 +107,11 @@ export function SharedApps({ prefix, query }: { prefix: string; query: string })
               <span className="text-xs text-muted tabular-nums">{a.subscribers} {a.subscribers === 1 ? 'org' : 'orgs'}</span>
               <div className="flex gap-1">
                 {a.subscribed ? (
-                  <Button variant="ghost" className="h-7 shrink-0 px-2 text-xs" disabled={leave.isPending} onClick={() => leave.mutate(a.name)}>
+                  <Button variant="ghost" size="sm" disabled={leave.isPending} onClick={() => leave.mutate(a.name)}>
                     Unsubscribe
                   </Button>
                 ) : null}
-                <Button className="h-7 shrink-0 px-2 text-xs" onClick={() => setInviting(a)}>
+                <Button size="sm" onClick={() => setInviting(a)}>
                   {a.subscribed ? <UserPlus className="size-3.5" /> : <Plus className="size-3.5" />} {a.subscribed ? 'Invite' : 'Subscribe'}
                 </Button>
               </div>

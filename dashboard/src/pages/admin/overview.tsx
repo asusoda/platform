@@ -135,7 +135,7 @@ export function OverviewPage() {
   const active = list.filter((o) => o.is_active);
   return (
     <>
-      <PageHeader title="Overview" />
+      <PageHeader />
       {orgs.error ? (
         <div className="mb-6">
           <ErrorNote error={orgs.error} />

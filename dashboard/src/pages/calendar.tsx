@@ -1,6 +1,6 @@
 import { IntegrationHint } from '../components/integration-hint';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, CalendarPlus, Info, RefreshCw } from 'lucide-react';
+import { CalendarDays, CalendarPlus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import {
   Badge,
@@ -80,10 +80,6 @@ function CalendarForm({ orgId, saved }: { orgId: number; saved: CalendarSettings
         </div>
         <Switch checked={draft.sync} onChange={(sync) => setDraft({ ...draft, sync })} label="Sync Notion to Google Calendar" />
       </div>
-      <p className="flex items-start gap-2 rounded-lg border border-line bg-panel-2/40 p-3 text-xs text-pretty text-muted">
-        <Info className="mt-px size-3.5 shrink-0" aria-hidden />
-        Sync is off by default. Read the Calendar sync docs before you turn it on.
-      </p>
       <FormActions error={save.error}>
         <Button variant="primary" disabled={!changed || save.isPending}>
           Save calendar
@@ -159,7 +155,7 @@ function Events({ prefix, database }: { prefix: string; database: string | null 
         </Table>
       ) : (
         <EmptyState icon={CalendarDays} title="No upcoming events">
-          Add events to the Notion database. They show here on the next load.
+          Events from the Notion database show here.
         </EmptyState>
       )}
     </Card>
@@ -214,8 +210,6 @@ export function CalendarPage() {
   return (
     <>
       <PageHeader
-        title="Calendar"
-        description="Notion events copied to Google Calendar."
         action={
           <Button variant="primary" onClick={() => sync.mutate()} disabled={!configured || sync.isPending}>
             <RefreshCw className={cx('size-4', sync.isPending && 'animate-spin')} />

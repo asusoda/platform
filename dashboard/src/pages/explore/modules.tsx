@@ -1,26 +1,28 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { ArrowUpRight, Plus, SearchX } from 'lucide-react';
 import { Link } from 'react-router';
 import { Tooltip } from '../../components/tooltip';
-import { Badge, Button, Card, EmptyState, ErrorNote, Spinner } from '../../components/ui';
-import { api } from '../../lib/api';
+import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, FormActions, LinkButton, quietLink, Spinner } from '../../components/ui';
+import { api, send } from '../../lib/api';
 import { useSubmodules, useSubscription } from './submodules';
-import { matches } from '../../lib/modules';
+import { matches, MODULE_PAGES, moduleIcon } from '../../lib/modules';
 import type { FeedPreset, CatalogModule } from '../../lib/types';
 
-// The dashboard page of each module that has one.
-const MODULE_PAGES: Record<string, string> = {
-  points: 'points',
-  storefront: 'store',
-  calendar: 'calendar',
-  leetcode: 'leetcode',
-  godfather: 'godfather',
-  runpod: 'hosting',
-  feeds: 'job-alerts',
-  knowledge: 'knowledge',
-  uptime: 'uptime',
-};
+// Turns a module on or off for the org, and refreshes the lists that show it.
+export function useModuleSwitch(orgId: number | undefined, prefix: string, onDone?: () => void) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ m, on }: { m: CatalogModule; on: boolean }) =>
+      send(`/api/organizations/${orgId}/modules`, 'PUT', { modules: { [m.name]: on } }),
+    onSuccess: () => {
+      onDone?.();
+      client.invalidateQueries({ queryKey: ['catalog', prefix] });
+      client.invalidateQueries({ queryKey: ['modules', orgId] });
+      client.invalidateQueries({ queryKey: ['overview'] });
+    },
+  });
+}
 
 // The page of each kind of feed
 const KIND_PAGES: Record<string, string> = { github_jobs: 'job-alerts', hackathons: 'hackathons' };
@@ -39,7 +41,36 @@ function SubRow({ title, meta, action }: { title: string; meta?: string; action?
   );
 }
 
-const subButton = 'h-7 px-2 text-xs';
+// Asks before a module is removed. The module's data stays.
+export function RemoveModuleDialog({
+  module,
+  busy,
+  onClose,
+  onRemove,
+}: {
+  module: CatalogModule | null;
+  busy: boolean;
+  onClose: () => void;
+  onRemove: (m: CatalogModule) => void;
+}) {
+  return (
+    <Dialog
+      open={module !== null}
+      onClose={onClose}
+      title={`Remove ${module?.title ?? ''}?`}
+      description="Its data stays and comes back when you add it again."
+    >
+      <FormActions>
+        <Button variant="danger" disabled={busy} onClick={() => module && onRemove(module)}>
+          {busy ? <Spinner className="size-3.5" /> : null} Remove
+        </Button>
+        <Button variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+      </FormActions>
+    </Dialog>
+  );
+}
 
 // The submodules with pages or live queries. Subscribe makes knowledge search read the submodule's shared pages.
 function KnowledgeSubmodules({ prefix }: { prefix: string }) {
@@ -57,7 +88,7 @@ function KnowledgeSubmodules({ prefix }: { prefix: string }) {
             s.subscribed ? (
               <Badge tone="ok">Subscribed</Badge>
             ) : (
-              <Button className={subButton} disabled={change.isPending} onClick={() => change.mutate({ name: s.name, on: true })}>
+              <Button size="sm" disabled={change.isPending} onClick={() => change.mutate({ name: s.name, on: true })}>
                 {change.isPending && change.variables?.name === s.name ? <Spinner className="size-3.5" /> : <Plus className="size-3.5" />}
                 Subscribe
               </Button>
@@ -96,12 +127,9 @@ function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
               p.added ? (
                 <Badge tone="ok">Added</Badge>
               ) : (
-                <Link
-                  to={`/${prefix}/${KIND_PAGES[p.kind] ?? MODULE_PAGES[m.name]}?new=${encodeURIComponent(`${p.submodule}/${p.key}`)}`}
-                  className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-xs font-medium shadow-xs hover:bg-panel-2"
-                >
+                <LinkButton size="sm" to={`/${prefix}/${KIND_PAGES[p.kind] ?? MODULE_PAGES[m.name]}?new=${encodeURIComponent(`${p.submodule}/${p.key}`)}`}>
                   <Plus className="size-3.5" /> Add
-                </Link>
+                </LinkButton>
               )
             }
           />
@@ -114,7 +142,7 @@ function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
                 key={s.name}
                 title={s.title}
                 action={
-                  <Link to={`/${prefix}/explore?tab=shared`} className="text-xs text-muted hover:text-fg hover:underline">
+                  <Link to={`/${prefix}/explore?tab=shared`} className={quietLink}>
                     Subscribe for its feeds
                   </Link>
                 }
@@ -126,7 +154,7 @@ function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
 }
 
 // The submodules of a module that is on. A module that is off lists its submodules by title.
-function SubModules({ m, prefix }: { m: CatalogModule; prefix: string }) {
+export function SubModules({ m, prefix }: { m: CatalogModule; prefix: string }) {
   if (m.enabled && m.name === 'knowledge') return <KnowledgeSubmodules prefix={prefix} />;
   if (m.enabled && m.name in FEED_MODULES) return <ModuleFeeds m={m} prefix={prefix} />;
   if (m.enabled || !m.submodules.length) return null;
@@ -155,15 +183,24 @@ export function ModuleCard({
 }) {
   const page = MODULE_PAGES[m.name];
   const missing = m.needs.filter((n) => !n.connected && !n.optional);
+  const Icon = moduleIcon(m.name);
   return (
     <Card className="flex flex-col" data-module={m.name}>
       <div className="flex min-h-32 flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-sm font-semibold">{m.title}</h3>
+          <Link
+            to={`/${prefix}/explore/${m.name}`}
+            className="flex min-w-0 items-center gap-2 rounded-sm text-sm font-semibold underline-offset-2 hover:underline"
+          >
+            <Icon className="size-4 shrink-0 text-muted" />
+            <h3 className="truncate">{m.title}</h3>
+          </Link>
           {m.enabled && page ? (
-            <Link to={`/${prefix}/${page}`} aria-label={`Open ${m.title}`} className="text-muted transition-colors hover:text-fg">
-              <ArrowUpRight className="size-4" />
-            </Link>
+            <Tooltip label={`Open ${m.title}`} side="top">
+              <Link to={`/${prefix}/${page}`} aria-label={`Open ${m.title}`} className="text-muted transition-colors hover:text-fg">
+                <ArrowUpRight className="size-4" />
+              </Link>
+            </Tooltip>
           ) : null}
         </div>
         <p className="mt-1 line-clamp-2 text-sm text-pretty text-muted">{m.description}</p>
@@ -189,11 +226,11 @@ export function ModuleCard({
           {!m.switchable ? (
             <span className="shrink-0 text-xs text-muted">Included</span>
           ) : m.enabled ? (
-            <Button variant="ghost" className={`${subButton} shrink-0`} disabled={busy} onClick={onRemove}>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={onRemove}>
               Remove
             </Button>
           ) : (
-            <Button className={`${subButton} shrink-0`} disabled={busy || !m.ready} onClick={onAdd}>
+            <Button size="sm" disabled={busy || !m.ready} onClick={onAdd}>
               <Plus className="size-3.5" /> Add
             </Button>
           )}

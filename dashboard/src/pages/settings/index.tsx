@@ -202,7 +202,7 @@ export function SettingsPage() {
   ];
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[160px_minmax(0,1fr)] lg:gap-10">
         <SectionNav sections={sections} />
         <div className="min-w-0 space-y-6">

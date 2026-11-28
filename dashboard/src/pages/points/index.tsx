@@ -69,18 +69,16 @@ export function PointsPage() {
   return (
     <>
       <PageHeader
-        title="Points"
-        description="Members, their points and the events that gave them."
         action={
           <>
-            <Button onClick={() => setSyncing(true)}>
-              <RefreshCw className="size-4" /> Add from Discord
+            <Button onClick={() => setSyncing(true)} aria-label="Add from Discord">
+              <RefreshCw className="size-4" /> <span className="hidden sm:inline">Add from Discord</span>
             </Button>
-            <Button onClick={() => setEditing({ member: null })}>
-              <UserPlus className="size-4" /> Add member
+            <Button onClick={() => setEditing({ member: null })} aria-label="Add member">
+              <UserPlus className="size-4" /> <span className="hidden sm:inline">Add member</span>
             </Button>
-            <Button onClick={() => setUploading(true)}>
-              <Upload className="size-4" /> Upload CSV
+            <Button onClick={() => setUploading(true)} aria-label="Upload CSV">
+              <Upload className="size-4" /> <span className="hidden sm:inline">Upload CSV</span>
             </Button>
             <Button variant="primary" onClick={() => setAwarding({ member: '' })}>
               <Plus className="size-4" /> Award points

@@ -108,7 +108,7 @@ export function ProductsTab({
             </Button>
           }
         >
-          Add a product with a price in points. Members see it in the member store.
+          Members buy products with points.
         </EmptyState>
       )}
     </Card>

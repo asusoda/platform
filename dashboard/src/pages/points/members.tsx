@@ -12,6 +12,7 @@ import {
   SkeletonRows,
   Table,
   Td,
+  TextButton,
   Th,
   Tr,
   useShowMore,
@@ -64,10 +65,10 @@ export function MembersTab({ members, onOpen }: { members: ReturnType<typeof use
                 <Tr key={m.id}>
                   <Td className="pr-0 text-xs text-muted tabular-nums">{rank}</Td>
                   <Td className="w-full max-w-0">
-                    <button type="button" className="group block w-full min-w-0 cursor-pointer rounded-sm text-left" onClick={() => onOpen(m)}>
-                      <span className="block truncate font-medium group-hover:underline">{m.name ?? m.username ?? 'No name'}</span>
+                    <TextButton tone="row" onClick={() => onOpen(m)}>
+                      <span className="block truncate font-medium">{m.name ?? m.username ?? 'No name'}</span>
                       <span className="block truncate text-xs text-muted">{m.email ?? m.username ?? m.uuid}</span>
-                    </button>
+                    </TextButton>
                   </Td>
                   <Td className={cx('text-right font-medium tabular-nums', m.points < 0 && 'text-bad')}>{compact(m.points)}</Td>
                   <Td className="hidden md:table-cell">

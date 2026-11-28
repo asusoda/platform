@@ -214,7 +214,7 @@ export function UptimePage() {
 
   return (
     <>
-      <PageHeader title="Uptime" description="Checks of your sites and Hosting apps." docs="modules/uptime" action={add} />
+      <PageHeader action={add} />
       {list.length ? (
         <StatGrid className="mb-6">
           <Stat label="Up" value={on.filter((m) => m.state === 'up').length} />

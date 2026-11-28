@@ -137,13 +137,9 @@ function SettingsDraft({
           {field('chunk_overlap', 'Overlap (characters)', 'Text repeated from the end of the passage before.', 25)}
         </div>
         {!overlapOk ? <p className="text-xs text-bad">Overlap must be at most half the passage size.</p> : null}
-        <p className="text-xs text-pretty text-muted">
-          A new passage size applies the next time a source is indexed. Upload a document again to split it again.
-        </p>
+        <p className="text-xs text-muted">A new size applies the next time a source is indexed.</p>
         {chunking ? (
-          <CheckOption checked={reindex} onChange={setReindex} title="Crawl every crawled source again now">
-            Pages are fetched one host at a time; shared content with many pages takes a while.
-          </CheckOption>
+          <CheckOption checked={reindex} onChange={setReindex} title="Crawl every crawled source again now" />
         ) : null}
       </section>
 

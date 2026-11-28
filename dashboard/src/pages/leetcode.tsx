@@ -78,7 +78,7 @@ export function LeetCodePage() {
   const settings = leetcode.data?.settings;
   return (
     <>
-      <PageHeader title="LeetCode" description="The daily problem post in your Discord server." docs="modules/leetcode" />
+      <PageHeader />
       <div className="space-y-6">
         <Card>
           <CardHeader

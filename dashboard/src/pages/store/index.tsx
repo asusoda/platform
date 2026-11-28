@@ -28,8 +28,6 @@ export function StorePage() {
   return (
     <>
       <PageHeader
-        title="Store"
-        description="Merch that members buy with points."
         action={
           <Button variant="primary" onClick={add}>
             <Plus className="size-4" /> Add product

@@ -3,7 +3,7 @@ import { Minus, Package, Plus, ShoppingCart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { AuthFrame } from '../../components/auth-frame';
-import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, OkNote, SkeletonRows } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, ErrorNote, OkNote, SkeletonRows, TextButton } from '../../components/ui';
 import { compact, timeAgo } from '../../lib/format';
 import { POINTS_REFETCH_MS } from '../points/shared';
 import {
@@ -129,14 +129,9 @@ export function MemberStorePage() {
             <div className="text-muted tabular-nums">
               {profile.data ? `${compact(profile.data.current_organization.points)} points` : ''}
             </div>
-            <button
-              type="button"
-              className="text-muted underline hover:text-fg"
-              onClick={() => signOut.mutate()}
-              disabled={signOut.isPending}
-            >
+            <TextButton onClick={() => signOut.mutate()} disabled={signOut.isPending}>
               Sign out
-            </button>
+            </TextButton>
           </div>
         ) : (
           <Link

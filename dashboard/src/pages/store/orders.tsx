@@ -1,6 +1,6 @@
 import { ReceiptText } from 'lucide-react';
 import { useMemo } from 'react';
-import { Badge, Card, CardHeader, EmptyState, ErrorNote, ShowMore, SkeletonRows, Table, Td, Th, Tr, useShowMore } from '../../components/ui';
+import { Badge, Card, CardHeader, EmptyState, ErrorNote, ShowMore, SkeletonRows, Table, Td, TextButton, Th, Tr, useShowMore } from '../../components/ui';
 import { compact, type Tone, timeAgo } from '../../lib/format';
 import type { Order } from '../../lib/types';
 import { holdsNothing, type useStore } from './shared';
@@ -44,7 +44,7 @@ export function OrdersTab({ orders, onOpen }: { orders: ReturnType<typeof useSto
                 <Tr key={o.id}>
                   <Td className="pr-0 text-xs text-muted tabular-nums">#{o.id}</Td>
                   <Td className="w-full max-w-0">
-                    <button type="button" className="block w-full min-w-0 cursor-pointer text-left" onClick={() => onOpen(o)}>
+                    <TextButton tone="row" onClick={() => onOpen(o)}>
                       <span className="block truncate font-medium">{o.user_name}</span>
                       <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
                         <Badge tone={statusTone[o.status] ?? 'muted'} className="sm:hidden">
@@ -52,7 +52,7 @@ export function OrdersTab({ orders, onOpen }: { orders: ReturnType<typeof useSto
                         </Badge>
                         <span className="truncate">{o.user_email ?? ''}</span>
                       </span>
-                    </button>
+                    </TextButton>
                   </Td>
                   <Td className="hidden text-right text-muted tabular-nums sm:table-cell">
                     {o.items.reduce((n, i) => n + i.quantity, 0)}

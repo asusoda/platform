@@ -20,9 +20,10 @@ src/
   main.tsx, app.tsx        start the app; app.tsx makes the routes from pages/registry.tsx
   index.css                theme tokens
   components/
-    ui/                    shared parts, imported from components/ui: layout (page header, cards, stats),
-                           data (tables, badges), controls (buttons, fields), feedback (states, notes,
-                           long lists), overlays (dialogs, form footers)
+    ui/                    shared parts, imported from components/ui: layout (page header, back link, cards,
+                           stats), data (tables, badges), controls (buttons, text and link buttons, segmented
+                           choices, fields), feedback (empty, loading and error states, notes, banners, long
+                           lists), overlays (dialogs, drawers, form footers)
     tabs.tsx               TabBar and useTabParam
     tooltip.tsx            Tooltip and Kbd
     module-gate.tsx        the note for a module that is off
@@ -36,12 +37,15 @@ src/
     queries.ts             queries that two or more pages use
     links.ts               repo, docs and landing page links, and the orgs that build Platform
     sidebar.ts             the collapsed state of the sidebar and its shortcut
+    modules.ts             the page, docs page, icon and label of each module
+    activity.ts            the Activity timeline rows and their merge
     format.ts, branding.ts, theme.ts, org.ts
     types/                 API response shapes, one file for each domain
   pages/
-    registry.tsx           every org page: path, label, icon, section, module, component
+    registry.tsx           every org page: path, label, description, docs page, icon, section, module, component
     <page>.tsx             a small page
     <page>/index.tsx       a large page; the other files in the folder are its parts
+  test/app.tsx             renders the whole dashboard at one path with the API answered from a table
 public/orgs/               logos for the org marks
 scripts/
   fixtures.ts             API responses for a fictional org, and largeFixtures() with long lists

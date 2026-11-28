@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { Button, cx, Dialog, ErrorNote, FormActions, OkNote, SkeletonRows } from '../../components/ui';
+import { Button, cx, Dialog, ErrorNote, FormActions, OkNote, SkeletonRows, TextButton } from '../../components/ui';
 import { send, api } from '../../lib/api';
 import { refreshPoints } from './shared';
 
@@ -71,12 +71,10 @@ export function DiscordSyncDialog({ prefix, open, onClose }: { prefix: string; o
             <div className="flex items-baseline justify-between">
               <p className="text-sm font-medium">Roles</p>
               {chosen.length ? (
-                <button type="button" onClick={() => setChosen([])} className="cursor-pointer text-xs text-muted hover:text-fg">
-                  Clear ({chosen.length})
-                </button>
+                <TextButton onClick={() => setChosen([])}>Clear ({chosen.length})</TextButton>
               ) : null}
             </div>
-            <p className="text-xs text-muted">Pick roles to add only the people who hold one of them. With no role picked, everyone in the server is added. Bots are left out.</p>
+            <p className="text-xs text-muted">With no role picked, everyone except bots is added.</p>
             {roles.isPending ? (
               <SkeletonRows rows={3} />
             ) : roles.isError ? (

@@ -37,7 +37,7 @@ function Register({ onDone }: { onDone: () => void }) {
       <Field label="Name" hint="Lowercase letters, digits and dashes. The container is shared-<name>.">
         <Input value={name} onChange={(e) => setName(e.target.value.trim())} placeholder="vault" required autoFocus />
       </Field>
-      <Field label="Manifest (JSON)" hint="A This server manifest. access: {kind: vaultwarden} invites people when an org subscribes.">
+      <Field label="Manifest (JSON)" hint="A This server manifest.">
         <Textarea rows={10} className="font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} required />
       </Field>
       <FormActions error={save.error}>
@@ -120,9 +120,6 @@ export function SharedAppsPage() {
   return (
     <>
       <PageHeader
-        title="Shared apps"
-        description="Owned by the deployment, used by orgs."
-        docs="modules/hosting#shared-apps"
         action={
           <Button onClick={() => setOpen({ kind: 'register' })}>
             <Plus className="size-4" /> Register

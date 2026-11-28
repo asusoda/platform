@@ -1,13 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useDeferredValue, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { TabBar, useTabParam } from '../../components/tabs';
-import { Button, Dialog, ErrorNote, FormActions, Notice, PageHeader, PageSkeleton, SearchInput, Spinner } from '../../components/ui';
-import { send } from '../../lib/api';
+import { ErrorNote, PageError, PageHeader, PageSkeleton, SearchInput } from '../../components/ui';
 import { useCurrentOrg } from '../../lib/org';
 import { useModuleCatalog } from '../../lib/queries';
 import type { CatalogModule } from '../../lib/types';
 import { IntegrationsTab } from './integrations';
-import { ModuleCard, ModuleGrid } from './modules';
+import { ModuleCard, ModuleGrid, RemoveModuleDialog, useModuleSwitch } from './modules';
 import { SubmodulesTab } from './submodules';
 
 const TABS = [
@@ -21,27 +19,15 @@ const ALIASES = { modules: 'features', submodules: 'shared' } as const;
 
 function ModulesTab({ query }: { query: string }) {
   const { org, prefix } = useCurrentOrg();
-  const client = useQueryClient();
   const catalog = useModuleCatalog(prefix);
   const [removing, setRemoving] = useState<CatalogModule | null>(null);
-  const [notice, setNotice] = useState<ReactNode>(null);
-  const change = useMutation({
-    mutationFn: ({ m, on }: { m: CatalogModule; on: boolean }) =>
-      send(`/api/organizations/${org?.id}/modules`, 'PUT', { modules: { [m.name]: on } }),
-    onSuccess: () => {
-      setRemoving(null);
-      client.invalidateQueries({ queryKey: ['catalog', prefix] });
-      client.invalidateQueries({ queryKey: ['modules', org?.id] });
-      client.invalidateQueries({ queryKey: ['overview'] });
-    },
-  });
+  const change = useModuleSwitch(org?.id, prefix, () => setRemoving(null));
 
   if (catalog.isLoading || !org) return <PageSkeleton />;
-  if (catalog.error || !catalog.data) return <ErrorNote error={catalog.error ?? 'No data'} />;
+  if (catalog.error || !catalog.data) return <PageError error={catalog.error ?? 'No data'} retry={() => void catalog.refetch()} />;
 
   return (
     <>
-      {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
       {change.error ? (
         <div className="mb-4">
           <ErrorNote error={change.error} />
@@ -62,21 +48,12 @@ function ModulesTab({ query }: { query: string }) {
           />
         )}
       />
-      <Dialog
-        open={removing !== null}
+      <RemoveModuleDialog
+        module={removing}
+        busy={change.isPending}
         onClose={() => setRemoving(null)}
-        title={`Remove ${removing?.title ?? ''}?`}
-        description="Its data stays and comes back when you add it again."
-      >
-        <FormActions>
-          <Button variant="danger" disabled={change.isPending} onClick={() => removing && change.mutate({ m: removing, on: false })}>
-            {change.isPending ? <Spinner className="size-3.5" /> : null} Remove
-          </Button>
-          <Button variant="ghost" onClick={() => setRemoving(null)}>
-            Cancel
-          </Button>
-        </FormActions>
-      </Dialog>
+        onRemove={(m) => change.mutate({ m, on: false })}
+      />
     </>
   );
 }
@@ -93,7 +70,7 @@ export function ExplorePage() {
   const deferred = useDeferredValue(query);
   return (
     <>
-      <PageHeader title="Explore" description="Add features, subscribe to shared content and connect services." docs="concepts" />
+      <PageHeader />
       <TabBar
         label="Explore"
         tabs={TABS}
