@@ -138,6 +138,10 @@ def _call(server: RemoteServer, tool_name: str, write: bool, db, org, caller: Ma
     target_limits = caller.limit(server.key, server.target_limit) if server.target_limit else None
     if target_limits is not None and (target is None or not _allowed_target(target_limits, target)):
         raise ToolError(f"This token may not act on {target or 'that target'}", 403)
+    if target_limits is not None and server.target_check is not None:
+        reason = server.target_check(arguments, target_limits)
+        if reason:
+            raise ToolError(reason, 403)
     headers = server.headers(db, int(org.id))
     if headers is None:
         raise ToolError(f"Connect {server.key} on the Integrations page first", 409)

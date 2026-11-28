@@ -33,6 +33,9 @@ class RemoteServer:
     of: str | None = None
     # Called as guard(org, headers, tool name, target, arguments) before a write runs; raises ToolError to refuse it
     guard: Callable[[object, dict[str, str], str, str | None, dict], None] | None = None
+    # Called as target_check(arguments, allowed patterns) for a token with a target limit, after the target passed.
+    # Returns why the other arguments could reach a target outside the limit, or None
+    target_check: Callable[[dict, list[str]], str | None] | None = None
 
     @property
     def integration(self) -> str:
@@ -85,6 +88,46 @@ def _github_target(arguments: dict) -> str | None:
     return f"{owner}/{repo}".lower()
 
 
+# Arguments that hold free text, which never goes into a GitHub URL path
+FREE_TEXT = frozenset({"body", "content", "message", "title", "description", "comment", "query", "q", "text"})
+# A .. path segment, a backslash, or an encoded dot or slash
+PATH_ESCAPE = re.compile(r"(?:^|/)\.\.(?:/|$)|\\|%2e|%2f", re.IGNORECASE)
+# A search qualifier that names a repo or an account, also negated
+SEARCH_TARGET = re.compile(r"(?:^|[\s(])-?(?:repo|org|user|owner):", re.IGNORECASE)
+
+
+def _escapes(value: object) -> bool:
+    """Whether a value, or a string inside it, has a path part that leaves the named repo."""
+    if isinstance(value, str):
+        return bool(PATH_ESCAPE.search(value))
+    if isinstance(value, list):
+        return any(_escapes(item) for item in value)
+    if isinstance(value, dict):
+        return any(_escapes(item) for key, item in value.items() if key not in FREE_TEXT)
+    return False
+
+
+def _github_target_check(arguments: dict, patterns: list[str]) -> str | None:
+    """Why a call with a repo limit could reach another repo through its other arguments, or None."""
+    owners = {pattern.split("/", 1)[0] for pattern in patterns}
+    for key, value in arguments.items():
+        if key in ("owner", "repo"):
+            continue
+        if key in ("query", "q"):
+            if isinstance(value, str) and SEARCH_TARGET.search(value):
+                return "A search with a repo limit cannot name a repo, org, user or owner"
+            continue
+        if key not in FREE_TEXT and _escapes(value):
+            return f"{key} has a path part that leaves the repo"
+    organization = arguments.get("organization")
+    if isinstance(organization, str) and organization.lower() not in owners:
+        return f"This token may not act on the account {organization}"
+    head = arguments.get("head")
+    if isinstance(head, str) and ":" in head and head.split(":", 1)[0].lower() not in owners:
+        return f"This token may not use a branch of {head.split(':', 1)[0]}"
+    return None
+
+
 def _check_list(value: object, name: str, pattern: re.Pattern, example: str) -> list[str]:
     if not isinstance(value, list) or not value or len(value) > MAX_ITEMS:
         raise machine_tokens.TokenError(f"{name} must be a list of 1 to {MAX_ITEMS} items")
@@ -123,6 +166,7 @@ register(
         target=_github_target,
         target_limit="repos",
         guard=github_guard.check,
+        target_check=_github_target_check,
     )
 )
 

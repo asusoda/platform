@@ -311,3 +311,41 @@ def test_results_hide_org_secrets_and_ask_for_actions(client, officer_headers, s
     assert read.get_json()["result"]["text"] == "log line token=[secret]"
     assert "actions" in seen["toolsets"]
     service.clear_cache()
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"path": "../../x"},
+        {"path": "docs/../../../other/repo"},
+        {"path": "a%2F..%2Fb"},
+        {"ref": "main\\..\\x"},
+        {"files": [{"path": "../x", "content": "ok"}]},
+        {"query": "repo:other/x bug"},
+        {"query": "bug -org:ais"},
+        {"q": "user:someone"},
+        {"organization": "other"},
+        {"head": "other:main"},
+    ],
+)
+def test_repo_limit_refuses_arguments_that_leave_the_repo(client, officer_headers, soda, github, arguments):
+    headers = _token(client, officer_headers, soda, ["github:read"], {"github": {"repos": ["ais/*"]}})
+    body = {"owner": "ais", "repo": "site", **arguments}
+    response = client.post("/api/tools/github.list_issues", json=body, headers=headers)
+    assert response.status_code == 403, response.get_json()
+    assert github == []
+
+
+def test_repo_limit_lets_normal_arguments_through(client, officer_headers, soda, github):
+    headers = _token(client, officer_headers, soda, ["github:read"], {"github": {"repos": ["ais/*"]}})
+    body = {
+        "owner": "ais",
+        "repo": "site",
+        "path": "docs/a.md",
+        "query": "is:open label:bug",
+        "body": "see ../other and %2F",
+        "head": "ais:feature",
+        "organization": "AIS",
+    }
+    response = client.post("/api/tools/github.list_issues", json=body, headers=headers)
+    assert response.status_code == 200, response.get_json()
