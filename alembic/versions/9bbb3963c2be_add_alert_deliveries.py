@@ -1,7 +1,7 @@
 """add the deliveries log of every alert message
 
 Revision ID: 9bbb3963c2be
-Revises: d5f9b2e7a1c3
+Revises: 01b94c83fc0c
 Create Date: 2026-11-28 08:40:26.488251
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "9bbb3963c2be"
-down_revision: str | Sequence[str] | None = "d5f9b2e7a1c3"
+down_revision: str | Sequence[str] | None = "01b94c83fc0c"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # Export Alembic metadata names so static analyzers treat them as intentionally used.
