@@ -3,7 +3,7 @@
 from core.config import config
 from core.tools import tool
 
-from . import files, schedule, service
+from . import connections, files, members, pod_spec, schedule, service, settings
 
 
 @tool(
@@ -38,7 +38,7 @@ def godfather_pods(db, org, caller):
     },
 )
 def godfather_pod_action(db, org, caller, pod_id: str, action: str):
-    image = service.pod_image(db, int(org.id), config.GODFATHER_POD_IMAGE)
+    image = settings.pod_image(db, int(org.id), config.GODFATHER_POD_IMAGE)
     return service.act(db, int(org.id), pod_id, action, default_image=image)
 
 
@@ -55,7 +55,7 @@ def godfather_pod_action(db, org, caller, pod_id: str, action: str):
     },
 )
 def godfather_pod_members(db, org, caller, pod_id: str):
-    return service.pod_members(db, int(org.id), pod_id)
+    return members.pod_members(db, int(org.id), pod_id)
 
 
 POD_ID = {"type": "string", "minLength": 1, "maxLength": 64}
@@ -63,7 +63,7 @@ PATH = {"type": "string", "minLength": 1, "maxLength": 1000}
 DISCORD_IDS = {
     "type": "array",
     "items": {"type": "string", "pattern": "^[0-9]{5,25}$"},
-    "maxItems": service.MAX_ALLOWED_USERS,
+    "maxItems": pod_spec.MAX_ALLOWED_USERS,
 }
 
 
@@ -90,7 +90,7 @@ def _object(properties: dict, required: tuple[str, ...] = (), **extra) -> dict:
             "name": {"type": "string", "minLength": 1, "maxLength": 100},
             "image_name": {"type": "string", "minLength": 1, "maxLength": 200},
             "provider": {"type": "string", "maxLength": 32},
-            "cloud_type": {"type": "string", "enum": list(service.CLOUD_TYPES)},
+            "cloud_type": {"type": "string", "enum": list(pod_spec.CLOUD_TYPES)},
             "use_cpu_only": {"type": "boolean"},
             "gpu_type_id": {"type": "string", "maxLength": 100},
             "cpu_flavor": {"type": "string", "maxLength": 50},
@@ -105,7 +105,7 @@ def _object(properties: dict, required: tuple[str, ...] = (), **extra) -> dict:
     ),
 )
 def godfather_create_pod(db, org, caller, **data):
-    image = service.pod_image(db, int(org.id), config.GODFATHER_POD_IMAGE)
+    image = settings.pod_image(db, int(org.id), config.GODFATHER_POD_IMAGE)
     return {"pod": service.create_pod(db, int(org.id), data, caller.actor, image)}
 
 
@@ -132,7 +132,7 @@ def godfather_update_pod(db, org, caller, pod_id: str, **data):
     input_schema=_object({"pod_id": POD_ID}, ("pod_id",)),
 )
 def godfather_connected(db, org, caller, pod_id: str):
-    return service.connected_now(db, int(org.id), pod_id)
+    return members.connected_now(db, int(org.id), pod_id)
 
 
 @tool(
@@ -142,7 +142,7 @@ def godfather_connected(db, org, caller, pod_id: str):
     module="godfather",
 )
 def godfather_settings(db, org, caller):
-    return {"settings": service.godfather_settings(db, int(org.id), config.GODFATHER_POD_IMAGE)}
+    return {"settings": settings.godfather_settings(db, int(org.id), config.GODFATHER_POD_IMAGE)}
 
 
 @tool(
@@ -154,7 +154,7 @@ def godfather_settings(db, org, caller):
 )
 def godfather_update_settings(db, org, caller, pod_image: str | None):
     data = {"pod_image": pod_image}
-    return {"settings": service.update_godfather_settings(db, int(org.id), data, config.GODFATHER_POD_IMAGE)}
+    return {"settings": settings.update_godfather_settings(db, int(org.id), data, config.GODFATHER_POD_IMAGE)}
 
 
 @tool(
@@ -210,7 +210,7 @@ def godfather_delete_session(db, org, caller, pod_id: str, session_id: int):
     input_schema=_object({"pod_id": POD_ID, "path": PATH}, ("pod_id",)),
 )
 def godfather_list_files(db, org, caller, pod_id: str, path: str = "/workspace"):
-    with service.pod_files(db, int(org.id), pod_id) as pod:
+    with connections.pod_files(db, int(org.id), pod_id) as pod:
         return {"path": files.clean_path(path), "files": pod.list(path)}
 
 
@@ -222,7 +222,7 @@ def godfather_list_files(db, org, caller, pod_id: str, path: str = "/workspace")
     input_schema=_object({"pod_id": POD_ID, "path": PATH}, ("pod_id", "path")),
 )
 def godfather_read_file(db, org, caller, pod_id: str, path: str):
-    with service.pod_files(db, int(org.id), pod_id) as pod:
+    with connections.pod_files(db, int(org.id), pod_id) as pod:
         return {"path": files.clean_path(path), "content": pod.read_text(path)}
 
 
@@ -237,7 +237,7 @@ def godfather_read_file(db, org, caller, pod_id: str, path: str):
     ),
 )
 def godfather_write_file(db, org, caller, pod_id: str, path: str, content: str):
-    with service.pod_files(db, int(org.id), pod_id) as pod:
+    with connections.pod_files(db, int(org.id), pod_id) as pod:
         pod.write_text(path, content)
     return {"path": files.clean_path(path)}
 
@@ -250,7 +250,7 @@ def godfather_write_file(db, org, caller, pod_id: str, path: str, content: str):
     input_schema=_object({"pod_id": POD_ID, "path": PATH}, ("pod_id", "path")),
 )
 def godfather_make_folder(db, org, caller, pod_id: str, path: str):
-    with service.pod_files(db, int(org.id), pod_id) as pod:
+    with connections.pod_files(db, int(org.id), pod_id) as pod:
         pod.mkdir(path)
     return {"path": files.clean_path(path)}
 
@@ -263,7 +263,7 @@ def godfather_make_folder(db, org, caller, pod_id: str, path: str):
     input_schema=_object({"pod_id": POD_ID, "old_path": PATH, "new_path": PATH}, ("pod_id", "old_path", "new_path")),
 )
 def godfather_move_file(db, org, caller, pod_id: str, old_path: str, new_path: str):
-    with service.pod_files(db, int(org.id), pod_id) as pod:
+    with connections.pod_files(db, int(org.id), pod_id) as pod:
         pod.rename(old_path, new_path)
     return {"path": files.clean_path(new_path)}
 
@@ -276,6 +276,6 @@ def godfather_move_file(db, org, caller, pod_id: str, old_path: str, new_path: s
     input_schema=_object({"pod_id": POD_ID, "path": PATH}, ("pod_id", "path")),
 )
 def godfather_delete_file(db, org, caller, pod_id: str, path: str):
-    with service.pod_files(db, int(org.id), pod_id) as pod:
+    with connections.pod_files(db, int(org.id), pod_id) as pod:
         pod.delete(path)
     return {"deleted": files.clean_path(path)}

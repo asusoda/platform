@@ -224,7 +224,7 @@ def test_new_member_sends_member_joined(client, officer_headers, sent):
 
 
 def test_pod_and_deploy_messages(client, officer_headers, sent):
-    from modules.godfather import service as godfather
+    from modules.godfather import base as godfather
     from modules.runpod import service as apps
     from modules.runpod.models import App, AppDeployment
 

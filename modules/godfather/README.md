@@ -10,7 +10,13 @@ Terminate also forgets a pod that was already deleted on RunPod, such as one del
 | --- | --- |
 | `api.py` | Officer routes under `/<org_prefix>/pods`, the GPU stock at `/<org_prefix>/gpu-types` and the member list and search at `/<org_prefix>/members` and `/<org_prefix>/members/roles`, member routes under `/<org_prefix>/me` (the member page, pods, connect, sessions), and the CLI sign-in through Discord (`cli/login`, `cli/token`) |
 | `tools.py` | The `godfather.*` tools for agents |
-| `service.py` | Pods on their provider, sharing, member setup and member connect |
+| `service.py` | Officer actions on pods: list, create, recreate, share, start, stop, terminate and pod admin |
+| `base.py` | `GodfatherError`, the provider clients, the org's SSH keys, pod lookup and status, the image check and the pod webhook events |
+| `pod_spec.py` | The create body and settings of a pod from a request, and the member setup checks |
+| `settings.py` | The org's default pod image |
+| `connections.py` | The pods a member may reach, member connect (SSH certificates), connection records and root SFTP |
+| `members.py` | The member picker, who may connect to a pod, who got a certificate and who is connected now |
+| `gpu_stock.py` | The GPU types that RunPod offers, with stock and price |
 | `ssh.py` | The org's SSH keys and short-lived certificates |
 | `image.py` | The image check: the godfather-base version label and digest from the registry |
 | `files.py` | File operations on a pod over SFTP, as root with the org's backend key, and the member setup files |
@@ -25,7 +31,7 @@ Terminate also forgets a pod that was already deleted on RunPod, such as one del
 - Jobs: `godfather.schedule`, schedule `*/5 * * * *`.
 - Limits: `godfather.pods`, checked before a pod is made. See [docs/limits.md](../../docs/limits.md).
 - Tools, scope `godfather:manage`: `godfather.pods`, `godfather.pod_members`, `godfather.connected`, `godfather.pod_action` (confirm), `godfather.create_pod` (confirm), `godfather.update_pod`, `godfather.settings`, `godfather.update_settings`, `godfather.sessions`, `godfather.add_session` (confirm), `godfather.delete_session`, `godfather.list_files`, `godfather.read_file`, `godfather.write_file` (confirm), `godfather.make_folder`, `godfather.move_file`, `godfather.delete_file` (confirm). Tools marked confirm run only with `confirm=true`.
-- Webhook events: `pod.started` and `pod.stopped`, from `act()` and the session schedule; `pod.root_access`, from `connect()` for each root certificate. See [docs/webhooks.md](../../docs/webhooks.md).
+- Webhook events: `pod.started` and `pod.stopped`, from `act()` and the session schedule; `pod.root_access`, from `connect()` (`connections.py`) for each root certificate. See [docs/webhooks.md](../../docs/webhooks.md).
 - Tables: `compute_pods`, `compute_keys`, `compute_sessions`, `compute_connections`, `compute_cli_codes`. `connect()` writes a `compute_connections` row for each certificate and deletes the org's rows older than 90 days.
 
 See [docs/modules/godfather.md](../../docs/modules/godfather.md) for setup, `GODFATHER_CLI_NAME`, `GODFATHER_POD_IMAGE`, the org default pod image and the pod image contract.

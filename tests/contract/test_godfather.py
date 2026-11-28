@@ -97,12 +97,12 @@ class FakeRunPod:
 @pytest.fixture
 def runpod(app, monkeypatch):
     from core.db import db_connect
-    from modules.godfather import service
+    from modules.godfather import base
     from modules.godfather.models import ComputeCliCode, ComputeConnection, ComputeKey, ComputePod, ComputeSession
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     fake = FakeRunPod()
-    monkeypatch.setattr(service, "_client", lambda db, org_id, provider="runpod": fake)
+    monkeypatch.setattr(base, "get_client", lambda db, org_id, provider="runpod": fake)
     yield fake
     db = db_connect.SessionLocal()
     db.query(ComputeSession).delete()
@@ -243,10 +243,11 @@ def test_officers_get_a_member_certificate_by_default(client, member_client, off
 
 
 def test_root_needs_admin_an_officer_and_pod_admin(client, member_client, officer_headers, runpod, monkeypatch):
+    from core import webhooks
     from modules.godfather import api
 
     sent = []
-    monkeypatch.setattr(service_module().webhooks, "emit", lambda org, event, message: sent.append(event))
+    monkeypatch.setattr(webhooks, "emit", lambda org, event, message: sent.append(event))
     _create(client, officer_headers)
     url = "/api/compute/soda/me/pods/pod1/connect"
     body = {"public_key": _user_key(), "admin": True}
@@ -279,12 +280,6 @@ def test_only_the_owner_changes_pod_admin(client, officer_headers, runpod):
     answer = client.put(url, json={"enabled": True}, headers=officer_headers)
     assert answer.status_code == 403 and "owner" in answer.get_json()["error"]
     assert client.put(url, json={"enabled": "yes"}, headers=officer_headers).status_code == 400
-
-
-def service_module():
-    from modules.godfather import service
-
-    return service
 
 
 def test_actions_and_terminate(client, officer_headers, runpod):
@@ -907,16 +902,16 @@ def test_old_connections_are_deleted(client, officer_headers, runpod):
 
     from core.db import db_connect
     from core.time import utcnow
-    from modules.godfather import service
-    from modules.godfather.models import ComputeConnection
+    from modules.godfather import connections
+    from modules.godfather.models import ComputeConnection, ComputePod
 
     _create(client, officer_headers)
     db = db_connect.SessionLocal()
-    org_id = db.query(service.ComputePod).one().organization_id
-    old = utcnow() - datetime.timedelta(days=service.CONNECTION_KEEP_DAYS + 1)
+    org_id = db.query(ComputePod).one().organization_id
+    old = utcnow() - datetime.timedelta(days=connections.CONNECTION_KEEP_DAYS + 1)
     db.add(ComputeConnection(organization_id=org_id, pod_id="pod1", discord_id="1", username="old", created_at=old))
     db.commit()
-    service.record_connection(db, org_id, "pod1", "2", "new", True)
+    connections.record_connection(db, org_id, "pod1", "2", "new", True)
     assert [c.username for c in db.query(ComputeConnection).all()] == ["new"]
     db.close()
 
