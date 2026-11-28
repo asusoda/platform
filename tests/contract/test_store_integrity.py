@@ -1,5 +1,7 @@
 """Store orders charge the catalog total, refunds follow a cancel or a delete, and points rows match orders."""
 
+import uuid
+
 import pytest
 from sqlalchemy import event, func
 
@@ -352,7 +354,7 @@ def test_two_orders_at_once_cannot_spend_the_same_points(app):
     if db_connect.engine.dialect.name != "postgresql":
         pytest.skip("Row locks need Postgres (set TEST_DATABASE_URL)")
     with db_connect.SessionLocal() as db:
-        dana = User(username="dana", email="dana@asu.edu", name="Dana", uuid="00000000-0000-0000-0000-0000000000d0")
+        dana = User(username="dana-race", email="dana-race@asu.edu", name="Dana", uuid=str(uuid.uuid4()))
         db.add(dana)
         db.flush()
         products = [Product(organization_id=1, name=name, price=300, stock=5) for name in ("Cap", "Pin")]
