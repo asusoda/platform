@@ -27,4 +27,6 @@ export type Order = {
   user_name: string;
   user_email: string | null;
   items: OrderItem[];
+  // The points the order took, less refunds. 0 for a cancelled order and for a member order placed before holds.
+  points_held: number;
 };

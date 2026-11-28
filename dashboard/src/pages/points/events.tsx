@@ -19,7 +19,7 @@ import {
 import { send } from '../../lib/api';
 import { compact, timeAgo } from '../../lib/format';
 import type { PointsMember } from '../../lib/types';
-import { entryCount, type EventGroup } from './shared';
+import { entryCount, type EventGroup, refreshPoints } from './shared';
 
 export function EventsTab({ prefix, groups, members, loading, error }: {
   prefix: string;
@@ -39,7 +39,7 @@ export function EventsTab({ prefix, groups, members, loading, error }: {
         if (email) await send(`/api/points/${prefix}/delete_points`, 'DELETE', { user_email: email, event: group.event });
       }
     },
-    onSettled: () => client.invalidateQueries({ queryKey: ['points', prefix] }),
+    onSettled: () => refreshPoints(client, prefix),
   });
   return (
     <Card>

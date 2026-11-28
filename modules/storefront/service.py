@@ -4,12 +4,15 @@ import math
 from collections import Counter
 from datetime import UTC, datetime
 
+from sqlalchemy import func
+
 from core import webhooks
 from core.errors import ServiceError
 from core.log import get_logger
 from modules.auth import scopes
 from modules.points.models import Points
 from modules.storefront.models import Order, OrderItem, Product
+from modules.users.models import User
 
 logger = get_logger(__name__)
 
@@ -115,6 +118,57 @@ def refund_event(order_id) -> str:
     return f"Refund - Order #{order_id}"
 
 
+def locked_balance(db, user_id, organization_id):
+    """The user's points in the org, read after a lock on the user's row that holds until the commit.
+
+    Two checkouts of one member thus run one after the other, so both cannot spend the same points.
+    """
+    db.query(User.id).filter(User.id == user_id).with_for_update().one()
+    return (
+        db.query(func.sum(Points.points))
+        .filter(Points.user_id == user_id, Points.organization_id == organization_id)
+        .scalar()
+        or 0
+    )
+
+
+def place_order(db, organization_id, user: User, order_items, priced, *, status: str, discord_user_id=None) -> Order:
+    """Write the order, the stock change and the points it holds in one commit, at the catalog total.
+
+    The hold is the negative purchase entry; a cancel or a delete gives it back. Raises StoreError 400 with
+    nothing written when the member has fewer points than the total.
+    """
+    charge = catalog_total(priced)
+    balance = locked_balance(db, user.id, organization_id)
+    if balance < charge:
+        db.rollback()
+        logger.info(
+            "order refused org_id=%s user_id=%s balance=%s charge=%s", organization_id, user.id, balance, charge
+        )
+        raise StoreError(f"Insufficient points. You have {balance} points but need {points_number(charge)}")
+    take_stock(priced)
+    order = Order(user_id=user.id, discord_user_id=discord_user_id, total_amount=charge, status=status)
+    return create_order(db, order, order_items, organization_id, charge=charge)
+
+
+def held_points(db, organization_id, order_ids) -> dict[int, float]:
+    """The points each order holds: its purchase entry less its refunds. An order with no purchase entry holds 0."""
+    ids = list(order_ids)
+    if not ids:
+        return {}
+    events = {purchase_event(i): i for i in ids} | {refund_event(i): i for i in ids}
+    rows = (
+        db.query(Points.event, func.sum(Points.points))
+        .filter(Points.organization_id == organization_id, Points.event.in_(list(events)))
+        .group_by(Points.event)
+        .all()
+    )
+    held = dict.fromkeys(ids, 0.0)
+    for event, total in rows:
+        held[events[event]] -= float(total or 0)
+    return {order_id: points_number(max(value, 0.0)) for order_id, value in held.items()}
+
+
 def create_product(db, product, organization_id):
     """Add the product to the org and commit. Rolls back and raises on an error."""
     try:
@@ -122,12 +176,12 @@ def create_product(db, product, organization_id):
         db.add(product)
         db.commit()
         db.refresh(product)
-        logger.info(f"Created storefront product '{product.name}' for organization {organization_id}")
-        return product
-    except Exception as e:
-        logger.error(f"Error creating storefront product: {str(e)}")
+    except Exception:
+        logger.exception("product create failed org_id=%s name=%r", organization_id, product.name)
         db.rollback()
         raise
+    logger.info("product created org_id=%s product_id=%s name=%r", organization_id, product.id, product.name)
+    return product
 
 
 def create_order(db, order, order_items, organization_id, charge: float | None = None):
@@ -159,13 +213,20 @@ def create_order(db, order, order_items, organization_id, charge: float | None =
 
         db.commit()
         db.refresh(order)
-        logger.info(f"Created storefront order {order.id} for organization {organization_id}")
-        _announce(order, len(order_items), organization_id)
-        return order
-    except Exception as e:
-        logger.error(f"Error creating storefront order: {str(e)}")
+    except Exception:
+        logger.exception("order create failed org_id=%s user_id=%s", organization_id, order.user_id)
         db.rollback()
         raise
+    logger.info(
+        "order created org_id=%s order_id=%s user_id=%s status=%s charge=%s",
+        organization_id,
+        order.id,
+        order.user_id,
+        order.status,
+        charge,
+    )
+    _announce(order, len(order_items), organization_id)
+    return order
 
 
 def _announce(order, items: int, organization_id) -> None:
@@ -179,41 +240,25 @@ def _announce(order, items: int, organization_id) -> None:
 
 
 def products(db, organization_id):
-    """The org's products, or [] on an error."""
-    try:
-        return db.query(Product).filter(Product.organization_id == organization_id).all()
-    except Exception as e:
-        logger.error(f"Error getting storefront products: {str(e)}")
-        return []
+    """The org's products."""
+    return db.query(Product).filter(Product.organization_id == organization_id).all()
 
 
 def product(db, product_id, organization_id, for_update=False):
     """The org's product with this id, or None. for_update locks the row until the caller commits."""
-    try:
-        query = db.query(Product).filter(Product.id == product_id, Product.organization_id == organization_id)
-        return (query.with_for_update() if for_update else query).first()
-    except Exception as e:
-        logger.error(f"Error getting storefront product: {str(e)}")
-        return None
+    query = db.query(Product).filter(Product.id == product_id, Product.organization_id == organization_id)
+    return (query.with_for_update() if for_update else query).first()
 
 
 def orders(db, organization_id):
-    """The org's orders, or [] on an error."""
-    try:
-        return db.query(Order).filter(Order.organization_id == organization_id).all()
-    except Exception as e:
-        logger.error(f"Error getting storefront orders: {str(e)}")
-        return []
+    """The org's orders."""
+    return db.query(Order).filter(Order.organization_id == organization_id).all()
 
 
 def order(db, order_id, organization_id, for_update: bool = False):
     """The org's order with this id, or None. With for_update, the row stays locked until the commit."""
-    try:
-        query = db.query(Order).filter(Order.id == order_id, Order.organization_id == organization_id)
-        return (query.with_for_update() if for_update else query).first()
-    except Exception as e:
-        logger.error(f"Error getting storefront order: {str(e)}")
-        return None
+    query = db.query(Order).filter(Order.id == order_id, Order.organization_id == organization_id)
+    return (query.with_for_update() if for_update else query).first()
 
 
 def _check_no_orders(db, product_ids) -> None:
@@ -223,24 +268,18 @@ def _check_no_orders(db, product_ids) -> None:
 
 
 def delete_product(db, product_id, organization_id) -> bool:
-    """Delete the org's product and commit. False if it is missing or the delete fails.
+    """Delete the org's product and commit. False if it is missing.
 
     Raises StoreError 409 if an order has the product.
     """
     found = product(db, product_id, organization_id)
-    if found:
-        _check_no_orders(db, [found.id])
-    try:
-        if found:
-            db.delete(found)
-            db.commit()
-            logger.info(f"Deleted storefront product {product_id} for organization {organization_id}")
-            return True
+    if not found:
         return False
-    except Exception as e:
-        logger.error(f"Error deleting storefront product: {str(e)}")
-        db.rollback()
-        return False
+    _check_no_orders(db, [found.id])
+    db.delete(found)
+    db.commit()
+    logger.info("product deleted org_id=%s product_id=%s", organization_id, product_id)
+    return True
 
 
 def product_dict(product: Product) -> dict:
@@ -257,8 +296,8 @@ def product_dict(product: Product) -> dict:
     }
 
 
-def order_dict(order: Order) -> dict:
-    """An order with its buyer and items, as the order list returns it."""
+def order_dict(order: Order, points_held: float = 0) -> dict:
+    """An order with its buyer, items and the points it holds, as the order list returns it."""
     return {
         "id": order.id,
         "user_id": order.user_id,
@@ -274,6 +313,7 @@ def order_dict(order: Order) -> dict:
             {"id": i.id, "product_id": i.product_id, "quantity": i.quantity, "price_at_time": i.price_at_time}
             for i in order.items
         ],
+        "points_held": points_held,
     }
 
 
@@ -405,7 +445,8 @@ def delete_products(db, organization_id, ids: list[int]) -> dict:
 def order_list(db, organization_id, status: str | None = None) -> list[dict]:
     """The org's orders, newest first. status keeps the orders with that status."""
     rows = [o for o in orders(db, organization_id) if status is None or o.status == status]
-    return [order_dict(o) for o in sorted(rows, key=lambda o: o.id, reverse=True)]
+    held = held_points(db, organization_id, [o.id for o in rows])
+    return [order_dict(o, held[o.id]) for o in sorted(rows, key=lambda o: o.id, reverse=True)]
 
 
 def update_orders(db, organization_id, ids: list[int], data: dict) -> list[dict]:
@@ -414,7 +455,8 @@ def update_orders(db, organization_id, ids: list[int], data: dict) -> list[dict]
     for row in rows:
         change_order(db, row, data)
     db.commit()
-    return [order_dict(row) for row in rows]
+    held = held_points(db, organization_id, [row.id for row in rows])
+    return [order_dict(row, held[row.id]) for row in rows]
 
 
 def delete_orders(db, organization_id, ids: list[int]) -> dict:

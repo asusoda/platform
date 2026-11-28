@@ -1,5 +1,7 @@
 """Store orders charge the catalog total, refunds follow a cancel or a delete, and points rows match orders."""
 
+import uuid
+
 import pytest
 from sqlalchemy import event, func
 
@@ -161,15 +163,93 @@ def test_order_tools_refund(client, clerk_headers, db, mug):
     assert _stock(db, mug) == 10
 
 
-def test_cancel_of_an_unpaid_order_gives_no_points(member_client, officer_headers, client, db, mug):
+def _member_order(member_client, product_id, quantity=1, price=300):
+    body = {
+        "total_amount": price * quantity,
+        "items": [{"product_id": product_id, "quantity": quantity, "price": price}],
+    }
+    return member_client.post("/api/storefront/soda/members/orders", json=body)
+
+
+def _purchase_rows(db) -> int:
+    from modules.points.models import Points
+
+    db.expire_all()
+    return db.query(Points).filter(Points.event.like("Storefront Purchase - Order #%")).count()
+
+
+def test_member_order_holds_the_points(member_client, db, mug):
     before = _balance(db)
-    body = {"total_amount": 300, "items": [{"product_id": mug, "quantity": 1, "price": 300}]}
-    response = member_client.post("/api/storefront/soda/members/orders", json=body)
+    response = _member_order(member_client, mug)
     assert response.status_code == 201
-    path = f"/api/storefront/soda/orders/{response.get_json()['id']}"
+    body = response.get_json()
+    assert body["order"]["status"] == "pending"
+    assert body["points_held"] == 300
+    assert body["message"] == "Order created successfully"
+    assert _balance(db) == before - 300
+    assert _stock(db, mug) == 9
+
+
+def test_member_order_above_the_balance_writes_nothing(member_client, db, mug):
+    before = _balance(db)
+    orders, purchases = _orders(db), _purchase_rows(db)
+    response = _member_order(member_client, mug, quantity=int(before // 300) + 1)
+    assert response.status_code == 400
+    assert response.get_json()["error"].startswith("Insufficient points. You have ")
+    assert _balance(db) == before
+    assert _stock(db, mug) == 10
+    assert _orders(db) == orders
+    assert _purchase_rows(db) == purchases
+
+
+def test_cancel_of_a_member_order_gives_back_the_hold_once(member_client, officer_headers, client, db, mug):
+    before = _balance(db)
+    path = f"/api/storefront/soda/orders/{_member_order(member_client, mug).get_json()['id']}"
     assert client.put(path, json={"status": "cancelled"}, headers=officer_headers).status_code == 200
     assert _balance(db) == before
     assert _stock(db, mug) == 10
+    again = client.put(path, json={"status": "cancelled"}, headers=officer_headers)
+    assert again.status_code == 200
+    deleted = client.delete(path, headers=officer_headers)
+    assert deleted.status_code == 200
+    assert _balance(db) == before
+
+
+def test_delete_of_a_pending_member_order_gives_back_the_hold(member_client, officer_headers, client, db, mug):
+    before = _balance(db)
+    path = f"/api/storefront/soda/orders/{_member_order(member_client, mug).get_json()['id']}"
+    deleted = client.delete(path, headers=officer_headers)
+    assert deleted.status_code == 200
+    assert _balance(db) == before
+    assert _stock(db, mug) == 10
+
+
+def test_an_old_pending_order_with_no_hold_cancels_with_no_refund(officer_headers, client, db, mug):
+    from modules.storefront.models import Order, OrderItem
+
+    before = _balance(db)
+    alice_id = db.query(Order.user_id).filter_by(organization_id=1).first().user_id
+    order = Order(organization_id=1, user_id=alice_id, total_amount=300, status="pending")
+    db.add(order)
+    db.flush()
+    db.add(OrderItem(organization_id=1, order_id=order.id, product_id=mug, quantity=1, price_at_time=300))
+    db.commit()
+    listed = client.get("/api/storefront/soda/orders", headers=officer_headers).get_json()
+    assert next(o for o in listed if o["id"] == order.id)["points_held"] == 0
+    path = f"/api/storefront/soda/orders/{order.id}"
+    assert client.put(path, json={"status": "cancelled"}, headers=officer_headers).status_code == 200
+    assert _balance(db) == before
+
+
+def test_the_order_list_shows_the_points_each_order_holds(member_client, officer_headers, client, db, mug):
+    held = _member_order(member_client, mug).get_json()["id"]
+    cancelled = _member_order(member_client, mug).get_json()["id"]
+    client.put(f"/api/storefront/soda/orders/{cancelled}", json={"status": "cancelled"}, headers=officer_headers)
+    listed = {o["id"]: o for o in client.get("/api/storefront/soda/orders", headers=officer_headers).get_json()}
+    assert listed[held]["points_held"] == 300
+    assert listed[cancelled]["points_held"] == 0
+    mine = {o["id"]: o for o in member_client.get("/api/storefront/soda/members/orders").get_json()}
+    assert mine[held]["points_held"] == 300
 
 
 def test_member_order_uses_the_catalog_total(member_client, db, mug):
@@ -260,3 +340,59 @@ def test_csv_import_adds_the_membership(app, db):
         db.query(UserOrganizationMembership).filter_by(user_id=carol.id).delete()
         db.query(User).filter_by(id=carol.id).delete()
         db.commit()
+
+
+def test_two_orders_at_once_cannot_spend_the_same_points(app):
+    import threading
+
+    from core.db import db_connect
+    from modules.points.models import Points
+    from modules.storefront import service
+    from modules.storefront.models import Order, OrderItem, Product
+    from modules.users.models import User
+
+    if db_connect.engine.dialect.name != "postgresql":
+        pytest.skip("Row locks need Postgres (set TEST_DATABASE_URL)")
+    with db_connect.SessionLocal() as db:
+        dana = User(username="dana-race", email="dana-race@asu.edu", name="Dana", uuid=str(uuid.uuid4()))
+        db.add(dana)
+        db.flush()
+        products = [Product(organization_id=1, name=name, price=300, stock=5) for name in ("Cap", "Pin")]
+        db.add_all([Points(user_id=dana.id, organization_id=1, points=300), *products])
+        db.commit()
+        dana_id, product_ids = dana.id, [p.id for p in products]
+
+    results: list[str] = []
+    ready = threading.Barrier(2)
+
+    def buy(product_id):
+        db = db_connect.SessionLocal()
+        try:
+            items, priced = service.price_items(db, 1, [{"product_id": product_id, "quantity": 1, "price": 300}])
+            ready.wait(timeout=10)
+            dana = db.get(User, dana_id)
+            assert dana is not None
+            service.place_order(db, 1, dana, items, priced, status="pending")
+            results.append("placed")
+        except service.StoreError as e:
+            results.append(e.message)
+        finally:
+            db.close()
+
+    threads = [threading.Thread(target=buy, args=(product_id,)) for product_id in product_ids]
+    try:
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=20)
+        assert sorted(results)[1] == "placed"
+        assert sorted(results)[0].startswith("Insufficient points")
+    finally:
+        with db_connect.SessionLocal() as db:
+            order_ids = [o.id for o in db.query(Order.id).filter_by(user_id=dana_id)]
+            db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
+            db.query(Order).filter(Order.id.in_(order_ids)).delete(synchronize_session=False)
+            db.query(Points).filter_by(user_id=dana_id).delete()
+            db.query(Product).filter(Product.id.in_(product_ids)).delete(synchronize_session=False)
+            db.query(User).filter_by(id=dana_id).delete()
+            db.commit()
