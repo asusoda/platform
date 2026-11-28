@@ -118,7 +118,6 @@ def knowledge_add_document(
     "knowledge.delete_source",
     description="Delete a knowledge source and all of its passages.",
     scope="knowledge:write",
-    confirm=True,
     input_schema={"type": "object", "properties": {"key": KEY}, "required": ["key"], "additionalProperties": False},
 )
 def knowledge_delete_source(db, org, caller, key: str):
@@ -217,7 +216,6 @@ def knowledge_update_settings(db, org, caller, **arguments):
     "knowledge.reindex",
     description="Crawl every crawled source again so new chunk settings apply.",
     scope="knowledge:write",
-    confirm=True,
     input_schema=NO_ARGS,
 )
 def knowledge_reindex(db, org, caller):
@@ -239,7 +237,6 @@ def knowledge_embeddings(db, org, caller):
     "knowledge.reembed",
     description="Embed every passage that is not on the org's current embedding model, from its stored text.",
     scope="knowledge:write",
-    confirm=True,
     input_schema=NO_ARGS,
 )
 def knowledge_reembed(db, org, caller):

@@ -90,7 +90,6 @@ def _delete_preview(db, org, caller, ids: list[int] | None = None, event: str | 
     description="Delete point entries by id (up to 100), or every entry of one event.",
     scope="points:write",
     module="points",
-    confirm=True,
     preview=_delete_preview,
     input_schema={
         "type": "object",

@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, redirect, request, session
 from core.config import config
 from core.db import db_connect
 from core.http.request_log import bearer_token
-from core.http.responses import error_handler
+from core.http.responses import error_handler, internal_error
 from core.integrations.discord import DiscordUnavailable
 from core.log import logger
 from modules.auth.access import decide, discord_directory, officer_guilds
@@ -228,8 +228,8 @@ def refresh_token():
         else:
             return jsonify({"error": "Invalid or expired refresh token"}), 401
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("refresh_token")
 
 
 @auth_blueprint.route("/revoke", methods=["POST"])
@@ -254,8 +254,8 @@ def revoke_token():
         else:
             return jsonify({"error": "Invalid refresh token"}), 400
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("revoke_token")
 
 
 @auth_blueprint.route("/validateToken", methods=["GET"])
@@ -323,8 +323,8 @@ def logout():
         session.clear()
 
         return jsonify({"message": "Logged out successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("logout")
 
 
 @auth_blueprint.route("/success")

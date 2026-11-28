@@ -7,4 +7,5 @@ RUN npm install --global --no-audit --no-fund playwright@${PLAYWRIGHT_VERSION}
 USER pwuser
 WORKDIR /home/pwuser
 EXPOSE 3000
+# docker-compose.yml replaces this command with one that adds the secret path and --max-clients
 CMD ["playwright", "run-server", "--port", "3000", "--host", "0.0.0.0"]

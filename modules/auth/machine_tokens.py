@@ -2,10 +2,15 @@
 
 The token is shown once at creation. The database keeps a SHA-256 hash, so a leaked database
 does not leak usable tokens. No Flask here; routes and the MCP server both call these functions.
+
+A token that another token issued (modules/organizations/service.py issue_child_token) has the parent's actor
+(kind:name#id) in created_by. It works only while each parent, up to MAX_DEPTH levels, is not revoked and not
+expired, and revoke() also revokes it.
 """
 
 import datetime
 import hashlib
+import re
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -19,6 +24,10 @@ PREFIX = "plat_"
 KINDS = ("app", "agent", "cli")
 # The kind of a token that an MCP OAuth client gets (modules/mcp/oauth.py). An officer cannot make one by hand.
 OAUTH_KIND = "oauth"
+# The created_by of a child token: the MachineCaller.actor of its parent
+PARENT_ACTOR = re.compile(r"^(?:app|agent|cli|oauth):.*#(\d+)$")
+# A token with more parents than this is refused
+MAX_DEPTH = 5
 
 
 class TokenError(ValueError):
@@ -168,21 +177,48 @@ def issue_oauth(
 
 
 def rotate(db, row: MachineToken, expires_seconds: int, scopes: list[str] | None = None) -> str:
-    """Replace the value of a token and set a new expiry. The old value stops working. Does not commit."""
+    """Replace the value of a token and set a new expiry. The old value stops working. Does not commit.
+
+    With scopes, the token gets those that are known scopes. The caller caps them first (the OAuth grant).
+    """
     value = _set_value(row)
     row.expires_at = utcnow() + datetime.timedelta(seconds=expires_seconds)
     if scopes is not None:
-        row.scopes = sorted(set(scopes) & {str(s) for s in cast(list, row.scopes or [])})
+        row.scopes = sorted({str(s) for s in scopes} & set(SCOPES))
     return value
 
 
+def parent_id(row: MachineToken) -> int | None:
+    """The id of the token that issued this one, or None when a person or the server issued it."""
+    match = PARENT_ACTOR.match(str(row.created_by or ""))
+    return int(match.group(1)) if match else None
+
+
+def _live(row: MachineToken | None, now: datetime.datetime) -> bool:
+    return row is not None and row.revoked_at is None and (row.expires_at is None or row.expires_at > now)
+
+
+def _parents_live(db, row: MachineToken, now: datetime.datetime) -> bool:
+    """Whether every parent of row, in the same org, is live. A parent that is gone counts as revoked."""
+    current = row
+    for _ in range(MAX_DEPTH + 1):
+        found = parent_id(current)
+        if found is None:
+            return True
+        parent = db.query(MachineToken).filter_by(id=found, organization_id=row.organization_id).first()
+        if parent is None or not _live(parent, now):
+            return False
+        current = parent
+    return False
+
+
 def verify(db, token: str | None) -> MachineCaller | None:
-    """The caller for a valid, unrevoked, unexpired token, else None. Records last use."""
+    """The caller for a valid, unrevoked, unexpired token whose parents are live, else None. Records last use."""
     if not is_machine_token(token):
         return None
     row = db.query(MachineToken).filter_by(token_hash=_hash(str(token))).first()
     now = utcnow()
-    if row is None or row.revoked_at is not None or (row.expires_at is not None and row.expires_at <= now):
+    if row is None or not _live(row, now) or not _parents_live(db, row, now):
         return None
     if row.last_used_at is None or (now - row.last_used_at).total_seconds() > 60:
         row.last_used_at = now
@@ -198,11 +234,41 @@ def verify(db, token: str | None) -> MachineCaller | None:
     )
 
 
+def revoke_children(db, organization_id: int, token_ids: list[int]) -> list[int]:
+    """Revoke the active tokens of the org that these tokens issued, and theirs, MAX_DEPTH levels down. No commit.
+
+    Returns the ids it revoked.
+    """
+    now = utcnow()
+    revoked: list[int] = []
+    parents = set(token_ids)
+    for _ in range(MAX_DEPTH):
+        if not parents:
+            break
+        rows = (
+            db.query(MachineToken)
+            .filter(
+                MachineToken.organization_id == organization_id,
+                MachineToken.revoked_at.is_(None),
+                MachineToken.created_by.like("%#%"),
+            )
+            .all()
+        )
+        children = [row for row in rows if parent_id(row) in parents]
+        for row in children:
+            row.revoked_at = now
+            revoked.append(cast(int, row.id))
+        parents = {cast(int, row.id) for row in children}
+    return revoked
+
+
 def revoke(db, organization_id: int, token_id: int) -> bool:
+    """Revoke a token and the tokens it issued. False when it is not an active token of the org."""
     row = db.query(MachineToken).filter_by(id=token_id, organization_id=organization_id).first()
     if row is None or row.revoked_at is not None:
         return False
     row.revoked_at = utcnow()
+    revoke_children(db, organization_id, [token_id])
     db.commit()
     return True
 

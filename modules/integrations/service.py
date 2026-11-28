@@ -16,7 +16,7 @@ from typing import Any
 from core import secrets
 from core.integrations import registry
 from core.log import get_logger
-from core.tools import CONFIRM_NOTE, ToolError, ToolSpec
+from core.tools import REMOTE_READ, REMOTE_WRITE, ToolError, ToolSpec, with_confirm
 from modules.auth.machine_tokens import MachineCaller
 from modules.integrations import mcp_client
 from modules.integrations.servers import SERVERS, RemoteServer
@@ -77,15 +77,14 @@ def _spec(server: RemoteServer, tool: dict, write: bool) -> ToolSpec:
     schema: dict[str, Any] = dict(given) if isinstance(given, dict) else {"type": "object"}
     description = str(tool.get("description") or "")[:2000]
     if write:
-        schema["properties"] = {**(schema.get("properties") or {}), "confirm": {"type": "boolean"}}
-        description += CONFIRM_NOTE
+        schema, description = with_confirm(schema, description)
     return ToolSpec(
         name=name,
         description=description,
         scope=server.write_scope if write else server.read_scope,
         func=partial(_call, server, str(tool["name"]), write),
         input_schema=schema,
-        confirm=write,
+        guard=REMOTE_WRITE if write else REMOTE_READ,
         integration=server.integration,
     )
 
@@ -138,6 +137,10 @@ def _call(server: RemoteServer, tool_name: str, write: bool, db, org, caller: Ma
     target_limits = caller.limit(server.key, server.target_limit) if server.target_limit else None
     if target_limits is not None and (target is None or not _allowed_target(target_limits, target)):
         raise ToolError(f"This token may not act on {target or 'that target'}", 403)
+    if target_limits is not None and server.target_check is not None:
+        reason = server.target_check(arguments, target_limits)
+        if reason:
+            raise ToolError(reason, 403)
     headers = server.headers(db, int(org.id))
     if headers is None:
         raise ToolError(f"Connect {server.key} on the Integrations page first", 409)

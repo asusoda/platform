@@ -13,7 +13,7 @@ Keeps an org's knowledge sources and searches them. Writers send a source as chu
 | `crawl.py` | Crawls: fetch, extract, chunk, embed, index; `queue` starts the crawl job for one source |
 | `discover.py` | Pages agents read, saved as crawled sources |
 | `fetch.py` | Fetches with robots.txt, per-host pauses and public addresses only; registers the Firecrawl integration and uses the org's Firecrawl |
-| `render.py` | Renders a thin page again in the shared browser (`BROWSER_URL`), in a new context for each page; declares `knowledge.renders_per_day` |
+| `render.py` | Renders a thin page again in the shared browser (`BROWSER_URL`), in a new context for each page, with the request guard of `core/browser.py`; declares `knowledge.renders_per_day` |
 | `extract.py` | HTML to text, text to chunks, and the extractors that other modules register |
 | `documents.py` | Uploaded files (text, Markdown, HTML, PDF, Word) indexed as sources |
 | `settings.py` | Per-org passage size and search settings, kept in the org config |

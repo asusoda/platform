@@ -108,3 +108,12 @@ def test_config_check_names_the_bot_and_catches_a_client_id_from_another_app(cli
 
     monkeypatch.setenv("CLIENT_ID", "88")
     assert "CLIENT_ID 88 is from another Discord app" in cli.invoke(args=["config", "check"]).output
+
+
+def test_config_check_refuses_a_browser_url_without_a_secret_path(cli, monkeypatch):
+    monkeypatch.setenv("BROWSER_URL", "ws://browser:3000/")
+    assert "FAIL  BROWSER_URL: Set BROWSER_SECRET" in cli.invoke(args=["config", "check"]).output
+    monkeypatch.setenv("BROWSER_URL", "ws://browser:3000/unset")
+    assert "FAIL  BROWSER_URL" in cli.invoke(args=["config", "check"]).output
+    monkeypatch.setenv("BROWSER_URL", "ws://browser:3000/0f3a9c")
+    assert "ok    BROWSER_URL has a secret path" in cli.invoke(args=["config", "check"]).output

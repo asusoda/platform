@@ -67,7 +67,6 @@ def feeds_save(db, org, caller, key: str, **body):
     "feeds.delete",
     description="Delete a feed, its history and its webhook.",
     scope="feeds:manage",
-    confirm=True,
     input_schema=ONLY_KEY,
 )
 def feeds_delete(db, org, caller, key: str):

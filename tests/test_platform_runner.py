@@ -345,3 +345,38 @@ def test_the_shell_runs_as_its_user_and_a_timeout_kills_it(policy, monkeypatch):
     for bad in ("", "x" * 4001, None):
         with pytest.raises(runner.Refused):
             runner.run_shell(policy, {"command": bad})
+
+
+def test_the_socket_is_0660_and_a_planted_symlink_is_not_followed(tmp_path, monkeypatch):
+    import os
+    import stat
+
+    path = tmp_path / "runner.sock"
+    server = runner.bind(str(path), os.getgid())
+    try:
+        assert stat.S_ISSOCK(path.lstat().st_mode)
+        assert path.lstat().st_mode & 0o777 == 0o660
+    finally:
+        server.server_close()
+
+    victim = tmp_path / "victim"
+    victim.write_text("keep")
+    os.chmod(victim, 0o600)
+    planted = tmp_path / "planted.sock"
+    changed: list = []
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(os, "lchown", lambda p, uid, gid: changed.append(p))
+
+    real_server = runner.Server
+
+    def plant_after_bind(address, handler):
+        bound = real_server(address, handler)
+        os.unlink(address)
+        os.symlink(victim, address)
+        return bound
+
+    monkeypatch.setattr(runner, "Server", plant_after_bind)
+    server = runner.bind(str(planted), 0)
+    server.server_close()
+    assert victim.stat().st_mode & 0o777 == 0o600
+    assert changed == [str(planted)]

@@ -12,6 +12,7 @@ names. Each service has the domains whose proxy host forwards to one of its port
 
 import argparse
 import json
+import logging
 import os
 import re
 import shutil
@@ -186,13 +187,22 @@ def snapshot(root: str, extra_ports: list[int], npm_database: str) -> dict:
     return {"version": VERSION, "generated_at": int(time.time()), "services": found}
 
 
+logger = logging.getLogger("host_agent")
+# A temporary file older than this is left from a run that was killed
+STALE_SECONDS = 600
+
+
 def write(path: Path, data: dict) -> None:
     """Write the file in one step, so the API never reads half a file.
 
     Containers can write to the directory. The temporary file is new, with a random name, and the rename replaces a
-    symlink at path, so the agent never writes through a link that a container made.
+    symlink at path, so the agent never writes through a link that a container made. A directory at path is left
+    alone: the write is skipped and logged.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_dir() and not path.is_symlink():
+        logger.error("%s is a directory; snapshot not written", path)
+        return
     descriptor, name = tempfile.mkstemp(prefix=".host-", suffix=".json", dir=path.parent)
     try:
         with os.fdopen(descriptor, "w") as file:
@@ -204,7 +214,20 @@ def write(path: Path, data: dict) -> None:
         raise
 
 
+def remove_stale(folder: Path, now: float | None = None) -> None:
+    """Delete the .host-*.json files in folder that are older than STALE_SECONDS. Never follows a symlink."""
+    limit = (time.time() if now is None else now) - STALE_SECONDS
+    for found in folder.glob(".host-*.json"):
+        try:
+            info = found.lstat()
+            if info.st_mtime < limit:
+                found.unlink()
+        except OSError as e:
+            logger.warning("could not remove %s: %s", found, e)
+
+
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Write a snapshot of the server's services for the API.")
     parser.add_argument("--root", default="/var/www/soda-internal-api", help="the Platform checkout")
     parser.add_argument("--port", type=int, action="append", default=[], help="a host port to list, again for more")
@@ -212,6 +235,8 @@ def main() -> None:
     parser.add_argument("--interval", type=int, default=30, help="seconds between snapshots; 0 writes one and stops")
     args = parser.parse_args()
     out = Path(args.root, "data", "host.json")
+    if out.parent.is_dir():
+        remove_stale(out.parent)
     while True:
         write(out, snapshot(args.root, args.port, args.npm_database))
         if args.interval <= 0:

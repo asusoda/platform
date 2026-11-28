@@ -230,6 +230,8 @@ def fetch_firecrawl(url: str, firecrawl: Firecrawl) -> Fetched:
     """A page through Firecrawl. An org's own Firecrawl gets a connection to a checked public address only."""
     if firecrawl.public_only:
         check_url(firecrawl.url)
+        if firecrawl.api_key and not firecrawl.url.startswith("https://"):
+            raise FetchRejected("The Firecrawl URL must be https: the key would be sent in clear text")
     post = net.post if firecrawl.public_only else requests.post
     try:
         response = post(
@@ -292,9 +294,10 @@ register(
             Field(
                 FIRECRAWL_URL_SECRET,
                 "Server URL",
-                "For example https://api.firecrawl.dev. It must be on a public address.",
+                "For example https://api.firecrawl.dev. It must be https, on a public address.",
                 kind="url",
                 secret=False,
+                https_only=True,
             ),
             Field(FIRECRAWL_KEY_SECRET, "API key", "Leave empty for a server that needs no key.", optional=True),
         ),

@@ -225,7 +225,6 @@ def calendar_events(
         "required": ["summary", "start", "end"],
         "additionalProperties": False,
     },
-    confirm=True,
     integration="google",
     available=connected,
 )
@@ -386,7 +385,6 @@ def sheets_read(db, org, caller, spreadsheet_id: str, range: str | None = None):
         "required": ["spreadsheet_id", "range", "rows"],
         "additionalProperties": False,
     },
-    confirm=True,
     integration="google",
     available=connected,
 )
@@ -496,7 +494,6 @@ def gmail_read(db, org, caller, message_id: str):
         "required": ["to", "subject", "body"],
         "additionalProperties": False,
     },
-    confirm=True,
     integration="google",
     available=delegated,
 )

@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import pytest
 
-from core import limits, net
+from core import limits
 from modules.knowledge import fetch, render
 from modules.knowledge.fetch import Fetched
 
@@ -138,15 +138,68 @@ def test_firecrawl_takes_the_page_before_the_browser(clean_limits, db, web, monk
     assert web["renders"] == []
 
 
-def test_the_browser_loads_only_public_addresses(monkeypatch):
-    assert render.allowed_request("data:text/plain,hi")
-    assert not render.allowed_request("http://127.0.0.1:8000/health")
-    assert not render.allowed_request("file:///etc/passwd")
+def test_a_render_puts_the_guard_on_its_context(monkeypatch):
+    """render() opens the browser through core.browser and routes the context before the first page."""
+    from contextlib import contextmanager
 
-    def no_host(url):
-        raise net.NoHost("api does not resolve")
+    from core import browser as browsers
 
-    monkeypatch.setattr(net, "check_public", no_host)
-    assert not render.allowed_request("http://api:8000/")
-    monkeypatch.setattr(net, "check_public", lambda url: None)
-    assert render.allowed_request("https://example.edu/")
+    events: list[str] = []
+
+    class Page:
+        url = URL
+
+        def goto(self, url, **kwargs):
+            events.append(f"goto {kwargs['wait_until']}")
+            return type("Response", (), {"status": 200})()
+
+        def wait_for_load_state(self, state, timeout):
+            events.append(f"wait {state} {timeout}")
+
+        def content(self):
+            return RENDERED.body.decode()
+
+    class Context:
+        def new_page(self):
+            events.append("page")
+            return Page()
+
+        def close(self):
+            events.append("close")
+
+    class Browser:
+        def new_context(self, **kwargs):
+            return Context()
+
+    @contextmanager
+    def open_browser(playwright, server=None):
+        events.append(f"open {server}")
+        yield Browser()
+
+    class Api:
+        Error = RuntimeError
+        TimeoutError = TimeoutError
+
+        @staticmethod
+        @contextmanager
+        def sync_playwright():
+            yield object()
+
+    monkeypatch.setattr(browsers, "api", lambda: Api)
+    monkeypatch.setattr(browsers, "open_browser", open_browser)
+    monkeypatch.setattr(browsers, "guard", lambda context, max_bytes: events.append("guard"))
+    page = render.render(URL, "ws://browser:3000/s3cret")
+    assert page.url == URL
+    assert events == [
+        "open ws://browser:3000/s3cret",
+        "guard",
+        "page",
+        "goto load",
+        f"wait networkidle {render.IDLE_MS}",
+        "close",
+    ]
+
+
+def test_a_browser_url_without_a_secret_fails_the_render():
+    with pytest.raises(fetch.FetchError, match="BROWSER_SECRET"):
+        render.render(URL, "ws://browser:3000/")
