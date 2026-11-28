@@ -13,7 +13,7 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) and `GUARDRAILS`, one row for each tool: writes, confirm and rate class, with the `tools.<class>_per_minute` limits |
 | `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
 | `error_log.py` | The `error_groups` table, `ErrorLogHandler` that records log lines at ERROR and above, `capture()`, and the `error_log.prune` job |
-| `webhooks.py` | The `webhooks` table, the event registry (`declare()`), `emit()` that posts an event to the org's webhooks in a thread, and the kinds (Discord). See [docs/webhooks.md](../docs/webhooks.md) |
+| `webhooks.py` | The event registry (`declare()`), `emit()` that queues the `events.deliver` job, the job that saves the `notifications` row and calls the senders (`modules/alerts/delivery.py`). See [docs/webhooks.md](../docs/webhooks.md) |
 | `limits.py` | The `org_limits` and `usage_counters` tables, `declare()`, `check()` for count limits, `consume()` for rate limits, `report()`, `set_values()` and the `limits.prune` job. See [docs/limits.md](../docs/limits.md) |
 | `host.py` | `stats()`: the load, memory, disk, database size and container limits that the Superadmin page shows |
 | `secrets.py` | The `org_secrets` table, `declare()`, `set_secret` and `get_secret`, encrypted with `SECRETS_KEY` |

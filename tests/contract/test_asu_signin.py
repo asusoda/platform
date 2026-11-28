@@ -250,6 +250,7 @@ def test_an_expired_session_gives_an_error_and_one_notification(client, officer_
         assert second.status_code == 409 and len(fake.loads) == loads
         status = client.get(BASE, headers=officer_headers).get_json()
         assert status["signed_in"] is False and status["expired_at"]
+        sent.wait()
         db = db_connect.SessionLocal()
         rows = db.query(webhooks.Notification).filter_by(organization_id=soda, event="asu.session_expired").all()
         db.close()

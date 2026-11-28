@@ -143,6 +143,7 @@ source_modules = [
     "modules.*.jobs",
     "modules.*.tools",
     "modules.accounts.providers",
+    "modules.alerts.delivery",
     "modules.agents.conversations",
     "modules.agents.export",
     "modules.agents.memories",

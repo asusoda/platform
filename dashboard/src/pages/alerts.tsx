@@ -30,7 +30,7 @@ import {
 import { api, send } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import { useCurrentOrg } from '../lib/org';
-import type { Webhook, WebhookList, WebhookTest } from '../lib/types';
+import type { Delivery, DeliveryList, Webhook, WebhookList, WebhookTest } from '../lib/types';
 
 type Draft = { name: string; kind: string; url: string; events: string[] };
 
@@ -113,7 +113,7 @@ function WebhookForm({ prefix, list, hook, onDone }: { prefix: string; list: Web
         </div>
       </fieldset>
       <FormActions error={save.error}>
-        <Button variant="primary" disabled={save.isPending || !draft.events.length}>
+        <Button variant="primary" disabled={save.isPending}>
           {hook ? 'Save' : 'Add destination'}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>
@@ -154,7 +154,7 @@ function WebhookRow({ prefix, hook, labels, onEdit }: { prefix: string; hook: We
             <Mono className="hidden text-xs font-normal text-muted sm:inline">{hook.url_hint}</Mono>
           </div>
           <div className="mt-1 truncate text-xs text-muted" title={hook.events.map((key) => labels.get(key) ?? key).join(', ')}>
-            {hook.events.length} {hook.events.length === 1 ? 'event' : 'events'} ·{' '}
+            {hook.events.length ? `${hook.events.length} ${hook.events.length === 1 ? 'event' : 'events'}` : 'No events'} ·{' '}
             {hook.last_error ? (
               <span className="text-bad">{hook.last_error}</span>
             ) : hook.last_sent_at ? (
@@ -189,6 +189,60 @@ function WebhookRow({ prefix, hook, labels, onEdit }: { prefix: string; hook: We
         </div>
       ) : null}
     </div>
+  );
+}
+
+const SOURCES: Record<Delivery['source'], string> = { event: 'Event', feed: 'Feed', leetcode: 'LeetCode', test: 'Test' };
+
+// The last messages that Platform sent or tried to send, newest first, with the error of each failed one.
+export function RecentMessages({ deliveries, names }: { deliveries: Delivery[]; names: Map<number, string> }) {
+  return (
+    <Card>
+      <CardHeader title="Recent messages" />
+      {deliveries.length ? (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Message</Th>
+              <Th className="hidden sm:table-cell">Destination</Th>
+              <Th className="w-24 text-right">Sent</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {deliveries.map((d) => (
+              <Tr key={d.id}>
+                <Td className="max-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Dot tone={d.status === 'sent' ? 'ok' : 'bad'} />
+                    <span className="hidden sm:inline-flex">
+                      <Badge>{SOURCES[d.source]}</Badge>
+                    </span>
+                    {d.message_url ? (
+                      <a href={d.message_url} target="_blank" rel="noreferrer" className="truncate underline-offset-2 hover:underline">
+                        {d.title}
+                      </a>
+                    ) : (
+                      <span className="truncate">{d.title}</span>
+                    )}
+                  </div>
+                  {d.error ? (
+                    <div className="mt-1 truncate text-xs text-bad" title={d.error}>
+                      {d.error}
+                    </div>
+                  ) : null}
+                </Td>
+                <Td className="hidden max-w-0 truncate text-muted sm:table-cell">
+                  {d.destination_id != null ? (names.get(d.destination_id) ?? '-') : d.source === 'leetcode' ? 'Bot' : 'Own webhook'}
+                </Td>
+                <Td className="text-right whitespace-nowrap text-muted">{timeAgo(d.created_at)}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <EmptyState title="No messages yet" />
+      )}
+    </Card>
   );
 }
 
@@ -238,6 +292,10 @@ export function AlertsPage() {
     queryKey: ['webhooks', prefix],
     queryFn: () => api<WebhookList>(`/api/dashboard/${prefix}/webhooks`),
   });
+  const recent = useQuery({
+    queryKey: ['webhooks', prefix, 'deliveries'],
+    queryFn: () => api<DeliveryList>(`/api/dashboard/${prefix}/webhooks/deliveries?limit=20`),
+  });
   const data = list.data;
   const labels = new Map((data?.events ?? []).map((e) => [e.key, e.label]));
   const hooks = data?.webhooks ?? [];
@@ -278,6 +336,8 @@ export function AlertsPage() {
           )}
         </Card>
         {data && (hooks.length || data.feeds.length) ? <RoutesCard list={data} /> : null}
+        {recent.error ? <ErrorNote error={recent.error} /> : null}
+        {recent.data ? <RecentMessages deliveries={recent.data.deliveries} names={new Map(hooks.map((h) => [h.id, h.name]))} /> : null}
       </div>
       <Dialog
         open={editing !== null}

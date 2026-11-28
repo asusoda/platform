@@ -1,10 +1,10 @@
 """Alert tools: list, add, change, test and delete the org's alert destinations (outbound webhooks)."""
 
 from core.tools import ToolError, tool
-from core.webhooks import Webhook
 from modules.auth import scopes
 
 from . import service
+from .models import Destination
 
 scopes.declare(
     "webhooks:manage", "List, add, change, test and delete the org's outbound webhooks. URLs are never returned"
@@ -25,8 +25,9 @@ def webhooks_list(db, org, caller):
 @tool(
     "access.save_webhook",
     description=(
-        "Add a webhook, or change the webhook with id. A new webhook needs name, events and url. The URL must "
-        "match the kind and is stored encrypted. A missing field is kept."
+        "Add a webhook, or change the webhook with id. A new webhook needs name and url. events may be empty for "
+        "a destination that only feeds post to. The URL must match the kind and is stored encrypted. "
+        "A missing field is kept."
     ),
     scope="webhooks:manage",
     input_schema={
@@ -36,7 +37,7 @@ def webhooks_list(db, org, caller):
             "name": {"type": "string", "minLength": 1, "maxLength": service.MAX_NAME},
             "kind": {"type": "string", "maxLength": 32},
             "url": {"type": "string", "maxLength": 1000},
-            "events": {"type": "array", "items": {"type": "string", "maxLength": 64}, "minItems": 1},
+            "events": {"type": "array", "items": {"type": "string", "maxLength": 64}},
             "enabled": {"type": "boolean"},
         },
         "minProperties": 1,
@@ -76,7 +77,8 @@ def webhooks_test(db, org, caller, id: int):
     },
 )
 def webhooks_delete(db, org, caller, ids: list[int]):
-    known = {row.id for row in db.query(Webhook.id).filter(Webhook.organization_id == org.id, Webhook.id.in_(ids))}
+    rows = db.query(Destination.id).filter(Destination.organization_id == org.id, Destination.id.in_(ids))
+    known = {row.id for row in rows}
     missing = sorted(set(ids) - known)
     if missing:
         raise ToolError(f"No webhooks with ids {', '.join(str(i) for i in missing)}", 404)

@@ -1,36 +1,32 @@
-"""Outbound webhooks: the events that modules send, the webhooks that officers add, and the delivery of each event.
+"""Events: what modules send, saved as notifications and handed to the senders (the alerts module).
 
-A module declares its events with declare() and sends one with emit(). emit() returns at once: a daemon thread
-saves the event as a notification of the org, then finds the enabled webhooks of the org that take the event
-and posts the message to each. The org keeps the notifications of the last KEEP_DAYS days, at most KEEP_COUNT. A kind (Discord now)
-checks the URL and formats the message. URLs are encrypted with SECRETS_KEY, and no log line or error has one.
-Each process sends at most LIMIT_PER_HOUR messages for each org and event in an hour. No Flask here.
+A module declares its events with declare() and sends one with emit(). emit() never raises and returns at once:
+it queues the events.deliver job. The job saves the event as a notification of the org, then calls each handler
+that on_deliver() added. modules/alerts/jobs.py adds the one that posts to the org's destinations; every process
+(API, bot, MCP server, worker) loads it at start with modules.manifest.load_jobs(), as the inline queue runs a
+job in the process that queued it. The org keeps the notifications of the last KEEP_DAYS days, at most
+KEEP_COUNT. An emit() from inside events.deliver does nothing, so an error logged while delivering cannot queue
+another delivery. No Flask here.
 """
 
-import re
-import threading
-import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Any
 
-import requests
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, column
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, column
 from sqlalchemy import table as sql_table
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core import secrets
+from core import jobs
 from core.db import Base, session
 from core.log import get_logger
 from core.time import utcnow
 
-logger = get_logger("webhooks")
+logger = get_logger("events")
 
-LIMIT_PER_HOUR = 30
+DELIVER_JOB = "events.deliver"
 KEEP_DAYS = 30
 KEEP_COUNT = 200
-TIMEOUT_SECONDS = 10
 RED = 0xE5484D
 GREEN = 0x30A46C
 BLUE = 0x3E63DD
@@ -42,13 +38,13 @@ class Event:
     key: str
     label: str
     description: str
-    # The optional module that sends the event. The event is listed only when the org has the module on.
+    # The optional module that sends the event. The event is listed and sent only when the org has the module on.
     module: str | None = None
 
 
 @dataclass(frozen=True)
 class Message:
-    """One event as text. Each kind turns it into the body its service reads."""
+    """One event or post as text. Each kind of destination turns it into the body its service reads."""
 
     title: str
     text: str = ""
@@ -56,81 +52,42 @@ class Message:
     url: str | None = None
     color: int = BLUE
     footer: str | None = None
+    # ISO 8601 time shown on the message, such as when a feed item was found
+    timestamp: str | None = None
 
-
-@dataclass(frozen=True)
-class Kind:
-    key: str
-    label: str
-    pattern: re.Pattern
-    example: str
-    format: Callable[[Message], dict]
-    hint: Callable[[str], str]
+    @classmethod
+    def from_dict(cls, data: dict) -> "Message":
+        """The message from asdict(), after a trip through the job queue as JSON."""
+        return cls(
+            title=str(data["title"]),
+            text=str(data.get("text") or ""),
+            fields=tuple((str(name), str(value)) for name, value in data.get("fields") or ()),
+            url=data.get("url"),
+            color=int(data.get("color", BLUE)),
+            footer=data.get("footer"),
+            timestamp=data.get("timestamp"),
+        )
 
 
 EVENTS: dict[str, Event] = {}
+# Called by events.deliver with (org_id or None, event, message, server)
+Handler = Callable[[int | None, str, Message, bool], None]
+_handlers: list[Handler] = []
 
 
 def declare(key: str, label: str, description: str, module: str | None = None) -> None:
-    """Add an event that officers can pick for a webhook."""
+    """Add an event that officers can pick for a destination."""
     EVENTS[key] = Event(key, label, description, module)
 
 
-def _discord(message: Message) -> dict:
-    embed: dict = {
-        "title": message.title[:256],
-        "description": message.text[:1500],
-        "color": message.color,
-        "fields": [{"name": n[:256], "value": (v or "-")[:1024], "inline": len(v) < 40} for n, v in message.fields],
-    }
-    if message.url:
-        embed["url"] = message.url
-    if message.footer:
-        embed["footer"] = {"text": message.footer[:2048]}
-    return {"embeds": [embed], "allowed_mentions": {"parse": []}}
-
-
-def _discord_hint(url: str) -> str:
-    """The host and the last 4 digits of the webhook id. The token is not in it."""
-    match = re.match(r"^https://([\w.]+)/api/webhooks/(\d+)/", url)
-    return f"{match.group(1)} ...{match.group(2)[-4:]}" if match else "discord.com"
-
-
-KINDS: dict[str, Kind] = {
-    "discord": Kind(
-        key="discord",
-        label="Discord",
-        pattern=re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$"),
-        example="https://discord.com/api/webhooks/...",
-        format=_discord,
-        hint=_discord_hint,
-    ),
-}
-
-
-class Webhook(Base):
-    """One destination of an org and the events it gets. The URL is encrypted with SECRETS_KEY."""
-
-    __tablename__ = "webhooks"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    kind: Mapped[str] = mapped_column(String(20), nullable=False)
-    url_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
-    url_hint: Mapped[str] = mapped_column(String(100), nullable=False)
-    events: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
-    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    last_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
-    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
-    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_webhook_name"),)
+def on_deliver(handler: Handler) -> None:
+    """Add a handler that events.deliver calls for each event. Adding the same handler again does nothing."""
+    if handler not in _handlers:
+        _handlers.append(handler)
 
 
 class Notification(Base):
-    """One event that an org's officers see in Notifications, whether or not a webhook takes it."""
+    """One event that an org's officers see in Notifications, whether or not a destination takes it."""
 
     __tablename__ = "notifications"
 
@@ -146,49 +103,22 @@ class Notification(Base):
 declare("job.failed", "Failed job runs", "A background job for the org fails, such as a crawl or a reindex.")
 
 _organizations = sql_table("organizations", column("id"), column("prefix"), column("config", JSON))
-_sent: dict[tuple[int | str, str], list[float]] = {}
-_sent_lock = threading.Lock()
 
 
-def _allow(org: int | str, event: str) -> bool:
-    now = time.monotonic()
-    with _sent_lock:
-        times = [t for t in _sent.get((org, event), []) if now - t < 3600]
-        allowed = len(times) < LIMIT_PER_HOUR
-        if allowed:
-            times.append(now)
-        _sent[(org, event)] = times
-        return allowed
-
-
-def _thread(target: Callable, *args) -> threading.Thread:
-    thread = threading.Thread(target=target, args=args, name="webhooks", daemon=True)
-    thread.start()
-    return thread
-
-
-# Starts the delivery. Tests replace it to deliver in the test thread.
-spawn: Callable[..., object] = _thread
-
-
-def emit(org: int | str | None, event: str, message: Message) -> None:
-    """Send the event to the org's webhooks in the background. org is an org id or prefix. Never raises."""
-    if org is None or org == "":
+def emit(org: int | str | None, event: str, message: Message, server: bool = False) -> None:
+    """Queue the event for the org (an id or a prefix). server also sends it to ERROR_WEBHOOK_URL. Never raises."""
+    if (org is None or org == "") and not server:
         return
     if event not in EVENTS:
-        logger.warning("webhook event not declared event=%s", event)
+        logger.warning("event not declared event=%s", event)
+        return
+    if jobs.current_job.get() == DELIVER_JOB:
+        logger.info("event skipped inside %s event=%s org=%s", DELIVER_JOB, event, org)
         return
     try:
-        spawn(save, org, event, message)
-    except Exception:
-        logger.warning("notification save did not start event=%s", event)
-    if not _allow(org, event):
-        logger.info("webhook event over the hourly limit org=%s event=%s", org, event)
-        return
-    try:
-        spawn(deliver, org, event, message)
-    except Exception:
-        logger.warning("webhook delivery did not start event=%s", event)
+        jobs.defer(DELIVER_JOB, org=org or None, event=event, message=asdict(message), server=server)
+    except Exception as e:
+        logger.warning("event not queued event=%s org=%s error=%s: %s", event, org, type(e).__name__, e)
 
 
 def _org_id(db, org: int | str) -> int | None:
@@ -198,77 +128,51 @@ def _org_id(db, org: int | str) -> int | None:
     return int(row.id) if row is not None else None
 
 
-def save(org: int | str, event: str, message: Message) -> None:
-    """Save the event as a notification of the org and drop the org's old ones. Never raises."""
+def save(db, org_id: int, event: str, message: Message) -> None:
+    """Add the event as a notification of the org and drop the org's old ones. The caller commits."""
+    text = "\n".join([message.text, *(f"{name}: {value}" for name, value in message.fields)]).strip()
+    db.add(
+        Notification(
+            organization_id=org_id, event=event, title=message.title[:256], text=text[:2000], color=message.color
+        )
+    )
+    db.flush()
+    mine = db.query(Notification).filter_by(organization_id=org_id)
+    mine.filter(Notification.created_at < utcnow() - timedelta(days=KEEP_DAYS)).delete()
+    # Only rows older than the oldest kept one go, so a row that another delivery commits meanwhile stays
+    kept = [i for (i,) in mine.order_by(Notification.id.desc()).with_entities(Notification.id).limit(KEEP_COUNT)]
+    if len(kept) == KEEP_COUNT:
+        mine.filter(Notification.id < kept[-1]).delete(synchronize_session=False)
+
+
+@jobs.job(DELIVER_JOB, audit=False)
+def deliver(org: int | str | None, event: str, message: dict, server: bool = False) -> None:
+    """Save the event as a notification, then call each handler. Never raises, so it sends no job.failed itself."""
+    parsed = Message.from_dict(message)
+    org_id = None
     try:
-        with session() as db:
-            org_id = _org_id(db, org)
-            if org_id is None:
-                return
-            text = "\n".join([message.text, *(f"{name}: {value}" for name, value in message.fields)]).strip()
-            db.add(
-                Notification(
-                    organization_id=org_id,
-                    event=event,
-                    title=message.title[:256],
-                    text=text[:2000],
-                    color=message.color,
-                )
+        if org is not None:
+            with session() as db:
+                org_id = _org_id(db, org)
+                if org_id is None:
+                    logger.warning("event for an unknown org event=%s org=%s", event, org)
+                else:
+                    save(db, org_id, event, parsed)
+    except Exception as e:
+        logger.warning("notification not saved event=%s org=%s error=%s: %s", event, org, type(e).__name__, e)
+    if org_id is None and not server:
+        return
+    if not _handlers:
+        logger.warning("no event handler in this process event=%s; the process did not call load_jobs()", event)
+    for handler in _handlers:
+        try:
+            handler(org_id, event, parsed, server)
+        except Exception as e:
+            logger.warning(
+                "event handler failed event=%s org=%s handler=%s error=%s: %s",
+                event,
+                org_id,
+                getattr(handler, "__qualname__", handler),
+                type(e).__name__,
+                e,
             )
-            db.flush()
-            mine = db.query(Notification).filter_by(organization_id=org_id)
-            mine.filter(Notification.created_at < utcnow() - timedelta(days=KEEP_DAYS)).delete()
-            kept = [
-                i for (i,) in mine.order_by(Notification.id.desc()).with_entities(Notification.id).limit(KEEP_COUNT)
-            ]
-            mine.filter(Notification.id.notin_(kept)).delete(synchronize_session=False)
-            db.commit()
-    except Exception:
-        logger.warning("notification save failed event=%s", event)
-
-
-def post(kind: str, url: str, message: Message) -> str | None:
-    """Send one message. Returns None when the service took it, else an error with no URL in it."""
-    destination = KINDS.get(kind)
-    if destination is None:
-        return f"Unknown webhook kind {kind}"
-    try:
-        response = requests.post(url, json=destination.format(message), timeout=TIMEOUT_SECONDS, allow_redirects=False)
-    except requests.RequestException as e:
-        return f"Could not reach {destination.label}: {type(e).__name__}"
-    if response.status_code >= 400:
-        return f"{destination.label} refused the message with status {response.status_code}"
-    return None
-
-
-def deliver(org: int | str, event: str, message: Message) -> int:
-    """Post the message to each enabled webhook of the org that takes the event. Returns the number sent."""
-    try:
-        with session() as db:
-            org_id = _org_id(db, org)
-            if org_id is None:
-                return 0
-            rows = db.query(Webhook).filter_by(organization_id=org_id, enabled=True).all()
-            targets = [
-                (row.id, str(row.kind), url)
-                for row in rows
-                if event in (row.events or []) and (url := secrets.decrypt(str(row.url_ciphertext)))
-            ]
-        results = {webhook_id: post(kind, url, message) for webhook_id, kind, url in targets}
-        if results:
-            record(results)
-        return sum(1 for error in results.values() if error is None)
-    except Exception:
-        logger.warning("webhook delivery failed event=%s", event)
-        return 0
-
-
-def record(results: dict[int, str | None]) -> None:
-    """Save the time and the error of the last message of each webhook."""
-    with session() as db:
-        for row in db.query(Webhook).filter(Webhook.id.in_(list(results))).all():
-            error = results[row.id]
-            row.last_sent_at = utcnow()
-            row.last_error = error[:500] if error else None
-            if error:
-                logger.warning("webhook send failed webhook=%s error=%s", row.id, error)

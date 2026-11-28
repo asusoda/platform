@@ -122,12 +122,12 @@ def get_secret(db, org_id: int, name: str) -> str | None:
         return None
     fernet = _fernet()
     if fernet is None:
-        logger.warning("secret %s is set for org %s but SECRETS_KEY is missing", name, org_id)
+        logger.warning("org secret id=%s of org %s is set but SECRETS_KEY is missing", row.id, org_id)
         return None
     try:
         return fernet.decrypt(str(row.ciphertext).encode()).decode()
     except InvalidToken:
-        logger.error("secret %s for org %s cannot be decrypted with SECRETS_KEY", name, org_id)
+        logger.error("org secret id=%s of org %s cannot be decrypted with SECRETS_KEY", row.id, org_id)
         return None
 
 

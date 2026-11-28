@@ -1,7 +1,9 @@
 """The LeetCode daily post and its solve checks, run as jobs. No Flask and no gateway bot here.
 
 A leetcode_daily row per local date and target is claimed before posting, so two workers or a restart never
-post twice. Members still to verify come from the database on every run, not from bot memory.
+post twice. Members still to verify come from the database on every run, not from bot memory. An org's post is
+logged in deliveries (modules/alerts/delivery.py): each sent post, and the first failure of the day, which also
+sends leetcode.post_failed.
 """
 
 import asyncio
@@ -14,10 +16,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import aiohttp
 from sqlalchemy.exc import IntegrityError
 
+from core import webhooks
 from core.config import config
 from core.integrations.discord import DiscordDirectory, DiscordUnavailable, add_reaction, send_message
 from core.integrations.registry import use
 from core.log import get_logger
+from modules.alerts import delivery
+from modules.alerts.models import Delivery
 from modules.leetcode import client, service
 from modules.leetcode.models import LeetCodeDaily
 
@@ -167,22 +172,61 @@ def _post(db, target: Target, today: datetime.date, question: dict, send, react)
         "content": f"<@&{target.role_ping}>" if target.role_ping else None,
         "embeds": [question_embed(question, is_daily=True)],
     }
+    title = f"Daily LeetCode: {question['title']}"
     try:
         message = send(config.BOT_TOKEN, target.channel_id, payload)
-    except DiscordUnavailable:
+    except DiscordUnavailable as e:
         # Give the day back so the next run tries again
         db.query(LeetCodeDaily).filter_by(post_date=today, scope=target.scope).delete()
         db.commit()
+        _log_failure(db, target, today, title, f"{type(e).__name__}: {e}")
         raise
     row = db.get(LeetCodeDaily, (today, target.scope))
     row.message_id = str(message["id"])
     db.commit()
+    org_id = _org_id(target)
+    if org_id is not None:
+        delivery.log_post(db, org_id, "leetcode", target.scope, title, str(target.channel_id), str(message["id"]))
     try:
         react(config.BOT_TOKEN, target.channel_id, message["id"], CHECK_MARK)
     except DiscordUnavailable:
         logger.warning("Could not react to the daily post", exc_info=True)
     logger.info("Posted daily LeetCode %s for %s", question["titleSlug"], target.scope)
     return {"posted": True, "slug": question["titleSlug"]}
+
+
+def _org_id(target: Target) -> int | None:
+    return int(target.scope.removeprefix("org:")) if target.scope.startswith("org:") else None
+
+
+def _log_failure(db, target: Target, today: datetime.date, title: str, error: str) -> None:
+    """Log the first failed post of the day for an org and send leetcode.post_failed. Later retries log nothing."""
+    org_id = _org_id(target)
+    if org_id is None:
+        return
+    midnight = datetime.datetime.combine(today, datetime.time.min, tzinfo=_zone()).astimezone(datetime.UTC)
+    failed_today = (
+        db.query(Delivery.id)
+        .filter(
+            Delivery.organization_id == org_id,
+            Delivery.source == "leetcode",
+            Delivery.ref == target.scope,
+            Delivery.status == "failed",
+            Delivery.created_at >= midnight.replace(tzinfo=None),
+        )
+        .first()
+    )
+    if failed_today is not None:
+        return
+    delivery.log_post(db, org_id, "leetcode", target.scope, title, str(target.channel_id), error=error)
+    message = webhooks.Message(
+        title="The daily LeetCode post failed",
+        text=error[:1000],
+        fields=(("Channel", str(target.channel_id)), ("Retries", "every 5 minutes today")),
+        color=webhooks.RED,
+        footer="LeetCode",
+    )
+    webhooks.emit(org_id, "leetcode.post_failed", message)
 
 
 def _solved_on(submissions: list[dict], slugs: set[str], day: datetime.date, zone: ZoneInfo) -> str | None:
