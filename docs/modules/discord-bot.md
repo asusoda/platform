@@ -40,11 +40,13 @@ In the Discord Developer Portal, turn on the **Server Members** intent for the a
 | --- | --- | --- |
 | LeetCode commands | [LeetCode](./leetcode.md) | `/daily`, `/random`, `/link`, `/unlink`, `/leaderboard`, `/stats` |
 | Helper | `bot` | Makes and removes channels and roles for other parts; `/clear` removes game channels and team roles, and needs Manage Server, Manage Channels and Manage Roles |
-| Jeopardy | `games` | Team roles and channels, questions and the scoreboard |
+| Jeopardy | `bot.games` | Team roles and channels, questions and the scoreboard, one game for each org |
 
 [Feeds](./feeds.md) and [Alerts](../webhooks.md) post through Discord webhooks, not through the bot. The `bot.games` switch turns Jeopardy on and off.
 
-## Jeopardy limits
+## Jeopardy
 
-- One game runs at a time for the whole deployment. `POST /api/bot/setactivegame` sets it up in the server of the caller's org. If the caller is an officer in more than one server of the bot, set `guild_id`.
+- Each org has its own games and its own set-up game, so two orgs can run games at the same time. `POST /api/bot/setactivegame` sets the game up in the server of the caller's org. An officer of more than one org with `bot.games` on sets `org` (the prefix) or `guild_id`. The superadmin must set one of them.
+- The set-up game of each org is in `active_game`. After a restart, `GameCog` builds each game again from its row. A channel, role or message that was deleted while the bot was down is dropped and logged. `modules/bot/submodules/games/README.md` has the details.
+- Sign-up uses raw reaction events, so a reaction on a sign-up post from before a restart still counts. The bot's own reaction does not.
 - The game routes at `/api/bot` need the bot inside the API process. Under gunicorn they fail. Turn them off with `DISABLED_ROUTES=/api/bot/` if you do not use them.

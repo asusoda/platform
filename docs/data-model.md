@@ -109,7 +109,7 @@ erDiagram
 | points.store | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
 | auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only, scopes, and per-integration `limits`), `sessions` (not used) |
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |
-| bot.games | `jeopardy_game`, `active_game` (one active game for the deployment) |
+| bot.games | `jeopardy_game` (the stored games of each org, one for each name), `active_game` (the set-up game of each org: the game state and the Discord ids that `GameCog` reads after a restart) |
 | bot.leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |
 | knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload). A source and its chunks belong to an org, or with no org to a shared submodule (`submodule_id`) |
 | submodules | `submodules` (one row for each submodule), `submodule_subscriptions` (the orgs that subscribe to each) |
