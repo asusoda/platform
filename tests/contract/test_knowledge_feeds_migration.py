@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 from tests.contract.migrations import alembic as _alembic
 
-BEFORE = "c4e6a8b0d2f4"
+BEFORE = "3f7ab9fccd70"
 AFTER = "c5e7a9b1d3f4"
 OLD_SWITCHES = ("knowledge", "integrations", "feeds")
 KINDS = ("github_jobs", "hackathons")

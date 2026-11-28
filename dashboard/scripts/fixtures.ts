@@ -251,7 +251,7 @@ export const MODULES: ModuleState[] = [
   { name: 'points.store', description: 'A merch store that members pay for with points.', enabled: true, parent: 'points', shared: false },
   { name: 'knowledge.asu', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.', enabled: true, parent: 'knowledge', shared: true },
   { name: 'knowledge.web', description: "Search the web through Google, Brave and Bing with the org's SearXNG, or the deployment's.", enabled: true, parent: 'knowledge', shared: false },
-  { name: 'knowledge.asu_signin', description: "An officer's ASU sign-in, so agents can read clubs and events on Sun Devil Central.", enabled: false, parent: 'knowledge', shared: false },
+  { name: 'knowledge.asu_signin', description: "An officer's ASU sign-in, so agents can read clubs and events on Sun Devil Central.", enabled: true, parent: 'knowledge', shared: false },
   { name: 'feeds.jobs', description: 'New software internship and new grad roles from GitHub job lists.', enabled: true, parent: 'feeds', shared: true },
   { name: 'feeds.hackathons', description: 'Upcoming hackathons from Hack Club, Euro-Hackathons and Hackalist.', enabled: false, parent: 'feeds', shared: true },
 ];
