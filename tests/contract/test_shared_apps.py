@@ -6,7 +6,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 from core.integrations import server
-from modules.runpod import shared
+from hosting import shared
 from tests import runner_fake
 
 from .test_access import SUPERADMIN_ID, headers_for
@@ -95,7 +95,7 @@ def cleanup(app):
     yield
     from core import secrets
     from core.db import db_connect
-    from modules.runpod.models import App, AppDeployment, SharedAppSubscription
+    from hosting.models import App, AppDeployment, SharedAppSubscription
 
     db = db_connect.SessionLocal()
     for row in db.query(App).filter(App.organization_id.is_(None)).all():

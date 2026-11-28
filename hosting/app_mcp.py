@@ -16,8 +16,8 @@ from mcp.client.streamable_http import streamable_http_client
 
 from core import hosting, net, secrets
 from core.log import get_logger
-from modules.runpod.models import App
-from modules.runpod.service import AppError, _find, _manifest
+from hosting.models import App
+from hosting.service import AppError, _find, _manifest
 
 logger = get_logger(__name__)
 

@@ -224,9 +224,9 @@ def test_new_member_sends_member_joined(client, officer_headers, sent):
 
 
 def test_pod_and_deploy_messages(client, officer_headers, sent):
+    from hosting import service as apps
+    from hosting.models import App, AppDeployment
     from modules.godfather import base as godfather
-    from modules.runpod import service as apps
-    from modules.runpod.models import App, AppDeployment
 
     _create(client, officer_headers, events=["pod.started", "pod.stopped", "app.deployed"])
     godfather.announce(_ais_id(), "gpu-1", "pod123", "start", "the session schedule")

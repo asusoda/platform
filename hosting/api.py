@@ -1,4 +1,4 @@
-"""HTTP routes for apps on RunPod. Machine tokens only; the organization is the token's."""
+"""HTTP routes for apps on a hosting provider. Machine tokens only; the organization is the token's."""
 
 from functools import partial
 from typing import cast
@@ -11,7 +11,7 @@ from modules.auth.routes import machine_route
 from . import service, templates
 
 apps_blueprint = Blueprint("apps", __name__)
-_route = partial(machine_route, apps_blueprint, module="runpod")
+_route = partial(machine_route, apps_blueprint, module="hosting")
 
 
 def _actor() -> str:

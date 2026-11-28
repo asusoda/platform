@@ -5,6 +5,9 @@ Flask-free, so alembic, the worker and MCP can load it.
 
 import importlib
 from dataclasses import dataclass
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
 
 # Each module and its category. modules/ stays flat; the categories group modules in modules/README.md and on the
 # Explore page of the dashboard. Core modules are always on and do not show on Explore.
@@ -25,7 +28,7 @@ CATEGORIES = {
     "AI and agents": ["integrations"],
     "Automations": ["feeds", "calendar", "uptime"],
     "Bots": ["leetcode", "games"],
-    "Compute": ["godfather", "runpod"],
+    "Compute": ["godfather"],
 }
 
 CORE = "Core"
@@ -105,11 +108,6 @@ CATALOG = {
     ),
     "points": ModuleInfo("Points", "Points, leaderboards and event check-ins."),
     "public": ModuleInfo("Public pages", "Open routes for the leaderboard, the member list and stats."),
-    "runpod": ModuleInfo(
-        "Hosting",
-        "Deploys the org's apps to a hosting provider, and rolls back to an earlier tag.",
-        needs=(RUNPOD, Need("github", "GitHub", optional=True)),
-    ),
     "storefront": ModuleInfo("Store", "A merch store that members pay for with points."),
     "superadmin": ModuleInfo("Superadmin", "Orgs for the whole deployment. Only the superadmin uses it."),
     "uptime": ModuleInfo(
@@ -117,6 +115,27 @@ CATALOG = {
     ),
     "members": ModuleInfo("Member list", "The members of the org and their profile fields."),
 }
+
+# Packages outside modules/ that the dashboard shows like a module, in their own sidebar section. hosting/ is the
+# apps layer: the org's own apps, which run on a hosting provider and are not Platform code.
+LAYERS = {
+    "hosting": ModuleInfo(
+        "Hosting",
+        "Deploys the org's apps to a hosting provider, and rolls back to an earlier tag.",
+        needs=(RUNPOD, Need("github", "GitHub", optional=True)),
+    ),
+}
+
+
+def folder(name: str) -> Path:
+    """The folder of a module, or of a layer such as hosting."""
+    return ROOT / name if name in LAYERS else ROOT / "modules" / name
+
+
+def info(name: str) -> ModuleInfo | None:
+    """How the dashboard shows a module or a layer, or None."""
+    return CATALOG.get(name) or LAYERS.get(name)
+
 
 # The modules that a new org starts with, in addition to Core. Each other module that an org can switch off starts off.
 NEW_ORG_MODULES: tuple[str, ...] = ()
@@ -140,7 +159,7 @@ MODEL_MODULES = [
     "modules.godfather.models",
     "modules.organizations.models",
     "modules.points.models",
-    "modules.runpod.models",
+    "hosting.models",
     "modules.storefront.models",
     "modules.submodules.models",
     "modules.superadmin.models",
@@ -158,7 +177,7 @@ JOB_MODULES = [
     "modules.auth.jobs",
     "modules.points.jobs",
     "modules.calendar.jobs",
-    "modules.runpod.jobs",
+    "hosting.jobs",
     "modules.knowledge.jobs",
     "modules.submodules.jobs",
     "modules.leetcode.jobs",
@@ -174,7 +193,7 @@ TOOL_MODULES = [
     "modules.calendar.tools",
     "modules.points.tools",
     "modules.knowledge.tools",
-    "modules.runpod.tools",
+    "hosting.tools",
     "modules.submodules.tools",
     "modules.dashboard.tools",
     "modules.alerts.tools",

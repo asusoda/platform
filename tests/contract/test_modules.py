@@ -29,7 +29,7 @@ def test_modules_are_on_by_default(client, officer_headers, soda_id):
         "uptime": True,
         "knowledge": True,
         "integrations": True,
-        "runpod": True,
+        "hosting": True,
     }
 
 

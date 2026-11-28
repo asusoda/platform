@@ -7,7 +7,7 @@ from core.jobs import job
 @job("runpod.check_deployments", cron="* * * * *", audit=False)
 def check_deployments() -> None:
     """Mark running app deployments healthy or failed from their health path."""
-    from modules.runpod import service
+    from hosting import service
 
     db = db_connect.SessionLocal()
     try:

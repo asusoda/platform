@@ -27,9 +27,9 @@ from core.cache import publish
 from core.errors import ServiceError
 from core.log import get_logger
 from core.tools import TOOLS, ToolError, ToolSpec, rate_limit
+from modules import manifest
 from modules.auth.machine_tokens import OAUTH_KIND, MachineCaller
 from modules.integrations import service as remote
-from modules.manifest import CATALOG
 from modules.mcp import layers
 from modules.mcp import service as tool_groups
 from modules.organizations import service as organizations
@@ -348,7 +348,7 @@ def _gate(db, caller: MachineCaller, spec: ToolSpec, arguments: dict | None, sou
 
 
 def _summary(name: str, specs: list[ToolSpec]) -> dict:
-    info = CATALOG.get(layers.folder(name, specs).name)
+    info = manifest.info(layers.owner(name, specs))
     return {
         "name": name,
         "tools": len(specs),

@@ -1,7 +1,7 @@
-"""HTTP routes for the officer dashboard: the overview, branding, CI runs, and officer control of apps and knowledge.
+"""HTTP routes for the officer dashboard: the overview, branding, CI runs, and officer control of knowledge.
 
-Apps and knowledge have machine-token routes in their own modules. The routes here call the same services for
-officers who sign in to the dashboard.
+Knowledge has machine-token routes in its own module. The routes here call the same services for officers who
+sign in to the dashboard. The officer routes of apps are in hosting/officer_api.py.
 """
 
 from functools import partial
@@ -10,7 +10,7 @@ from typing import cast
 
 from flask import Blueprint, redirect, request
 
-from core import hosting, secrets
+from core import secrets
 from core.config import config
 from core.db import db_connect
 from core.http import audit_hook
@@ -25,9 +25,6 @@ from modules.knowledge.search import search as search_chunks
 from modules.mcp import service as tool_groups
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.runpod import service as apps
-from modules.runpod import shared as shared_apps
-from modules.runpod import templates as app_templates
 from modules.submodules import service as submodules
 from submodules.asu.signin import service as asu
 
@@ -226,91 +223,6 @@ def set_ci_repos(db, org):
     return {"repos": ci.set_repos(db, org, json_body().get("repos"))}
 
 
-# Hosting providers and the apps that run on them
-
-
-@_route("/hosting/providers", ["GET"])
-def hosting_providers(db, org):
-    return {"providers": hosting.listing(db, _org_id(org))}
-
-
-@_route("/apps", ["GET"], module="runpod")
-def list_apps(db, org):
-    return {"apps": apps.list_apps(db, _org_id(org))}
-
-
-@_route("/apps/templates", ["GET"], module="runpod")
-def list_app_templates(db, org):
-    return {"templates": app_templates.list_templates()}
-
-
-@_route("/apps/templates/<string:template>", ["POST"], module="runpod")
-def create_app_from_template(db, org, template):
-    data = json_body()
-    app = app_templates.create(
-        db,
-        _org_id(org),
-        template,
-        data.get("name"),
-        data.get("values"),
-        data.get("secrets"),
-        data.get("provider"),
-        _actor(),
-    )
-    return app, 201
-
-
-@_route("/apps/<string:name>", ["GET"], module="runpod")
-def get_app(db, org, name):
-    return apps.get_app(db, _org_id(org), name) | {"deployments": apps.deployments(db, _org_id(org), name)}
-
-
-@_route("/apps/<string:name>", ["PUT"], module="runpod")
-def put_app(db, org, name):
-    data = json_body()
-    return apps.put_app(
-        db, _org_id(org), name, data.get("manifest"), data.get("repo"), data.get("manifest_path"), data.get("provider")
-    )
-
-
-@_route("/apps/<string:name>", ["DELETE"], module="runpod")
-def delete_app(db, org, name):
-    return apps.delete_app(db, _org_id(org), name)
-
-
-@_route("/apps/<string:name>/pod", ["GET"], module="runpod")
-def get_app_pod(db, org, name):
-    return {"pod": apps.pod(db, _org_id(org), name)}
-
-
-@_route("/apps/<string:name>/action", ["POST"], module="runpod")
-def app_action(db, org, name):
-    """Start, stop or restart the app. Body: {"action": "restart"}."""
-    return apps.app_action(db, _org_id(org), name, json_body().get("action"))
-
-
-@_route("/apps/<string:name>/logs", ["GET"], module="runpod")
-def app_logs(db, org, name):
-    return apps.app_logs(db, _org_id(org), name, request.args.get("lines", 200, type=int))
-
-
-@_route("/apps/<string:name>/deploy", ["POST"], module="runpod")
-def deploy_app(db, org, name):
-    data = json_body()
-    dry_run = data.get("dry_run") is True
-    result = apps.deploy(
-        db, _org_id(org), str(org.prefix), name, data.get("tag"), _actor(), dry_run=dry_run, ref=data.get("ref")
-    )
-    return result, 200 if dry_run else 202
-
-
-@_route("/apps/<string:name>/rollback", ["POST"], module="runpod")
-def rollback_app(db, org, name):
-    dry_run = json_body().get("dry_run") is True
-    result = apps.rollback(db, _org_id(org), str(org.prefix), name, _actor(), dry_run=dry_run)
-    return result, 200 if dry_run else 202
-
-
 # Knowledge sources
 
 
@@ -441,20 +353,3 @@ def reembed_passages(db, org):
 def knowledge_runs(db, org):
     limit = request.args.get("limit", type=int)
     return {"runs": runs.recent(db, _org_id(org), limit, failed_only=request.args.get("failed") == "1")}
-
-
-@_route("/shared-apps", ["GET"])
-def list_shared_apps(db, org):
-    """The shared apps the org can subscribe to, and its subscriptions."""
-    return {"apps": shared_apps.for_org(db, _org_id(org))}
-
-
-@_route("/shared-apps/<string:name>/subscription", ["PUT"])
-def subscribe_shared_app(db, org, name):
-    """Subscribe the org to a shared app. Body: {"emails": [...]}: the people to give access, such as officers."""
-    return shared_apps.subscribe(db, _org_id(org), name, json_body().get("emails"), _actor())
-
-
-@_route("/shared-apps/<string:name>/subscription", ["DELETE"])
-def unsubscribe_shared_app(db, org, name):
-    return shared_apps.unsubscribe(db, _org_id(org), name)

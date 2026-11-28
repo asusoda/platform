@@ -1164,7 +1164,7 @@ export function fixtures(now: number = Date.now()) {
       key: 'github',
       title: 'GitHub',
       description: "Connect the org's GitHub repos with a read-only token.",
-      docs: 'modules/runpod-apps',
+      docs: 'modules/hosting',
       fields: [field('github_token', 'Access token', 'A fine-grained token with read access to Actions and Contents.', -9 * DAY)],
       editable: true,
       source: 'org',

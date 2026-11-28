@@ -44,7 +44,7 @@ def apps(app):
     names: list[str] = []
     yield names
     from core.db import db_connect
-    from modules.runpod.models import App, AppDeployment
+    from hosting.models import App, AppDeployment
     from modules.uptime import service as uptime
 
     db = db_connect.SessionLocal()
@@ -153,7 +153,7 @@ def test_officers_cannot_control_server_services(client, officer_headers, runner
 
 
 def test_a_database_part_is_healthy_by_tcp(client, officer_headers, runner, apps):
-    from modules.runpod import service
+    from hosting import service
 
     tcp_db = {**CRM_DB, "health": {"port": 5432, "tcp": True}}
     name = _deployed(client, officer_headers, apps, tcp_db)
@@ -181,7 +181,7 @@ def test_runpod_needs_an_http_health_path(client, officer_headers, apps):
 
 def test_a_worker_with_no_port_is_healthy_while_it_runs(client, officer_headers, runner, apps):
     from core.db import db_connect
-    from modules.runpod import service
+    from hosting import service
 
     worker = {k: v for k, v in CRM_DB.items() if k not in ("alias", "health")} | {"health": {"running": True}}
     name = _deployed(client, officer_headers, apps, worker)

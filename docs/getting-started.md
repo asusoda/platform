@@ -54,7 +54,7 @@ To run the API with no container, run `uv run alembic upgrade head`, then `uv ru
 
 ### Discord apps
 
-Platform uses one Discord app: `BOT_TOKEN`, `CLIENT_ID` and `CLIENT_SECRET` all come from it. An agent bot that runs as a RunPod app (see [RunPod apps](./modules/runpod-apps.md)) gets its own token from an org secret, such as `app_<app>_discord_token`, not from these settings.
+Platform uses one Discord app: `BOT_TOKEN`, `CLIENT_ID` and `CLIENT_SECRET` all come from it. An agent bot that runs as a RunPod app (see [RunPod apps](./hosting.md)) gets its own token from an org secret, such as `app_<app>_discord_token`, not from these settings.
 
 Platform can share the app of an agent bot. Then set `RUN_BOT=false`, so that only one process connects to Discord with the token.
 

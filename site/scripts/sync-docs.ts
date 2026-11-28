@@ -25,7 +25,7 @@ const sections: Record<string, Section> = {
       ['modules/knowledge.md', 'knowledge'],
       ['modules/leetcode.md', 'leetcode'],
       ['modules/points.md', 'points'],
-      ['modules/runpod-apps.md', 'runpod-apps'],
+      ['hosting.md', 'hosting'],
       ['modules/storefront.md', 'storefront'],
       ['modules/submodules.md', 'submodules'],
       ['modules/uptime.md', 'uptime'],

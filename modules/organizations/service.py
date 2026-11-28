@@ -39,7 +39,7 @@ OPTIONAL_MODULES = {
     "uptime": "Checks of sites and Hosting apps, with an event when one goes down or up",
     "knowledge": "Pages and documents that agents search",
     "integrations": "Tools of the services the org connects, for agents",
-    "runpod": "Apps the org deploys to a hosting provider",
+    "hosting": "Apps the org deploys to a hosting provider",
 }
 
 

@@ -53,7 +53,7 @@ const modules: Module[] = [
     icon: Rocket,
     name: 'Hosting',
     text: 'Deploy org apps with health checks and rollback.',
-    href: '/docs/modules/runpod-apps',
+    href: '/docs/modules/hosting',
   },
   {
     icon: Plug,

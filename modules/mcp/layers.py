@@ -14,6 +14,7 @@ from pathlib import Path
 import yaml
 
 from core.tools import ToolSpec
+from modules import manifest
 from modules.integrations.servers import SERVERS
 
 BASE = ("org", "activity", "members", "discord", "access", "connections", "hosting", "modules", "server")
@@ -50,11 +51,15 @@ def grouped(specs: list[ToolSpec], kind: str) -> dict[str, list[ToolSpec]]:
     return found
 
 
-def folder(name: str, specs: list[ToolSpec]) -> Path:
-    """The folder of a module domain: the module most of its tools belong to, else the domain name."""
+def owner(name: str, specs: list[ToolSpec]) -> str:
+    """The module of a module domain: the module most of its tools belong to, else the domain name."""
     counts = Counter(spec.module for spec in specs if spec.module)
-    module = counts.most_common(1)[0][0] if counts else name
-    return ROOT / "modules" / module
+    return counts.most_common(1)[0][0] if counts else name
+
+
+def folder(name: str, specs: list[ToolSpec]) -> Path:
+    """The folder of a module domain."""
+    return manifest.folder(owner(name, specs))
 
 
 def skill(name: str, specs: list[ToolSpec]) -> str | None:

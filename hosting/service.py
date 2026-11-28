@@ -24,17 +24,17 @@ from core.errors import ServiceError
 from core.integrations import github, registry
 from core.log import get_logger
 from core.time import iso, utcnow
+from hosting.models import App, AppDeployment
 from modules.auth import scopes
-from modules.runpod.models import App, AppDeployment
 from modules.uptime import service as uptime
 
-logger = get_logger("runpod")
+logger = get_logger(__name__)
 
 SECRET_PREFIX = "app_"  # nosec B105 - a secret name prefix, not a value
 GITHUB_SECRET = github.SECRET_NAME
 hosting.load()
-registry.use("runpod", "runpod")
-registry.use("github", "runpod")
+registry.use("runpod", "hosting")
+registry.use("github", "hosting")
 secrets.declare_prefix(SECRET_PREFIX, "An env value for an app on RunPod, named in its manifest's secret_env")
 
 scopes.declare("apps:read", "List apps on RunPod, their pods and deployments", uses=("runpod",))
@@ -148,7 +148,7 @@ MANIFEST_SCHEMA: dict = {
             "additionalProperties": False,
         },
         "access": {
-            "description": "Shared apps: what an org's subscription does in the app (modules/runpod/shared.py)",
+            "description": "Shared apps: what an org's subscription does in the app (hosting/shared.py)",
             "type": "object",
             "properties": {"kind": {"enum": ["vaultwarden"]}},
             "required": ["kind"],
@@ -180,7 +180,7 @@ MANIFEST_SCHEMA: dict = {
 APPS_LIMIT = "runpod.apps"
 limits.declare(
     APPS_LIMIT,
-    "runpod",
+    "hosting",
     "Hosting apps",
     25,
     unit="apps",
@@ -202,7 +202,7 @@ def server_memory(db, org_id: int, skip: str | None = None) -> int:
 
 limits.declare(
     SERVER_APPS_LIMIT,
-    "runpod",
+    "hosting",
     "Apps on This server",
     2,
     unit="apps",
@@ -210,7 +210,7 @@ limits.declare(
 )
 limits.declare(
     SERVER_MEMORY_LIMIT,
-    "runpod",
+    "hosting",
     "Memory of the apps on This server",
     1024,
     unit="MB",

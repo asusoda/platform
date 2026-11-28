@@ -19,13 +19,13 @@ Officers can do steps 1, 2 and 4 on the dashboard (Settings > Secrets, and the S
    - Inline: `PUT /api/apps/<name>` with `{"manifest": {...}}`.
    - Both forms take an optional `provider`: `runpod` (the default) or `server`. An app that has a pod or container keeps its provider; a change answers 409.
 
-This server needs no org key. It shows on the Hosting page when the runner is installed on the server (see [Operations](../operations.md#this-server-runner)).
+This server needs no org key. It shows on the Hosting page when the runner is installed on the server (see [Operations](./operations.md#this-server-runner)).
 
 With a repo, a change to the pod's env, ports or disk is a pull request to the app, with the same review as its code. A person who can merge to the app's repo can already change what runs on the pod. Thus the deploy token gets no more access.
 
 ## Templates
 
-`apps/` holds ready-made apps: [Hermes](../../apps/hermes/README.md) and [Vaultwarden](../../apps/vaultwarden/README.md). See [apps/README.md](../../apps/README.md) for the template format.
+`apps/` holds ready-made apps: [Hermes](../apps/hermes/README.md) and [Vaultwarden](../apps/vaultwarden/README.md). See [apps/README.md](../apps/README.md) for the template format.
 
 1. On the Services tab of the Hosting page, select **Templates** and pick a template.
 2. Fill in the name and the inputs, then select **Create app**. Secret inputs become org secrets named `app_<name>_<input>`. The app gets an inline manifest.
@@ -105,7 +105,7 @@ An app of several parts is one app for each part, with the same `group`. SoDA's 
 | `crm-server` | `twentycrm/twenty`, publishes 2020 | `crm`, `server` | `{"port": 2020, "path": "/healthz"}` |
 | `crm-worker` | `twentycrm/twenty`, `command: ["yarn", "worker:prod"]` | `crm`, `worker` | `{"running": true}` |
 
-The server reaches the database as `db:5432` and Redis as `redis:6379`. Deploy the database first. A database also needs the steps in [Operations](../operations.md#move-a-service-that-already-runs-on-the-server).
+The server reaches the database as `db:5432` and Redis as `redis:6379`. Deploy the database first. A database also needs the steps in [Operations](./operations.md#move-a-service-that-already-runs-on-the-server).
 
 ## Shared apps
 

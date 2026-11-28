@@ -22,7 +22,7 @@ from .service import AppError
 
 logger = get_logger(__name__)
 
-ROOT = Path(__file__).resolve().parents[2] / "apps"
+ROOT = Path(__file__).resolve().parents[1] / "apps"
 FILE = "platform.app.yaml"
 INPUT_KINDS = ("image", "env", "secret", "volume", "data_center")
 # Kinds that set one field each, so a template has at most one input of each

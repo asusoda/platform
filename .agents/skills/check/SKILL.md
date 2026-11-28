@@ -13,7 +13,7 @@ cd site && npm run build                   # only when docs/ or site/ changed
 
 Rules:
 
-- Fix failures at the source. Do not add `# noqa`, `# type: ignore`, `# nosec` or a skipped test to get green. A `# nosec` is acceptable only for a false positive, on that line, with the reason (see `SECRET_PREFIX` in `modules/runpod/service.py`).
+- Fix failures at the source. Do not add `# noqa`, `# type: ignore`, `# nosec` or a skipped test to get green. A `# nosec` is acceptable only for a false positive, on that line, with the reason (see `SECRET_PREFIX` in `hosting/service.py`).
 - `ty` prints warnings for the whole repo. Only errors fail the gate. Do not add new ones: for SQLAlchemy columns use `typing.cast(int, row.id)`, not `int(row.id)`.
 - Tests share one database per session. A test that writes rows deletes them in its fixture teardown, including org secrets, or other tests see them.
 - `alembic check` fails when a model changed without a migration. See the `migration` skill.

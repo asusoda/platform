@@ -45,7 +45,7 @@ def test_lists_every_integration(client, officer_headers):
     found = _by_key(body)
     assert {"discord", "embeddings", "github", "google", "notion", "runpod"} <= set(found)
     assert found["notion"]["used_by"] == ["calendar", "integrations"]
-    assert set(found["runpod"]["used_by"]) == {"godfather", "integrations", "runpod"}
+    assert set(found["runpod"]["used_by"]) == {"godfather", "integrations", "hosting"}
     assert found["discord"]["editable"] is False and found["discord"]["fields"] == []
     assert found["embeddings"]["source"] is None
 

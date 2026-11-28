@@ -17,6 +17,7 @@ const movedDocs: Record<string, string> = {
   '/docs/modules/alerts': '/docs/modules/feeds',
   '/docs/modules/compute': '/docs/modules/godfather',
   '/docs/modules/packs': '/docs/modules/submodules',
+  '/docs/modules/runpod-apps': '/docs/modules/hosting',
 };
 
 const config: NextConfig = {

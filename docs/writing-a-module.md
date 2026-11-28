@@ -125,4 +125,4 @@ The route helpers and the tool runner return its message and status. A tool func
 
 ## Example
 
-`modules/runpod/` is a small module with every file: `service.py`, `api.py` on `machine_route`, `models.py`, `jobs.py` and `tools.py`. `modules/feeds/` is the example for `officer_route`.
+`modules/feeds/` is a small module with `service.py`, `api.py` on `officer_route`, `models.py`, `jobs.py` and `tools.py`. `hosting/api.py` is the example for `machine_route`.

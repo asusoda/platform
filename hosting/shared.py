@@ -19,8 +19,8 @@ from core import secrets
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import iso
-from modules.runpod import service
-from modules.runpod.models import App, SharedAppSubscription
+from hosting import service
+from hosting.models import App, SharedAppSubscription
 
 logger = get_logger(__name__)
 

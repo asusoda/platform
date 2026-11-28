@@ -9,7 +9,7 @@ from cryptography.fernet import Fernet
 
 from core.db import db_connect
 from core.integrations import runpod
-from modules.runpod import service
+from hosting import service
 
 
 class FakeRunPod:

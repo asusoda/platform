@@ -122,7 +122,7 @@ export function SharedAppsPage() {
       <PageHeader
         title="Shared apps"
         description="Owned by the deployment, used by orgs."
-        docs="modules/runpod-apps#shared-apps"
+        docs="modules/hosting#shared-apps"
         action={
           <Button onClick={() => setOpen({ kind: 'register' })}>
             <Plus className="size-4" /> Register

@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from flask import Blueprint, Flask, jsonify, request
 
 from core.db import db_connect
+from hosting.api import apps_blueprint
+from hosting.officer_api import hosting_officer_blueprint
 from modules.alerts.api import alerts_blueprint
 from modules.auth.api import auth_blueprint
 from modules.calendar.api import calendar_blueprint
@@ -23,7 +25,6 @@ from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
 from modules.points.member_api import points_blueprint
 from modules.public.api import public_blueprint
-from modules.runpod.api import apps_blueprint
 from modules.storefront.member_api import storefront_blueprint
 from modules.submodules.api import asu_blueprint, submodules_blueprint
 from modules.superadmin.api import superadmin_blueprint
@@ -61,6 +62,7 @@ MOUNTS = [
     Mount(uptime_blueprint, "/api/uptime", module="uptime"),
     Mount(dashboard_blueprint, "/api/dashboard"),
     Mount(alerts_blueprint, "/api/dashboard"),
+    Mount(hosting_officer_blueprint, "/api/dashboard"),
 ]
 
 

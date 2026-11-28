@@ -12,18 +12,18 @@ from core import audit
 from core import limits as core_limits
 from core.integrations import registry as integrations
 from core.time import iso, utcnow
+from hosting.models import App, AppDeployment
 from modules.auth import scopes
 from modules.auth.models import MachineToken
 from modules.feeds import service as feed_service
 from modules.feeds.models import AlertFeed, AlertPost
 from modules.godfather.models import ComputePod, ComputeSession
 from modules.knowledge.models import KnowledgeSource
-from modules.manifest import CATALOG, CATEGORIES, CORE, Need
+from modules.manifest import CATALOG, CATEGORIES, CORE, LAYERS, ModuleInfo, Need
 from modules.members.models import UserOrganizationMembership
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.points.models import Points
-from modules.runpod.models import App, AppDeployment
 from modules.storefront.models import Order, Product
 from modules.submodules import catalog as submodules
 
@@ -68,35 +68,37 @@ def overview(db, org: Organization) -> dict:
 
 
 def modules(db, org: Organization) -> dict:
-    """Each module that is not Core, in category order, with its switch, its needs and its submodules."""
-    org_id = org.id
-    result = []
-    for category, names in CATEGORIES.items():
-        if category == CORE:
-            continue
-        for name in names:
-            info = CATALOG[name]
-            needs = [_need(db, org_id, need) for need in info.needs]
-            result.append(
-                {
-                    "name": name,
-                    "title": info.title,
-                    "description": info.description,
-                    "category": category,
-                    "switchable": name in organizations.OPTIONAL_MODULES,
-                    "enabled": organizations.module_enabled(org, name),
-                    "ready": all(n["connected"] for n in needs if not n["optional"]),
-                    "needs": needs,
-                    # The limits this module's use counts against, with who pays for each
-                    "limits": core_limits.for_module(name),
-                    "submodules": [
-                        {"name": p.name, "title": p.title, "description": p.description}
-                        for p in map(submodules.get, info.submodules)
-                        if p is not None
-                    ],
-                }
-            )
-    return {"categories": [c for c in CATEGORIES if c != CORE], "modules": result}
+    """Each module that is not Core, in category order, with its switch, its needs and its submodules, and the
+    layers such as Hosting."""
+    result = [
+        _card(db, org, name, CATALOG[name], category)
+        for category, names in CATEGORIES.items()
+        if category != CORE
+        for name in names
+    ]
+    layers = [_card(db, org, name, info) for name, info in LAYERS.items()]
+    return {"categories": [c for c in CATEGORIES if c != CORE], "modules": result, "layers": layers}
+
+
+def _card(db, org: Organization, name: str, info: ModuleInfo, category: str | None = None) -> dict:
+    needs = [_need(db, org.id, need) for need in info.needs]
+    return {
+        "name": name,
+        "title": info.title,
+        "description": info.description,
+        "category": category,
+        "switchable": name in organizations.OPTIONAL_MODULES,
+        "enabled": organizations.module_enabled(org, name),
+        "ready": all(n["connected"] for n in needs if not n["optional"]),
+        "needs": needs,
+        # The limits this module's use counts against, with who pays for each
+        "limits": core_limits.for_module(name),
+        "submodules": [
+            {"name": p.name, "title": p.title, "description": p.description}
+            for p in map(submodules.get, info.submodules)
+            if p is not None
+        ],
+    }
 
 
 def _need(db, org_id: int, need: Need) -> dict:
@@ -111,7 +113,7 @@ def _need(db, org_id: int, need: Need) -> dict:
 def unlocks() -> dict[str, list[str]]:
     """The titles of the modules that each integration key unlocks, from the needs in the catalog."""
     found: dict[str, list[str]] = {}
-    for name, info in CATALOG.items():
+    for name, info in {**CATALOG, **LAYERS}.items():
         if name in CATEGORIES[CORE]:
             continue
         for need in info.needs:

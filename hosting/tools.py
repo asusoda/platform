@@ -5,10 +5,10 @@ from functools import partial
 
 from core import hosting
 from core.tools import tool as _tool
-from modules.runpod import app_mcp, service, shared, templates
+from hosting import app_mcp, service, shared, templates
 
 # Every tool here needs the runpod module on for the caller's org
-tool = partial(_tool, module="runpod")
+tool = partial(_tool, module="hosting")
 
 
 @tool(
