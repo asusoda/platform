@@ -294,7 +294,3 @@ def send_event(org_id: int | None, event: str, message: webhooks.Message, server
                 )
                 continue
             deliver(db, target, message, "event", event)
-
-
-# Each process that imports the send path runs events.deliver with this handler, also on the inline queue
-webhooks.on_deliver(send_event)

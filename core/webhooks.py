@@ -2,9 +2,11 @@
 
 A module declares its events with declare() and sends one with emit(). emit() never raises and returns at once:
 it queues the events.deliver job. The job saves the event as a notification of the org, then calls each handler
-that on_deliver() added. modules/alerts/delivery.py adds the one that posts to the org's destinations. The org
-keeps the notifications of the last KEEP_DAYS days, at most KEEP_COUNT. An emit() from inside events.deliver
-does nothing, so an error logged while delivering cannot queue another delivery. No Flask here.
+that on_deliver() added. modules/alerts/jobs.py adds the one that posts to the org's destinations; every process
+(API, bot, MCP server, worker) loads it at start with modules.manifest.load_jobs(), as the inline queue runs a
+job in the process that queued it. The org keeps the notifications of the last KEEP_DAYS days, at most
+KEEP_COUNT. An emit() from inside events.deliver does nothing, so an error logged while delivering cannot queue
+another delivery. No Flask here.
 """
 
 from collections.abc import Callable
@@ -159,7 +161,7 @@ def deliver(org: int | str | None, event: str, message: dict, server: bool = Fal
     if org_id is None and not server:
         return
     if not _handlers:
-        logger.warning("no event handler in this process event=%s; load modules.alerts", event)
+        logger.warning("no event handler in this process event=%s; the process did not call load_jobs()", event)
     for handler in _handlers:
         try:
             handler(org_id, event, parsed, server)

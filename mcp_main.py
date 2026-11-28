@@ -13,7 +13,7 @@ import uvicorn
 from core.config import config
 from core.log import get_logger, init_sentry
 from modules.dashboard import errors as error_alerts
-from modules.manifest import load_tools
+from modules.manifest import load_jobs, load_tools
 from modules.mcp.server import build_app
 
 logger = get_logger(__name__)
@@ -55,6 +55,8 @@ def main() -> None:
     init_sentry(config.SENTRY, "mcp")
     error_alerts.setup("mcp")
     load_tools()
+    # On the inline queue a job runs in the process that queues it, such as events.deliver after a tool call
+    load_jobs()
     port = int(os.environ.get("MCP_PORT", "8001"))
     proxies = forwarded_allow_ips()
     logger.info("Starting MCP server on port %s; X-Forwarded-For trusted from %s", port, proxies)

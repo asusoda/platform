@@ -1,4 +1,4 @@
-"""Alert housekeeping, and the events.deliver sender in the worker, which imports every jobs module."""
+"""Alert housekeeping, and the events.deliver handler. Each process adds both at start with manifest.load_jobs()."""
 
 from datetime import timedelta
 
