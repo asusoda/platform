@@ -5,7 +5,7 @@ their limit rows, and removes their scopes from tokens and MCP OAuth grants and 
 with no scope is revoked. Downgrade creates the tables again, empty; scopes and data do not come back.
 
 Revision ID: f2a4c6e8b0d1
-Revises: d5f9b2e7a1c3
+Revises: 9bbb3963c2be
 Create Date: 2026-11-28 09:00:00.000000
 
 """
@@ -19,7 +19,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "f2a4c6e8b0d1"
-down_revision: str | Sequence[str] | None = "d5f9b2e7a1c3"
+down_revision: str | Sequence[str] | None = "9bbb3963c2be"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # Export Alembic metadata names so static analyzers treat them as intentionally used.

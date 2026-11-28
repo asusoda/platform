@@ -83,6 +83,17 @@ def get_dashboard():
             db.close()
 
 
+@superadmin_blueprint.route("/orgs", methods=["GET"])
+@superadmin_required
+def get_orgs():
+    """Every org with its members, modules on, limits near, open errors and last activity. Needs no bot."""
+    db = next(db_connect.get_db())
+    try:
+        return respond(db, lambda db: {"orgs": service.org_list(db)})
+    finally:
+        db.close()
+
+
 @superadmin_blueprint.route("/guild_roles/<guild_id>", methods=["GET"])
 @superadmin_required
 def get_guild_roles(guild_id):
@@ -161,35 +172,26 @@ def update_officer_role(org_id):
 @superadmin_blueprint.route("/add_org/<guild_id>", methods=["POST"])
 @superadmin_required
 def add_organization(guild_id):
-    """Add an org for a guild the bot is in, with default settings."""
+    """Add an org for a guild the bot is in, with default settings. 409 when the prefix or the guild is taken."""
+    directory = discord_directory()
+    if directory is None or not directory.is_ready():
+        return jsonify({"error": "Bot not available"}), 503
     try:
-        directory = discord_directory()
-        if directory is None or not directory.is_ready():
-            return jsonify({"error": "Bot not available"}), 503
+        guild_id_int = int(guild_id)
+    except ValueError:
+        return jsonify({"error": "Invalid guild ID format"}), 400
+    guild = directory.get_guild(guild_id_int)
+    if not guild:
+        return jsonify({"error": "Guild not found"}), 404
 
-        try:
-            guild_id_int = int(guild_id)
-        except ValueError:
-            return jsonify({"error": "Invalid guild ID format"}), 400
-
-        guild = directory.get_guild(guild_id_int)
-        if not guild:
-            return jsonify({"error": "Guild not found"}), 404
-
-        new_org = service.new_organization(guild)
-
-        db = next(db_connect.get_db())
-        try:
-            if db.query(Organization).filter_by(prefix=new_org.prefix).first() is not None:
-                return jsonify({"error": f"The prefix {new_org.prefix} is already taken"}), 409
-            db.add(new_org)
-            db.commit()
-        finally:
-            db.close()
-
-        return jsonify({"message": f"Organization {guild['name']} added successfully!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    db = next(db_connect.get_db())
+    try:
+        return respond(
+            db,
+            lambda db: {"message": f"Organization {service.add_organization(db, guild).name} added successfully!"},
+        )
+    finally:
+        db.close()
 
 
 @superadmin_blueprint.route("/remove_org/<int:org_id>", methods=["DELETE"])

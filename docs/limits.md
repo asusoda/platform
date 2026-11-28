@@ -9,7 +9,7 @@ All orgs on a deployment share the same processes, containers and database. Limi
 | Count | How many of a thing the org keeps | `knowledge.sources`, `godfather.pods` | 409, nothing is added |
 | Rate | How much the org uses in a minute, an hour or a day | `knowledge.embeddings_per_day`, `mcp.calls_per_minute` | 429, nothing is counted |
 
-A rate counter starts again at the start of each window, in UTC. The `usage_counters` table keeps the counters, and the `limits.prune` job deletes counters older than 8 days.
+A rate counter starts again at the start of each window, in UTC. The `usage_counters` table keeps the counters, and the `limits.prune` job deletes counters older than 8 days. A rate can count each sub key on its own, such as `alerts.messages` for each event; the dashboard shows the busiest one.
 
 ## Limits and defaults
 
@@ -27,6 +27,7 @@ A rate counter starts again at the start of each window, in UTC. The `usage_coun
 | `runpod.server_memory_mb` | runpod | Memory of the apps on This server, from their manifests, in MB | 1,024 |
 | `uptime.monitors` | uptime | Uptime monitors | 50 |
 | `alerts.destinations` | alerts | Alert destinations | 20 |
+| `alerts.messages` | alerts | Alert messages for each event, an hour | 30 |
 | `feeds.feeds` | feeds | Feeds | 20 |
 | `submodules.subscriptions` | submodules | Shared content the org subscribes to. Its pages count against no org | 20 |
 | `mcp.calls_per_minute` | mcp | Tool calls a minute, over MCP and `/api/tools`. Each call in a batch counts | 300 |
@@ -56,7 +57,7 @@ The dashboard shows who pays:
 
 The value for an org is the first of these that is set:
 
-1. The org's override. The superadmin sets it on the Superadmin page or with `PUT /api/superadmin/limits/<org_id>`. The `org_limits` table keeps it.
+1. The org's override. The superadmin sets it on the Limits page of the superadmin space (`/admin/limits`) or with `PUT /api/superadmin/limits/<org_id>`. The `org_limits` table keeps it.
 2. `LIMIT_<KEY>` in `.env`: the key in upper case, with `_` for `.`. For example, `LIMIT_KNOWLEDGE_SOURCES=200`. The value `unlimited` removes the limit.
 3. The default in the table above.
 
@@ -66,7 +67,7 @@ An override can be a whole number, `null` (no limit) or `"default"` (remove the 
 
 - Officers see the limits of the modules that are on, and what the org uses, on Settings. `GET /api/organizations/<org_id>/limits` returns the same list.
 - Agents call the `org.limits` tool (scope `org:read`).
-- The superadmin sees each org, its use and its overrides on the Superadmin page, with `GET /api/superadmin/limits`. A limit that the org uses 80% of or more is marked.
+- The superadmin sees each org, its use and its overrides on `/admin/limits`, with `GET /api/superadmin/limits`. A limit that the org uses 80% of or more is marked.
 
 ## Other protections
 
@@ -84,7 +85,9 @@ An override can be a whole number, `null` (no limit) or `"default"` (remove the 
 2. Before the module adds a thing, call `limits.check(db, org_id, KEY)`. For a rate, call `limits.consume(db, org_id, KEY, amount)` before the work.
 3. Add the limit to the table on this page and to the module's `README.md`.
 
-`consume()` flushes and does not commit. If the request fails and rolls back, the use is not counted. A read route that consumes must commit.
+`limits.take(db, org_id, KEY, amount, sub=None)` returns False instead of raising, and with `sub` counts `<KEY>:<sub>` on its own. It adds in one `INSERT ... ON CONFLICT DO UPDATE ... WHERE` statement, so two processes cannot both pass the limit. `consume()` calls it.
+
+`consume()` and `take()` flush and do not commit. If the request fails and rolls back, the use is not counted. A read route that consumes must commit.
 
 ## Not limited yet
 

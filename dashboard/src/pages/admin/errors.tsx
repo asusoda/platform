@@ -2,14 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bug } from 'lucide-react';
 import { useState } from 'react';
 import { ErrorList } from '../../components/error-list';
-import { Card, CardHeader, EmptyState, ErrorNote, Select, SkeletonRows } from '../../components/ui';
+import { Card, EmptyState, ErrorNote, PageHeader, Select, SkeletonRows } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import type { ErrorGroup } from '../../lib/types';
+import { useOrgPrefixes } from './shared';
 
 const SERVER = '(server)';
 
 // Open errors of every org and of the server, such as failed jobs. Only the superadmin sees them.
-export function ErrorsCard({ prefixes }: { prefixes: string[] }) {
+export function ErrorsPage() {
+  const prefixes = useOrgPrefixes();
   const client = useQueryClient();
   const [org, setOrg] = useState('');
   const list = useQuery({
@@ -28,11 +30,11 @@ export function ErrorsCard({ prefixes }: { prefixes: string[] }) {
   });
   const errors = (list.data?.errors ?? []).filter((e) => org !== SERVER || e.org === null);
   return (
-    <Card>
-      <CardHeader
+    <>
+      <PageHeader
         title="Errors"
         action={
-          <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by org" className="h-8 w-40 text-xs sm:w-48">
+          <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by org" className="w-44 sm:w-52">
             <option value="">All</option>
             <option value={SERVER}>Server only</option>
             {prefixes.map((p) => (
@@ -43,17 +45,19 @@ export function ErrorsCard({ prefixes }: { prefixes: string[] }) {
           </Select>
         }
       />
-      {list.error ? (
-        <div className="p-4">
-          <ErrorNote error={list.error} />
-        </div>
-      ) : list.isLoading ? (
-        <SkeletonRows rows={4} />
-      ) : errors.length ? (
-        <ErrorList errors={errors} showOrg={org === ''} busy={change.isPending} onChange={(action, ids) => change.mutate({ action, ids })} />
-      ) : (
-        <EmptyState icon={Bug} title="No open errors" />
-      )}
-    </Card>
+      <Card>
+        {list.error ? (
+          <div className="p-4">
+            <ErrorNote error={list.error} />
+          </div>
+        ) : list.isLoading ? (
+          <SkeletonRows rows={4} />
+        ) : errors.length ? (
+          <ErrorList errors={errors} showOrg={org === ''} busy={change.isPending} onChange={(action, ids) => change.mutate({ action, ids })} />
+        ) : (
+          <EmptyState icon={Bug} title="No open errors" />
+        )}
+      </Card>
+    </>
   );
 }

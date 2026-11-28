@@ -13,13 +13,13 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) |
 | `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
 | `error_log.py` | The `error_groups` table, `ErrorLogHandler` that records log lines at ERROR and above, `capture()`, and the `error_log.prune` job |
-| `webhooks.py` | The `webhooks` table, the event registry (`declare()`), `emit()` that posts an event to the org's webhooks in a thread, and the kinds (Discord). See [docs/webhooks.md](../docs/webhooks.md) |
+| `webhooks.py` | The event registry (`declare()`), `emit()` that queues the `events.deliver` job, the job that saves the `notifications` row and calls the senders (`modules/alerts/delivery.py`). See [docs/webhooks.md](../docs/webhooks.md) |
 | `limits.py` | The `org_limits` and `usage_counters` tables, `declare()`, `check()` for count limits, `consume()` for rate limits, `report()`, `set_values()` and the `limits.prune` job. See [docs/limits.md](../docs/limits.md) |
 | `host.py` | `stats()`: the load, memory, disk, database size and container limits that the Superadmin page shows |
 | `secrets.py` | The `org_secrets` table, `declare()`, `set_secret` and `get_secret`, encrypted with `SECRETS_KEY` |
 | `log.py` | `get_logger`, JSON log lines and `init_sentry` |
-| `cache.py` | `TTLCache` and the shared `cache`: values by tuple key, each with a time to live, in one process. Concurrent misses on a key compute once |
-| `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log), `cached.py` (`cached_json`: an org read kept in `cache` with an ETag, and the hook that drops the cached org reads after a successful write) |
+| `cache.py` | `TTLCache` and the shared `cache`: values by tuple key, each with a time to live, in one process. Concurrent misses on a key compute once. `publish(*prefix)` drops a prefix here and, on Postgres, in every process that runs `start_listener()` (LISTEN/NOTIFY on `platform_cache`) |
+| `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log), `cached.py` (`cached_json`: an org read kept in `cache` with an ETag, and the hook that publishes a drop of the cached org reads after a successful write) |
 | `integrations/` | `discord.py` (`DiscordDirectory`, messages and reactions over Discord's REST API) and `runpod.py` (RunPod REST client and the `runpod` hosting provider) |
 | `sign_in.py` | `base_url()` (`ACCOUNTS_BASE_URL`, the public URL of the API), `google_app()` (the Google OAuth app) and the Discord identify sign-in that MCP OAuth and the Godfather CLI use |
 | `net.py` | `check_public()` and `public_addresses()`, which refuse a URL whose host resolves to a non-public address. `get()` and `post()` send a request that connects only to an address that passed the check |

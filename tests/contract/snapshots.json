@@ -168,6 +168,7 @@
           }
         ],
         "message": "null",
+        "points_held": "number",
         "status": "string",
         "total_amount": "number",
         "updated_at": "string"
@@ -267,6 +268,7 @@
           }
         ],
         "message": "null",
+        "points_held": "number",
         "status": "string",
         "total_amount": "number",
         "updated_at": "string"
@@ -435,6 +437,7 @@
         ],
         "message": "null",
         "organization_id": "number",
+        "points_held": "number",
         "status": "string",
         "total_amount": "number",
         "updated_at": "string",

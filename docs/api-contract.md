@@ -61,6 +61,8 @@ Officer pages send the platform JWT from login. The member store pages (`/store/
 
 The contract cases cover the read paths of each area plus assign_points and checkout. The remaining write paths are listed here so later phases keep them.
 
+Added fields: `POST /api/points/{org}/uploadEventCSV` returns `import_id` with its `message`. `POST /api/storefront/{org}/members/orders` holds the points of the order and returns `points_held`. Each order of `GET /api/storefront/{org}/orders`, `GET .../members/orders` and `GET .../orders/{email}` has `points_held`.
+
 ## Other callers
 
 - Deploys and container health checks call GET /health.

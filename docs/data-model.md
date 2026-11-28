@@ -22,6 +22,7 @@ erDiagram
   organizations ||--o{ machine_tokens : has
   organizations ||--o{ org_secrets : has
   organizations ||--o{ webhooks : has
+  webhooks ||--o{ deliveries : logs
   organizations ||--o{ notifications : has
   organizations ||--o{ products : sells
   users ||--o{ orders : places
@@ -68,6 +69,12 @@ erDiagram
     text url_ciphertext
     json events
   }
+  deliveries {
+    int organization_id FK
+    int destination_id FK
+    string source
+    string status
+  }
   notifications {
     int organization_id FK
     string event
@@ -95,10 +102,10 @@ erDiagram
 
 | Module | Tables |
 | --- | --- |
-| core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `webhooks` (outbound webhooks of each org and their events), `notifications` (each webhook event of an org, shown in Notifications), `org_limits` (the superadmin's limit overrides for each org), `deployment_secrets` (secrets of the deployment, such as a shared app's admin token), `usage_counters` (what each org used of a rate limit in each window) |
+| core | `audit_log` (successful changes and job runs), `error_groups` (errors of each process and the dashboard, grouped), `org_secrets` (org secrets, encrypted with `SECRETS_KEY`), `notifications` (each webhook event of an org, shown in Notifications), `org_limits` (the superadmin's limit overrides for each org), `deployment_secrets` (secrets of the deployment, such as a shared app's admin token), `usage_counters` (what each org used of a rate limit in each window) |
 | organizations | `organizations`, `organization_configs` and `officers` (not used) |
 | users | `users`, `user_organization_memberships` |
-| points | `points` |
+| points | `points`, `points_imports` (one row for each attendance CSV import, with its progress, counts and row errors; the newest 50 for each org) |
 | storefront | `products` (price in points), `orders`, `order_items` (keeps the price at the time of the order) |
 | auth | `refresh_tokens` (hash only), `revoked_tokens`, `app_tokens`, `machine_tokens` (hash only, scopes, and per-integration `limits`), `sessions` (not used) |
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |
@@ -108,6 +115,7 @@ erDiagram
 | submodules | `submodules` (one row for each submodule), `submodule_subscriptions` (the orgs that subscribe to each) |
 | godfather | `compute_pods` (with pod admin and the image digest and version), `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days), `compute_cli_codes` (one-time CLI sign-in codes, 2 minutes) |
 | runpod | `runpod_apps` (with no org for a shared app), `runpod_deployments`, `shared_app_subscriptions` (the orgs that use a shared app, and whom Platform invited) |
+| alerts | `webhooks` (the destinations of each org and their events), `deliveries` (each message sent or tried, kept 30 days) |
 | feeds | `alert_feeds`, `alert_posts`, `alert_runs` (one row for each feed run) |
 | mcp | `oauth_clients` (MCP clients that registered themselves, secret encrypted with `SECRETS_KEY`, and cached Client ID Metadata Documents with `cache_until`), `oauth_requests` (open OAuth requests and codes, hash only, with the scopes and limits that the officer chose), `oauth_grants` (approved connections: the machine token of kind `oauth`, the refresh token hash, and the last officer check), `oauth_assertions` (the `jti` hash of each used client assertion, until it expires) |
 | superadmin | `server_service_owners` (the owner of each container or host process that the host agent lists) |
@@ -123,6 +131,8 @@ The `godfather` tables keep the `compute_` names of the module's old name. The `
 `error_groups` has one row for each distinct error. Errors with the same source, org, exception type and first frame in this repo add to one row: `count` goes up and `last_seen`, `message` and `stack` change. A resolved row opens again when its error happens again. The `error_log.prune` job removes rows not seen for `ERROR_RETENTION_DAYS` (default 90).
 
 `webhooks` has one row for each outbound webhook of an org: a name, a kind (`discord`), the URL encrypted with `SECRETS_KEY` in `url_ciphertext`, a `url_hint` with no token in it, and the list of event keys it sends. `last_sent_at` and `last_error` keep the result of the last message. Migration `a1358e0da9ef` moved each org secret `error_webhook_url` to a webhook named Errors.
+
+`deliveries` has one row for each message that Platform sent or tried to send for an org: the `source` (`event`, `feed`, `leetcode` or `test`), the `ref` (the event key, feed key or LeetCode scope), the title, the `status` (`sent` or `failed`) and the error. `destination_id` is null for a bot post or a feed's older webhook secret, and becomes null when the destination is deleted. A LeetCode row has the `channel_id` and `message_id` of the post. The `alerts.prune` job removes rows older than 30 days.
 
 `notifications` has one row for each webhook event of an org, whether or not a webhook takes it: the event key, title, text and color. Saving a new row removes the org's rows older than 30 days and keeps at most the newest 200.
 

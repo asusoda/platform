@@ -142,6 +142,7 @@ source_modules = [
     "modules.*.models",
     "modules.*.jobs",
     "modules.*.tools",
+    "modules.alerts.delivery",
     "modules.feeds.github_jobs",
     "modules.feeds.hackathons",
     "modules.feeds.types",

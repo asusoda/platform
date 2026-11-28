@@ -37,8 +37,8 @@ The dashboard has one React Query client, made in `dashboard/src/lib/query-clien
 | --- | --- |
 | Overview | A link to the open notifications in Activity, the main counts, CI, and the services, feeds and sessions of the modules that are on, recent changes and job runs |
 | Explore | Second in the sidebar. Three tabs with one search field. Features (modules): each module that is not Core, in category sections, with the title, one line on what it does, a need that is not connected (a link to Integrations), and Add or Remove. Add is off until the needs are connected. Remove asks first, turns the module off and keeps its data. Modules that are always on show Included. Each feature card lists its shared content: the shared content of Knowledge (Add or Sync) and its feeds for Feeds (Add opens the new feed form). Shared (`?tab=shared`): Apps, the shared apps the org subscribes to (Subscribe or Invite sends the emails an invite, such as to the vault); and Content, the shared content (code name submodules) the org subscribes to, with its parts; the ASU card has the ASU sign-in when the org subscribes. The old values `?tab=modules` and `?tab=submodules` still open the Features and Shared tabs. Integrations (`?tab=integrations`): the accounts and services the org connects, with state, keys, Test and the modules that use each one. See [integrations.md](./integrations.md) and [Categories, modules and submodules](./architecture.md#categories-modules-and-submodules) |
-| Points | Members ranked by points, with the entries of each member. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV. Events grouped by name, with delete for all entries of an event |
-| Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: change the status, add a message to the member, delete |
+| Points | Members ranked by points. A member opens the member drawer (`?member=`): the live total, the last 30 days and the entries by event, with Edit, Award and delete of one entry. Award points to a member by email, username or Discord user ID. Upload an event check-in CSV, with its progress and the rows that failed. Events grouped by name, with delete for all entries of an event. The lists ask again every 15 seconds |
+| Store | Products: add, edit (name, category, price in points, stock, image URL, description) and delete. Orders: the points each order holds, change the status, add a message to the member, delete. A cancel or a delete gives the points back |
 | Calendar | The Notion database and Google calendar settings, sync on or off, sync now, create the Google calendar, and the upcoming events |
 | LeetCode | The daily post settings: channel, role to ping and time. The slash commands are in [leetcode](modules/leetcode.md) |
 | Godfather | Pods that members connect to with the Godfather CLI, with their live status from their hosting provider: create, start, stop, restart, terminate, who can connect, sessions, files and pod settings. `godfather` module |
@@ -50,7 +50,6 @@ The dashboard has one React Query client, made in `dashboard/src/lib/query-clien
 | Tokens | Machine tokens: create in a dialog and revoke. The MCP card shows how an agent connects: the public URL of the MCP server (or `/mcp` on port 8001 when there is none), the header `Authorization: Bearer plat_...`, and whether clients can connect with OAuth. A token's scopes set the tools the agent can call |
 | Activity | Five tabs. Notifications: problems that need an officer (failed feed runs, failed deploys, knowledge sources that could not be fetched) and each webhook event of the org (errors, failed jobs, pods, deploys, store orders, new members), with no webhook needed. Errors: the org's errors from the error log, with the request or job, logger line, host, release and the stack trace, where Platform frames show apart from library frames. Changes: the org's audit log with pages. Knowledge runs: the last crawls and uploads with their errors. CI runs: the latest GitHub Actions runs for the repos the org lists. In Notifications and Errors, select rows to resolve, reopen or delete them together. Only events can be deleted; a problem goes away when its cause is fixed. The bell in the top bar shows the open count and the newest notifications. `/notifications` opens Activity |
 | Settings | General, branding, org secrets, and the org's limits with what it uses |
-| Superadmin | The server's health, its containers and host processes with their owners (from the host agent), orgs, officer roles, each org's limits and use, Discord servers without an org, the audit log of all orgs, and the errors of every org and of the server. Only the superadmin sees it |
 
 The dashboard uses these officer routes in `modules/dashboard/`:
 
@@ -71,7 +70,7 @@ The other pages use the routes of their modules: `/api/points`, `/api/storefront
 
 For private repos, connect GitHub on the Integrations tab of Explore with a read-only token that can read Actions.
 
-The Settings page has these sections: General (description, points per message, points cooldown), Branding, Secrets and Limits (read-only, grouped by who pays; see [Limits](./limits.md)). The calendar and LeetCode settings are on the Calendar and LeetCode pages. The old links `settings#calendar`, `settings#leetcode` and `settings#modules` open the Calendar, LeetCode and Explore pages. The officer role shows there read-only. The Superadmin page shows only to the superadmin: it sets an org's officer role, adds an org for a Discord server the bot is in, removes an org, and shows the audit log of all orgs. The Server card shows the host's load, memory and disk, the database size, the API container's memory and cap, the bot and the job queue, and refreshes every 30 seconds. A service's name on the Services card opens its state, Restart, Stop or Start, and its logs, for the services that the runner's `host_control` list or an app allows. The Shared apps card lists the apps the deployment owns on This server (such as the vault) with their tag, state and number of orgs, and registers, deploys, rolls back and sets secrets. The Services card lists each container and host process that the host agent sees, with its domains, memory and state, and an Owner select: Platform, Infrastructure, an org, or the owner from the labels. The Resources card shows what each org uses of its limits, and its Limits button sets an org's limits. It uses the `/api/superadmin/` routes. They check `SYS_ADMIN` only, so they work while the bot is down; adding an org still needs the bot.
+The Settings page has these sections: General (description, points per message, points cooldown), Branding, Secrets and Limits (read-only, grouped by who pays; see [Limits](./limits.md)). The calendar and LeetCode settings are on the Calendar and LeetCode pages. The old links `settings#calendar`, `settings#leetcode` and `settings#modules` open the Calendar, LeetCode and Explore pages. The officer role shows there read-only.
 
 Each org sets its logo, accent color and website on the Settings page. The sidebar links to the website. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 
@@ -146,9 +145,40 @@ These fields of a registry entry control who sees the page:
 
 - `module`: the sidebar hides the page when the API says that this module is off for the org.
 - `gate`: with `module`, the page shows a note with a link to Modules while the module is off. Without `gate`, the page opens and its API calls return 404.
-- `superadmin`: only the superadmin sees the page in the sidebar. The page must also check `useSuperadmin()`.
 
 An old path that opens another page goes in `REDIRECTS` in the same file.
+
+## Superadmin space
+
+The superadmin has a space of its own at `/admin`, outside every org, with its own sidebar. Its pages are in `dashboard/src/pages/admin/`, listed in `ADMIN_PAGES` in `registry.tsx`:
+
+| Page | Path | Shows |
+| --- | --- | --- |
+| Overview | `/admin` | The orgs in numbers, the server, the orgs that need something (no officer role, near a limit, open errors), and the latest audit entries |
+| Organizations | `/admin/orgs` | Every org with members, modules on, officer role and status: open it, set its officer role, remove it. The Discord servers with no org, to add one (needs the bot) |
+| Limits | `/admin/limits` | What each org uses of its limits; Limits sets an org's limits. See [Limits](./limits.md) |
+| Shared apps | `/admin/shared-apps` | The apps the deployment owns on This server (such as the vault), with tag, state and number of orgs: register, deploy, roll back, set secrets |
+| Sub-modules | `/admin/submodules` | Each submodule with its orgs, shared pages, passages and the pages that fail to crawl |
+| Publishers | `/admin/publishers` | The orgs that may write public knowledge sources |
+| Server | `/admin/server` | The host's load, memory and disk, the database size, the API container's memory and cap, the bot and the job queue, every 30 seconds |
+| Services | `/admin/services` | Each container and host process that the host agent sees, with domains, memory, state and an Owner select. A name opens its state, Restart, Stop or Start, and its logs, for the services that the runner's `host_control` list or an app allows |
+| Errors | `/admin/errors` | The open errors of every org and of the server |
+| Audit log | `/admin/audit` | The audit log of all orgs, filtered by org |
+
+```mermaid
+flowchart LR
+  L["/ (org list)"] -->|superadmin only| A["/admin"]
+  O["/ORG pages"] -->|"switcher or top bar, superadmin only"| A
+  OA["/ORG/admin (old path)"] --> A
+  A -->|switcher or Open| O
+```
+
+- The org list shows a Superadmin entry to the superadmin, and then does not open the only org by itself. In an org, the org switcher and the top bar have a Superadmin link for the superadmin. In `/admin`, the switcher opens an org.
+- Another officer who opens `/admin` sees a Not allowed page. The page asks only `GET /api/superadmin/check`.
+- The pages use the `/api/superadmin/` routes. They check `SYS_ADMIN` only, so they work while the bot is down. The Discord servers list, adding an org and officer roles need the bot.
+- `admin` is a reserved prefix (`RESERVED_PREFIXES` in `modules/organizations/service.py`), so no org has the path.
+
+To add a page, write the page file in `pages/admin/` and add one entry to `ADMIN_PAGES`.
 
 ## Member store
 

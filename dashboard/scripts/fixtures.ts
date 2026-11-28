@@ -1280,6 +1280,7 @@ export function fixtures(now: number = Date.now()) {
     ['monitor.down', 'Monitors down', 'An uptime monitor finds its address down.', 'uptime'],
     ['monitor.up', 'Monitors up', 'An uptime monitor that was down finds its address up again.', 'uptime'],
     ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
+    ['leetcode.post_failed', 'LeetCode post failures', 'The bot could not post the daily LeetCode question. Sent once a day.', 'leetcode'],
   ].map(([key, label, description, module]) => ({ key, label, description, module }));
   const webhook = (
     id: number,
@@ -1515,6 +1516,28 @@ export function fixtures(now: number = Date.now()) {
     ]),
   );
 
+  // CSV import runs: one that runs, and one that ended with two failed rows.
+  const pointsImports = [
+    { id: 9, event: 'Build night', points: 10, status: 'running', rows_total: 300, rows_done: 125, awarded: 118, skipped: 4, errors: [], created_by: 'officer', created_at: at(-2 * MINUTE), finished_at: null },
+    {
+      id: 8,
+      event: 'Robot demo day',
+      points: 25,
+      status: 'done',
+      rows_total: 42,
+      rows_done: 42,
+      awarded: 38,
+      skipped: 2,
+      errors: [
+        { row: 17, email: null, message: 'The row has no email or no name' },
+        { row: 31, email: 'sam@example', message: 'Could not add the member: Invalid email' },
+      ],
+      created_by: 'officer',
+      created_at: at(-9 * DAY),
+      finished_at: at(-9 * DAY + MINUTE),
+    },
+  ];
+
   // Store: products and the orders members placed.
   const product = (id: number, name: string, category: string, price: number, stock: number, updated: number) => ({
     id,
@@ -1559,6 +1582,8 @@ export function fixtures(now: number = Date.now()) {
       quantity: qty,
       price_at_time: products[pid - 1].price,
     })),
+    // A cancelled order gave its points back. Order 42 was placed before member orders held points.
+    points_held: status === 'cancelled' || id === 42 ? 0 : items.reduce((n, [pid, qty]) => n + products[pid - 1].price * qty, 0),
   });
   const orders = [
     order(44, 2, 'pending', -3 * HOUR, [
@@ -1775,6 +1800,30 @@ export function fixtures(now: number = Date.now()) {
       ],
     },
     '/api/superadmin/audit': { entries: crossAudit },
+    '/api/superadmin/orgs': {
+      orgs: [orgDetail, ...otherOrgs].map((o, i) => ({
+        id: o.id,
+        name: o.name,
+        prefix: o.prefix,
+        guild_id: o.guild_id,
+        icon_url: o.icon_url,
+        is_active: o.is_active,
+        officer_role_id: o.officer_role_id,
+        created_at: at(-(120 - i * 20) * DAY),
+        members: [members.length, 64, 23, 9][i] ?? 0,
+        modules_on: ['knowledge', 'points', 'storefront', 'calendar', 'godfather', 'runpod', 'feeds'].slice(0, [7, 4, 3, 2][i] ?? 0),
+        near: orgLimits.find((l) => l.org.id === o.id)?.near ?? [],
+        open_errors: i === 0 ? orgErrors.length : 0,
+        last_activity: at(-[5, 25, 240, 30 * 24 * 60][i] * MINUTE),
+      })),
+    },
+    '/api/superadmin/submodules': {
+      submodules: [
+        { key: 'asu', title: 'ASU', origin: 'code', status: 'shared', subscribers: 3, sources: 42, passages: 18_240, failing: [{ key: 'asu/catalog/fall', error: 'HTTP 503 from catalog.apps.asu.edu' }] },
+        { key: 'careers', title: 'Careers', origin: 'code', status: 'shared', subscribers: 2, sources: 0, passages: 0, failing: [] },
+        { key: 'robotics-pack', title: 'Robotics build guides', origin: 'org', status: 'draft', subscribers: 0, sources: 6, passages: 410, failing: [] },
+      ],
+    },
     '/api/superadmin/publishers': { publishers: [{ org_id: orgDetail.id, prefix: orgDetail.prefix, source: 'superadmin' }] },
     [`/api/dashboard/${ORG.prefix}/branding` as const]: BRANDING,
     [`/api/dashboard/${ORG.prefix}/overview` as const]: overview,
@@ -1801,6 +1850,27 @@ export function fixtures(now: number = Date.now()) {
       kinds: [{ key: 'discord', label: 'Discord', example: 'https://discord.com/api/webhooks/...' }],
       feeds: feeds.map(({ key, kind, enabled, destination_id, webhook_set, last_run_at, last_error }) => ({ key, kind, enabled, destination_id, webhook_set, last_run_at, last_error })),
       secrets_key: true,
+    },
+    [`/api/dashboard/${ORG.prefix}/webhooks/deliveries` as const]: {
+      deliveries: [
+        [6, 1, 'event', 'errors', 'KeyError in points.award', 'sent', null, null, -38 * MINUTE],
+        [5, null, 'leetcode', 'org:1', 'Daily LeetCode: Two Sum', 'sent', null, 'https://discord.com/channels/1/2/3', -90 * MINUTE],
+        [4, 5, 'feed', 'internships', 'New Job: Acme Robotics', 'sent', null, null, -100 * MINUTE],
+        [3, 2, 'event', 'pod.started', 'Pod gpu-1 started', 'sent', null, null, -2 * HOUR - 5 * MINUTE],
+        [2, 3, 'event', 'order.created', 'New store order #418', 'failed', 'Discord refused the message with status 404', null, -5 * DAY],
+        [1, 3, 'test', 'test', `Test from ${ORG.name}`, 'sent', null, null, -6 * DAY],
+      ].map(([id, destination_id, source, ref, title, status, error, message_url, ago]) => ({
+        id,
+        destination_id,
+        source,
+        ref,
+        title,
+        status,
+        error,
+        message_url,
+        created_at: at(ago as number),
+      })),
+      next: null,
     },
     ...Object.fromEntries(
       webhooks.map((w) => [`/api/dashboard/${ORG.prefix}/webhooks/${w.id}/test`, { ok: true, message: 'Sent. Look for the message in the channel.' }]),
@@ -1930,6 +2000,8 @@ export function fixtures(now: number = Date.now()) {
     },
     [`/api/points/${ORG.prefix}/get_points` as const]: pointEntries,
     ...pointsHistory,
+    [`/api/points/${ORG.prefix}/imports` as const]: { imports: pointsImports },
+    [`/api/points/${ORG.prefix}/imports/8` as const]: pointsImports[1],
     [`/api/storefront/${ORG.prefix}/products` as const]: products,
     [`/api/storefront/${ORG.prefix}/orders` as const]: orders,
     [`/api/calendar/${ORG.prefix}/events` as const]: {

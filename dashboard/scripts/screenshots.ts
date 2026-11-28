@@ -20,6 +20,7 @@ const QUALITY = 0.86;
 const SCALE = 2;
 
 // Each screen is a dashboard path and, optionally, a step that runs before the screenshot and its own fixtures.
+// A path that starts with / is from the root, such as /admin; any other path is under the org.
 interface Screen {
   name: string;
   path: string;
@@ -107,7 +108,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: 'superadmin-service',
-    path: 'admin',
+    path: '/admin/services',
     before: async (page) => {
       await page.getByRole('button', { name: 'crm_server', exact: true }).click();
     },
@@ -127,24 +128,12 @@ const SCREENS: Screen[] = [
       await page.getByRole('heading', { name: 'Limits' }).scrollIntoViewIfNeeded();
     },
   },
-  { name: 'superadmin', path: 'admin' },
-  {
-    name: 'superadmin-shared-apps',
-    path: 'admin',
-    before: async (page) => {
-      await page.getByRole('heading', { name: 'Shared apps' }).scrollIntoViewIfNeeded();
-    },
-  },
-  {
-    name: 'superadmin-services',
-    path: 'admin',
-    before: async (page) => {
-      await page.getByRole('heading', { name: 'Services' }).scrollIntoViewIfNeeded();
-    },
-  },
+  { name: 'superadmin', path: '/admin' },
+  { name: 'superadmin-shared-apps', path: '/admin/shared-apps' },
+  { name: 'superadmin-services', path: '/admin/services' },
   {
     name: 'superadmin-limits',
-    path: 'admin',
+    path: '/admin/limits',
     before: async (page) => {
       await page.getByRole('button', { name: 'Limits of Data Science Club' }).click();
     },
@@ -207,7 +196,8 @@ async function main() {
       const page = await context.newPage();
       for (const screen of SCREENS.filter((s) => !only?.length || only.includes(s.name))) {
         data = (screen.fixtures ?? fixtures)();
-        await page.goto(`${base}/${ORG.prefix}${screen.path ? `/${screen.path}` : ''}`);
+        const path = screen.path.startsWith('/') ? screen.path : `/${ORG.prefix}${screen.path ? `/${screen.path}` : ''}`;
+        await page.goto(`${base}${path}`);
         await page.waitForLoadState('networkidle');
         if (screen.before) await screen.before(page);
         await page.evaluate(() => document.fonts.ready);

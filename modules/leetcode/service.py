@@ -7,6 +7,7 @@ from typing import cast
 from sqlalchemy import func
 from sqlalchemy.orm.attributes import flag_modified
 
+from core import webhooks
 from core.log import get_logger
 from modules.leetcode.models import LeetCodeLink, LeetCodeSolve
 
@@ -15,6 +16,14 @@ logger = get_logger("leetcode.service")
 SNOWFLAKE = re.compile(r"^[0-9]{5,25}$")
 HHMM = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 SETTING_KEYS = ("channel_id", "role_ping", "daily_time")
+
+
+webhooks.declare(
+    "leetcode.post_failed",
+    "LeetCode post failures",
+    "The bot could not post the daily LeetCode question. Sent once a day; the post is tried again every 5 minutes.",
+    "leetcode",
+)
 
 
 class SettingsError(ValueError):

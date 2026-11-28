@@ -63,7 +63,10 @@ def daily_env(db, monkeypatch):
         return {"id": str(1000 + len(sent))}
 
     yield sent, send
+    from modules.alerts.models import Delivery
+
     db.query(LeetCodeDaily).delete()
+    db.query(Delivery).filter_by(source="leetcode").delete()
     db.commit()
 
 
@@ -242,3 +245,37 @@ def test_turning_leetcode_off_stops_the_orgs_post(db, daily_env, client, officer
     client.put(f"/api/organizations/{soda.id}/modules", json={"modules": {"leetcode": False}}, headers=officer_headers)
     db.expire_all()
     assert daily.post_daily(db, _at(10), lambda: QUESTION) == {}
+
+
+def test_an_orgs_daily_post_is_logged_and_a_failure_is_logged_once_a_day(
+    db, daily_env, client, officer_headers, soda, sent, monkeypatch
+):
+    from core import webhooks
+    from core.config import config
+    from core.integrations.discord import DiscordUnavailable
+    from modules.leetcode import daily
+
+    _, send = daily_env
+    monkeypatch.setattr(config, "LEETCODE_CHANNEL_ID", None, raising=False)
+    _settings(client, officer_headers, soda.id, {"channel_id": "999999"})
+    db.expire_all()
+    scope = f"org:{soda.id}"
+
+    def down(*args):
+        raise DiscordUnavailable("Missing Access")
+
+    for minute in (0, 5, 10):
+        assert daily.post_daily(db, _at(9, minute), lambda: QUESTION, down, lambda *a: None)[scope]["posted"] is False
+    assert daily.post_daily(db, _at(9, 15), lambda: QUESTION, send, lambda *a: None)[scope]["posted"] is True
+    sent.wait()
+
+    log = client.get("/api/dashboard/soda/webhooks/deliveries?source=leetcode", headers=officer_headers).get_json()
+    rows = [(d["ref"], d["status"], d["error"], d["message_url"]) for d in log["deliveries"]]
+    assert rows == [
+        (scope, "sent", None, f"https://discord.com/channels/{soda.guild_id}/999999/1001"),
+        (scope, "failed", "DiscordUnavailable: Missing Access", None),
+    ]
+    notes = db.query(webhooks.Notification).filter_by(organization_id=soda.id, event="leetcode.post_failed").all()
+    assert [n.title for n in notes] == ["The daily LeetCode post failed"]
+    db.query(webhooks.Notification).filter_by(event="leetcode.post_failed").delete()
+    db.commit()

@@ -146,6 +146,7 @@
 /api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id> DELETE,OPTIONS alerts.delete_webhook
 /api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id> OPTIONS,PUT alerts.update_webhook
 /api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id>/test OPTIONS,POST alerts.test_webhook
+/api/dashboard/<string:org_prefix>/webhooks/deliveries GET,HEAD,OPTIONS alerts.list_deliveries
 /api/dashboard/integrations/oauth/callback GET,HEAD,OPTIONS dashboard.oauth_callback
 /api/feeds/<string:org_prefix>/feeds GET,HEAD,OPTIONS feeds.list_feeds
 /api/feeds/<string:org_prefix>/feeds/<string:key> DELETE,OPTIONS feeds.delete_feed
@@ -191,6 +192,8 @@
 /api/points/<string:org_prefix>/getUserPoints GET,HEAD,OPTIONS points.get_user_points_in_org
 /api/points/<string:org_prefix>/getUserTotalPoints GET,HEAD,OPTIONS points.get_user_total_points_in_org
 /api/points/<string:org_prefix>/get_points GET,HEAD,OPTIONS points.get_org_points
+/api/points/<string:org_prefix>/imports GET,HEAD,OPTIONS points.list_imports
+/api/points/<string:org_prefix>/imports/<int:import_id> GET,HEAD,OPTIONS points.get_import
 /api/points/<string:org_prefix>/leaderboard GET,HEAD,OPTIONS points.get_org_leaderboard
 /api/points/<string:org_prefix>/member_login OPTIONS,POST points.member_login
 /api/points/<string:org_prefix>/member_profile GET,HEAD,OPTIONS points.get_member_profile
@@ -242,6 +245,7 @@
 /api/superadmin/limits GET,HEAD,OPTIONS superadmin.get_limits
 /api/superadmin/limits/<int:org_id> GET,HEAD,OPTIONS superadmin.get_org_limits
 /api/superadmin/limits/<int:org_id> OPTIONS,PUT superadmin.put_org_limits
+/api/superadmin/orgs GET,HEAD,OPTIONS superadmin.get_orgs
 /api/superadmin/publishers GET,HEAD,OPTIONS superadmin.get_publishers
 /api/superadmin/publishers/<int:org_id> OPTIONS,PUT superadmin.put_publisher
 /api/superadmin/remove_org/<int:org_id> DELETE,OPTIONS superadmin.remove_organization

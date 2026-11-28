@@ -10,6 +10,7 @@ const DIALOG_OUT_MS = 170;
 
 // A modal panel on the native dialog element. Escape and a click on the backdrop close it.
 // While it closes, it keeps the last open content, so the panel does not go empty during the animation.
+// side shows it as a full-height panel on the right, as Drawer does.
 export function Dialog({
   open,
   onClose,
@@ -17,6 +18,7 @@ export function Dialog({
   description,
   children,
   wide = false,
+  side = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -24,6 +26,7 @@ export function Dialog({
   description?: ReactNode;
   children: ReactNode;
   wide?: boolean;
+  side?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const last = useRef({ title, description, children });
@@ -58,12 +61,14 @@ export function Dialog({
         if (e.target === ref.current) onClose();
       }}
       className={cx(
-        'ui-dialog m-auto w-[calc(100%-2rem)] rounded-xl border border-line bg-panel p-0 text-fg shadow-2xl shadow-black/20',
-        wide ? 'max-w-3xl' : 'max-w-lg',
+        'ui-dialog border border-line bg-panel p-0 text-fg shadow-2xl shadow-black/20',
+        side
+          ? 'ui-drawer my-0 mr-0 ml-auto h-dvh max-h-dvh w-full max-w-xl border-y-0 border-r-0'
+          : cx('m-auto w-[calc(100%-2rem)] rounded-xl', wide ? 'max-w-3xl' : 'max-w-lg'),
       )}
     >
       {open || closing ? (
-        <div className="max-h-[85vh] overflow-y-auto overscroll-contain">
+        <div className={cx('overflow-y-auto overscroll-contain', side ? 'h-full' : 'max-h-[85vh]')}>
           <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-line bg-panel px-5 py-4">
             <div className="min-w-0">
               <h2 className="text-base font-semibold tracking-tight">{shown.title}</h2>
@@ -78,6 +83,11 @@ export function Dialog({
       ) : null}
     </dialog>
   );
+}
+
+// A panel that slides in from the right, for the details of one row. The same behavior as Dialog.
+export function Drawer(props: Omit<Parameters<typeof Dialog>[0], 'side' | 'wide'>) {
+  return <Dialog {...props} side />;
 }
 
 // Form footer: the actions on the left, an error after them.

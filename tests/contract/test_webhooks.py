@@ -1,4 +1,5 @@
-"""Outbound webhooks: the officer routes, the test message, and the fan-out of events to the org's webhooks."""
+"""Alert destinations: the officer routes, the test message, the fan-out of events through the events.deliver job,
+the one send path (modules/alerts/delivery.py) and its deliveries log."""
 
 import uuid
 
@@ -64,7 +65,7 @@ def test_webhook_lifecycle(client, officer_headers, sent):
 def test_bad_input_is_refused(client, officer_headers, sent, monkeypatch):
     assert _create(client, officer_headers, url="https://example.com/hook").status_code == 400
     assert _create(client, officer_headers, events=["nope"]).status_code == 400
-    assert _create(client, officer_headers, events=[]).status_code == 400
+    assert _create(client, officer_headers, events="errors").status_code == 400
     assert _create(client, officer_headers, name="").status_code == 400
     assert _create(client, officer_headers, kind="smoke").status_code == 400
 
@@ -135,12 +136,24 @@ def test_alerts_is_core_and_a_destination_that_is_off_gets_nothing(client, offic
     assert [url for url, _ in sent] == [URL]
 
 
-def test_hourly_limit(client, officer_headers, sent, monkeypatch):
-    monkeypatch.setattr(webhooks, "LIMIT_PER_HOUR", 2)
-    _create(client, officer_headers, events=["order.created"])
+def test_hourly_limit_is_stored_for_each_event(client, officer_headers, sent, monkeypatch):
+    from core import limits
+    from core.db import db_connect
+
+    monkeypatch.setenv("LIMIT_ALERTS_MESSAGES", "2")
+    _create(client, officer_headers, events=["order.created", "errors"])
     for i in range(3):
         webhooks.emit("ais", "order.created", webhooks.Message(title=f"Order {i}"))
-    assert len(sent) == 2
+    webhooks.emit("ais", "errors", webhooks.Message(title="KeyError"))
+    titles = sorted(payload["embeds"][0]["title"] for _, payload in sent)
+    assert len(titles) == 3 and titles[0] == "KeyError" and all(t.startswith("Order") for t in titles[1:])
+    # The count is in usage_counters, so every process and session sees it
+    db = db_connect.SessionLocal()
+    try:
+        assert limits.used(db, _ais_id(), "alerts.messages") == 2
+        assert limits.take(db, _ais_id(), "alerts.messages", sub="order.created") is False
+    finally:
+        db.close()
 
 
 def test_failed_job_of_an_org_sends_job_failed(client, officer_headers, sent):
@@ -220,8 +233,8 @@ def test_pod_and_deploy_messages(client, officer_headers, sent):
     godfather.announce(_ais_id(), "gpu-1", "pod123", "terminate", "an officer or a tool")
     app = App(organization_id=_ais_id(), name="site")
     apps._announce(app, AppDeployment(tag="v2", status="failed", error="The health path did not answer in time"))
-    titles = [payload["embeds"][0]["title"] for _, payload in sent]
-    assert titles == ["Pod gpu-1 started", "Pod gpu-1 terminated", "App site deploy failed"]
+    titles = sorted(payload["embeds"][0]["title"] for _, payload in sent)
+    assert titles == ["App site deploy failed", "Pod gpu-1 started", "Pod gpu-1 terminated"]
 
 
 def test_listing_names_alert_feeds(client, officer_headers, sent):
@@ -244,3 +257,123 @@ def test_listing_names_alert_feeds(client, officer_headers, sent):
 def test_officers_only(client):
     assert client.get(BASE).status_code in (401, 403)
     assert client.post(BASE, json={}).status_code in (401, 403)
+
+
+def _deliveries(client, headers, **query) -> dict:
+    response = client.get(f"{BASE}/deliveries", query_string=query, headers=headers)
+    assert response.status_code == 200, response.get_json()
+    return response.get_json()
+
+
+def test_a_destination_may_have_no_events(client, officer_headers, sent):
+    created = _create(client, officer_headers, name="Feeds only", events=[])
+    assert created.status_code == 201 and created.get_json()["events"] == []
+    webhooks.emit("ais", "errors", webhooks.Message(title="KeyError"))
+    assert sent == []
+    result = client.post(f"{BASE}/{created.get_json()['id']}/test", headers=officer_headers).get_json()
+    assert result["ok"] is True
+    assert sent[-1][1]["embeds"][0]["description"] == "This webhook works. It gets no events."
+
+
+def test_events_of_a_module_that_is_off_are_kept_and_not_sent(client, officer_headers, sent):
+    from core.db import db_connect
+    from modules.organizations.models import Organization
+
+    hook = _create(client, officer_headers, events=["order.created", "errors"]).get_json()
+    switch = f"/api/organizations/{_ais_id()}/modules"
+    assert client.put(switch, json={"modules": {"storefront": False}}, headers=officer_headers).status_code == 200
+    try:
+        listing = client.get(BASE, headers=officer_headers).get_json()
+        assert "order.created" not in {e["key"] for e in listing["events"]}
+        # The dashboard sends back the saved list, with the hidden event in it
+        saved = client.put(f"{BASE}/{hook['id']}", json={"events": hook["events"]}, headers=officer_headers)
+        assert saved.status_code == 200 and saved.get_json()["events"] == ["errors", "order.created"]
+        # A list without the hidden event keeps it too: the officer cannot see it
+        saved = client.put(f"{BASE}/{hook['id']}", json={"events": ["errors"]}, headers=officer_headers)
+        assert saved.get_json()["events"] == ["errors", "order.created"]
+        webhooks.emit("ais", "order.created", webhooks.Message(title="New store order #1"))
+        assert sent == []
+    finally:
+        db = db_connect.SessionLocal()
+        org = db.query(Organization).filter_by(prefix="ais").one()
+        db.close()
+        client.put(switch, json={"modules": {"storefront": True}}, headers=officer_headers)
+        assert org is not None
+
+
+def test_every_send_is_logged_on_the_destination_and_in_deliveries(client, officer_headers, sent):
+    hook = _create(client, officer_headers, events=["pod.started", "errors"]).get_json()
+    webhooks.emit("ais", "pod.started", webhooks.Message(title="Pod gpu-1 started"))
+    sent.wait().status = 400
+    webhooks.emit("ais", "errors", webhooks.Message(title="KeyError", text="boom"))
+    sent.wait()
+    listed = client.get(BASE, headers=officer_headers).get_json()["webhooks"][0]
+    assert listed["last_sent_at"] is not None
+    assert listed["last_error"] == "Discord refused the message with status 400"
+
+    page = _deliveries(client, officer_headers)
+    assert [(d["source"], d["ref"], d["status"], d["destination_id"]) for d in page["deliveries"]] == [
+        ("event", "errors", "failed", hook["id"]),
+        ("event", "pod.started", "sent", hook["id"]),
+    ]
+    assert page["deliveries"][0]["error"] == "Discord refused the message with status 400"
+    assert page["next"] is None
+    assert [d["ref"] for d in _deliveries(client, officer_headers, status="sent")["deliveries"]] == ["pod.started"]
+    first = _deliveries(client, officer_headers, limit=1)
+    assert len(first["deliveries"]) == 1 and first["next"] == first["deliveries"][0]["id"]
+    rest = _deliveries(client, officer_headers, before=first["next"])
+    assert [d["ref"] for d in rest["deliveries"]] == ["pod.started"]
+    assert client.get(f"{BASE}/deliveries?source=nope", headers=officer_headers).status_code == 400
+    assert client.get(f"{BASE}/deliveries?limit=x", headers=officer_headers).status_code == 400
+    assert client.get("/api/dashboard/soda/webhooks/deliveries", headers=officer_headers).get_json() == {
+        "deliveries": [],
+        "next": None,
+    }
+
+
+def test_the_send_path_waits_once_on_429_and_follows_no_redirect(client, officer_headers, sent):
+    hook = _create(client, officer_headers, events=["errors"]).get_json()
+    sent.statuses = [429, 204]
+    webhooks.emit("ais", "errors", webhooks.Message(title="KeyError"))
+    assert (
+        len(sent) == 2
+        and _deliveries(client, officer_headers)["deliveries"][0]["status"] == "sent"
+        and all(kwargs["allow_redirects"] is False for kwargs in sent.kwargs)
+    )
+    sent.statuses = [429, 429]
+    result = client.post(f"{BASE}/{hook['id']}/test", headers=officer_headers).get_json()
+    assert result == {"ok": False, "message": "Discord rate limited the message twice (status 429)"}
+    sent.statuses = [301]
+    result = client.post(f"{BASE}/{hook['id']}/test", headers=officer_headers).get_json()
+    assert result == {"ok": False, "message": "Discord refused the message with status 301"}
+
+
+def test_a_host_that_is_not_public_at_send_time_gets_nothing(client, officer_headers, sent, monkeypatch):
+    hook = _create(client, officer_headers, events=["errors"]).get_json()
+
+    def private(url, json, **kwargs):
+        raise net.NotPublic("discord.com resolves to a non-public address")
+
+    monkeypatch.setattr(net, "post", private)
+    result = client.post(f"{BASE}/{hook['id']}/test", headers=officer_headers).get_json()
+    assert result == {"ok": False, "message": "The Discord host is not a public address"}
+
+
+def test_discord_bodies_leave_out_empty_keys_and_fit_the_limits():
+    from modules.alerts import delivery
+
+    from .conftest import discord_problems
+
+    bare = delivery.KINDS["discord"].format(webhooks.Message(title="Pod gpu-1 started"))
+    assert bare["embeds"][0] == {"title": "Pod gpu-1 started", "color": webhooks.BLUE}
+    huge = webhooks.Message(
+        title="t" * 300,
+        text="d" * 5000,
+        fields=tuple((f"name {i}", "v" * 1100) for i in range(30)) + (("", ""),),
+        footer="f" * 3000,
+        timestamp="2026-10-08T12:00:00Z",
+    )
+    body = delivery.KINDS["discord"].format(huge)
+    assert discord_problems(body) == []
+    embed = body["embeds"][0]
+    assert len(embed["title"]) == 256 and len(embed["fields"]) <= 25

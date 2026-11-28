@@ -37,3 +37,20 @@ export type WebhookList = {
 };
 
 export type WebhookTest = { ok: boolean; message: string };
+
+// One message that Platform sent or tried to send: an event, a feed item, a test or a LeetCode post.
+export type Delivery = {
+  id: number;
+  destination_id: number | null;
+  source: 'event' | 'feed' | 'leetcode' | 'test';
+  // The event key, the feed key or the LeetCode scope
+  ref: string;
+  title: string;
+  status: 'sent' | 'failed';
+  error: string | null;
+  // A link to the Discord message, for a bot post
+  message_url: string | null;
+  created_at: string | null;
+};
+
+export type DeliveryList = { deliveries: Delivery[]; next: number | null };

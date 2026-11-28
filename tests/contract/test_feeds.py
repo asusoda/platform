@@ -4,7 +4,8 @@ import datetime
 import json
 
 import pytest
-from cryptography.fernet import Fernet
+
+from .conftest import WebhookResponse
 
 WEBHOOK = "https://discord.com/api/webhooks/123/abc-DEF_1"
 
@@ -129,17 +130,15 @@ def test_hackathon_sources():
 
 
 @pytest.fixture
-def alerts(app, monkeypatch):
+def alerts(app, monkeypatch, sent):
     from core.db import db_connect
     from core.secrets import OrgSecret
     from modules.feeds import service
     from modules.feeds.models import AlertFeed, AlertPost, AlertRun
 
-    monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
     monkeypatch.setattr(service, "POST_GAP_SECONDS", 0)
-    state: dict = {"readme": _readme(_row("Acme", "Intern", "https://jobs.acme.com/1")), "sent": []}
+    state: dict = {"readme": _readme(_row("Acme", "Intern", "https://jobs.acme.com/1")), "sent": sent}
     monkeypatch.setattr(service, "http_get", lambda url: state["readme"])
-    monkeypatch.setattr(service, "post_webhook", lambda url, payload: state["sent"].append((url, payload)))
     monkeypatch.setattr(service, "utcnow", lambda: datetime.datetime(2026, 10, 8, 12))
     yield state
     db = db_connect.SessionLocal()
@@ -188,6 +187,9 @@ def test_feed_lifecycle(client, officer_headers, alerts):
     assert url == WEBHOOK
     assert payload["embeds"][0]["title"] == "New Job: Beta" and payload["embeds"][0]["url"] == "https://beta.io/7"
     assert _run()["posted"] == 0
+    # A feed with the older webhook secret logs its posts with no destination
+    log = client.get("/api/dashboard/soda/webhooks/deliveries", headers=officer_headers).get_json()["deliveries"]
+    assert [(d["source"], d["destination_id"], d["status"]) for d in log] == [("feed", None, "sent")]
 
     listed = client.get("/api/feeds/soda/feeds", headers=officer_headers).get_json()["feeds"]
     assert [(f["key"], f["posted"]) for f in listed] == [("internships", 1)]
@@ -205,16 +207,13 @@ def test_post_existing_and_failures(client, officer_headers, alerts, monkeypatch
     _put(client, officer_headers)
     assert _run(post_existing=True)["posted"] == 1
 
-    def broken(url, payload):
-        raise service.requests.HTTPError("500")
-
-    monkeypatch.setattr(service, "post_webhook", broken)
+    alerts["sent"].status = 500
     alerts["readme"] = _readme(_row("Gamma", "Intern", "https://g.io/1"))
     result = _run()
-    assert result["posted"] == 0 and "Discord webhook failed" in result["error"]
+    assert result["posted"] == 0 and result["error"] == "Discord refused the message with status 500"
 
     # The unposted item goes out on the next run
-    monkeypatch.setattr(service, "post_webhook", lambda url, payload: alerts["sent"].append(payload))
+    alerts["sent"].status = 204
     assert _run()["posted"] == 1
 
     def offline(url):
@@ -230,7 +229,7 @@ def test_post_existing_and_failures(client, officer_headers, alerts, monkeypatch
     assert [(r["found"], r["posted"], r["error"]) for r in runs] == [
         (None, 0, "README unreachable"),
         (1, 1, None),
-        (1, 0, "Discord webhook failed: 500"),
+        (1, 0, "Discord refused the message with status 500"),
         (1, 1, None),
     ]
     assert [(i["title"], i["posted"]) for i in history["items"]][0] == ("New Job: Gamma", True)
@@ -238,8 +237,8 @@ def test_post_existing_and_failures(client, officer_headers, alerts, monkeypatch
 
 
 def test_an_item_another_run_claimed_is_not_posted_again(client, officer_headers, alerts, monkeypatch):
+    from core import net
     from core.db import db_connect
-    from modules.feeds import service
     from modules.feeds.github_jobs import fetch, validate
     from modules.feeds.models import AlertFeed, AlertPost
 
@@ -252,8 +251,8 @@ def test_an_item_another_run_claimed_is_not_posted_again(client, officer_headers
     )
     listed = fetch(validate({"repo": "someone/jobs"}), lambda url: alerts["readme"], datetime.date(2026, 10, 8))
 
-    def post_while_another_run_claims_the_rest(url, payload):
-        alerts["sent"].append(payload)
+    def post_while_another_run_claims_the_rest(url, json, **kwargs):
+        alerts["sent"].append((url, json))
         other = db_connect.SessionLocal()
         try:
             feed_id = other.query(AlertFeed.id).filter_by(key="internships").scalar()
@@ -264,8 +263,9 @@ def test_an_item_another_run_claimed_is_not_posted_again(client, officer_headers
             other.commit()
         finally:
             other.close()
+        return WebhookResponse(204)
 
-    monkeypatch.setattr(service, "post_webhook", post_while_another_run_claims_the_rest)
+    monkeypatch.setattr(net, "post", post_while_another_run_claims_the_rest)
     result = _run()
     assert result["new"] == 2 and result["posted"] == 1 and "error" not in result
     assert len(alerts["sent"]) == 1
@@ -367,13 +367,14 @@ def test_due_feeds_respect_schedule_and_switch(client, officer_headers, alerts, 
 
 @pytest.fixture
 def destination(alerts):
-    from core import secrets, webhooks
+    from core import secrets
     from core.db import db_connect
+    from modules.alerts.models import Destination
     from modules.organizations.models import Organization
 
     db = db_connect.SessionLocal()
     org_id = db.query(Organization.id).filter_by(prefix="soda").scalar()
-    row = webhooks.Webhook(
+    row = Destination(
         organization_id=org_id,
         name="Careers channel",
         kind="discord",
@@ -387,7 +388,7 @@ def destination(alerts):
     from modules.feeds.models import AlertFeed
 
     db.query(AlertFeed).delete()
-    db.query(webhooks.Webhook).filter_by(id=row.id).delete()
+    db.query(Destination).filter_by(id=row.id).delete()
     db.commit()
     db.close()
 
@@ -411,6 +412,15 @@ def test_a_feed_posts_to_its_alert_destination(client, officer_headers, alerts, 
     alerts["readme"] = _readme(_row("Beta", "Intern", "https://beta.io/7"))
     assert _run()["posted"] == 1
     assert alerts["sent"][0][0] == DESTINATION_URL
+    # The post is logged, and the destination shows it on the Alerts page
+    log = client.get("/api/dashboard/soda/webhooks/deliveries", headers=officer_headers).get_json()["deliveries"]
+    assert [(d["source"], d["ref"], d["title"], d["status"], d["destination_id"]) for d in log] == [
+        ("feed", "internships", "New Job: Beta", "sent", destination)
+    ]
+    hook = client.get("/api/dashboard/soda/webhooks", headers=officer_headers).get_json()["webhooks"][0]
+    assert hook["last_sent_at"] is not None and hook["last_error"] is None
+    embed = alerts["sent"][0][1]["embeds"][0]
+    assert embed["timestamp"] == "2026-10-08T12:00:00Z" and "description" not in embed
 
     # A destination that a feed posts to cannot be deleted
     deleted = client.delete(f"/api/dashboard/soda/webhooks/{destination}", headers=officer_headers)

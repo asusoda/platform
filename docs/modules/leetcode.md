@@ -38,11 +38,14 @@ sequenceDiagram
   Job->>LC: post_daily: get the daily question
   Job->>DB: Claim a leetcode_daily row for the day
   Job->>D: Post the question in the channel
+  Job->>DB: Log the post in deliveries
   Job->>DB: verify: linked members with no solve today
   Job->>LC: Recent accepted submissions of each
   Job->>DB: Write a leetcode_solve row
   Job->>D: Reply under the daily post
 ```
+
+The bot posts the question itself, not through a webhook, because the solve checks reply under its message. Each org post is logged in `deliveries` with a link to the message; see it with `GET /api/dashboard/<org>/webhooks/deliveries?source=leetcode`. When the post fails, the first failure of the day is logged too and sends the `leetcode.post_failed` event, so it shows on Activity. The job tries again every 5 minutes.
 
 ## Routes
 

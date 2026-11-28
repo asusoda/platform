@@ -42,17 +42,17 @@ Each container has a memory and a CPU cap, so one process cannot take the whole 
 | `searxng` | 512m | 0.5 | `SEARXNG_MEM_LIMIT`, `SEARXNG_CPUS` |
 | `browser` | 1g | 1 | `BROWSER_MEM_LIMIT`, `BROWSER_CPUS` |
 
-A container that goes over its memory cap is stopped and starts again (`restart: always`). After a reboot, `podman-restart.service` starts only the containers with the `always` policy. A new value applies when the container is made again, for example at the next deploy. The Superadmin page shows the memory use and cap of the API container, and with the [host agent](#host-agent) of every container. These caps are for each service, not each org: [Limits](./limits.md) caps what each org uses.
+A container that goes over its memory cap is stopped and starts again (`restart: always`). After a reboot, `podman-restart.service` starts only the containers with the `always` policy. A new value applies when the container is made again, for example at the next deploy. The Server page of the superadmin space shows the memory use and cap of the API container, and with the [host agent](#host-agent) of every container. These caps are for each service, not each org: [Limits](./limits.md) caps what each org uses.
 
 ## Host agent
 
-The host agent lists each container and host process on the server for the Services card on the Superadmin page. It runs on the host as root, because only root sees every container. It only reads: `podman ps`, `podman stats`, the proxy hosts of Nginx Proxy Manager (opened read-only), the listening ports, and the cgroups of host processes. Every 30 seconds it writes `data/host.json`, which the API reads as `/app/data/host.json`. It writes a new temporary file with a random name and renames it to `data/host.json`. Thus it never writes through a symlink that a container puts in `data/`. The API has no access to the podman socket.
+The host agent lists each container and host process on the server for the Services page of the superadmin space (`/admin/services`). It runs on the host as root, because only root sees every container. It only reads: `podman ps`, `podman stats`, the proxy hosts of Nginx Proxy Manager (opened read-only), the listening ports, and the cgroups of host processes. Every 30 seconds it writes `data/host.json`, which the API reads as `/app/data/host.json`. It writes a new temporary file with a random name and renames it to `data/host.json`. Thus it never writes through a symlink that a container puts in `data/`. The API has no access to the podman socket.
 
 1. Copy the unit: `cp deploy/host-agent/platform-host-agent.service /etc/systemd/system/`.
 2. Add one `--port` to `ExecStart` for each host process that no proxy host forwards to.
 3. Start it: `systemctl daemon-reload && systemctl enable --now platform-host-agent`.
 
-A container started by `docker-compose.yml` is Platform's. A container with the label `platform.org=<prefix>` is that org's. The superadmin sets the owner of each other service on the Services card (`PUT /api/superadmin/server/services/<name>`). If the file is older than 2 minutes, the card shows "Agent stopped".
+A container started by `docker-compose.yml` is Platform's. A container with the label `platform.org=<prefix>` is that org's. The superadmin sets the owner of each other service on the Services page (`PUT /api/superadmin/server/services/<name>`). If the file is older than 2 minutes, the page shows "Agent stopped".
 
 ## This server runner
 
@@ -71,7 +71,7 @@ The runner lets orgs deploy apps to this server (provider `server` on the Hostin
 | `bridge_image` | The image of `platform-bridge`, a small container that the runner keeps on podman's default network so that the bridge address `10.88.0.1` stays in place |
 | `orgs.<prefix>.public_ports` | Host ports of the org that bind every address, not only `bind_ips`, for a service that clients reach by the server's IP. Keep it short |
 | `shared.host_paths`, `shared.host_ports` | Host paths and host ports that only shared apps may use |
-| `host_control.containers`, `host_control.units` | The other containers and systemd units that the superadmin may start, stop, restart and read the logs of on the Services card. Container names may use `*`, such as `twenty_*`; units are exact names. App containers are controlled through their apps |
+| `host_control.containers`, `host_control.units` | The other containers and systemd units that the superadmin may start, stop, restart and read the logs of on the Services page. Container names may use `*`, such as `twenty_*`; units are exact names. App containers are controlled through their apps |
 | `commands` | Named commands for the `server.run` tool: `{"health": {"argv": ["make", "health"], "cwd": "/var/www/soda-internal-api", "timeout": 120, "description": "..."}}`. A call sends only the name; the command line comes from the policy. Timeout at most 600 seconds; the last 20,000 characters of output come back |
 | `shell` | The `server.shell` tool. Off by default. `{"enabled": true, "user": "platform-agent", "cwd": "/srv/agent", "timeout": 120}` runs any command line with bash as that user, never root (the runner refuses uid or gid 0). Make a user with no sudo, not in the podman or wheel groups, and with no read access to the Platform folder or `.env`. Timeout at most 600 seconds; a timeout kills the whole process group |
 
@@ -290,7 +290,7 @@ The `browser` service is a Playwright server with Chromium. Platform uses it for
 - Each page opens a new browser context, with its own cookies and storage, and closes it after the page. The ASU session of an org goes only into the context of that org's request.
 - The browser is only on `browser-network`, which `api`, `worker` and `mcp` join. It cannot reach Postgres or the other services. Platform also stops it from loading any address that is not public.
 - `BROWSER_MAX_PAGES` (default 2) caps the pages that one process renders at one time. The container is capped at 1 GB and one CPU.
-- An org renders pages only within `knowledge.renders_per_day`, which is 0 by default. Raise it for an org on the Superadmin page. Shared submodule pages count against no org.
+- An org renders pages only within `knowledge.renders_per_day`, which is 0 by default. Raise it for an org on the Limits page of the superadmin space. Shared submodule pages count against no org.
 
 1. Add `BROWSER_URL=ws://browser:3000/` to `.env`.
 2. Build and start it: `docker compose --profile browser up -d --build browser`, then recreate the API, worker and MCP containers so they read the new `.env` and join `browser-network`.
@@ -342,7 +342,7 @@ DISABLED_ROUTES=/api/public/getnextevent,/api/bot/
 - If `SENTRY_DSN` is set, the API, bot, job worker and MCP server send errors to Sentry, with a `service` tag (`api`, `bot`, `worker`, `mcp`) and the commit as the release. They also send log lines at `SENTRY_LOGS_LEVEL` (default `WARNING`) and above, and traces for `SENTRY_TRACES_SAMPLE_RATE` of requests (default `0.1`). `SENTRY_PROFILES_SAMPLE_RATE` (default `0`) turns on profiles. `SENTRY_ENVIRONMENT` (default `production`) names the environment.
 - Platform keeps its own error log, with no outside service. Each process (`api`, `bot`, `worker`, `mcp`) records every log line at ERROR or above in the `error_groups` table, with the stack trace, the org and the route. Each group also keeps the context of its last event: the request method and path (no query string), the job name, the logger and line, the host, process, thread, release (`GIT_COMMIT_HASH`) and Python version. The dashboard sends browser errors and API calls that got no answer or a status of 500 or more. Repeats of one error add to one group.
 - Officers see their org's errors on Activity, Errors, and resolve or delete them there, one at a time or as a selection. A resolved error opens again when it happens again. A deleted error that happens again starts a new group. The superadmin page shows the errors of every org and the errors with no org, such as a failed job.
-- Discord alerts: an officer adds a destination with the Errors event on the Alerts page. See [Webhooks](./webhooks.md). `ERROR_WEBHOOK_URL` in `.env` gets every new error of every org and of the server. Each new or returning error posts one message, at most 30 for each process in an hour.
+- Discord alerts: an officer adds a destination with the Errors event on the Alerts page. See [Webhooks](./webhooks.md). `ERROR_WEBHOOK_URL` in `.env` gets every new error of every org and of the server. Each new or returning error posts one message: at most 30 an hour for each org (limit `alerts.messages`), and at most 30 an hour to `ERROR_WEBHOOK_URL`. Each org message is logged in `deliveries`.
 - Sentry is optional. Set `SENTRY_DSN` only if you want Sentry in addition to the error log.
 
 Caution: do not delete `data/jwt_private.pem` or `data/jwt_public.pem`. If you delete them, every officer must sign in again.

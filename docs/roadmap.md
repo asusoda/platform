@@ -66,17 +66,13 @@ Campus content is a submodule in `submodules/`, such as `submodules/asu`. Anothe
 - [ ] Move the rest of the logic in `points/api.py` and `storefront/api.py` into their `service.py`.
 - [ ] Remove dead routes: the camelCase aliases in points, `/api/users/<org>/submit-form`, `/api/public/getnextevent`, `/api/organizations/<id>/roles`, and the legacy calendar routes (`/events`, `/delete-all-events`, `/notion-webhook`).
 - [ ] Remove the unused models `Session`, `OrganizationConfig` and `Officer`, and the unused columns `points_per_message` and `points_cooldown`.
-- [ ] Make `superadmin` create orgs through `organizations.service.create_organization`, so that the prefix is checked.
 
 ## Known faults
 
-- Checkout reads the points balance and writes the purchase with no row lock. Two checkouts at the same time can both pass the balance check.
-- `POST /api/storefront/<org>/members/orders` writes a pending order and takes no points. An officer must check the balance before delivery.
 - `error_handler` returns the exception text to the client.
 - `GET /api/organizations/<id>/stats`, `/activity` and `/roles` return fixed sample data.
 - `GameCog` keeps the game state in memory, and a restart loses it.
 - The calendar sync needs the Notion properties `Name`, `Date`, `Location`, `Description` and `gcal_id`. If one has a different name, the sync skips the event and logs a warning.
-- The points CSV upload gives no progress or result. Errors go only to the log.
 
 ## Not planned
 

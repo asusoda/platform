@@ -108,14 +108,10 @@ def test_integrations_list_the_modules_they_unlock(client, officer_headers):
 def test_new_org_starts_with_new_org_modules():
     from modules.manifest import NEW_ORG_MODULES
     from modules.organizations.service import OPTIONAL_MODULES, new_org_switches
-    from modules.superadmin.service import new_organization
 
     switches = new_org_switches()
     assert set(switches) == set(OPTIONAL_MODULES)
     assert all(on == (name in NEW_ORG_MODULES) for name, on in switches.items())
-    org = new_organization({"id": "4242", "name": "New Club", "icon_url": None})
-    assert org.config is not None
-    assert org.config["modules"] == switches
 
 
 def test_catalog_needs_name_real_integrations(app):

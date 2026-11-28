@@ -215,40 +215,123 @@ def restore_soda_config(app):
 
 
 class WebhookResponse:
-    def __init__(self, status_code: int = 204) -> None:
+    def __init__(self, status_code: int = 204, body: dict | None = None) -> None:
         self.status_code = status_code
+        self.body = body or {}
+
+    def json(self) -> dict:
+        return self.body
+
+
+def discord_problems(payload: dict) -> list[str]:
+    """What Discord would refuse in a webhook body: empty strings, parts over the embed limits, a bad timestamp."""
+    import datetime
+
+    problems = []
+    for embed in payload.get("embeds", []):
+        fields = embed.get("fields", [])
+        texts = [embed[key] for key in ("title", "description") if key in embed]
+        texts += [embed["footer"]["text"]] if "footer" in embed else []
+        texts += [f["name"] for f in fields] + [f["value"] for f in fields]
+        if any(value == "" for value in texts) or embed.get("url") == "":
+            problems.append("empty string")
+        limits = [("title", 256), ("description", 4096)]
+        problems += [key for key, most in limits if len(embed.get(key, "")) > most]
+        if len(fields) > 25 or any(len(f["name"]) > 256 or len(f["value"]) > 1024 for f in fields):
+            problems.append("fields")
+        if len(embed.get("footer", {}).get("text", "")) > 2048 or sum(len(t) for t in texts) > 6000:
+            problems.append("size")
+        if "timestamp" in embed:
+            try:
+                datetime.datetime.fromisoformat(embed["timestamp"])
+            except ValueError:
+                problems.append("timestamp")
+    return problems
 
 
 class Sent(list):
-    """Messages posted to webhooks, as (url, payload). status is the status code the next post gets."""
+    """Messages posted to destinations, as (url, payload). status is the status code the next post gets.
+
+    statuses, when set, gives the status of each next post in turn. A body that Discord would refuse gets 400.
+    Each events.deliver job runs in a thread, as on the inline queue; reading the list waits for those jobs first.
+    """
 
     status = 204
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.statuses: list[int] = []
+        self.refused: list[list[str]] = []
+        self.kwargs: list[dict] = []
+        self.jobs: list = []
+
+    def wait(self) -> "Sent":
+        """Wait for every queued events.deliver job to end."""
+        while self.jobs:
+            self.jobs.pop(0).join(timeout=30)
+        return self
+
+    def __len__(self) -> int:
+        self.wait()
+        return super().__len__()
+
+    def __iter__(self):
+        self.wait()
+        return super().__iter__()
+
+    def __getitem__(self, index):
+        self.wait()
+        return super().__getitem__(index)
+
+    def __eq__(self, other) -> bool:
+        self.wait()
+        return list(super().__iter__()) == other
 
 
 @pytest.fixture
 def sent(app, monkeypatch):
-    """Posts to webhooks, sent in the test thread. Removes every webhook after the test."""
+    """Posts to destinations, with events delivered in the test thread. Removes destinations and the log after."""
     from cryptography.fernet import Fernet
 
-    from core import net, webhooks
+    from core import jobs, limits, net, webhooks
     from core.db import db_connect
+    from modules.alerts.models import Delivery, Destination
 
     posts = Sent()
 
-    def post(url, json, timeout, allow_redirects):
+    def post(url, json, **kwargs):
         posts.append((url, json))
-        return WebhookResponse(posts.status)
+        posts.kwargs.append(kwargs)
+        problems = discord_problems(json)
+        if problems:
+            posts.refused.append(problems)
+            return WebhookResponse(400, {"message": "Invalid Form Body"})
+        status = posts.statuses.pop(0) if posts.statuses else posts.status
+        return WebhookResponse(status, {"retry_after": 0} if status == 429 else None)
+
+    real_defer = jobs.defer
+
+    def defer(name, **kwargs):
+        thread = real_defer(name, **kwargs)
+        if name == webhooks.DELIVER_JOB and thread is not None:
+            posts.jobs.append(thread)
+        return thread
 
     monkeypatch.setenv("SECRETS_KEY", Fernet.generate_key().decode())
-    monkeypatch.setattr(webhooks, "spawn", lambda target, *args: target(*args))
-    monkeypatch.setattr(webhooks.requests, "post", post)
-    monkeypatch.setattr(webhooks, "_sent", {})
+    monkeypatch.setattr(jobs, "defer", defer)
+    monkeypatch.setattr(net, "post", post)
     monkeypatch.setattr(net, "check_public", lambda url: None)
     yield posts
+    posts.wait()
     db = db_connect.SessionLocal()
-    db.query(webhooks.Webhook).delete()
+    db.query(Delivery).delete()
+    db.query(Destination).delete()
+    db.query(limits.UsageCounter).filter(limits.UsageCounter.key.like("alerts.messages%")).delete(
+        synchronize_session=False
+    )
     db.commit()
     db.close()
+    assert posts.refused == [], "Discord would refuse these bodies"
 
 
 @pytest.fixture

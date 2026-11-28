@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Button, cx, Dialog, ErrorNote, FormActions, OkNote, SkeletonRows } from '../../components/ui';
 import { send, api } from '../../lib/api';
+import { refreshPoints } from './shared';
 
 type Role = { id: string; name: string; color: string };
 type SyncCounts = { matched: number; new_users: number; joined: number; already: number };
@@ -31,7 +32,7 @@ export function DiscordSyncDialog({ prefix, open, onClose }: { prefix: string; o
   const sync = useMutation({
     mutationFn: () => run(false),
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: ['points', prefix] });
+      refreshPoints(client, prefix);
       client.invalidateQueries({ queryKey: ['users', prefix, 'discord-sync-preview'] });
     },
   });

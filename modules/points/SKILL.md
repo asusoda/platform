@@ -12,7 +12,8 @@ Use it to give points for events, look up a member's points, and show the leader
 1. `points.leaderboard` for the top members.
 2. `points.history` for one member, `points.entries` for every entry.
 3. `points.award` gives the same points to up to 100 members for one event. A negative value takes points away.
-4. `points.import_csv` gives points to each checked-in row of an attendance CSV, once per email.
+4. `points.import_csv` gives points to each checked-in row of an attendance CSV, once per email. It returns `import_id`.
+5. `points.imports` shows each import run: rows done, points awarded, duplicates skipped, and the row and email of each failed row.
 
 ## Watch out
 

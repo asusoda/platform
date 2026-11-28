@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, Dialog, Field, FormActions, Input } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { PointsMember } from '../../lib/types';
+import { addToTotals, refreshPoints } from './shared';
 
 // A Discord user ID: the add_points route finds members by it.
 const DISCORD_ID = /^[0-9]{15,25}$/;
@@ -12,14 +13,23 @@ export function AwardDialog({
   members,
   open,
   onClose,
+  member = '',
 }: {
   prefix: string;
   members: PointsMember[];
   open: boolean;
   onClose: () => void;
+  // The member the form starts with, such as the one open in the member drawer.
+  member?: string;
 }) {
   const client = useQueryClient();
-  const [draft, setDraft] = useState({ member: '', points: '', event: '', by: '' });
+  const empty = { member, points: '', event: '', by: '' };
+  const [draft, setDraft] = useState(empty);
+  const [shownFor, setShownFor] = useState({ open, member });
+  if (shownFor.open !== open || shownFor.member !== member) {
+    setShownFor({ open, member });
+    if (open) setDraft(empty);
+  }
   const award = useMutation({
     mutationFn: () => {
       const body = { points: Number(draft.points), event: draft.event || null, awarded_by_officer: draft.by || null };
@@ -28,8 +38,9 @@ export function AwardDialog({
         : send(`/api/points/${prefix}/assign_points`, 'POST', { ...body, user_identifier: draft.member });
     },
     onSuccess: () => {
-      client.invalidateQueries({ queryKey: ['points', prefix] });
-      setDraft({ member: '', points: '', event: '', by: '' });
+      if (!DISCORD_ID.test(draft.member)) addToTotals(client, prefix, [draft.member], Number(draft.points));
+      refreshPoints(client, prefix);
+      setDraft(empty);
       onClose();
     },
   });

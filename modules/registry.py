@@ -20,7 +20,7 @@ from modules.knowledge.api import knowledge_blueprint
 from modules.mcp.api import tools_blueprint, well_known_blueprint
 from modules.organizations import service as organizations
 from modules.organizations.api import organizations_blueprint
-from modules.points.api import points_blueprint
+from modules.points.member_api import points_blueprint
 from modules.public.api import public_blueprint
 from modules.runpod.api import apps_blueprint
 from modules.storefront.member_api import storefront_blueprint

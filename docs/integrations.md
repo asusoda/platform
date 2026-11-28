@@ -181,7 +181,7 @@ These settings moved to the dashboard, and the `.env` value is now the default f
 | --- | --- |
 | `EMBEDDINGS_*`, `FIRECRAWL_*`, `SEARXNG_*`, `NOTION_API_KEY`, `OPENROUTER_API_KEY` | Integrations |
 | `GODFATHER_POD_IMAGE` | Godfather > Settings |
-| `KNOWLEDGE_PUBLISHERS` | Superadmin > Knowledge publishers. Orgs in `.env` stay publishers |
+| `KNOWLEDGE_PUBLISHERS` | Superadmin > Publishers. Orgs in `.env` stay publishers |
 | `KNOWLEDGE_CHUNK_CHARS`, `KNOWLEDGE_MAX_DISTANCE` | Knowledge > Search settings |
 | `LEETCODE_*` | LeetCode. The `.env` post is the older post for one server |
 
