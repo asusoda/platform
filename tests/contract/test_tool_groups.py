@@ -91,22 +91,32 @@ def test_a_confirm_row_without_confirm_changes_nothing(client, officer_headers, 
     assert client.get("/api/dashboard/soda/modules", headers=officer_headers).get_json() == before
 
 
-def test_a_rate_class_limit_returns_429(client, token_for, monkeypatch):
+@pytest.fixture
+def clear_tool_counters(app):
+    """No tools.* usage from other tests in this minute, before and after."""
     from core.db import db_connect
     from core.limits import UsageCounter
 
+    def clear():
+        db = db_connect.SessionLocal()
+        try:
+            db.query(UsageCounter).filter(UsageCounter.key.like("tools.%")).delete(synchronize_session=False)
+            db.commit()
+        finally:
+            db.close()
+
+    clear()
+    yield
+    clear()
+
+
+def test_a_rate_class_limit_returns_429(client, token_for, monkeypatch, clear_tool_counters):
     monkeypatch.setenv("LIMIT_TOOLS_LIVE_PER_MINUTE", "1")
     headers = token_for("integrations:manage")
     first = client.post("/api/tools/connections.test", json={"key": "notion"}, headers=headers)
     assert first.status_code != 429, first.get_json()
     second = client.post("/api/tools/connections.test", json={"key": "notion"}, headers=headers)
     assert second.status_code == 429
-    db = db_connect.SessionLocal()
-    try:
-        db.query(UsageCounter).filter(UsageCounter.key.like("tools.%")).delete(synchronize_session=False)
-        db.commit()
-    finally:
-        db.close()
 
 
 def test_mcp_annotations_follow_the_row(client, token_for):
