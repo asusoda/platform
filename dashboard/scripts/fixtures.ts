@@ -55,8 +55,6 @@ interface OrgDetail extends Org {
   created_at: string;
   updated_at: string;
   officer_role_id: string | null;
-  points_per_message: number;
-  points_cooldown: number;
   google_calendar_id: string | null;
   notion_database_id: string | null;
   calendar_sync_enabled: boolean;
@@ -1420,8 +1418,6 @@ export function fixtures(now: number = Date.now()) {
     created_at: at(-200 * DAY),
     updated_at: at(-3 * DAY),
     officer_role_id: null,
-    points_per_message: 1,
-    points_cooldown: 60,
     google_calendar_id: null,
     notion_database_id: null,
     calendar_sync_enabled: false,
@@ -1433,8 +1429,6 @@ export function fixtures(now: number = Date.now()) {
   const orgDetail = detail(ORG, {
     description: 'Builds rovers, drones and competition robots. Weekly build nights and workshops.',
     officer_role_id: '1290000000000000201',
-    points_per_message: 2,
-    points_cooldown: 120,
     google_calendar_id: 'robotics-events@group.calendar.google.com',
     notion_database_id: '9f3c2a1b7d5e4c8a9b0e1f2a3b4c5d6e',
     last_sync_at: at(-2 * HOUR),

@@ -192,10 +192,11 @@ def test_uptime_monitor_round_trip(client, monkeypatch):
 def test_org_calendar_and_leetcode_settings(client, restore_soda_config):
     headers = _issue("org:read", "settings:write", "calendar:read", "calendar:manage")
     before = _result(client, headers, "org.settings")
-    changed = _result(client, headers, "org.update_settings", points_per_message=3)
-    assert changed["points_per_message"] == 3
+    changed = _result(client, headers, "org.update_settings", description="Tool description")
+    assert changed["description"] == "Tool description"
     assert _call(client, headers, "org.update_settings", prefix="new").status_code == 400
-    _result(client, headers, "org.update_settings", points_per_message=before["points_per_message"])
+    assert _call(client, headers, "org.update_settings", points_per_message=3).status_code == 400
+    _result(client, headers, "org.update_settings", description=before["description"])
 
     calendar = _result(client, headers, "calendar.settings")["settings"]
     assert calendar["notion_database_id"] == "notion-db-soda"

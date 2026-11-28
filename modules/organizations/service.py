@@ -275,36 +275,22 @@ def set_branding(db, org: Organization, changes: object) -> dict:
 
 
 MAX_DESCRIPTION = 500
-SETTING_KEYS = ("description", "points_per_message", "points_cooldown")
+SETTING_KEYS = ("description",)
 
 
 def settings(org: Organization) -> dict:
-    """The org's description, points for each message and the cooldown in seconds between them."""
-    return {
-        "name": org.name,
-        "prefix": org.prefix,
-        "description": org.description,
-        "points_per_message": org.points_per_message,
-        "points_cooldown": org.points_cooldown,
-    }
+    """The org's name, prefix and description."""
+    return {"name": org.name, "prefix": org.prefix, "description": org.description}
 
 
 def set_settings(db, org: Organization, changes: object) -> dict:
-    """Set the description and points settings that changes has. Commits."""
+    """Set the description that changes has. Commits."""
     if not isinstance(changes, dict) or not changes or set(changes) - set(SETTING_KEYS):
         raise SettingsError(f"Send an object with one or more of {', '.join(SETTING_KEYS)}")
-    changes = cast(dict, changes)
-    if "description" in changes:
-        value = changes["description"]
-        if value is not None and (not isinstance(value, str) or len(value.strip()) > MAX_DESCRIPTION):
-            raise SettingsError(f"description must be text of at most {MAX_DESCRIPTION} characters")
-        org.description = value.strip() if value else None
-    for key in ("points_per_message", "points_cooldown"):
-        if key in changes:
-            value = changes[key]
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise SettingsError(f"{key} must be a whole number of 0 or more")
-            setattr(org, key, value)
+    value = cast(dict, changes).get("description")
+    if value is not None and (not isinstance(value, str) or len(value.strip()) > MAX_DESCRIPTION):
+        raise SettingsError(f"description must be text of at most {MAX_DESCRIPTION} characters")
+    org.description = value.strip() if value else None
     db.commit()
     return settings(org)
 

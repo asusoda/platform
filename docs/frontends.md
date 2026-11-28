@@ -72,7 +72,7 @@ The other pages use the routes of their modules: `/api/points`, `/api/storefront
 
 For private repos, connect GitHub on the Integrations tab of Explore with a read-only token that can read Actions.
 
-The Settings page has these sections: General (description, points per message, points cooldown), Branding, Secrets and Limits (read-only, grouped by who pays; see [Limits](./limits.md)). The calendar and LeetCode settings are on the Calendar and LeetCode pages. The old links `settings#calendar`, `settings#leetcode` and `settings#modules` open the Calendar, LeetCode and Explore pages. The officer role shows there read-only.
+The Settings page has these sections: General (description), Branding, Secrets and Limits (read-only, grouped by who pays; see [Limits](./limits.md)). The calendar and LeetCode settings are on the Calendar and LeetCode pages. The old links `settings#calendar`, `settings#leetcode` and `settings#modules` open the Calendar, LeetCode and Explore pages. The officer role shows there read-only.
 
 Each org sets its logo, accent color and website on the Settings page. The sidebar links to the website. The accent color sets the `--accent` CSS variable. Only primary buttons and the org initial use it. `--accent-fg` is black or white, for contrast. With no branding, the dashboard is gray and shows the first letter of the org name.
 

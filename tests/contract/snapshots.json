@@ -347,8 +347,6 @@
         "name": "string",
         "notion_database_id": "string",
         "officer_role_id": "string",
-        "points_cooldown": "number",
-        "points_per_message": "number",
         "prefix": "string",
         "updated_at": "string"
       },
@@ -374,8 +372,6 @@
         "name": "string",
         "notion_database_id": "null",
         "officer_role_id": "string",
-        "points_cooldown": "number",
-        "points_per_message": "number",
         "prefix": "string",
         "updated_at": "string"
       }
