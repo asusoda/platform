@@ -16,8 +16,8 @@ from mcp.client.streamable_http import streamable_http_client
 
 from core import hosting, net, secrets
 from core.log import get_logger
+from hosting.base import AppError, find, manifest_of
 from hosting.models import App
-from hosting.service import AppError, _find, _manifest
 
 logger = get_logger(__name__)
 
@@ -29,7 +29,7 @@ MAX_RESULT_CHARS = 20_000
 
 def endpoint(app: App) -> str:
     """The URL of the app's MCP server."""
-    spec = _manifest(app).get("mcp")
+    spec = manifest_of(app).get("mcp")
     if not isinstance(spec, dict):
         raise AppError("The app names no MCP server. Add mcp to its manifest", 404)
     if spec.get("url"):
@@ -40,7 +40,7 @@ def endpoint(app: App) -> str:
 
 
 def _token(db, org_id: int | None, app: App) -> str | None:
-    name = (_manifest(app).get("mcp") or {}).get("token_secret")
+    name = (manifest_of(app).get("mcp") or {}).get("token_secret")
     if not name:
         return None
     value = secrets.get_deployment_secret(db, name) if org_id is None else secrets.get_secret(db, org_id, name)
@@ -60,7 +60,7 @@ async def _session(url: str, token: str | None, work):
 
 
 def _run(db, org_id: int | None, name: str, work) -> Any:
-    app = _find(db, org_id, name)
+    app = find(db, org_id, name)
     url = endpoint(app)
     try:
         net.check_public(url)

@@ -66,11 +66,13 @@ function PodStatus({ prefix, app }: { prefix: string; app: App }) {
       </p>
     );
   }
-  const status = p.desiredStatus ?? 'UNKNOWN';
-  const machine = p.gpu?.displayName
-    ? `${p.gpu.count && p.gpu.count > 1 ? `${p.gpu.count} x ` : ''}${p.gpu.displayName}`
-    : (p.machine?.gpuDisplayName ?? p.machine?.cpuTypeId ?? null);
-  const cost = p.costPerHr !== undefined && p.costPerHr !== null ? Number(p.costPerHr) : null;
+  const status = p.status ?? 'UNKNOWN';
+  const machine = p.gpu?.id
+    ? `${p.gpu.count && p.gpu.count > 1 ? `${p.gpu.count} x ` : ''}${p.gpu.id}`
+    : p.cpu?.id
+      ? `${p.cpu.id}${p.cpu.vcpuCount ? `, ${p.cpu.vcpuCount} vCPUs` : ''}`
+      : null;
+  const cost = typeof p.cost === 'number' ? p.cost : null;
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <Fact label="Status">

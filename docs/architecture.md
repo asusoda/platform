@@ -300,7 +300,7 @@ Each call, allowed or refused, is a row in `audit_log` with `action=tool <name>`
 | Discord | Sign-in, role and member checks, the bot | `core/integrations/discord.py`, `modules/auth`, `modules/bot` |
 | Clerk | Member sign-in on the public website storefront | `modules/auth/clerk.py` |
 | Notion, Google Calendar | Calendar sync | `modules/calendar/clients/` |
-| RunPod | Godfather pods and app deploys, through the hosting provider registry in `core/hosting.py` | `core/integrations/runpod.py` |
+| RunPod | Godfather pods and app deploys, through the hosting provider registry in `core/hosting/` | `core/hosting/runpod.py` |
 | LeetCode GraphQL | The daily question and solve checks | `modules/bot/submodules/leetcode/client.py` |
 | Error log | Errors of each process and the dashboard, grouped in `error_groups`, shown on Activity, Errors | `core/error_log.py`, `modules/dashboard/errors.py` |
 | Webhooks | Org events (errors, failed jobs, pods, deploys, orders, new members, failed crawls) posted to the org's alert destinations | `core/webhooks.py`, `modules/alerts/` |

@@ -66,4 +66,22 @@ describe('new pod GPU picker', () => {
     expect((created[0] as { gpu_type_id: string }).gpu_type_id).toBe('NVIDIA RTX A4500');
     expect(created[0]).not.toHaveProperty('member_setup');
   });
+
+  it('sends one request_id for every submit of the same form', async () => {
+    const created: unknown[] = [];
+    stubApi(created);
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <NewPodDialog prefix="ais" onClose={() => {}} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole('combobox', { name: 'GPU type' });
+    await user.click(screen.getByRole('button', { name: 'Create pod' }));
+    await user.click(screen.getByRole('button', { name: 'Create pod' }));
+    await waitFor(() => expect(created).toHaveLength(2));
+    const [first, second] = created as { request_id: string }[];
+    expect(first.request_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second.request_id).toBe(first.request_id);
+  });
 });

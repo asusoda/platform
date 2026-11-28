@@ -76,6 +76,8 @@ browser = ["playwright>=1.49"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tests/live calls outside services with real keys; run it by its path
+norecursedirs = [".*", "*.egg", "build", "dist", "node_modules", "venv", "live"]
 python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--verbose"
@@ -142,6 +144,9 @@ source_modules = [
     "modules.**.models",
     "modules.**.jobs",
     "modules.**.tools",
+    "hosting.base",
+    "hosting.deploys",
+    "hosting.manifest",
     "hosting.service",
     "hosting.models",
     "hosting.jobs",

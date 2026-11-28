@@ -224,7 +224,7 @@ def test_new_member_sends_member_joined(client, officer_headers, sent):
 
 
 def test_pod_and_deploy_messages(client, officer_headers, sent):
-    from hosting import service as apps
+    from hosting import deploys
     from hosting.models import App, AppDeployment
     from modules.godfather import base as godfather
 
@@ -232,7 +232,7 @@ def test_pod_and_deploy_messages(client, officer_headers, sent):
     godfather.announce(_ais_id(), "gpu-1", "pod123", "start", "the session schedule")
     godfather.announce(_ais_id(), "gpu-1", "pod123", "terminate", "an officer or a tool")
     app = App(organization_id=_ais_id(), name="site")
-    apps._announce(app, AppDeployment(tag="v2", status="failed", error="The health path did not answer in time"))
+    deploys.announce(app, AppDeployment(tag="v2", status="failed", error="The health path did not answer in time"))
     titles = sorted(payload["embeds"][0]["title"] for _, payload in sent)
     assert titles == ["App site deploy failed", "Pod gpu-1 started", "Pod gpu-1 terminated"]
 

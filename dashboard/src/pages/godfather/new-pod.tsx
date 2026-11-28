@@ -114,6 +114,8 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
   const defaults = useGodfatherSettings(prefix);
   const providers = useProviders(prefix);
   const [chosen, setChosen] = useState<string | null>(null);
+  // Sent with each submit of this form: the API makes one pod for it, however many times it arrives
+  const [requestId] = useState(() => crypto.randomUUID());
   const provider = chosen ?? firstConfigured(providers.data);
   const title = providerTitle(providers.data, provider);
   // The hardware, cloud and volume fields follow the RunPod v2 API, so they show for RunPod only
@@ -139,6 +141,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
         env: Object.fromEntries(env.filter((r) => r.name.trim()).map((r) => [r.name.trim(), r.value])),
         is_public: draft.isPublic,
         allowed_users: draft.users,
+        request_id: requestId,
       };
       if (runpod) {
         body.cloud_type = draft.cloud;

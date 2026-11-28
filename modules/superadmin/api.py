@@ -7,8 +7,8 @@ from core.db import db_connect
 from core.errors import ServiceError
 from core.http.responses import internal_error
 from core.log import get_logger
+from hosting import deploys, shared
 from hosting import service as apps
-from hosting import shared
 from modules.auth.access import current_principal, discord_directory
 from modules.auth.decorators import header_token_refusal, superadmin_required
 from modules.auth.routes import respond
@@ -287,7 +287,9 @@ def deploy_shared_app(name):
     """Deploy a tag of a shared app. Body: {"tag": "1.2.3", "dry_run": false}."""
     body = request.get_json(silent=True) or {}
     actor = _actor()
-    return _run(lambda db: (apps.deploy(db, None, None, name, body.get("tag"), actor, bool(body.get("dry_run"))), 202))
+    return _run(
+        lambda db: (deploys.deploy(db, None, None, name, body.get("tag"), actor, bool(body.get("dry_run"))), 202)
+    )
 
 
 @superadmin_blueprint.route("/shared-apps/<string:name>/rollback", methods=["POST"])
@@ -296,7 +298,7 @@ def rollback_shared_app(name):
     """Deploy the last healthy tag before the current one."""
     body = request.get_json(silent=True) or {}
     actor = _actor()
-    return _run(lambda db: (apps.rollback(db, None, None, name, actor, bool(body.get("dry_run"))), 202))
+    return _run(lambda db: (deploys.rollback(db, None, None, name, actor, bool(body.get("dry_run"))), 202))
 
 
 @superadmin_blueprint.route("/shared-apps/<string:name>/pod", methods=["GET"])

@@ -9,9 +9,9 @@ from cryptography.fernet import Fernet
 
 from core import secrets
 from core.db import db_connect
-from hosting import service, templates
+from hosting import deploys, service, templates
 
-from .test_runpod_apps import _issue
+from .test_hosting_apps import _issue
 
 
 @pytest.fixture
@@ -151,7 +151,7 @@ def test_create_from_template_saves_secrets_and_registers_inline(client, manager
     )
     assert dry.status_code == 200
     assert dry.get_json()["request"]["body"]["image"] == "ghcr.io/dani-garcia/vaultwarden:1.37.4"
-    assert dry.get_json()["request"]["body"]["env"]["ADMIN_TOKEN"] == service.REDACTED
+    assert dry.get_json()["request"]["body"]["env"]["ADMIN_TOKEN"] == deploys.REDACTED
 
     again = client.post("/api/apps/templates/vaultwarden", json={"name": name, **VAULTWARDEN}, headers=manager)
     assert again.status_code == 409
@@ -212,7 +212,7 @@ def test_officer_lists_and_creates_from_template(client, officer_headers, secret
 
 
 def test_app_name_templates_is_reserved(client, manager):
-    from .test_runpod_apps import MANIFEST
+    from .test_hosting_apps import MANIFEST
 
     assert client.put("/api/apps/templates", json={"manifest": MANIFEST}, headers=manager).status_code == 400
 
