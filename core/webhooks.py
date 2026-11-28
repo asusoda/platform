@@ -139,8 +139,10 @@ def save(db, org_id: int, event: str, message: Message) -> None:
     db.flush()
     mine = db.query(Notification).filter_by(organization_id=org_id)
     mine.filter(Notification.created_at < utcnow() - timedelta(days=KEEP_DAYS)).delete()
+    # Only rows older than the oldest kept one go, so a row that another delivery commits meanwhile stays
     kept = [i for (i,) in mine.order_by(Notification.id.desc()).with_entities(Notification.id).limit(KEEP_COUNT)]
-    mine.filter(Notification.id.notin_(kept)).delete(synchronize_session=False)
+    if len(kept) == KEEP_COUNT:
+        mine.filter(Notification.id < kept[-1]).delete(synchronize_session=False)
 
 
 @jobs.job(DELIVER_JOB, audit=False)

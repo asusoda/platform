@@ -115,3 +115,25 @@ def test_delete_events_in_a_batch(client, officer_headers, sent, failing_source)
         db.query(webhooks.Notification).delete()
         db.commit()
         db.close()
+
+
+def test_deliveries_at_the_same_time_keep_each_others_notifications(app):
+    import threading
+    from dataclasses import asdict
+
+    from core import webhooks
+    from core.db import db_connect
+
+    message = asdict(webhooks.Message(title="pod at once"))
+    threads = [threading.Thread(target=webhooks.deliver, args=("ais", "pod.started", message)) for _ in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    db = db_connect.SessionLocal()
+    try:
+        assert db.query(webhooks.Notification).filter_by(title="pod at once").count() == 10
+    finally:
+        db.query(webhooks.Notification).delete()
+        db.commit()
+        db.close()
