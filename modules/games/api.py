@@ -7,6 +7,7 @@ import discord
 from flask import Blueprint, current_app, jsonify, request
 
 from core.db import db_connect as db
+from core.http.responses import internal_error
 from core.log import get_logger
 from modules.auth.access import any_officer_denial, current_principal, is_superadmin, officer_guild_ids
 from modules.bot.bot import BotFork
@@ -123,9 +124,8 @@ def get_available_games():
             )
         logger.debug(f"Retrieved {len(game_data)} games")
         return jsonify(game_data), 200
-    except Exception as e:
-        logger.error(f"Error retrieving available games: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_available_games")
     finally:
         session.close()
 
@@ -136,9 +136,10 @@ def get_game_data():
     logger.info(f"Getting game data for file: {file_name}")
     try:
         return jsonify(service.read_game_file(file_name))
-    except Exception as e:
-        logger.error(f"Error retrieving game data: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except service.GameError as e:
+        return jsonify({"error": e.message}), e.status
+    except Exception:
+        return internal_error("get_game_data")
 
 
 @game_blueprint.route("/startgame", methods=["POST"])
@@ -149,9 +150,10 @@ def start_game():
     try:
         service.get_game(session, game_name)
         return jsonify({"message": f"Game {game_name} started", "status": "success"}), 200
-    except Exception as e:
-        logger.error(f"Error starting game {game_name}: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except service.GameError as e:
+        return jsonify({"error": e.message}), e.status
+    except Exception:
+        return internal_error("start_game")
     finally:
         session.close()
 
@@ -161,9 +163,8 @@ def stop_game():
     logger.info("Stopping current game")
     try:
         return jsonify({"message": "Game stopped", "status": "success"}), 200
-    except Exception as e:
-        logger.error(f"Error stopping game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("stop_game")
 
 
 @game_blueprint.route("/uploadgame", methods=["POST"])
@@ -194,9 +195,10 @@ def upload_game():
     except json.JSONDecodeError:
         logger.error("Invalid JSON in uploaded file", exc_info=True)
         return jsonify({"error": "Invalid JSON"}), 400
-    except Exception as e:
-        logger.error(f"Error uploading game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except service.GameError as e:
+        return jsonify({"error": e.message}), e.status
+    except Exception:
+        return internal_error("upload_game")
     finally:
         session.close()
 
@@ -215,9 +217,8 @@ def get_game():
     except service.GameError as e:
         logger.warning(f"Game not found: {name}")
         return jsonify({"error": e.message}), e.status
-    except Exception as e:
-        logger.error(f"Error retrieving game {name}: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_game")
     finally:
         session.close()
 
@@ -260,9 +261,8 @@ async def set_active_game():
         else:
             logger.warning(f"Game not found for setactivegame: {name}")
             return jsonify({"error": "Game not found"}), 404
-    except Exception as e:
-        logger.error(f"Error setting active game {name}: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("set_active_game")
     finally:
         session.close()
 
@@ -287,9 +287,8 @@ async def get_active_game():
         else:
             logger.error("GameCog not found on auth_bot")
             return jsonify({"error": "GameCog not found"}), 500
-    except Exception as e:
-        logger.error(f"Error retrieving active game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_active_game")
 
 
 @game_blueprint.route("/cleanactivegame", methods=["POST"])
@@ -309,9 +308,8 @@ async def clean_active_game():
         else:
             logger.error("GameCog not found on auth_bot")
             return jsonify({"error": "Functionality not found"}), 500
-    except Exception as e:
-        logger.error(f"Error cleaning active game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("clean_active_game")
 
 
 @game_blueprint.route("/getactivegamestate", methods=["GET"])
@@ -330,9 +328,8 @@ def get_active_game_state():
         else:
             logger.info("No active game or state found in GameCog")
             return jsonify({"error": "No active game set or state unavailable"}), 404
-    except Exception as e:
-        logger.error(f"Error retrieving active game state: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_active_game_state")
 
 
 @game_blueprint.route("/startactivegame", methods=["POST"])
@@ -353,9 +350,8 @@ async def start_active_game():
         else:
             logger.error("GameCog not found on auth_bot")
             return jsonify({"error": "GameCog not found"}), 500
-    except Exception as e:
-        logger.error(f"Error starting active game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("start_active_game")
 
 
 @game_blueprint.route("/endactivegame", methods=["POST"])
@@ -376,9 +372,8 @@ async def end_active_game():
         else:
             logger.error("end_game method or GameCog not found on auth_bot")
             return jsonify({"error": "Functionality not found"}), 500
-    except Exception as e:
-        logger.error(f"Error ending active game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("end_active_game")
 
 
 @game_blueprint.route("/revealquestion", methods=["POST"])
@@ -402,9 +397,8 @@ async def reveal_question():
         else:
             logger.error("GameCog not found on auth_bot")
             return jsonify({"error": "GameCog not found"}), 500
-    except Exception as e:
-        logger.error(f"Error revealing question {uuid}: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("reveal_question")
 
 
 @game_blueprint.route("/revealanswer", methods=["POST"])
@@ -428,9 +422,8 @@ async def reveal_answer():
         else:
             logger.error("GameCog not found on auth_bot")
             return jsonify({"error": "GameCog not found"}), 500
-    except Exception as e:
-        logger.error(f"Error revealing answer for question {uuid}: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("reveal_answer")
 
 
 @game_blueprint.route("/awardpoints", methods=["POST"])
@@ -455,6 +448,5 @@ async def award_points():
         else:
             logger.error("GameCog not found on auth_bot")
             return jsonify({"error": "GameCog not found"}), 500
-    except Exception as e:
-        logger.error(f"Error awarding points to team {team}: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("award_points")

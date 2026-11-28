@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from core import secrets
 from core.db import db_connect
+from core.http.responses import internal_error
 from core.log import get_logger
 from modules.auth import machine_tokens
 from modules.auth.access import current_principal, is_superadmin, visible_org_filter
@@ -51,8 +52,8 @@ def get_organization(org_id):
             return jsonify({"error": "Organization not found"}), 404
 
         return jsonify(org.to_dict())
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("get_organization")
     finally:
         db.close()
 
@@ -175,8 +176,8 @@ def update_organization_settings(org_id):
 
         db.commit()
         return jsonify({"message": "Settings updated successfully"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("update_organization_settings")
     finally:
         db.close()
 
@@ -197,8 +198,8 @@ def update_organization_calendar_settings(org_id):
 
         calendar.save_calendar_settings(db, org, data)
         return jsonify({"message": "Calendar settings updated successfully"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("update_organization_calendar_settings")
     finally:
         db.close()
 

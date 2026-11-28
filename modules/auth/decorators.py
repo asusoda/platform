@@ -6,6 +6,7 @@ from flask import g, jsonify, request, session
 
 from core.db import db_connect
 from core.http.request_log import bearer_token
+from core.http.responses import internal_error
 from core.log import get_logger
 from modules.auth import clerk, machine_tokens
 from modules.auth.access import (
@@ -176,10 +177,9 @@ def superadmin_required(f):
                 user = session.get("user") or {}
                 if user.get("role") != "admin" and not is_superadmin(str(user.get("discord_id") or "")):
                     return _refuse("Superadmin access required!", 403)
-                return f(*args, **kwargs)
-            except Exception as e:
-                logger.debug(f"Error validating session token: {e}")
-                return _refuse("Authentication failed due to an internal error.", 401)
+            except Exception:
+                return internal_error("superadmin_required", key="message")
+            return f(*args, **kwargs)
 
         if "Authorization" in request.headers and not request.headers["Authorization"].startswith("Bearer "):
             return _refuse("Invalid Authorization header format!", 401)
@@ -204,10 +204,9 @@ def superadmin_required(f):
             denial = superadmin_denial(str(discord_id))
             if denial:
                 return _refuse(*denial)
-            return f(*args, **kwargs)
-        except Exception as e:
-            logger.exception(f"General error in superadmin_required: {e}")
-            return _refuse(str(e), 401)
+        except Exception:
+            return internal_error("superadmin_required", key="message")
+        return f(*args, **kwargs)
 
     return wrapper
 
@@ -232,9 +231,8 @@ def member_required(f):
             try:
                 with db_connect.SessionLocal() as db:
                     organization = organizations.find_by_prefix(db, org_prefix, active_only=True)
-            except Exception as e:
-                logger.error(f"Database error: {e}")
-                return _refuse(f"Database error: {str(e)}", 500)
+            except Exception:
+                return internal_error("member_required", key="message")
             if not organization:
                 return _refuse("Organization not found", 404)
 
