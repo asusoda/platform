@@ -149,7 +149,7 @@ def delete_order(org_prefix, order_id):
 @error_handler
 def get_store_products(org_prefix):
     """The public store: the org and its products in stock."""
-    return in_org(org_prefix, lambda db, org: service.store_front(db, org))
+    return in_org(org_prefix, service.store_front)
 
 
 @storefront_blueprint.route("/<string:org_prefix>/store/purchase", methods=["POST"])

@@ -33,7 +33,12 @@ def respond(db, view, *args, **kwargs):
     """Call view(db, *args, **kwargs) and make its result or ServiceError a response."""
     try:
         result = view(db, *args, **kwargs)
-        return result if isinstance(result, tuple | Response) else jsonify(result)
+        if isinstance(result, Response):
+            return result
+        if isinstance(result, tuple):
+            body, *rest = result
+            return (body if isinstance(body, Response) else jsonify(body), *rest)
+        return jsonify(result)
     except ServiceError as e:
         db.rollback()
         return error(e.message, e.status)

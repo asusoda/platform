@@ -47,31 +47,35 @@ def test_product_create_update_delete(client, officer_headers, remove_route_prod
     assert (status, body["message"], body["product"]["stock"]) == (200, "Product updated successfully", 0)
     assert all(p["id"] != product_id for p in client.get("/api/storefront/soda/store").get_json()["products"])
 
-    assert _json(client.delete(f"{base}/{product_id}", headers=officer_headers)) == (
-        200,
-        {"message": "Product deleted successfully"},
-    )
+    deleted = _json(client.delete(f"{base}/{product_id}", headers=officer_headers))
+    assert deleted == (200, {"message": "Product deleted successfully"})
     missing = (404, {"error": "Product not found"})
     assert _json(client.get(f"{base}/{product_id}")) == missing
-    assert _json(client.put(f"{base}/{product_id}", json={"stock": 1}, headers=officer_headers)) == missing
-    assert _json(client.delete(f"{base}/{product_id}", headers=officer_headers)) == missing
+    result = _json(client.put(f"{base}/{product_id}", json={"stock": 1}, headers=officer_headers))
+    assert result == missing
+    result = _json(client.delete(f"{base}/{product_id}", headers=officer_headers))
+    assert result == missing
 
 
 def test_product_refusals(client, officer_headers):
     base = "/api/storefront/soda/products"
-    assert _json(client.post(base, json={"price": 1, "stock": 1}, headers=officer_headers)) == (
+    result = _json(client.post(base, json={"price": 1, "stock": 1}, headers=officer_headers))
+    assert result == (
         400,
         {"error": "Product name is required"},
     )
-    assert _json(client.post(base, json={"name": "x", "stock": 1}, headers=officer_headers)) == (
+    result = _json(client.post(base, json={"name": "x", "stock": 1}, headers=officer_headers))
+    assert result == (
         400,
         {"error": "Product price is required"},
     )
-    assert _json(client.post(base, json={"name": "x", "price": 1}, headers=officer_headers)) == (
+    result = _json(client.post(base, json={"name": "x", "price": 1}, headers=officer_headers))
+    assert result == (
         400,
         {"error": "Product stock is required"},
     )
-    assert _json(client.post(base, json={"name": "x", "price": 1, "stock": 0}, headers=officer_headers)) == (
+    result = _json(client.post(base, json={"name": "x", "price": 1, "stock": 0}, headers=officer_headers))
+    assert result == (
         400,
         {"error": "Product stock is required"},
     )
@@ -87,7 +91,8 @@ def test_unknown_org(client, officer_headers, clerk_headers):
     assert _json(client.get("/api/storefront/nope/products/1")) == missing
     assert _json(client.get("/api/storefront/nope/store")) == missing
     assert _json(client.get("/api/storefront/nope/orders/1", headers=officer_headers)) == missing
-    assert _json(client.delete("/api/storefront/nope/orders/1", headers=officer_headers)) == missing
+    result = _json(client.delete("/api/storefront/nope/orders/1", headers=officer_headers))
+    assert result == missing
     assert _json(client.get(f"/api/storefront/nope/wallet/{MEMBER_EMAIL}", headers=clerk_headers)) == missing
 
 
@@ -110,7 +115,8 @@ def test_order_detail(client, officer_headers):
         404,
         {"error": "Order not found"},
     )
-    assert _json(client.put("/api/storefront/soda/orders/999999", json={}, headers=officer_headers)) == (
+    result = _json(client.put("/api/storefront/soda/orders/999999", json={}, headers=officer_headers))
+    assert result == (
         404,
         {"error": "Order not found"},
     )
@@ -140,15 +146,18 @@ def test_member_points(member_client):
 
 def test_order_refusals(client, clerk_headers, member_client):
     for path in ("/api/storefront/soda/checkout", "/api/storefront/soda/orders"):
-        assert _json(client.post(path, json={"items": [{}]}, headers=clerk_headers)) == (
+        result = _json(client.post(path, json={"items": [{}]}, headers=clerk_headers))
+        assert result == (
             400,
             {"error": "Total amount is required"},
         )
-        assert _json(client.post(path, json={"total_amount": 5}, headers=clerk_headers)) == (
+        result = _json(client.post(path, json={"total_amount": 5}, headers=clerk_headers))
+        assert result == (
             400,
             {"error": "Order items are required"},
         )
-        assert _json(client.post(path, json={"total_amount": "x", "items": [{}]}, headers=clerk_headers)) == (
+        result = _json(client.post(path, json={"total_amount": "x", "items": [{}]}, headers=clerk_headers))
+        assert result == (
             400,
             {"error": "Total amount must be a number"},
         )
