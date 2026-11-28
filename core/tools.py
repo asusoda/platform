@@ -207,6 +207,7 @@ GUARDRAILS: dict[str, Guardrail] = {
     "points.entries": READ,
     "points.history": READ,
     "points.import_csv": Guardrail(writes=True, rate="costly"),
+    "points.imports": READ,
     "points.leaderboard": READ,
     "search": Guardrail(writes=False, rate="live"),
     "server.commands": READ,
