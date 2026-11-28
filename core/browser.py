@@ -36,7 +36,7 @@ REQUEST_TIMEOUT = (5, 20)
 # Headers that requests sets itself, and response headers that no longer match the decoded body
 DROP_REQUEST = frozenset({"host", "content-length", "connection", "accept-encoding"})
 DROP_RESPONSE = frozenset({"content-encoding", "content-length", "transfer-encoding", "connection"})
-NO_SECRET = "Set BROWSER_SECRET and put it in the BROWSER_URL path, such as ws://browser:3000/<BROWSER_SECRET>"
+MISSING_PATH = "Set BROWSER_SECRET and put it in the BROWSER_URL path, such as ws://browser:3000/<BROWSER_SECRET>"
 
 
 class BrowserConfigError(ValueError):
@@ -63,7 +63,7 @@ def url_problem(url: str) -> str | None:
     """Why the BROWSER_URL cannot be used, or None. The path must be a secret, not / or /unset."""
     path = urlsplit(url).path.strip("/")
     if not path or path == "unset":
-        return NO_SECRET
+        return MISSING_PATH
     return None
 
 
