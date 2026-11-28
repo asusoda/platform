@@ -1,9 +1,8 @@
 import { PowerOff } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
 import { useCurrentOrg } from '../lib/org';
 import { useModules } from '../lib/queries';
-import { Card, EmptyState, PageHeader, PageSkeleton } from './ui';
+import { Card, EmptyState, LinkButton, PageHeader, PageSkeleton } from './ui';
 
 // Whether an optional module is on for the current org. True until the states load or when they cannot be read.
 export function useModuleOn(name: string): { on: boolean; loading: boolean } {
@@ -18,11 +17,11 @@ export function ModuleGate({ module, title, children }: { module: string; title:
   const { on, loading } = useModuleOn(module);
   if (loading) return <PageSkeleton />;
   if (on) return children;
-  return <ModuleOff module={module} title={title} />;
+  return <ModuleOff title={title} />;
 }
 
 // A page header and a note that the module is off, with a link to Explore.
-export function ModuleOff({ title }: { module?: string; title: string }) {
+export function ModuleOff({ title }: { title: string }) {
   const { prefix } = useCurrentOrg();
   return (
     <>
@@ -32,12 +31,9 @@ export function ModuleOff({ title }: { module?: string; title: string }) {
           icon={PowerOff}
           title={`${title} is off`}
           action={
-            <Link
-              to={`/${prefix}/explore`}
-              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg shadow-xs hover:opacity-85"
-            >
+            <LinkButton variant="primary" to={`/${prefix}/explore`}>
               Open Explore
-            </Link>
+            </LinkButton>
           }
         >
           Add it on Explore.

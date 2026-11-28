@@ -57,7 +57,7 @@ export function MemberSetupDialog({ prefix, pod, onClose }: { prefix: string; po
       onClose={onClose}
       wide
       title={`Member setup for ${pod.name}`}
-      description="Each member gets it once on their next connection, and again after you change it. Leave both empty to turn it off."
+      description="Runs once for each member on their next connection."
     >
       <form
         className="space-y-5"

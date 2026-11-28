@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Container, Play, RotateCw, Square } from 'lucide-react';
 import { useState } from 'react';
 import { LogsView } from '../../components/logs';
-import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, Mono, PageHeader, Select, SkeletonRows, Spinner, Table, Td, Th, Tr } from '../../components/ui';
+import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, Mono, PageHeader, Select, SkeletonRows, Spinner, Table, Td, TextButton, Th, Tr } from '../../components/ui';
 import { api, send } from '../../lib/api';
 import { bytes } from '../../lib/format';
 import type { ServerService, ServerServices } from '../../lib/types';
@@ -64,9 +64,7 @@ export function ServicesPage() {
   return (
     <>
       <PageHeader
-        title="Services"
         description={agent && !agent.stale ? `${services.length} on the server` : undefined}
-        docs="codebase/operations#host-agent"
         action={agent?.stale ? <Badge tone="warn">Agent stopped</Badge> : null}
       />
       <Card>
@@ -93,9 +91,9 @@ export function ServicesPage() {
                 <Tr key={s.name}>
                   <Td className="w-full max-w-0">
                     <div className="flex items-center gap-2">
-                      <button type="button" className="truncate font-medium hover:underline" onClick={() => setOpen(s)}>
+                      <TextButton tone="strong" className="truncate" onClick={() => setOpen(s)}>
                         {s.name}
-                      </button>
+                      </TextButton>
                       {s.kind === 'process' ? <Badge>process</Badge> : null}
                     </div>
                     <Mono className="block truncate">{s.domains.join(', ') || (s.ports.length ? `port ${s.ports.join(', ')}` : (s.project ?? '-'))}</Mono>

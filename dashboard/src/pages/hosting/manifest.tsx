@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { Pencil, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { Button, cx, ErrorNote, FormActions, Mono, Spinner, Textarea } from '../../components/ui';
+import { Button, cx, ErrorNote, FormActions, Mono, Spinner, Textarea, TextButton } from '../../components/ui';
 import { send } from '../../lib/api';
 import type { App, AppManifest } from '../../lib/types';
 import { DEFAULT_MANIFEST_PATH, JsonBlock, Label, pretty, useInvalidate } from './shared';
@@ -45,9 +45,7 @@ export function ManifestInput({ value, onChange }: { value: string; onChange: (v
         <label htmlFor="manifest-json" className="text-sm font-medium">
           Manifest (JSON)
         </label>
-        <button type="button" className="rounded-sm text-xs text-muted transition-colors hover:text-fg" onClick={() => onChange(pretty(EXAMPLE_MANIFEST))}>
-          Insert example
-        </button>
+        <TextButton onClick={() => onChange(pretty(EXAMPLE_MANIFEST))}>Insert example</TextButton>
       </div>
       <Textarea
         id="manifest-json"
@@ -112,10 +110,7 @@ export function ManifestSection({ prefix, app }: { prefix: string; app: App }) {
           }}
         >
           <ManifestInput value={text} onChange={setText} />
-          <p className="text-xs text-muted">
-            env, ports, disk, args and registry apply at the next deploy. gpu, cpu, cloud, data centers and mounts apply only when
-            a pod is created.
-          </p>
+          <p className="text-xs text-muted">Most fields apply at the next deploy, some only to a new pod.</p>
           <FormActions error={save.error}>
             <Button variant="primary" disabled={!parsed.manifest || save.isPending}>
               Save manifest

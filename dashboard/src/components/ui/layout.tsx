@@ -1,8 +1,21 @@
 // Page frame: headers, cards, rows and stats.
-import { BookOpen } from 'lucide-react';
-import { type ComponentProps, type ReactNode } from 'react';
+import { ArrowLeft, BookOpen } from 'lucide-react';
+import { Link } from 'react-router';
+import { type ComponentProps, createContext, type ReactNode, useContext } from 'react';
 import { docsPage } from '../../lib/links';
 import { cx } from './cx';
+
+// The name, one line of description and docs page of the current page, from the page registry. The shell sets it,
+// so the header of each page matches its sidebar item.
+export type PageMeta = { label: string; description?: string; docs?: string };
+
+const PageMetaContext = createContext<PageMeta | undefined>(undefined);
+
+export const PageMetaProvider = PageMetaContext.Provider;
+
+export function usePageMeta(): PageMeta | undefined {
+  return useContext(PageMetaContext);
+}
 
 // A link to a page of the docs, for the right side of a header.
 export function DocsLink({ page, className }: { page: string; className?: string }) {
@@ -18,18 +31,26 @@ export function DocsLink({ page, className }: { page: string; className?: string
   );
 }
 
-// The title of a page: the sidebar label, one short line of description, a docs link and the page actions on the right.
+// The title of a page: the sidebar label, one short line of description, a docs link and the page actions on the
+// right. Title, description and docs come from the page registry when the page does not pass them. A page that passes
+// its own title, such as one knowledge source, gets no description from the registry.
 export function PageHeader({
   title,
   description,
   action,
   docs,
 }: {
-  title: ReactNode;
+  title?: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   docs?: string;
 }) {
+  const meta = usePageMeta();
+  if (title === undefined) {
+    title = meta?.label;
+    description ??= meta?.description;
+  }
+  docs ??= meta?.docs;
   return (
     <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       <div className="min-w-0 flex-1 basis-72">
@@ -37,12 +58,21 @@ export function PageHeader({
         {description ? <p className="mt-1.5 max-w-2xl text-sm text-pretty text-muted">{description}</p> : null}
       </div>
       {action || docs ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">
           {docs ? <DocsLink page={docs} /> : null}
           {action}
         </div>
       ) : null}
     </header>
+  );
+}
+
+// A link back to the parent page, above the header of a page that one row of a list opens.
+export function BackLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="mb-4 inline-flex items-center gap-1.5 rounded-sm text-sm text-muted transition-colors hover:text-fg">
+      <ArrowLeft className="size-4" /> {children}
+    </Link>
   );
 }
 

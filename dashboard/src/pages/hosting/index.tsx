@@ -57,7 +57,7 @@ function Services() {
   const current = apps.find((a) => a.name === open);
   return (
     <>
-      <PageHeader title="Hosting" description="Bots, agents, sites and services the org deploys." docs="modules/runpod-apps" action={register} />
+      <PageHeader action={register} />
       {providers.data?.some((p) => p.configured) ? null : <IntegrationHint keys={providers.data?.map((p) => p.integration) ?? ['runpod']} />}
       {notice ? <Notice onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
       {list.error ? (

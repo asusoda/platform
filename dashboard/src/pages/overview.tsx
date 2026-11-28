@@ -1,14 +1,15 @@
-import { AlertTriangle, ArrowRight, BellRing, Boxes, CalendarClock, Coins, Cpu, Database, GitBranch, ShoppingBag, Users } from 'lucide-react';
+import { AlertTriangle, BellRing, Boxes, CalendarClock, Coins, Cpu, Database, GitBranch, ShoppingBag, Users } from 'lucide-react';
 import { Link } from 'react-router';
 import { ActivityList } from '../components/activity-list';
 import { moduleLabel } from '../components/notifications';
 import {
+  BannerLink,
   Card,
   CardHeader,
   Dot,
   EmptyState,
-  ErrorNote,
   Mono,
+  PageError,
   PageHeader,
   PageSkeleton,
   quietLink,
@@ -23,11 +24,18 @@ import { TrendsCard } from './overview-trends';
 
 export function OverviewPage() {
   const { prefix } = useCurrentOrg();
-  const { data, isLoading, error } = useOverview(prefix);
+  const { data, isLoading, error, refetch } = useOverview(prefix);
   const ci = useCi(prefix);
   const notes = useNotifications(prefix);
   if (isLoading) return <PageSkeleton stats />;
-  if (error || !data) return <ErrorNote error={error ?? 'No data'} />;
+  if (error || !data) {
+    return (
+      <>
+        <PageHeader />
+        <PageError error={error ?? 'No data'} retry={() => void refetch()} />
+      </>
+    );
+  }
   const s = data.sections;
   const runs = (ci.data?.repos ?? []).flatMap((r) => r.runs.slice(0, 1).map((run) => ({ repo: r.repo, ...run })));
   // A module missing from the list is always on.
@@ -36,29 +44,15 @@ export function OverviewPage() {
 
   return (
     <>
-      <PageHeader
-        title="Overview"
-        description={`Updated ${timeAgo(data.generated_at)}.`}
-      />
+      <PageHeader description={`Updated ${timeAgo(data.generated_at)}.`} />
 
       {open.length ? (
-        <Link
-          to={`/${prefix}/activity`}
-          className="mb-6 flex animate-in items-center gap-3 rounded-lg border border-bad/30 bg-bad/5 px-4 py-3 text-sm transition-colors hover:bg-bad/10"
-        >
-          <AlertTriangle className="size-4 shrink-0 text-bad" />
-          <span className="min-w-0 flex-1">
-            <span className="font-medium">
-              {open.length} {open.length === 1 ? 'problem needs' : 'problems need'} attention
-            </span>
-            <span className="ml-2 hidden text-muted sm:inline">
-              {[...new Set(open.map((n) => moduleLabel(n.module)))].join(', ')}
-            </span>
+        <BannerLink to={`/${prefix}/activity`} icon={AlertTriangle} tone="bad" label="Activity">
+          <span className="font-medium">
+            {open.length} {open.length === 1 ? 'problem needs' : 'problems need'} attention
           </span>
-          <span className="flex items-center gap-1 text-xs text-muted">
-            Activity <ArrowRight className="size-3.5" />
-          </span>
-        </Link>
+          <span className="ml-2 hidden text-muted sm:inline">{[...new Set(open.map((n) => moduleLabel(n.module)))].join(', ')}</span>
+        </BannerLink>
       ) : null}
 
       <StatGrid>

@@ -116,11 +116,11 @@ export function AsuSignIn({ prefix }: { prefix: string }) {
       {state.blocked ? <p className="text-xs text-muted">{state.blocked}</p> : null}
       {stop.error ? <ErrorNote error={stop.error} /> : null}
       {state.signed_in ? (
-        <Button variant="ghost" className="h-7 px-2 text-xs" disabled={stop.isPending || busy(state)} onClick={() => stop.mutate()}>
+        <Button variant="ghost" size="sm" disabled={stop.isPending || busy(state)} onClick={() => stop.mutate()}>
           Sign out
         </Button>
       ) : (
-        <Button className="h-7 px-2 text-xs" disabled={Boolean(state.blocked) || busy(state)} onClick={() => setOpen(true)}>
+        <Button size="sm" disabled={Boolean(state.blocked) || busy(state)} onClick={() => setOpen(true)}>
           <LogIn className="size-3.5" /> {state.expired_at ? 'Sign in again' : 'Sign in to ASU'}
         </Button>
       )}

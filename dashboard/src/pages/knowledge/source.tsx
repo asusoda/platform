@@ -1,10 +1,12 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowLeft, Check, Copy, ExternalLink, FileText } from 'lucide-react';
+import { Check, Copy, ExternalLink, FileText } from 'lucide-react';
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import {
+  BackLink,
   Badge,
   Button,
+  buttonClass,
   Card,
   CardHeader,
   cx,
@@ -15,6 +17,7 @@ import {
   SkeletonRows,
   Spinner,
   Switch,
+  TextButton,
 } from '../../components/ui';
 import { api } from '../../lib/api';
 import { compact, count, keyPath, timeAgo, when } from '../../lib/format';
@@ -92,14 +95,7 @@ export function KnowledgeSourcePage() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const back = (
-    <Link
-      to={`/${prefix}/knowledge`}
-      className="mb-4 inline-flex items-center gap-1.5 rounded-sm text-sm text-muted transition-colors hover:text-fg"
-    >
-      <ArrowLeft className="size-4" /> Knowledge
-    </Link>
-  );
+  const back = <BackLink to={`/${prefix}/knowledge`}>Knowledge</BackLink>;
 
   if (text.error) {
     return (
@@ -126,12 +122,7 @@ export function KnowledgeSourcePage() {
         }
         action={
           source?.url ? (
-            <a
-              href={source.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium shadow-xs transition-colors hover:border-line-strong hover:bg-panel-2"
-            >
+            <a href={source.url} target="_blank" rel="noreferrer" className={buttonClass()}>
               Open page <ExternalLink className="size-3.5" />
             </a>
           ) : null
@@ -192,16 +183,16 @@ export function KnowledgeSourcePage() {
           <SkeletonRows rows={8} />
         ) : !passages.length ? (
           <EmptyState icon={FileText} title="No text yet">
-            This source has no indexed text. A crawl or an upload adds it.
+            No indexed text yet.
           </EmptyState>
         ) : (
           <>
             {shownFrom > 0 ? (
               <div className="border-b border-line bg-panel-2/40 px-4 py-2 text-xs text-muted">
                 The text starts at the search match.{' '}
-                <button type="button" className="font-medium text-fg underline-offset-2 hover:underline" onClick={() => setFromStart(true)}>
+                <TextButton tone="strong" onClick={() => setFromStart(true)}>
                   Show from the start
-                </button>
+                </TextButton>
               </div>
             ) : null}
             <article className="mx-auto max-w-3xl px-4 py-6 text-[15px] leading-7 text-fg/90 sm:px-8">

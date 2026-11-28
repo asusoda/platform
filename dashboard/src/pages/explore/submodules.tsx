@@ -67,7 +67,6 @@ export function SubmodulesTab({ prefix, query }: { prefix: string; query: string
   const list = submodules.data.submodules.filter((s) => matchesQuery(s, query));
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">Made once for every org. Subscribe once; your org gets its own part.</p>
       <SharedApps prefix={prefix} query={query} />
       <h2 className="text-xs font-medium tracking-wide text-muted uppercase">Content</h2>
       {change.error ? <ErrorNote error={change.error} /> : null}
@@ -111,11 +110,11 @@ export function SubmodulesTab({ prefix, query }: { prefix: string; query: string
                     {s.last_crawl ? ` · crawled ${timeAgo(s.last_crawl)}` : ''}
                   </span>
                   {s.subscribed ? (
-                    <Button variant="ghost" className="h-7 shrink-0 px-2 text-xs" disabled={busy} onClick={() => change.mutate({ name: s.name, on: false })}>
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => change.mutate({ name: s.name, on: false })}>
                       {busy ? <Spinner className="size-3.5" /> : null} Unsubscribe
                     </Button>
                   ) : (
-                    <Button className="h-7 shrink-0 px-2 text-xs" disabled={busy} onClick={() => change.mutate({ name: s.name, on: true })}>
+                    <Button size="sm" disabled={busy} onClick={() => change.mutate({ name: s.name, on: true })}>
                       {busy ? <Spinner className="size-3.5" /> : <Plus className="size-3.5" />} Subscribe
                     </Button>
                   )}

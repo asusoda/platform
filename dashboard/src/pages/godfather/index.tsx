@@ -1,6 +1,5 @@
 import { CalendarClock, Cpu, ExternalLink, KeyRound, Plus, Settings2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import {
   Badge,
   Button,
@@ -8,6 +7,7 @@ import {
   CardHeader,
   EmptyState,
   ErrorNote,
+  LinkButton,
   Mono,
   PageHeader,
   SkeletonRows,
@@ -15,6 +15,7 @@ import {
   StatGrid,
   Table,
   Td,
+  TextButton,
   Th,
   Tr,
 } from '../../components/ui';
@@ -37,9 +38,9 @@ function MissingKey({ prefix }: { prefix: string }) {
       icon={KeyRound}
       title="Connect a hosting provider"
       action={
-        <Link to={`/${prefix}/explore?tab=integrations`} className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm font-medium text-accent-fg shadow-xs hover:opacity-85">
+        <LinkButton variant="primary" to={`/${prefix}/explore?tab=integrations`}>
           Connect
-        </Link>
+        </LinkButton>
       }
     >
       Pods run on the org's own RunPod account.
@@ -77,13 +78,9 @@ function Upcoming({ prefix, pods, open }: { prefix: string; pods: Pod[]; open: (
                   </Td>
                   <Td className="hidden whitespace-nowrap sm:table-cell">
                     {pod ? (
-                      <button
-                        type="button"
-                        className="cursor-pointer rounded-sm text-sm hover:underline"
-                        onClick={() => open({ kind: 'sessions', pod })}
-                      >
+                      <TextButton tone="strong" className="font-normal" onClick={() => open({ kind: 'sessions', pod })}>
                         {pod.name}
-                      </button>
+                      </TextButton>
                     ) : (
                       <Mono>{s.pod_id}</Mono>
                     )}
@@ -126,19 +123,11 @@ export function GodfatherPage() {
   return (
     <>
       <PageHeader
-        title="Godfather"
-        description="Pods that members connect to with the Godfather CLI."
-        docs="modules/godfather"
         action={
           <div className="flex gap-2">
-            <Link
-              to={`/godfather/${encodeURIComponent(prefix)}`}
-              target="_blank"
-              title="The page members open to see their pods. Share its link."
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium shadow-xs hover:bg-panel-2"
-            >
+            <LinkButton to={`/godfather/${encodeURIComponent(prefix)}`} target="_blank" aria-label="Member page">
               <ExternalLink className="size-4" /> <span className="hidden sm:inline">Member page</span>
-            </Link>
+            </LinkButton>
             <Button onClick={() => setEditing(true)} aria-label="Pod settings">
               <Settings2 className="size-4" /> <span className="hidden sm:inline">Settings</span>
             </Button>

@@ -1,5 +1,5 @@
 import { ChevronRight, ExternalLink } from 'lucide-react';
-import { Badge, cx, Dot, Mono, Table, Td, Th, Tr } from '../../components/ui';
+import { Badge, cx, Dot, Mono, Table, Td, TextButton, Th, Tr } from '../../components/ui';
 import { deployTone, timeAgo } from '../../lib/format';
 import type { App, HostingProvider } from '../../lib/types';
 import { providerTitle } from './providers';
@@ -30,16 +30,16 @@ export function AppTable({ apps, providers, onOpen }: { apps: App[]; providers?:
                 <div className="flex items-center gap-2.5">
                   <Dot tone={tone} />
                   <div className="min-w-0">
-                    <button
-                      type="button"
-                      className="block max-w-full truncate rounded-sm text-left font-medium focus-visible:outline-2 focus-visible:outline-ring"
+                    <TextButton
+                      tone="strong"
+                      className="block max-w-full truncate"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpen(app.name);
                       }}
                     >
                       {app.name}
-                    </button>
+                    </TextButton>
                     {app.url ? (
                       <a
                         href={app.url}

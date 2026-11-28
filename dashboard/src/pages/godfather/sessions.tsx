@@ -165,7 +165,7 @@ export function SessionsDialog({ prefix, pod, onClose }: { prefix: string; pod: 
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-line">
-            <EmptyState icon={CalendarClock}>No sessions yet. A pod with no sessions is never started or stopped by the schedule.</EmptyState>
+            <EmptyState icon={CalendarClock}>No sessions yet.</EmptyState>
           </div>
         )}
       </div>

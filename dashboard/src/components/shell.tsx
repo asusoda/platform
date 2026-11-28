@@ -24,7 +24,7 @@ import { type PageEntry, PAGES, SECTIONS } from '../pages/registry';
 import { NotificationsBell } from './notifications';
 import { OrgMark } from './org-mark';
 import { MOD_KEY, Tooltip } from './tooltip';
-import { cx } from './ui';
+import { cx, type PageMeta, PageMetaProvider } from './ui';
 
 // The path of the superadmin space. The org switcher offers it to the superadmin.
 export const ADMIN_PATH = '/admin';
@@ -286,17 +286,20 @@ export function HomeCrumb({ to, mark, name }: { to: string; mark: ReactNode; nam
 }
 
 // The frame of a space: the sidebar (or the drawer on a phone), the top bar with the crumbs, and the page.
-// header and nav fill the sidebar; the footer with sign out and the theme is the same in every space.
+// header and nav fill the sidebar; the footer with sign out and the theme is the same in every space. page is the
+// registry entry of the current page, which PageHeader reads.
 export function Frame({
   header,
   nav,
   crumbs,
   actions,
+  page,
 }: {
   header: (state: SidebarState) => ReactNode;
   nav: (state: SidebarState) => ReactNode;
   crumbs: ReactNode;
   actions?: ReactNode;
+  page?: PageMeta;
 }) {
   const [drawer, setDrawer] = useState(false);
   const [collapsed, toggle] = useSidebarCollapsed();
@@ -349,7 +352,9 @@ export function Frame({
           {actions}
         </header>
         <main className="mx-auto w-full max-w-6xl min-w-0 px-4 pt-8 pb-16 sm:px-6 lg:px-10">
-          <Outlet />
+          <PageMetaProvider value={page}>
+            <Outlet />
+          </PageMetaProvider>
         </main>
       </div>
       <div className={cx('fixed inset-0 z-30 md:hidden', !drawer && 'pointer-events-none')} inert={!drawer}>
@@ -482,6 +487,7 @@ export function Shell() {
 
   return (
     <Frame
+      page={page}
       header={(state) => <OrgSwitcher {...state} />}
       nav={(state) => <OrgNav {...state} />}
       crumbs={

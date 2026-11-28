@@ -15,7 +15,7 @@ export function SubmodulesPage() {
   const rows = list.data ?? [];
   return (
     <>
-      <PageHeader title="Sub-modules" docs="modules/submodules" />
+      <PageHeader />
       <Card>
         {list.error ? (
           <div className="p-4">

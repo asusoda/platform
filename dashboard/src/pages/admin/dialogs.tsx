@@ -137,9 +137,7 @@ export function AddDialog({ guild, onClose }: { guild: AvailableGuild; onClose: 
           <Code>{prefixFor(guild.name, guild.id)}</Code>
         </dd>
       </dl>
-      <p className="text-xs text-pretty text-muted">
-        The org starts with default settings and no officer role. Set the officer role next so officers can sign in.
-      </p>
+      <p className="text-xs text-muted">Set the officer role next.</p>
       <FormActions error={add.error ? explain(add.error) : undefined}>
         <Button variant="primary" onClick={() => add.mutate()} disabled={add.isPending}>
           Add organization

@@ -30,6 +30,7 @@ import {
   Table,
   Td,
   Textarea,
+  TextButton,
   Th,
   Tr,
 } from '../../components/ui';
@@ -289,7 +290,7 @@ export function FilesDialog({ prefix, pod, onClose }: { prefix: string; pod: Pod
               </Button>
             }
           >
-            Files can be read only while the pod runs. A pod takes a minute or two to boot after it starts.
+            Files can be read while the pod runs.
             {start.error ? <div className="mt-3"><ErrorNote error={start.error} /></div> : null}
           </EmptyState>
         </div>
@@ -367,15 +368,15 @@ export function FilesDialog({ prefix, pod, onClose }: { prefix: string; pod: Pod
                     return (
                       <Tr key={entry.name}>
                         <Td className="h-10 w-full max-w-0">
-                          <button
-                            type="button"
+                          <TextButton
+                            tone="strong"
                             onClick={() => (dir ? go(target) : setOpened(target))}
-                            className="flex max-w-full cursor-pointer items-center gap-2 rounded-sm text-left hover:underline"
+                            className="flex max-w-full items-center gap-2 font-normal"
                             title={dir ? `Open ${entry.name}` : `Edit ${entry.name}`}
                           >
                             {dir ? <Folder className="size-4 shrink-0 text-info" /> : <File className="size-4 shrink-0 text-muted" />}
                             <span className="truncate">{entry.name}</span>
-                          </button>
+                          </TextButton>
                         </Td>
                         <Td className="hidden h-10 text-right text-xs whitespace-nowrap text-muted tabular-nums sm:table-cell">
                           {dir ? '-' : bytes(entry.size)}

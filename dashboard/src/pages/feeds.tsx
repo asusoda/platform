@@ -233,7 +233,7 @@ function FeedHistory({ prefix, feed, onClose }: { prefix: string; feed: string |
 }
 
 // The feeds of one webhook module, which runs one kind of feed.
-function FeedsPage({ kind, title }: { kind: Kind; title: string }) {
+function FeedsPage({ kind }: { kind: Kind }) {
   const { prefix } = useCurrentOrg();
   const client = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -270,8 +270,6 @@ function FeedsPage({ kind, title }: { kind: Kind; title: string }) {
   return (
     <>
       <PageHeader
-        title={title}
-        docs="modules/feeds"
         action={newFeed}
       />
       <Dialog open={adding} onClose={closeNew} title="New feed" description="The first run posts nothing; later runs post new listings." wide>
@@ -330,5 +328,5 @@ function FeedsPage({ kind, title }: { kind: Kind; title: string }) {
   );
 }
 
-export const JobWebhookPage = () => <FeedsPage kind="github_jobs" title="Job alerts" />;
-export const HackathonWebhookPage = () => <FeedsPage kind="hackathons" title="Hackathons" />;
+export const JobWebhookPage = () => <FeedsPage kind="github_jobs" />;
+export const HackathonWebhookPage = () => <FeedsPage kind="hackathons" />;
