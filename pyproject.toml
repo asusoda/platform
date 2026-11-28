@@ -71,7 +71,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The ASU sign-in (submodules/asu/signin). Install with `uv sync --extra browser`, then `playwright install chromium`.
+# The ASU sign-in (modules/knowledge/submodules/asu_signin). Install with `uv sync --extra browser`, then `playwright install chromium`.
 browser = ["playwright>=1.49"]
 
 [tool.pytest.ini_options]
@@ -124,14 +124,14 @@ exclude_dirs = ["tests", "node_modules", ".venv"]
 
 # Module boundaries, checked in CI by `lint-imports` (docs/writing-a-module.md).
 [tool.importlinter]
-root_packages = ["core", "hosting", "modules", "submodules"]
+root_packages = ["core", "hosting", "modules"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "core imports no module"
 type = "forbidden"
 source_modules = ["core"]
-forbidden_modules = ["hosting", "modules", "submodules"]
+forbidden_modules = ["hosting", "modules"]
 
 [[tool.importlinter.contracts]]
 name = "service modules do not import Flask"
@@ -189,7 +189,6 @@ source_modules = [
     "modules.integrations.notion",
     "modules.integrations.oauth",
     "modules.integrations.servers",
-    "modules.integrations.web",
     "modules.knowledge.crawl",
     "modules.knowledge.discover",
     "modules.knowledge.documents",
@@ -202,6 +201,10 @@ source_modules = [
     "modules.knowledge.fts",
     "modules.knowledge.search",
     "modules.knowledge.settings",
+    "modules.knowledge.shared",
+    "modules.knowledge.content",
+    "modules.knowledge.submodules",
+    "modules.feeds.submodules",
     "modules.bot.submodules.leetcode.client",
     "modules.bot.submodules.leetcode.cog",
     "modules.bot.submodules.leetcode.daily",
@@ -221,22 +224,10 @@ source_modules = [
     "modules.mcp.runtime",
     "modules.mcp.server",
     "modules.organizations.config",
-    "modules.submodules.catalog",
-    "modules.submodules.http",
-    "modules.submodules.params",
-    "modules.submodules.queries",
-    "modules.submodules.fill",
-    "modules.submodules.find",
-    "modules.submodules.search",
-    "modules.submodules.signins",
-    "modules.submodules.text",
-    "modules.submodules.types",
-    "modules.submodules.web",
     "modules.points.submodules.checkins.csv_import",
     "hosting.app_mcp",
     "hosting.shared",
     "hosting.templates",
     "modules.uptime.probe",
-    "submodules",
 ]
 forbidden_modules = ["flask"]

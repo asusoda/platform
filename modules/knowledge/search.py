@@ -19,7 +19,7 @@ from modules.knowledge import fts, settings
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import Embedding, KnowledgeChunk, KnowledgeSource, KnowledgeVersion, vector_sql
 from modules.knowledge.service import KnowledgeError, _optional_text, _text, _vector
-from modules.submodules.models import SubmoduleSubscription
+from core.submodules import SubmoduleSubscription
 
 logger = get_logger("knowledge")
 

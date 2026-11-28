@@ -6,23 +6,23 @@ from pathlib import Path
 
 import pytest
 
+from modules.knowledge.content.queries import check, url_for
+from modules.knowledge.content.text import extract_text, form_page_text
+from modules.knowledge.content.types import Fetched, QueryError, QuerySource
 from modules.knowledge.extract import chunk_text
-from modules.submodules.queries import check, url_for
-from modules.submodules.text import extract_text, form_page_text
-from modules.submodules.types import Fetched, QueryError, QuerySource
-from submodules.asu import SUBMODULE
-from submodules.asu.params import term_code
-from submodules.asu.sources import SOURCES
-from submodules.asu.sources.courses import extract_courses
-from submodules.asu.sources.dining_hours import extract_dining_hours
-from submodules.asu.sources.events import extract_events
-from submodules.asu.sources.jobs import extract_jobs
-from submodules.asu.sources.library_hours import extract_hours
-from submodules.asu.sources.news import extract_news
-from submodules.asu.sources.pages import PAGES
-from submodules.asu.sources.scholarships import extract_scholarships
-from submodules.asu.sources.shuttles import extract_shuttles
-from submodules.asu.sources.sports import extract_sports
+from modules.knowledge.submodules.asu.content import CONTENT as SUBMODULE
+from modules.knowledge.submodules.asu.params import term_code
+from modules.knowledge.submodules.asu.sources import SOURCES
+from modules.knowledge.submodules.asu.sources.courses import extract_courses
+from modules.knowledge.submodules.asu.sources.dining_hours import extract_dining_hours
+from modules.knowledge.submodules.asu.sources.events import extract_events
+from modules.knowledge.submodules.asu.sources.jobs import extract_jobs
+from modules.knowledge.submodules.asu.sources.library_hours import extract_hours
+from modules.knowledge.submodules.asu.sources.news import extract_news
+from modules.knowledge.submodules.asu.sources.pages import PAGES
+from modules.knowledge.submodules.asu.sources.scholarships import extract_scholarships
+from modules.knowledge.submodules.asu.sources.shuttles import extract_shuttles
+from modules.knowledge.submodules.asu.sources.sports import extract_sports
 
 FIXTURES = Path(__file__).parent / "asu_fixtures"
 QUERY_SOURCES = {q.key: q for q in SUBMODULE.queries}
@@ -218,8 +218,8 @@ def test_a_form_page_keeps_its_results():
 
 
 def test_shuttle_times_in_arizona_time():
-    from submodules.asu.params import ARIZONA
-    from submodules.asu.queries.shuttles import render
+    from modules.knowledge.submodules.asu.params import ARIZONA
+    from modules.knowledge.submodules.asu.queries.shuttles import render
 
     now = datetime.datetime(2026, 9, 12, 16, 0, tzinfo=ARIZONA)
 
@@ -238,7 +238,7 @@ def test_shuttle_times_in_arizona_time():
 
 
 def test_campus_places_are_plain_and_linked():
-    from submodules.asu.queries.campus_map import render
+    from modules.knowledge.submodules.asu.queries.campus_map import render
 
     hayden = {
         "attributes": {"Name": "Hayden Library", "Type": "Library", "Description": "<p>Books &amp; more</p>"},
@@ -250,8 +250,8 @@ def test_campus_places_are_plain_and_linked():
 
 
 def test_feeds_are_narrowed():
-    from submodules.asu.queries.social_media import posts_of
-    from submodules.asu.queries.sports_news import official_lines
+    from modules.knowledge.submodules.asu.queries.social_media import posts_of
+    from modules.knowledge.submodules.asu.queries.sports_news import official_lines
 
     rss = ET.fromstring(  # nosec B314 - literal test input
         "<rss><channel>"
@@ -270,7 +270,7 @@ def test_feeds_are_narrowed():
 
 
 def test_web_results():
-    from modules.submodules.web import render
+    from modules.knowledge.submodules.web.query import render
 
     found = {
         "answers": [{"answer": "ASU beat Morgan State 70-7."}],
@@ -287,8 +287,8 @@ def test_web_results():
 
 
 def test_class_search_reads_sections_and_seats_from_the_api(monkeypatch):
-    from modules.submodules import http
-    from submodules.asu.queries import courses
+    from modules.knowledge.content import http
+    from modules.knowledge.submodules.asu.queries import courses
 
     seen: dict = {}
     row = {
@@ -323,8 +323,8 @@ def test_class_search_reads_sections_and_seats_from_the_api(monkeypatch):
 
 
 def test_course_catalog_reads_hours_and_prerequisites(monkeypatch):
-    from modules.submodules import http
-    from submodules.asu.queries import course_catalog
+    from modules.knowledge.content import http
+    from modules.knowledge.submodules.asu.queries import course_catalog
 
     course = {
         "SUBJECT": "CSE",

@@ -36,7 +36,7 @@ from modules.knowledge.service import (
 )
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.submodules.models import SubmoduleSubscription
+from core.submodules import SubmoduleSubscription
 
 logger = get_logger("knowledge.crawl")
 

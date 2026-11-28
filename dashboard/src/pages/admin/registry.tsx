@@ -40,7 +40,7 @@ export const ADMIN_PAGES: AdminPageEntry[] = [
   { path: 'orgs', label: 'Organizations', description: 'Orgs, their officer roles and Discord servers.', docs: 'codebase/authentication#officer-sign-in', icon: Building2, section: 'orgs', page: OrganizationsPage },
   { path: 'limits', label: 'Limits', description: 'Marked at 80% of a limit.', docs: 'codebase/limits', icon: Gauge, section: 'orgs', page: LimitsPage },
   { path: 'shared-apps', label: 'Shared apps', description: 'Owned by the deployment, used by orgs.', docs: 'modules/hosting#shared-apps', icon: Boxes, section: 'shared', page: SharedAppsPage },
-  { path: 'submodules', label: 'Sub-modules', description: 'Shared content that orgs subscribe to.', docs: 'modules/submodules', icon: Package, section: 'shared', page: SubmodulesPage },
+  { path: 'submodules', label: 'Sub-modules', description: 'Shared sub-modules that orgs turn on.', docs: 'modules/knowledge', icon: Package, section: 'shared', page: SubmodulesPage },
   { path: 'publishers', label: 'Publishers', description: 'Orgs that can publish knowledge to other orgs.', docs: 'modules/knowledge', icon: BookUp, section: 'shared', page: PublishersPage },
   { path: 'server', label: 'Server', description: 'Load, memory, disk and processes.', docs: 'codebase/operations', icon: Server, section: 'server', page: ServerPage },
   { path: 'services', label: 'Services', description: 'Containers on the server and who owns them.', docs: 'codebase/operations#host-agent', icon: Container, section: 'server', page: ServicesPage },

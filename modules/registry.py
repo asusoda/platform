@@ -18,7 +18,7 @@ from modules.calendar.api import calendar_blueprint
 from modules.dashboard.api import dashboard_blueprint
 from modules.feeds.api import feeds_blueprint
 from modules.godfather.api import godfather_blueprint
-from modules.knowledge.api import knowledge_blueprint
+from modules.knowledge.api import asu_blueprint, knowledge_blueprint, submodules_blueprint
 from modules.mcp.api import tools_blueprint, well_known_blueprint
 from modules.members.api import users_blueprint
 from modules.organizations import service as organizations
@@ -26,7 +26,6 @@ from modules.organizations.api import organizations_blueprint
 from modules.points.member_api import points_blueprint
 from modules.points.submodules.store.member_api import storefront_blueprint
 from modules.public.api import public_blueprint
-from modules.submodules.api import asu_blueprint, submodules_blueprint
 from modules.superadmin.api import superadmin_blueprint
 from modules.uptime.api import uptime_blueprint
 

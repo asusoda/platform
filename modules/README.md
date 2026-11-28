@@ -2,9 +2,9 @@
 
 One folder for each module. Each folder has a `README.md` with its files and its surface: routes, jobs, tools and tables. [docs/writing-a-module.md](../docs/writing-a-module.md) gives the rules and the places to register a new module.
 
-`CATEGORIES` in `manifest.py` groups the modules below in the same sections as the Explore page and the sidebar of the dashboard. Each module is in one category. `CATALOG` in `manifest.py` gives the title, description, needs and shared content that the page shows for each module. A new org starts with every switch in the Org switch column off.
+`CATEGORIES` in `manifest.py` groups the modules below in the same sections as the Explore page and the sidebar of the dashboard. Each module is in one category. `CATALOG` in `manifest.py` gives the title, description and needs that the page shows for each module. A new org starts with every switch in the Org switch column off.
 
-A module can have sub-modules: parts with their own switch, in `modules/<module>/submodules/<name>/`. Each sets `SUBMODULE` in its `__init__.py` (`core/submodules.py`), and `SUBMODULES` in `manifest.py` lists them. The switch key is `<module>.<name>`, and a sub-module is on only when its module is on too. A module can also read shared content: content in `submodules/` made once for every org.
+A module can have sub-modules: parts with their own switch, in `modules/<module>/submodules/<name>/`. Each sets `SUBMODULE` in its `__init__.py` (`core/submodules.py`), and `SUBMODULES` in `manifest.py` lists them. The switch key is `<module>.<name>`, and a sub-module is on only when its module is on too. A shared sub-module (`shared=True`), such as `knowledge.asu`, holds content made once for every org; its switch is the org's subscription row in `core/submodules.py`.
 
 ```mermaid
 flowchart LR
@@ -13,6 +13,11 @@ flowchart LR
   points --> leaderboard[points.leaderboard]
   points --> checkins[points.checkins]
   points --> store[points.store]
+  knowledge --> asu["knowledge.asu (shared)"]
+  knowledge --> web[knowledge.web]
+  knowledge --> signin[knowledge.asu_signin]
+  feeds --> jobs["feeds.jobs (shared)"]
+  feeds --> hackathons["feeds.hackathons (shared)"]
 ```
 
 ## Core
@@ -29,7 +34,6 @@ Core modules are always on. The Explore page of the dashboard does not show them
 | [members](members/README.md) | Members and memberships | |
 | [organizations](organizations/README.md) | Orgs, config, module switches, secrets and machine tokens | |
 | [public](public/README.md) | Open reads | |
-| [submodules](submodules/README.md) | Loads the shared content in `submodules/`. Explore shows each item under the module that reads it | |
 | [superadmin](superadmin/README.md) | Orgs, limits, the server's services and the shared apps, for the whole deployment | |
 
 ## Members
@@ -46,6 +50,9 @@ Core modules are always on. The Explore page of the dashboard does not show them
 | Module | Does | Org switch |
 | --- | --- | --- |
 | [knowledge](knowledge/README.md) | Sources, crawls and hybrid search | `knowledge` |
+| [knowledge.asu](knowledge/submodules/asu/README.md) | Shared ASU pages and live queries | `knowledge.asu` |
+| [knowledge.web](knowledge/submodules/web/README.md) | Web search through SearXNG | `knowledge.web` |
+| [knowledge.asu_signin](knowledge/submodules/asu_signin/README.md) | An officer's ASU sign-in for Sun Devil Central | `knowledge.asu_signin` |
 | [integrations](integrations/README.md) | Tools of connected services (GitHub) passed through to their MCP servers | `integrations` |
 
 ## Automations
@@ -53,6 +60,8 @@ Core modules are always on. The Explore page of the dashboard does not show them
 | Module | Does | Org switch |
 | --- | --- | --- |
 | [feeds](feeds/README.md) | New job listings and hackathons posted to an alert destination | `feeds` |
+| [feeds.jobs](feeds/submodules/jobs/README.md) | Internship and new grad feeds from GitHub job lists | `feeds.jobs` |
+| [feeds.hackathons](feeds/submodules/hackathons/README.md) | Hackathon feeds | `feeds.hackathons` |
 | [calendar](calendar/README.md) | Notion events synced to Google Calendar | `calendar` |
 | [uptime](uptime/README.md) | Checks of sites and Hosting apps, with events when one goes down or up | `uptime` |
 

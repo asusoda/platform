@@ -23,7 +23,7 @@ from modules.auth import scopes
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import DIMENSIONS, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
 from modules.organizations.models import Organization
-from modules.submodules.models import SubmoduleSubscription
+from core.submodules import SubmoduleSubscription
 
 scopes.declare(
     "knowledge:read", "Search the organization's knowledge and public sources", uses=("embeddings", "searxng")

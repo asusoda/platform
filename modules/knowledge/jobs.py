@@ -1,4 +1,4 @@
-"""Crawling scheduled knowledge sources."""
+"""Crawling scheduled knowledge sources, and indexing live query results."""
 
 from core.db import db_connect
 from core.jobs import job
@@ -54,5 +54,17 @@ def reembed(org_id: int, org_prefix: str | None = None) -> None:
     try:
         result = reembed.run(db, org_id, embedder.for_org(db, org_id))
         reembed.logger.info("re-embed org=%s %s", org_id, result)
+    finally:
+        db.close()
+
+
+@job("submodules.index_result", audit=False)
+def index_result(org_id: int, org_prefix: str, submodule: str, query_key: str, url: str, text: str) -> None:
+    """Write a live query result into the org's knowledge after the caller has its answer."""
+    from modules.knowledge import embedder, shared
+
+    db = db_connect.SessionLocal()
+    try:
+        shared.index_result(db, org_id, org_prefix, submodule, query_key, url, text, embedder.for_org(db, org_id))
     finally:
         db.close()

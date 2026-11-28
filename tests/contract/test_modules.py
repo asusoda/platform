@@ -35,9 +35,16 @@ def test_modules_are_on_by_default(client, officer_headers, soda_id):
         "points.leaderboard": True,
         "points.checkins": True,
         "points.store": True,
+        "knowledge.asu": False,
+        "knowledge.web": True,
+        "knowledge.asu_signin": True,
+        "feeds.jobs": True,
+        "feeds.hackathons": True,
     }
     store = next(m for m in rows if m["name"] == "points.store")
     assert store["parent"] == "points" and store["shared"] is False
+    asu = next(m for m in rows if m["name"] == "knowledge.asu")
+    assert asu["parent"] == "knowledge" and asu["shared"] is True
 
 
 def test_turned_off_module_returns_404(client, officer_headers, soda_id):
@@ -169,7 +176,12 @@ def test_module_catalog_lists_every_module_but_core(client, officer_headers, sod
     assert all(s["enabled"] for s in found["points"]["submodules"])
     assert found["knowledge"]["switchable"] is True and found["knowledge"]["enabled"] is True
     assert [p["name"] for p in found["knowledge"]["shared_content"]] == ["asu"]
-    assert [p["name"] for p in found["feeds"]["shared_content"]] == ["careers"]
+    assert [p["key"] for p in found["feeds"]["shared_content"]] == ["feeds.jobs", "feeds.hackathons"]
+    assert [s["key"] for s in found["knowledge"]["submodules"]] == [
+        "knowledge.asu",
+        "knowledge.web",
+        "knowledge.asu_signin",
+    ]
     games = found["bot.games"]
     assert games["category"] == "Discord" and games["parent"] == "bot" and games["switchable"] is True
     assert games["needs"] == [

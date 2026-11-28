@@ -136,6 +136,11 @@ def test_manifest_submodules_have_folders():
             assert f"{module}.{name}" in SUBMODULE_DIRS, f"SUBMODULES names {module}.{name}; add its folder"
 
 
+def test_no_old_sub_module_folders():
+    for old in ("submodules", "modules/submodules"):
+        assert not (ROOT / old).exists(), f"{old}/ is gone; a sub-module lives in modules/<module>/submodules/<name>/"
+
+
 def test_hosting_is_a_layer_in_no_category():
     from modules.manifest import CATEGORIES, LAYERS
 
@@ -186,15 +191,11 @@ def test_module_has_a_catalog_entry(name):
     assert info.title and info.description, f"Give {name} a title and a description in CATALOG in modules/manifest.py"
 
 
-def test_catalog_names_real_shared_content_and_new_org_modules():
+def test_catalog_names_real_modules_and_new_org_modules():
     from modules.manifest import CATALOG, CATEGORIES, CORE, NEW_ORG_MODULES
 
-    for name, info in CATALOG.items():
+    for name in CATALOG:
         assert name in NAMES, f"{name} in CATALOG has no folder in modules/"
-        for content in info.shared_content:
-            assert (ROOT / "submodules" / content / "__init__.py").exists(), (
-                f"{name} in CATALOG names {content}, not in submodules/"
-            )
     for name in NEW_ORG_MODULES:
         assert name in CATALOG and name not in CATEGORIES[CORE], f"{name} in NEW_ORG_MODULES is not an optional module"
 
@@ -236,7 +237,9 @@ def test_submodule_and_layer_are_documented(name):
 
 def test_data_model_lists_every_table():
     page = (ROOT / "docs" / "data-model.md").read_text()
-    core_tables = [ROOT / "core" / name for name in ("audit.py", "error_log.py", "secrets.py", "webhooks.py")]
+    core_tables = [
+        ROOT / "core" / name for name in ("audit.py", "error_log.py", "secrets.py", "submodules.py", "webhooks.py")
+    ]
     models = [*MODULES.glob("*/models.py"), *MODULES.glob("*/submodules/*/models.py"), ROOT / "hosting" / "models.py"]
     for path in [*models, *core_tables]:
         for table in _tables(path):

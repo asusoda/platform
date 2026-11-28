@@ -1,10 +1,10 @@
-"""Knowledge tools."""
+"""Knowledge tools, the shared sub-module tools for every org, and live queries when knowledge is on."""
 
 from functools import partial
 
 from core.tools import tool as _tool
-from modules.knowledge import crawl, documents, embedder, reembed, runs, search, service, settings
-from modules.submodules import service as submodules
+from modules.knowledge import crawl, documents, embedder, reembed, runs, search, service, settings, shared
+from modules.knowledge.content import catalog, find
 
 # Every tool here needs the knowledge module on for the caller's org
 tool = partial(_tool, module="knowledge")
@@ -166,18 +166,17 @@ def knowledge_crawl_now(db, org, caller, key: str, force: bool = False):
 
 @tool(
     "knowledge.submodules",
-    description="Shared content (submodules) the org can subscribe to, such as a campus. Same as modules.submodules.",
+    description="Shared sub-modules the org can turn on, such as knowledge.asu. Same as modules.submodules.",
     scope="knowledge:read",
 )
 def knowledge_submodules(db, org, caller):
-    return {"submodules": submodules.list_submodules(db, int(org.id))}
+    return {"submodules": shared.list_submodules(db, int(org.id))}
 
 
 @tool(
     "knowledge.sync_submodule",
-    description="Subscribe the org to shared content (a submodule) and its pages, then start the crawl of the pages that "
-    "are due. "
-    "Same as modules.subscribe.",
+    description="Turn a shared sub-module on for the org, such as knowledge.asu, then start the crawl of the pages that "
+    "are due. Same as modules.subscribe.",
     scope="knowledge:write",
     input_schema={
         "type": "object",
@@ -187,7 +186,7 @@ def knowledge_submodules(db, org, caller):
     },
 )
 def knowledge_sync_submodule(db, org, caller, name: str):
-    counts = submodules.sync(db, int(org.id), str(org.prefix), name)
+    counts = shared.sync(db, org, name)
     crawl.start_crawl_due()
     return counts
 
@@ -255,3 +254,108 @@ def knowledge_reembed(db, org, caller):
 )
 def knowledge_runs(db, org, caller, limit: int = 50, failed: bool = False):
     return {"runs": runs.recent(db, int(org.id), limit, failed_only=failed)}
+
+
+_LIST = "\n".join(
+    f"- {content.name}/{q.key}: {q.description} Params: "
+    + (", ".join(f"{p.name}{' (required)' if p.required else ''}" for p in q.params) or "none")
+    for content in catalog.CONTENT.values()
+    for q in content.queries
+)
+
+
+@tool(
+    "knowledge.query",
+    description="Ask a live source of shared content (a submodule) and get the text it returns with the URL to cite. "
+    "Sources, as submodule/source:\n" + _LIST,
+    scope="knowledge:read",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "submodule": {"enum": sorted(name for name, content in catalog.CONTENT.items() if content.queries)},
+            "source": {"type": "string", "maxLength": 100},
+            "params": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 500}},
+        },
+        "required": ["submodule", "source"],
+        "additionalProperties": False,
+    },
+)
+def submodules_query(db, org, caller, submodule: str, source: str, params: dict | None = None):
+    return shared.query(db, int(org.id), str(org.prefix), submodule, source, params or {})
+
+
+_SOURCE_HELP = " ".join(f"{key}: {q.description}" for key, (_, q) in find.SOURCES.items())
+
+
+@tool(
+    "search",
+    description=(
+        "Search for anything about the org's campus: stored pages first, then the live source you name, then the "
+        "web. Nothing is looked up before you call it. Name a source for something current, such as hours today, "
+        "open seats, shuttle times, events or scores. Send several searches with different wording in one step."
+    ),
+    scope="knowledge:read",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "description": "What to search for, in keywords. It is the whole request: name the subject in full, "
+                "with no pronoun. Bad: hours. Good: Hayden Library hours Sunday.",
+            },
+            "source": {
+                "enum": list(find.SOURCES),
+                "description": "Narrows the search to one source. Leave it out unless the question is plainly "
+                "about that one source. " + _SOURCE_HELP,
+            },
+        },
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+)
+def search_anything(db, org, caller, query: str, source: str | None = None):
+    return find.find(db, int(org.id), str(org.prefix), query, source)
+
+
+NAME = {
+    "type": "object",
+    "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 64}},
+    "required": ["name"],
+    "additionalProperties": False,
+}
+
+
+@_tool(
+    "modules.submodules",
+    description="All shared sub-modules (such as knowledge.asu or feeds.jobs): their pages, live queries and feeds, "
+    "the module that reads each, whether the org has it on, and how many orgs do.",
+    scope="submodules:read",
+)
+def submodules_list(db, org, caller):
+    return {"submodules": shared.list_submodules(db, int(org.id))}
+
+
+@_tool(
+    "modules.subscribe",
+    description="Turn a shared sub-module on for the org, such as knowledge.asu: knowledge search reads its pages and "
+    "its feeds become presets.",
+    scope="submodules:manage",
+    input_schema=NAME,
+)
+def submodules_subscribe(db, org, caller, name: str):
+    result = shared.subscribe(db, org, name, actor=caller.actor)
+    crawl.start_crawl_due()
+    return result
+
+
+@_tool(
+    "modules.unsubscribe",
+    description="Turn a shared sub-module off for the org. Feeds the org already made from its presets keep their "
+    "rows, and stop when their kind's sub-module is off.",
+    scope="submodules:manage",
+    input_schema=NAME,
+)
+def submodules_unsubscribe(db, org, caller, name: str):
+    return shared.unsubscribe(db, org, name)

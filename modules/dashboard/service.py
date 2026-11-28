@@ -26,7 +26,6 @@ from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 from modules.points.models import Points
 from modules.points.submodules.store.models import Order, Product
-from modules.submodules import catalog as shared_content
 
 from . import notices
 
@@ -103,10 +102,11 @@ def _card(db, org: Organization, name: str, category: str | None = None) -> dict
             }
             for s in submodules.of(name)
         ],
+        # The shared sub-modules: content made once for every org, which the org subscribes to with the switch
         "shared_content": [
-            {"name": p.name, "title": p.title, "description": p.description}
-            for p in map(shared_content.get, info.shared_content)
-            if p is not None
+            {"name": s.name, "key": s.key, "title": s.title, "description": s.description}
+            for s in submodules.of(name)
+            if s.shared
         ],
     }
 
@@ -193,7 +193,7 @@ def _feeds(db, org_id: int, now: datetime.datetime) -> dict:
             {
                 "key": f.key,
                 "kind": f.kind,
-                "module": feed_service.KIND_MODULES[str(f.kind)],
+                "module": "feeds",
                 "enabled": f.enabled,
                 "every_hours": f.every_hours,
                 "last_run_at": iso(f.last_run_at),

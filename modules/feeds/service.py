@@ -1,8 +1,9 @@
 """Feeds: read a source on a schedule and post new items to an alert destination (a Discord webhook). No Flask here.
 
 The kinds of feed are github_jobs (github_jobs.py: the job table of a GitHub README) and hackathons
-(hackathons.py: Hack Club, Euro-Hackathons and Hackalist). Every kind belongs to the feeds module; when the
-org has it off, its feeds are hidden and do not run. The presets come from the submodules the org subscribes to.
+(hackathons.py: Hack Club, Euro-Hackathons and Hackalist). Each kind belongs to a sub-module, feeds.jobs and
+feeds.hackathons; when the org has it off, its feeds are hidden and do not run. The presets are the FEEDS of the
+sub-modules the org has on.
 
 A feed's first run records every current item without posting, so turning a feed on does not
 flood the channel. Later runs post items not seen before, through the alerts send path (modules/alerts/delivery.py),
@@ -18,7 +19,7 @@ from typing import cast
 import requests
 from sqlalchemy.exc import IntegrityError
 
-from core import limits, secrets, webhooks
+from core import limits, secrets, submodules, webhooks
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import utcnow
@@ -27,6 +28,7 @@ from modules.alerts.models import Destination
 from modules.auth import scopes
 from modules.feeds import github_jobs as jobs_table
 from modules.feeds import hackathons
+from modules.manifest import load_submodules
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -41,8 +43,8 @@ KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 WEBHOOK_PATTERN = re.compile(r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$")
 SECRET_PREFIX = "alert_webhook_"  # nosec B105 - a secret name prefix, not a value
 KINDS = {"github_jobs": jobs_table, "hackathons": hackathons}
-# The module that each kind of feed belongs to
-KIND_MODULES = {"github_jobs": "feeds", "hackathons": "feeds"}
+# The sub-module that each kind of feed belongs to
+KIND_MODULES = {"github_jobs": "feeds.jobs", "hackathons": "feeds.hackathons"}
 MAX_POSTS_PER_RUN = 25
 POST_GAP_SECONDS = 0.5
 RUNS_KEPT = 50  # runs kept per feed; older ones are deleted
@@ -148,19 +150,20 @@ def list_feeds(db, org_id: int) -> list[dict]:
 
 
 def presets(db, org_id: int) -> list[dict]:
-    """The feeds that the org's subscribed submodules offer, with the kind and config to create each, and whether the
+    """The feeds that the org's feeds sub-modules offer, with the kind and config to create each, and whether the
     org has the key."""
-    from modules.submodules import catalog
-    from modules.submodules.service import subscribed_names
-
+    org = db.get(Organization, org_id)
+    if org is None:
+        return []
+    load_submodules()
     on = kinds_on(db, org_id)
-    mine = subscribed_names(db, org_id)
     have = {key for (key,) in db.query(AlertFeed.key).filter_by(organization_id=org_id)}
     return [
         {
-            "module": KIND_MODULES[feed.kind],
-            "submodule": submodule.name,
-            "submodule_title": submodule.title,
+            "module": sub.module,
+            "submodule": sub.name,
+            "submodule_key": sub.key,
+            "submodule_title": sub.title,
             "key": feed.key,
             "title": feed.title,
             "description": feed.description,
@@ -169,9 +172,9 @@ def presets(db, org_id: int) -> list[dict]:
             "every_hours": feed.every_hours,
             "added": feed.key in have,
         }
-        for submodule in catalog.SUBMODULES.values()
-        if submodule.name in mine
-        for feed in submodule.feeds
+        for sub in submodules.of("feeds")
+        if organizations.module_enabled(org, sub.key)
+        for feed in submodules.attribute(sub.key, "FEEDS", ())
         if feed.kind in on
     ]
 
