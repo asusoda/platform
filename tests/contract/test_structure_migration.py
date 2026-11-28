@@ -5,16 +5,11 @@ downgrade brings back the old switches. Postgres runs when TEST_DATABASE_URL is 
 """
 
 import itertools
-import os
-import subprocess
-import sys
-import uuid
-from pathlib import Path
 
-import pytest
 import sqlalchemy as sa
 
-ROOT = Path(__file__).resolve().parents[2]
+from tests.contract.migrations import alembic as _alembic
+
 BEFORE = "f2a4c6e8b0d1"
 AFTER = "a3c5e7f9b1d2"
 # The switches before this migration. A missing key is on.
@@ -57,39 +52,6 @@ def _configs() -> list[dict | None]:
 
 def _old_on(config: dict | None, feature: str) -> bool:
     return ((config or {}).get("modules") or {}).get(feature, True) is not False
-
-
-def _alembic(url: str, *args: str) -> None:
-    env = {**os.environ, "DATABASE_URL": url}
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", *args], cwd=ROOT, env=env, capture_output=True, text=True, check=False
-    )
-    assert result.returncode == 0, result.stderr
-
-
-def _postgres_url() -> str | None:
-    url = os.environ.get("TEST_DATABASE_URL") or ""
-    return url if url.startswith("postgresql") else None
-
-
-@pytest.fixture(params=["sqlite", "postgresql"])
-def database_url(request, tmp_path):
-    if request.param == "sqlite":
-        yield f"sqlite:///{tmp_path / 'structure.db'}"
-        return
-    server = _postgres_url()
-    if server is None:
-        pytest.skip("TEST_DATABASE_URL is not a Postgres URL")
-    name = f"structure_{uuid.uuid4().hex[:12]}"
-    admin = sa.create_engine(server, isolation_level="AUTOCOMMIT")
-    with admin.connect() as conn:
-        conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
-    try:
-        yield sa.engine.make_url(server).set(database=name).render_as_string(hide_password=False)
-    finally:
-        with admin.connect() as conn:
-            conn.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-        admin.dispose()
 
 
 def _read(url: str) -> dict[int, dict | None]:

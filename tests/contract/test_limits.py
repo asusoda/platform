@@ -389,10 +389,10 @@ def test_limits_say_who_pays(client, officer_headers, clean_limits):
 def test_submodule_parts_say_who_pays(client, officer_headers):
     listed = client.get("/api/dashboard/soda/submodules", headers=officer_headers).get_json()["submodules"]
     asu = next(s for s in listed if s["name"] == "asu")
-    careers = next(s for s in listed if s["name"] == "careers")
+    jobs = next(s for s in listed if s["key"] == "feeds.jobs")
     assert {p["kind"]: p["paid_by"] for p in asu["parts"]} == {"pages": "shared", "queries": "org"}
-    assert {p["kind"]: p["paid_by"] for p in careers["parts"]} == {"feeds": "org"}
-    assert "submodules" not in asu["modules"]
+    assert {p["kind"]: p["paid_by"] for p in jobs["parts"]} == {"feeds": "org"}
+    assert asu["modules"] == ["knowledge"] and jobs["modules"] == ["feeds"]
 
 
 def test_shared_keys_say_which_limits_they_count_against(client, officer_headers, monkeypatch):

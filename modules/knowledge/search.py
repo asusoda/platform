@@ -14,12 +14,12 @@ from sqlalchemy import or_, select, text
 
 from core import limits
 from core.log import get_logger
+from core.submodules import SubmoduleSubscription
 from core.time import iso
 from modules.knowledge import fts, settings
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import Embedding, KnowledgeChunk, KnowledgeSource, KnowledgeVersion, vector_sql
 from modules.knowledge.service import KnowledgeError, _optional_text, _text, _vector
-from modules.submodules.models import SubmoduleSubscription
 
 logger = get_logger("knowledge")
 

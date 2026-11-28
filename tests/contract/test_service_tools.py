@@ -8,7 +8,8 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from modules.integrations import google, notion, web
+from modules.integrations import google, notion
+from modules.knowledge.submodules.web import tools as web
 from tests.contract.tool_names import every_name
 
 NOTION_KEY = "ntn_test_value"

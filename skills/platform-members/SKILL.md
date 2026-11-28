@@ -23,4 +23,4 @@ Member data is personal. Share only what the task needs.
 
 - `org.info` says which modules are on.
 - `modules.set` (confirm) turns optional modules on or off, such as `{"points": false}`. Turning one off hides its pages and tools for everyone in the org. Ask first.
-- `modules.submodules` lists shared content, such as a campus or careers. `modules.subscribe` and `modules.unsubscribe` (confirm) change the org's subscription.
+- `modules.submodules` lists shared content, such as a campus (ASU) or job and hackathon feeds. `modules.subscribe` and `modules.unsubscribe` (confirm) turn it on or off, the same as its sub-module switch.

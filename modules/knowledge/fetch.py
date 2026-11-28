@@ -307,7 +307,6 @@ register(
     )
 )
 use("firecrawl", "knowledge")
-use("firecrawl", "submodules")
 
 
 class HostPacer:

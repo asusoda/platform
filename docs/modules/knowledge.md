@@ -147,11 +147,86 @@ flowchart LR
 
 The job commits one source at a time. A source that fails keeps its old vectors. A change to the deployment default in `.env` starts no job; start it from the Knowledge page. Public sources of other orgs keep the model of the org that wrote them.
 
-## Submodules
+## Shared sub-modules
 
-A [submodule](./submodules.md) is a domain, such as ASU, that an org subscribes to. Its pages are shared sources with no org: the deployment crawls and embeds them once, and the search of each subscribed org reads them. An org's search reads its own sources, public sources, and the sources of the submodules it subscribes to. Shared sources do not count against the org's `knowledge.sources` and `knowledge.passages` limits, and `knowledge.reindex` skips them.
+A shared sub-module is content made once for every org, such as one campus, that an org turns on. The dashboard calls it shared content. Its switch and the org's subscription row are one thing: turning the switch on adds the row, and turning it off deletes it. The shared sub-modules are `knowledge.asu` (pages and live queries), and `feeds.jobs` and `feeds.hackathons` (feed presets, see [Feeds](./feeds.md)). A sub-module holds content and settings; features are [modules](../writing-a-module.md#sub-module).
+
+The pages of a shared sub-module are shared sources with no org: the deployment crawls and embeds them once, and the search of each org that has the sub-module on reads them. An org's search reads its own sources, public sources, and the shared sources of the sub-modules it has on. Shared sources do not count against the org's `knowledge.sources` and `knowledge.passages` limits, and `knowledge.reindex` skips them.
 
 The dashboard groups sources by domain: the part of the key before the first `/`.
+
+```mermaid
+flowchart LR
+  folder["modules/knowledge/submodules/asu/content.py"] --> catalog["content/catalog.py"]
+  catalog -->|pages| shared["Shared sources, no org"]
+  shared --> crawl["knowledge.crawl_due, deployment embedder"]
+  crawl --> search["Search of each org with the sub-module on"]
+  catalog -->|queries| query["POST /api/submodules/asu/query"]
+  query --> index["submodules.index_result"]
+  index --> own["A source of the org"]
+```
+
+| Sub-module | Content |
+| --- | --- |
+| [knowledge.asu](../../modules/knowledge/submodules/asu/README.md) | Arizona State University: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports |
+| [knowledge.asu_signin](../../modules/knowledge/submodules/asu_signin/README.md) | The ASU sign-in for Sun Devil Central ([Sign in to ASU](../integrations.md#sign-in-to-asu)). Not shared: it is a switch with no subscription row |
+| [knowledge.web](../../modules/knowledge/submodules/web/README.md) | The `knowledge.web_search` tool. Not shared |
+
+### Turn one on
+
+1. On the Explore page of the dashboard, open the Knowledge module, or the Shared tab.
+2. Turn on the sub-module, or click **Subscribe** next to it on the Shared tab. Both do the same thing.
+
+Turning on `knowledge.asu` makes its shared pages if there are none yet, and starts the crawl job. Turning it off stops the search of the org from reading them. The shared pages stay for the other orgs, and the crawl job skips a sub-module that no org has on.
+
+When Platform is updated, the next time an org turns the sub-module on, the shared pages come up to date: new URLs, categories and schedules, and pages that are no longer in the sub-module turned off.
+
+Each org can have `submodules.subscriptions` shared sub-modules on, 20 by default ([Limits](../limits.md)). A switch that goes over the limit returns 409 and changes nothing.
+
+### Routes and tools
+
+`<submodule>` is a sub-module key (`knowledge.asu`), its short name (`asu`), or `careers`, which means both feeds sub-modules.
+
+| Route | Caller | Does |
+| --- | --- | --- |
+| `GET /api/dashboard/<org>/submodules` | Officer | Each shared sub-module: `name`, `key`, its pages, queries and feeds, the module that reads it, the shared pages and last crawl, whether the org has it on, and how many orgs do |
+| `PUT`, `DELETE /api/dashboard/<org>/submodules/<submodule>/subscription` | Officer | Turns the sub-module on or off |
+| `GET /api/superadmin/submodules` | Superadmin | Each shared sub-module's orgs, shared pages, passages and failing pages |
+| `GET /api/submodules` | Token, `knowledge:read` | The same list as the dashboard |
+| `PUT`, `DELETE /api/submodules/<submodule>/subscription` | Token, `submodules:manage` | Turns the sub-module on or off |
+| `GET /api/submodules/<submodule>/queries` | Token, `knowledge:read` | The live queries and their parameters, with descriptions and allowed values |
+| `POST /api/submodules/<submodule>/query` | Token, `knowledge:read` | `{"source": "courses", "params": {"term": "Fall 2026"}}` returns `submodule`, `source`, `url` and `text` |
+
+The older `POST /api/submodules/<submodule>/sync`, `POST /api/dashboard/<org>/knowledge/submodules/<submodule>/sync` and `/api/asu/*` routes still answer. A sync turns the sub-module on.
+
+Tools: `modules.submodules` (`submodules:read`), `modules.subscribe` and `modules.unsubscribe` (`submodules:manage`, confirm), and `knowledge.query` and `search` (`knowledge:read`).
+
+`search(query, source?)` is the one search an agent needs. It takes a plain query and fills the live query's parameters from it, so the agent never sees parameter names.
+
+```mermaid
+flowchart LR
+  Q[query, source?] --> N{source named?}
+  N -->|no| S[stored pages]
+  S -->|nothing| W[web]
+  N -->|stored kind| C[stored pages in its category]
+  C -->|nothing| L[that source live]
+  N -->|live kind| L
+```
+
+It answers `{"from": "stored", "results": [...]}`, `{"from": "live", "source", "url", "text"}`, or `{"from": "none", "note"}`. Stored results older than `SEARCH_STALE_DAYS` add a `note` to read the url again. A query that misses a required value, like a campus for `dining`, returns 422 naming the values to add. `knowledge.submodules` and `knowledge.sync_submodule` do the same as `modules.submodules` and `modules.subscribe`.
+
+Platform checks the parameters of a live query before it gets a page. An unknown sub-module or query returns 404. A bad parameter returns 422 with the values the query accepts. A failed fetch returns 502. After the answer, the `submodules.index_result` job adds the result to the org's knowledge as its own `<name>-live/<query>-<hash>` source. It never writes into a shared page, and it does not write a result that did not change. A query with `index=False`, such as `web`, is not indexed. Live queries need the `knowledge` module on.
+
+### How the shared pages are crawled
+
+- **Fetch:** the deployment's Firecrawl (`FIRECRAWL_URL`), not an org's. Without it, the shared browser (`BROWSER_URL`) renders thin pages; these renders count against no org.
+- **Passages:** the deployment's chunk settings (`KNOWLEDGE_CHUNK_CHARS`), not an org's.
+- **Vectors:** the deployment's embedder (`EMBEDDINGS_URL`). Vector search reads only passages of the org's own model, so an org with its own embedding model finds the shared pages by text search.
+- **Runs:** a crawl of a shared page is not in an org's run log. Its last error stays on the page and shows on the Sub-modules page of the superadmin space.
+
+### Write a shared sub-module
+
+See [Sub-module](../writing-a-module.md#sub-module). A knowledge sub-module with pages or live queries has a `content.py` that sets `CONTENT`, a `Content` from `modules/knowledge/content/types.py`.
 
 ## Search
 
@@ -167,7 +242,7 @@ On Postgres with pgvector, the embedding column is `vector(1024)` with an HNSW i
 
 ## Settings
 
-An org sets its own embeddings service and Firecrawl on the Integrations tab of the dashboard Explore page ([integrations](../integrations.md)). The variables below are the deployment defaults.
+An org sets its own embeddings service, Firecrawl and SearXNG on the Integrations tab of the dashboard Explore page ([integrations](../integrations.md)). The variables below are the deployment defaults.
 
 | Variable | Default | Does |
 | --- | --- | --- |
@@ -187,3 +262,7 @@ An org sets its own embeddings service and Firecrawl on the Integrations tab of 
 | `BROWSER_URL` | not set | The shared browser, a Playwright server on a secret path, such as `ws://browser:3000/<BROWSER_SECRET>`. See [operations](../operations.md#run-the-shared-browser) |
 | `BROWSER_MAX_PAGES` | 2 | Browsers that one process opens at one time; the others wait |
 | `KNOWLEDGE_RENDER_THIN_CHARS` | 400 | A GET page with less text than this is rendered in the browser |
+| `SEARXNG_URL` | not set | The search service for the `web` query and `knowledge.web_search`. If neither the org nor this sets one, they return 503. The `searxng` compose service gives one; see [operations](../operations.md#run-web-search) |
+| `SEARXNG_ENGINES` | `google,brave,bing` | The engines SearXNG asks |
+| `SEARCH_STALE_DAYS` | 14 | Days after which a stored page that `search` returns is marked old |
+| `SUBMODULE_QUERY_MAX_CHARS` | 30000 | The maximum text length of a live query result. `ASU_QUERY_MAX_CHARS` still works |

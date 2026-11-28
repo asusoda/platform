@@ -35,7 +35,6 @@ const MODULES: Record<string, { label: string; path?: string }> = {
   games: { label: 'Games' },
   knowledge: { label: 'Knowledge', path: 'knowledge' },
   leetcode: { label: 'LeetCode', path: 'leetcode' },
-  submodules: { label: 'Knowledge', path: 'knowledge' },
   runpod: { label: 'Hosting', path: 'hosting' },
 };
 

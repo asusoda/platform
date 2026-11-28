@@ -24,7 +24,6 @@ CATEGORIES = {
         "members",
         "organizations",
         "public",
-        "submodules",
         "superadmin",
     ],
     "Members": ["points"],
@@ -39,6 +38,8 @@ CATEGORIES = {
 SUBMODULES = {
     "bot": ("leetcode", "games"),
     "points": ("leaderboard", "checkins", "store"),
+    "knowledge": ("asu", "web", "asu_signin"),
+    "feeds": ("jobs", "hackathons"),
 }
 
 CORE = "Core"
@@ -65,8 +66,6 @@ class ModuleInfo:
     title: str
     description: str
     needs: tuple[Need, ...] = ()
-    # The shared content in submodules/ that the module reads
-    shared_content: tuple[str, ...] = ()
 
 
 DISCORD_BOT = Need("discord", "Discord bot")
@@ -91,7 +90,6 @@ CATALOG = {
     "feeds": ModuleInfo(
         "Feeds",
         "Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.",
-        shared_content=("careers",),
     ),
     "integrations": ModuleInfo("Integration tools", "Gives agents the tools of the services that the org connects."),
     "knowledge": ModuleInfo(
@@ -100,18 +98,11 @@ CATALOG = {
         needs=(
             Need("embeddings", "Embeddings service", optional=True),
             Need("firecrawl", "Firecrawl", optional=True),
+            Need("searxng", "Web search (SearXNG)", optional=True),
         ),
-        shared_content=("asu",),
     ),
     "mcp": ModuleInfo("MCP", "The MCP server that gives agents and apps the tools of each module."),
     "organizations": ModuleInfo("Organizations", "The org record, module switches, secrets and machine tokens."),
-    "submodules": ModuleInfo(
-        "Shared content",
-        "Content made once for every org: campus pages and live queries for Knowledge, and job and hackathon sources "
-        "for Feeds. The code name is submodules.",
-        needs=(Need("searxng", "Web search (SearXNG)", optional=True),),
-        shared_content=("asu", "careers"),
-    ),
     "points": ModuleInfo("Points", "Points, leaderboards and event check-ins."),
     "public": ModuleInfo("Public pages", "Open routes for the leaderboard, the member list and stats."),
     "superadmin": ModuleInfo("Superadmin", "Orgs for the whole deployment. Only the superadmin uses it."),
@@ -159,6 +150,7 @@ MODEL_MODULES = [
     "core.error_log",
     "core.limits",
     "core.secrets",
+    "core.submodules",
     "core.webhooks",
     "modules.alerts.models",
     "modules.feeds.models",
@@ -173,7 +165,6 @@ MODEL_MODULES = [
     "modules.points.models",
     "hosting.models",
     "modules.points.submodules.store.models",
-    "modules.submodules.models",
     "modules.superadmin.models",
     "modules.uptime.models",
     "modules.members.models",
@@ -191,7 +182,6 @@ JOB_MODULES = [
     "modules.calendar.jobs",
     "hosting.jobs",
     "modules.knowledge.jobs",
-    "modules.submodules.jobs",
     "modules.bot.submodules.leetcode.jobs",
     "modules.godfather.jobs",
     "modules.feeds.jobs",
@@ -208,7 +198,7 @@ TOOL_MODULES = [
     "modules.points.submodules.leaderboard.tools",
     "modules.knowledge.tools",
     "hosting.tools",
-    "modules.submodules.tools",
+    "modules.knowledge.submodules.web.tools",
     "modules.dashboard.tools",
     "modules.alerts.tools",
     "modules.feeds.tools",

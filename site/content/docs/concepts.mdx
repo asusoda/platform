@@ -15,7 +15,7 @@ Core features, such as sign-in, Alerts and the MCP server, are always on. The ot
 
 ## Shared content
 
-Shared content is made once for every organization, such as ASU's campus pages or the careers job sources. In the code, each one is a submodule under `submodules/`. An organization subscribes on the Shared tab of Explore, and each feature that is on gets its part: Knowledge searches the pages, and Feeds offers the feeds. The deployment crawls the pages once for every subscriber.
+Shared content is made once for every organization, such as ASU's campus pages or the job and hackathon feeds. In the code, each one is a shared sub-module of the feature that reads it, such as `knowledge.asu` or `feeds.jobs`. An organization turns it on in the feature on Explore, or subscribes on the Shared tab: Knowledge searches the pages, and Feeds offers the feeds. The deployment crawls the pages once for every organization that has it on.
 
 ## Shared or isolated
 

@@ -5,10 +5,11 @@ import uuid
 
 import pytest
 
-from modules.submodules import find, service
-from modules.submodules.fill import dated, fill, named
-from modules.submodules.types import QueryError
-from submodules.asu.params import code_in, term_for, term_in
+from modules.knowledge import shared as service
+from modules.knowledge.content import find
+from modules.knowledge.content.fill import dated, fill, named
+from modules.knowledge.content.types import QueryError
+from modules.knowledge.submodules.asu.params import code_in, term_for, term_in
 
 TODAY = datetime.date(2026, 11, 5)
 

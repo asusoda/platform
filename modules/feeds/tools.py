@@ -19,7 +19,8 @@ def feeds_list(db, org, caller):
 
 @tool(
     "feeds.presets",
-    description="Feeds that shared content (submodules) offers, with the kind and config to pass to feeds.save.",
+    description="Feeds that the org's feeds sub-modules (feeds.jobs, feeds.hackathons) offer, with the kind and config "
+    "to pass to feeds.save.",
     scope="feeds:manage",
 )
 def feeds_presets(db, org, caller):

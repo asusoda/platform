@@ -1,8 +1,8 @@
 """HTML to text, text to chunks, and the named extractors of crawled sources.
 
-A module registers an extractor under a name and sets that name on its sources. Extractors are
-registered when the module is imported; modules/manifest.py lists every job module, so a worker
-has them before any crawl runs.
+A module registers an extractor under a name and sets that name on its sources. The knowledge content
+(modules/knowledge/content/catalog.py) registers the extractors of its sources when it loads, and extractor()
+loads it on the first name it does not know, so a worker has them before a crawl reads one.
 """
 
 import re
@@ -25,8 +25,15 @@ def register(name: str, func: Callable[[Fetched], str]) -> None:
 
 
 def extractor(name: str | None) -> Callable[[Fetched], str] | None:
-    """The extractor registered under name, or None."""
-    return EXTRACTORS.get(name) if name else None
+    """The extractor registered under name, or None. Loads the knowledge content first, which registers its
+    extractors."""
+    if not name:
+        return None
+    if name not in EXTRACTORS:
+        from modules.knowledge.content import catalog
+
+        catalog.load()
+    return EXTRACTORS.get(name)
 
 
 def extract_text(html: bytes | str, *, main_only: bool = True, keep_forms: bool = False) -> str:

@@ -34,7 +34,7 @@ Each module has a `README.md` in its folder with its files, routes, jobs, tools 
 | [Points](./modules/points.md) | Members, points from events and the leaderboard |
 | [Hosting apps](./modules/hosting.md) | App manifests, deploys to RunPod or This server, health checks and rollback |
 | [Store](./modules/store.md) | Merch store paid with points |
-| [Shared content](./modules/submodules.md) | Content made once for every org (code name: submodules): campus pages and live queries for knowledge, such as the ASU submodule, and feeds for the Feeds module |
+| [Shared content](./modules/knowledge.md#shared-sub-modules) | Content made once for every org (code name: shared sub-modules): campus pages and live queries for knowledge, such as `knowledge.asu`, and feed presets for the Feeds module |
 | [Uptime](./modules/uptime.md) | Checks of sites and Hosting apps, with events when one goes down or up |
 
 ## Notes

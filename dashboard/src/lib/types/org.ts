@@ -27,8 +27,8 @@ export type ModuleNeed = {
   connected: boolean;
 };
 
-// Shared content in submodules/ that a module reads, such as the ASU pages for Knowledge.
-export type ModuleSubmodule = { name: string; title: string; description: string };
+// A shared sub-module of a module, such as knowledge.asu: content made once for every org.
+export type ModuleSubmodule = { name: string; key: string; title: string; description: string };
 
 // A sub-module of a module card, with its own switch key such as points.store.
 export type SubmoduleSwitch = { key: string; title: string; description: string; shared: boolean; enabled: boolean };
@@ -101,12 +101,15 @@ export type AuditEntry = {
   details: Record<string, unknown> | null;
 };
 
-// A submodule: a domain such as a campus or careers that an org subscribes to (GET /api/dashboard/<org>/submodules).
+// A shared sub-module that an org subscribes to with its switch (GET /api/dashboard/<org>/submodules). name is the
+// short name, such as asu; key is the switch key, such as knowledge.asu.
 export type Submodule = {
   name: string;
+  key: string;
   title: string;
   description: string;
-  key_prefix: string;
+  // null for a sub-module with no pages, such as feeds.jobs
+  key_prefix: string | null;
   pages: number;
   queries: string[];
   feeds: string[];
@@ -115,9 +118,9 @@ export type Submodule = {
   last_crawl: string | null;
   subscribed: boolean;
   subscribers: number;
-  // The modules that read the submodule
+  // The module the sub-module belongs to
   modules: string[];
-  // What the submodule brings and who pays for each part
+  // What the sub-module brings and who pays for each part
   parts: { kind: 'pages' | 'queries' | 'feeds'; count: number; paid_by: 'org' | 'shared'; module: string }[];
 };
 

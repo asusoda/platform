@@ -21,7 +21,7 @@ def list_feeds(db, org):
 
 @_route("/presets", ["GET"])
 def list_presets(db, org):
-    """Feeds that submodules offer. Create one with PUT /feeds/<key> and its kind and config."""
+    """Feeds that the feeds sub-modules the org has on offer. Create one with PUT /feeds/<key> and its kind and config."""
     return {"presets": service.presets(db, int(org.id))}
 
 

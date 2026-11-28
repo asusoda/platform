@@ -4,22 +4,23 @@ The Feeds module (`feeds`) posts listings to Discord channels: new internship an
 
 ```mermaid
 flowchart LR
-  careers["submodule careers: presets"] --> feeds
+  jobs["feeds.jobs: presets"] --> feeds
+  hack["feeds.hackathons: presets"] --> feeds
   feeds["feeds: github_jobs and hackathons feeds, feeds.run_due"] --> dest["Alert destination"] --> discord["Discord channel"]
 ```
 
 ## Kinds of feed
 
-If the module is off for the org, its feeds do not show and do not run.
+Each kind belongs to a sub-module of Feeds with its own switch: `github_jobs` to `feeds.jobs` and `hackathons` to `feeds.hackathons`. If the module or the kind's sub-module is off for the org, the feeds of that kind do not show and do not run.
 
 | Kind | Code | Source | Item key |
 | --- | --- | --- | --- |
 | `github_jobs` | `github_jobs.py` | The job table in a GitHub repo's README (Company, Role, Location, Application/Link, Date Posted), as in the internship and new grad lists | A hash of company, role, first location, and link with no tracking parameters |
 | `hackathons` | `hackathons.py` | Hack Club, Euro-Hackathons and Hackalist | The event name, in lowercase |
 
-The `careers` [submodule](./submodules.md) gives ready feeds of both kinds. When the org subscribes to it, the Feeds card on Explore lists them. **Add** on a feed opens the page of its kind with the new feed form filled. A feed you make is your own. It counts against the org's `feeds.feeds` limit, default 20 (see [Limits](../limits.md)).
+The two sub-modules are [shared](./knowledge.md#shared-sub-modules) and give ready feeds: `internships` and `new-grad` in [feeds.jobs](../../modules/feeds/submodules/jobs/README.md), and `hackathons` in [feeds.hackathons](../../modules/feeds/submodules/hackathons/README.md). When the org turns one on, the Feeds module page on Explore lists its feeds. **Add** on a feed opens the page of its kind with the new feed form filled. A feed you make is your own. It counts against the org's `feeds.feeds` limit, default 20 (see [Limits](../limits.md)).
 
-Before 2026-10, the two kinds were the modules `job_webhook` and `hackathon_webhook`. Migration `a3c5e7f9b1d3` turned `feeds` on for each org that had either one on.
+Before 2026-10, the two kinds were the modules `job_webhook` and `hackathon_webhook`. Migration `a3c5e7f9b1d3` turned `feeds` on for each org that had either one on. Before 2026-11, the presets came from the `careers` shared content. Migration `c5e7a9b1d3f4` turned `feeds.jobs` and `feeds.hackathons` on for each org that subscribed to `careers` or had a feed of that kind.
 
 The first run of a feed records all current items and posts none. Thus a new feed does not post hundreds of old listings. Later runs post up to 25 new items, with half a second between posts. If a post fails, the item stays new and goes out on the next run. A run records an item before it posts it, so two runs at the same time do not post the same item. Each post goes through the Alerts send path: it is logged in `deliveries` and sets the destination's last result on the Alerts page.
 
@@ -27,8 +28,8 @@ The first run of a feed records all current items and posts none. Thus a new fee
 
 The Job alerts page (`job-alerts`) shows the `github_jobs` feeds. The Hackathons page (`hackathons`) shows the `hackathons` feeds. Both are pages of the Feeds module. The old path `alerts` opens the Job alerts page. On each page:
 
-- **New feed** > **Start from** fills the form from a feed of that kind in shared content the org subscribes to.
-- `?new=<submodule>/<feed>` opens the new feed form with that feed.
+- **New feed** > **Start from** fills the form from a preset of that kind, from the sub-module when it is on.
+- `?new=<sub-module>/<feed>`, such as `?new=jobs/internships`, opens the new feed form with that feed.
 - Each feed has pause, run now, delete, and its history.
 
 ## Routes
@@ -43,7 +44,7 @@ All routes are under `/api/feeds/<org>`, for officers of the org. When the Feeds
 | `DELETE /feeds/<key>` | Deletes the feed, its posted items and its older webhook secret, if any |
 | `GET /feeds/<key>/history` | The last 50 runs (time, duration, items found, new and posted, error) and the last 50 items the feed posted or recorded |
 | `POST /feeds/<key>/run` | Starts a run now and returns 202. With `{"post_existing": true}`, a first run posts the current items. 409 while a run of the feed is queued |
-| `GET /presets` | The feeds that the [submodules](./submodules.md) the org subscribes to offer, when Feeds is on, with `module`, the `kind` and `config` to send to `PUT /feeds/<key>`, and `added` when the org has a feed with that key |
+| `GET /presets` | The feeds that the feeds sub-modules the org has on offer, when Feeds is on, with `module`, `submodule` (`jobs` or `hackathons`), `submodule_key`, the `kind` and `config` to send to `PUT /feeds/<key>`, and `added` when the org has a feed with that key |
 
 ```json
 {

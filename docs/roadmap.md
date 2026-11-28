@@ -12,17 +12,17 @@ This page lists what is left to build and the known faults. The other pages desc
 
 ## Shared submodules and hosting
 
-The design is in the doc "Platform: shared submodules and This server hosting". Done: per-org limits and container caps (#334), shared submodules (#336), who pays (#339), one Feeds module (#340), the read-only host agent and the Services card, Alerts as a Core module, and the ASU sign-in on the ASU submodule.
+The design is in the doc "Platform: shared submodules and This server hosting". Done: per-org limits and container caps (#334), shared submodules (#336), who pays (#339), one Feeds module (#340), the read-only host agent and the Services card, Alerts as a Core module, the ASU sign-in, and the shared content as sub-modules of knowledge and feeds (`knowledge.asu`, `feeds.jobs`, `feeds.hackathons`; #455).
 
 ```mermaid
 flowchart LR
-  a["Org-made submodules"] --> b["Provider-neutral Hosting"]
+  a["Org-made shared content"] --> b["Provider-neutral Hosting"]
   b --> d["This server: the runner and capped app containers"]
   d --> e["Shared apps: the vault, the embedding server"]
   e --> f["Templates: apps of several parts"]
 ```
 
-- [ ] Org-made submodules: a manifest of pages and feeds made on the dashboard, approved by the superadmin before other orgs see it (`submodules.owned`).
+- [ ] Org-made shared content: a manifest of pages and feeds made on the dashboard, approved by the superadmin before other orgs see it (`submodules.owned`).
 - [ ] Provider-neutral Hosting: a `memory` field, `cpu` optional, no RunPod words where an app can run elsewhere.
 - [x] This server: a hosting provider that runs each app as a capped container on the deployment's server, through the runner (`deploy/runner/`), with per-org app limits.
 - [ ] An address for each This server app at `<app>-<org>.apps.thesoda.io`: a wildcard DNS record and certificate. Until then an app keeps a domain that Nginx Proxy Manager sends to its published port.
@@ -57,7 +57,7 @@ flowchart LR
 | `slack` | Slack as a second chat platform |
 | `sponsors`, `hackathon` | Sponsor records and hackathon logistics |
 
-Campus content is a submodule in `submodules/`, such as `submodules/asu`. Another campus adds its own submodule the same way.
+Campus content is a shared sub-module of knowledge, such as `modules/knowledge/submodules/asu/`. Another campus adds its own sub-module the same way.
 
 ## Cleanup
 

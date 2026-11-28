@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import { ArrowUpRight, Plus, SearchX } from 'lucide-react';
 import { Link } from 'react-router';
 import { Tooltip } from '../../components/tooltip';
-import { Badge, Button, Card, Dialog, EmptyState, ErrorNote, FormActions, LinkButton, quietLink, Spinner, Switch } from '../../components/ui';
+import { Badge, Button, Card, Dialog, EmptyState, FormActions, LinkButton, Spinner, Switch } from '../../components/ui';
 import { api, send } from '../../lib/api';
-import { useSubmodules, useSubscription } from './submodules';
+import { submodulesKey } from './submodules';
 import { matches, MODULE_PAGES, moduleIcon } from '../../lib/modules';
 import type { FeedPreset, CatalogModule } from '../../lib/types';
 
@@ -21,6 +21,10 @@ export function useModuleSwitch(orgId: number | undefined, prefix: string, onDon
       client.invalidateQueries({ queryKey: ['catalog', prefix] });
       client.invalidateQueries({ queryKey: ['modules', orgId] });
       client.invalidateQueries({ queryKey: ['overview'] });
+      // A shared sub-module's switch is its subscription, which knowledge and feed presets read
+      client.invalidateQueries({ queryKey: submodulesKey(prefix) });
+      client.invalidateQueries({ queryKey: ['knowledge', prefix] });
+      client.invalidateQueries({ queryKey: ['feeds', prefix] });
     },
   });
 }
@@ -28,10 +32,7 @@ export function useModuleSwitch(orgId: number | undefined, prefix: string, onDon
 // The page of each kind of feed
 const KIND_PAGES: Record<string, string> = { github_jobs: 'job-alerts', hackathons: 'hackathons' };
 
-// The modules whose submodules give feeds
-const FEED_MODULES = { feeds: true };
-
-// One submodule row inside a module card: a submodule or a feed the module can add.
+// One row inside a module card: a sub-module switch or a feed the module can add.
 function SubRow({ title, meta, action }: { title: string; meta?: string; action?: ReactNode }) {
   return (
     <div className="flex min-h-9 items-center gap-2 border-t border-line px-4 py-1.5 text-sm">
@@ -73,48 +74,12 @@ export function RemoveModuleDialog({
   );
 }
 
-// The submodules with pages or live queries. Subscribe makes knowledge search read the submodule's shared pages.
-function KnowledgeSubmodules({ prefix }: { prefix: string }) {
-  const submodules = useSubmodules(prefix);
-  const change = useSubscription(prefix);
-  const list = (submodules.data?.submodules ?? []).filter((s) => s.pages || s.queries.length);
-  return (
-    <>
-      {list.map((s) => (
-        <SubRow
-          key={s.name}
-          title={s.title}
-          meta={s.subscribed && s.sources ? `${s.sources} pages shared` : `${s.pages} pages`}
-          action={
-            s.subscribed ? (
-              <Badge tone="ok">Subscribed</Badge>
-            ) : (
-              <Button size="sm" disabled={change.isPending} onClick={() => change.mutate({ name: s.name, on: true })}>
-                {change.isPending && change.variables?.name === s.name ? <Spinner className="size-3.5" /> : <Plus className="size-3.5" />}
-                Subscribe
-              </Button>
-            )
-          }
-        />
-      ))}
-      {change.error ? (
-        <div className="px-4 pb-3">
-          <ErrorNote error={change.error} />
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-// The feeds that Feeds offers from the subscribed shared content. Add opens the new feed form on the feed's page.
-// Shared content that the org does not subscribe to links to the Shared tab.
+// The feeds that the org's feeds sub-modules offer. Add opens the new feed form on the feed's page.
 function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
   const presets = useQuery({
     queryKey: ['feeds', prefix, 'presets'],
     queryFn: () => api<{ presets: FeedPreset[] }>(`/api/feeds/${prefix}/presets`),
   });
-  const submodules = useSubmodules(prefix);
-  const subscribed = new Set((submodules.data?.submodules ?? []).filter((s) => s.subscribed).map((s) => s.name));
   return (
     <>
       {(presets.data?.presets ?? [])
@@ -135,37 +100,13 @@ function ModuleFeeds({ m, prefix }: { m: CatalogModule; prefix: string }) {
             }
           />
         ))}
-      {submodules.data
-        ? m.shared_content
-            .filter((s) => !subscribed.has(s.name))
-            .map((s) => (
-              <SubRow
-                key={s.name}
-                title={s.title}
-                action={
-                  <Link to={`/${prefix}/explore?tab=shared`} className={quietLink}>
-                    Subscribe for its feeds
-                  </Link>
-                }
-              />
-            ))
-        : null}
     </>
   );
 }
 
-// The shared content of a module that is on. A module that is off lists its shared content by title.
+// What a module that is on offers next to its sub-module switches: the feed presets of Feeds.
 export function SubModules({ m, prefix }: { m: CatalogModule; prefix: string }) {
-  if (m.enabled && m.name === 'knowledge') return <KnowledgeSubmodules prefix={prefix} />;
-  if (m.enabled && m.name in FEED_MODULES) return <ModuleFeeds m={m} prefix={prefix} />;
-  if (m.enabled || !m.shared_content.length) return null;
-  return (
-    <>
-      {m.shared_content.map((p) => (
-        <SubRow key={p.name} title={p.title} meta="Add the feature first" />
-      ))}
-    </>
-  );
+  return m.enabled && m.name === 'feeds' ? <ModuleFeeds m={m} prefix={prefix} /> : null;
 }
 
 // The sub-modules of a module, each with its own switch. A switch works only while the module is on.
