@@ -52,16 +52,31 @@ With a repo, a change to the pod's env, ports or disk is a pull request to the a
 ```
 
 - `kind` is `bot`, `agent`, `site` or `service` (the default). `description` (200 characters or fewer) and `url` (https, the app's public address) are optional. The dashboard groups apps by `kind` and shows the other two. Deploys do not send these three fields to RunPod. App responses include `kind`, `description`, `url`, `provider` and `host`. `host` is the same as `provider` and stays for older clients.
-- `image` has no tag. The deploy gives the tag. Use `gpu` or `cpu` (`{"id": "cpu5c", "vcpuCount": 4}`), not both.
+- `image` has no tag. The deploy gives the tag.
+- `memory` (MB) and `cpus` size the app on every provider. On This server they are the caps. On RunPod, a manifest with no `gpu` and no `cpu` gets the cheapest CPU flavor from `GET /v2/catalog/cpus?product=POD` with at least that memory and that many vCPUs (rounded up to a power of two, at least 2).
+- RunPod only: `gpu`, or `cpu` (`{"id": "cpu5c", "vcpuCount": 4}`), not both. With either one set, RunPod ignores `memory` and `cpus`. `mounts.persistent` is for GPU pods only and is at least 10 GB.
 - `gpu`, `cpu`, `cloud`, `dataCenterIds` and `mounts` apply when the pod is created. To change them, terminate the pod in RunPod, then `DELETE` and `PUT` the app again.
 - `env`, `disk`, `ports`, `args` and `registry` go with each deploy.
-- `secret_env` maps a pod env var to an org secret. The deploy reads the values. The API never returns them, and a dry run shows `(secret)`. RunPod shows pod env in its console, so a person with access to the org's RunPod account can read them.
+- `secret_env` maps an env var to an org secret. The deploy reads the values. The API never returns them, and a dry run shows `(secret)`. RunPod shows pod env in its console, so a person with access to the org's RunPod account can read them.
 - Platform checks `health` at `https://<pod>-<port>.proxy.runpod.net<path>`. The port must be in `ports` as `/http`.
 - `mcp` names the app's own MCP server: `{"port": 6006, "path": "/mcp"}` on its pod, or `{"url": "https://..."}`. `token_secret` names the org secret sent as the bearer token. Then an agent that is connected to Platform reaches the app through two tools: `hosting.mcp_tools` lists the app's tools and `hosting.mcp_call` calls one. Platform reaches only public https addresses.
 
 ### An app that already runs
 
 `PUT /<name>` with `"pod_id"` adopts a RunPod pod that already runs the app. The org's RunPod key must find the pod. The next deploy changes that pod's image instead of creating a new pod.
+
+The first deploy also adopts a pod on its own, so a retry never makes a second pod. It looks for a pod named `<org>-<app>` (on This server, the app's container) that is not terminated and that no other app or Godfather pod has. It looks before it creates the pod, and again when the create call times out or the provider answers 5xx. It changes the pod it finds to the new image and keeps its id.
+
+```mermaid
+flowchart LR
+  D[first deploy] --> F{pod with the app's name?}
+  F -->|yes| U[update it, keep its id]
+  F -->|no| C[create]
+  C -->|201| S[save the id]
+  C -->|timeout or 5xx| F2{pod with the name now?}
+  F2 -->|yes| U
+  F2 -->|no| E[deploy failed]
+```
 
 ```mermaid
 flowchart LR
@@ -72,7 +87,7 @@ flowchart LR
 
 ### This server fields
 
-An app with `provider: server` uses these fields in place of `gpu`, `cpu`, `cloud`, `dataCenterIds`, `mounts`, `disk`, `registry` and `args`, which RunPod alone reads:
+An app with `provider: server` uses these fields in place of `gpu`, `cpu`, `cloud`, `dataCenterIds`, `mounts`, `disk`, `registry` and `args`, which RunPod alone reads. `memory` and `cpus` apply to both:
 
 ```json
 {
@@ -87,7 +102,7 @@ An app with `provider: server` uses these fields in place of `gpu`, `cpu`, `clou
 }
 ```
 
-- `memory` (MB) is required. It is the container's memory cap and counts against `runpod.server_memory_mb`. `cpus` is optional, default 0.5.
+- `memory` (MB) is required here. It is the container's memory cap and counts against `runpod.server_memory_mb`. `cpus` is optional, default 0.5.
 - `command` (a list) replaces the image's command, and `workdir` sets the working folder.
 - `group` and `alias` join the parts of one app: the apps of one group share the network `app-<org>--<group>`, and each part answers there to its alias, such as `db` or `redis`. A group name has no two dashes in a row.
 - `publish` maps a container port to a host port, so that Nginx Proxy Manager can send a domain to it. The runner publishes it on localhost and the podman gateway only, never on a public address. The host port must be one the runner's policy gives the org, or in its port range. The runner refuses a host port that a container of another org publishes, also when that container is stopped.

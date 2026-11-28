@@ -6,10 +6,10 @@ import uuid
 
 import pytest
 
-from core.integrations import server
+from core.hosting import server
 from tests import runner_fake
 
-from .test_runpod_apps import MANIFEST
+from .test_hosting_apps import MANIFEST
 
 VAULT = {
     "kind": "service",
@@ -63,11 +63,11 @@ def _name(cleanup) -> str:
 
 def _check_deployments():
     from core.db import db_connect
-    from hosting import service
+    from hosting import deploys
 
     db = db_connect.SessionLocal()
     try:
-        return service.check_deployments(db)
+        return deploys.check_deployments(db)
     finally:
         db.close()
 
@@ -135,8 +135,11 @@ def test_manifest_fields_must_fit_the_provider(client, officer_headers, runner, 
     no_memory = {k: v for k, v in VAULT.items() if k != "memory"}
     missing = client.put(base, json={"manifest": no_memory, "provider": "server"}, headers=officer_headers)
     assert missing.status_code == 400 and "memory" in missing.get_json()["error"]
-    on_runpod = client.put(base, json={"manifest": {**MANIFEST, "memory": 256}}, headers=officer_headers)
+    on_runpod = client.put(base, json={"manifest": {**MANIFEST, "command": ["serve"]}}, headers=officer_headers)
     assert on_runpod.status_code == 400 and "This server" in on_runpod.get_json()["error"]
+    # memory and cpus apply to every provider
+    sized = client.put(base, json={"manifest": {**MANIFEST, "memory": 256, "cpus": 1}}, headers=officer_headers)
+    assert sized.status_code == 200, sized.get_json()
 
 
 def test_this_server_limits_apps_and_memory(client, officer_headers, runner, apps_cleanup):

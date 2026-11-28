@@ -2,7 +2,7 @@
 
 Pods run on an org's own hosting provider account for members to SSH into. Each pod keeps the name of its
 provider (core.hosting). Only RunPod gives pods an SSH address, with the org secret runpod_api_key, shared
-with the runpod apps module. The default pod image is an org setting (settings.py); without one,
+with hosting. The default pod image is an org setting (settings.py); without one,
 GODFATHER_POD_IMAGE in .env gives it. The other files of the service:
 
 - base.py: GodfatherError, provider clients, the org's SSH keys and pod lookup
@@ -14,16 +14,21 @@ GODFATHER_POD_IMAGE in .env gives it. The other files of the service:
 - schedule.py: sessions that start and stop a pod
 """
 
+import uuid
 from typing import cast
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 from core import hosting, limits
 from core.config import config
 from core.log import get_logger
 from core.time import utcnow
+from hosting.models import App
 from modules.auth import scopes
 from modules.godfather import base
+from modules.godfather.base import GodfatherError
+from modules.godfather.image import ImageInfo
 from modules.godfather.models import ComputeConnection, ComputePod, ComputeSession
 from modules.godfather.pod_spec import SETUP_NEEDS_IMAGE, allowed_users, member_setup, pod_request, setup_supported
 
@@ -37,6 +42,8 @@ scopes.declare(
 )
 
 ACTIONS = ("start", "stop", "restart", "terminate", "recreate")
+PROVISIONING = "PROVISIONING"
+CREATE_RUNS = "A pod for this request is still being created. Wait for it, then list the pods"
 
 PODS_LIMIT = "godfather.pods"
 limits.declare(
@@ -61,7 +68,7 @@ def _pod_dict(row: ComputePod, live: dict | None) -> dict:
         "created_by": row.created_by,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "machine": provider.machine(live),
-        "cost_per_hour": (live or {}).get("cost", (live or {}).get("costPerHr")),
+        "cost_per_hour": (live or {}).get("cost"),
         "image": (cast(dict, row.config) or {}).get("image_name"),
         "image_version": row.image_version,
         "image_current": base.image_current(row),
@@ -73,16 +80,34 @@ def _pod_dict(row: ComputePod, live: dict | None) -> dict:
 
 
 def list_pods(db, org_id: int, client: hosting.HostingClient | None = None) -> list[dict]:
-    """Every pod the org created here, with its live status from its provider."""
+    """Every pod the org created here, with its live status from its provider. A pod still being created is
+    PROVISIONING."""
     rows = db.query(ComputePod).filter_by(organization_id=org_id).order_by(ComputePod.created_at).all()
     clients = base.Clients(db, org_id, client)
-    return [_pod_dict(row, base.call(clients(row).get_pod, str(row.pod_id))) for row in rows]
+    pods = []
+    for row in rows:
+        if base.pending(row):
+            pods.append(_pod_dict(row, None) | {"status": PROVISIONING})
+        else:
+            pods.append(_pod_dict(row, base.call(clients(row).get_pod, str(row.pod_id))))
+    return pods
 
 
 def get_pod(db, org_id: int, pod_id: str, client: hosting.HostingClient | None = None) -> dict:
     row = base.find_pod(db, org_id, pod_id)
     client = client or base.get_client(db, org_id, str(row.provider))
     return _pod_dict(row, base.call(client.get_pod, pod_id))
+
+
+def _request_id(value: object) -> str | None:
+    """The create request's request_id as a lower-case UUID, or None when it sent none. Raises GodfatherError."""
+    if value is None:
+        return None
+    try:
+        return str(uuid.UUID(str(value))) if isinstance(value, str) else None
+    except ValueError:
+        pass
+    raise GodfatherError("request_id must be a UUID")
 
 
 def create_pod(
@@ -96,50 +121,99 @@ def create_pod(
     """Create a pod on the org's provider account and record it, from image unless the request names one. Commits.
 
     provider names the hosting provider, runpod when missing. The create body follows the RunPod v2 API.
+    request_id, a UUID, makes the call safe to repeat: the row is saved before the provider call, so a second
+    call with the same id gets that pod, or 409 while the first call still waits for the provider.
     """
     if not isinstance(data, dict):
-        raise base.GodfatherError("Send a JSON object")
+        raise GodfatherError("Send a JSON object")
     data = cast(dict, data)
+    request_id = _request_id(data.get("request_id"))
+    if request_id is not None:
+        earlier = db.query(ComputePod).filter_by(organization_id=org_id, request_id=request_id).first()
+        if earlier is not None:
+            return get_pod(db, org_id, str(earlier.pod_id), client)
     limits.check(db, org_id, PODS_LIMIT)
     provider = base.get_provider(data.get("provider", hosting.DEFAULT))
     client = client or base.get_client(db, org_id, provider.name)
     allowed = allowed_users(data.get("allowed_users", []))
-    row, created = _create(db, org_id, provider, client, data, image)
+    body, settings, info = _prepare(db, org_id, data, image)
+    row = _row(org_id, provider, settings, info)
+    row.created_by = creator
+    if request_id is not None:
+        # Saved with no sharing, so members never see the row before the pod exists
+        row.pod_id, row.request_id = f"{base.PENDING_PREFIX}{request_id}", request_id
+        db.add(row)
+        try:
+            db.commit()
+        except IntegrityError as e:
+            db.rollback()
+            raise GodfatherError(CREATE_RUNS, 409) from e
+    try:
+        created = _launch(db, org_id, provider, client, body)
+    except Exception:
+        if request_id is not None:
+            db.delete(row)
+            db.commit()
+        raise
+    row.pod_id = str(created["id"])
     row.is_public = bool(data.get("is_public", False))
     row.allowed_users = allowed
-    row.created_by = creator
     db.add(row)
     db.commit()
     logger.info("Godfather pod created org=%s pod=%s by=%s", org_id, row.pod_id, creator)
     return _pod_dict(row, created)
 
 
-def _create(
-    db, org_id: int, provider: hosting.HostingProvider, client: hosting.HostingClient, data: dict, default_image: str
-) -> tuple[ComputePod, dict]:
-    """Check the image, create the pod on the provider pinned to the image digest, and return a new row."""
+def _prepare(db, org_id: int, data: dict, default_image: str) -> tuple[dict, dict, ImageInfo | None]:
+    """The create body and settings of a pod, pinned to the image digest when the image check is on."""
     backend_public, _ = base.keypair(db, org_id, base.BACKEND_KEY)
     ca_public, _ = base.keypair(db, org_id, base.USER_CA_KEY)
     body, settings = pod_request(data, backend_public, ca_public, default_image)
     info = base.checked_image(settings["image_name"])
     if settings.get("member_setup") and info is not None and not setup_supported(info.version):
-        raise base.GodfatherError(f"{SETUP_NEEDS_IMAGE}. Pick a newer image.", 422)
+        raise GodfatherError(f"{SETUP_NEEDS_IMAGE}. Pick a newer image.", 422)
     if info is not None:
         body["image"] = info.reference
         settings["image_digest"] = info.digest
-    created = base.call(client.create_pod, body)
+    return body, settings, info
+
+
+def _held(db, org_id: int, provider: str) -> set[str]:
+    """The pod ids that a Godfather pod or an app of the org already has."""
+    pods = db.query(ComputePod.pod_id).filter_by(organization_id=org_id, provider=provider)
+    apps = db.query(App.pod_id).filter(App.organization_id == org_id, App.provider == provider, App.pod_id.isnot(None))
+    return {str(pod_id) for (pod_id,) in [*pods, *apps]}
+
+
+def _launch(db, org_id: int, provider: hosting.HostingProvider, client: hosting.HostingClient, body: dict) -> dict:
+    """Create the pod on the provider. After a timeout or a 5xx, adopt a pod with the same name that no row has."""
+    try:
+        created = client.create_pod(body)
+    except hosting.HostingError as e:
+        if not hosting.retryable(e):
+            raise base.hosting_error(e) from e
+        try:
+            created = hosting.find_by_name(provider, client, str(body["name"]), _held(db, org_id, provider.name))
+        except hosting.HostingError:
+            created = None
+        if created is None:
+            raise base.hosting_error(e) from e
+        logger.warning("Godfather create failed, adopted the pod org=%s pod=%s: %s", org_id, created["id"], e.message)
     if not isinstance(created, dict) or not created.get("id"):
-        raise base.GodfatherError(f"{provider.title} did not return a pod id", 424)
-    row = ComputePod(
+        raise GodfatherError(f"{provider.title} did not return a pod id", 424)
+    return created
+
+
+def _row(org_id: int, provider: hosting.HostingProvider, settings: dict, info: ImageInfo | None) -> ComputePod:
+    return ComputePod(
         organization_id=org_id,
-        pod_id=str(created["id"]),
+        pod_id="",
         provider=provider.name,
         name=settings["name"],
         config=settings,
         image_digest=info.digest if info else None,
         image_version=info.version if info else None,
     )
-    return row, created
 
 
 # The settings of a pod that a recreate sends again. Env values are not stored, so env is not copied.
@@ -167,7 +241,10 @@ def recreate(db, org_id: int, pod_id: str, default_image: str, client: hosting.H
     client = client or base.get_client(db, org_id, provider.name)
     saved = cast(dict, old.config) or {}
     data = {k: saved[k] for k in RECREATE_KEYS if k in saved}
-    row, created = _create(db, org_id, provider, client, data, default_image)
+    body, settings, info = _prepare(db, org_id, data, default_image)
+    created = _launch(db, org_id, provider, client, body)
+    row = _row(org_id, provider, settings, info)
+    row.pod_id = str(created["id"])
     row.is_public = bool(old.is_public)
     row.allowed_users = list(cast(list, old.allowed_users) or [])
     row.created_by = old.created_by
@@ -191,10 +268,10 @@ def recreate(db, org_id: int, pod_id: str, default_image: str, client: hosting.H
 def set_pod_admin(db, org_id: int, pod_id: str, enabled: object, caller: str | None, is_superadmin: bool) -> dict:
     """Turn pod admin on or off. Only the pod owner or the superadmin may. Commits."""
     if not isinstance(enabled, bool):
-        raise base.GodfatherError("enabled must be true or false")
+        raise GodfatherError("enabled must be true or false")
     row = base.find_pod(db, org_id, pod_id)
     if not is_superadmin and (caller is None or caller != row.created_by):
-        raise base.GodfatherError("Only the pod owner can change pod admin", 403)
+        raise GodfatherError("Only the pod owner can change pod admin", 403)
     row.admin_enabled = enabled
     row.admin_enabled_by = caller if enabled else None
     row.admin_enabled_at = utcnow() if enabled else None
@@ -209,19 +286,19 @@ def update_pod(db, org_id: int, pod_id: str, data: object) -> dict:
     The pod gets a changed member setup on the next member connection.
     """
     if not isinstance(data, dict) or not ({"is_public", "allowed_users", "member_setup"} & set(data)):
-        raise base.GodfatherError("Send is_public, allowed_users or member_setup")
+        raise GodfatherError("Send is_public, allowed_users or member_setup")
     data = cast(dict, data)
     row = base.find_pod(db, org_id, pod_id)
     if "is_public" in data:
         if not isinstance(data["is_public"], bool):
-            raise base.GodfatherError("is_public must be true or false")
+            raise GodfatherError("is_public must be true or false")
         row.is_public = data["is_public"]
     if "allowed_users" in data:
         row.allowed_users = allowed_users(data["allowed_users"])
     if "member_setup" in data:
         setup = member_setup(data["member_setup"])
         if setup and not setup_supported(row.image_version):
-            raise base.GodfatherError(f"{SETUP_NEEDS_IMAGE}. Recreate the pod first.", 422)
+            raise GodfatherError(f"{SETUP_NEEDS_IMAGE}. Recreate the pod first.", 422)
         saved = {k: v for k, v in (cast(dict, row.config) or {}).items() if k != "member_setup"}
         # member_setup_clear asks the next connection to remove the files from the pod
         saved |= {"member_setup": setup} if setup else {"member_setup_clear": True}
@@ -241,7 +318,7 @@ def act(
 ) -> dict:
     """Start, stop, restart, terminate or recreate a pod. Terminate also forgets it. Commits."""
     if action not in ACTIONS:
-        raise base.GodfatherError(f"action must be one of {', '.join(ACTIONS)}")
+        raise GodfatherError(f"action must be one of {', '.join(ACTIONS)}")
     if action == "recreate":
         return recreate(db, org_id, pod_id, default_image or config.GODFATHER_POD_IMAGE, client)
     row = base.find_pod(db, org_id, pod_id)

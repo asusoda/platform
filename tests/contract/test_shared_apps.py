@@ -5,7 +5,7 @@ with a fake podman (tests/runner_fake.py). No network."""
 import pytest
 from cryptography.fernet import Fernet
 
-from core.integrations import server
+from core.hosting import server
 from hosting import shared
 from tests import runner_fake
 

@@ -1,0 +1,26 @@
+{
+ "cpus": [
+  {
+   "availability": "MEDIUM",
+   "dataCenters": [
+    {
+     "availability": "MEDIUM",
+     "id": "US-KS-2",
+     "name": "US Kansas 2"
+    }
+   ],
+   "group": "Gen 3",
+   "id": "cpu3c-2-4",
+   "name": "Compute-Optimized",
+   "price": {
+    "securePerVcpu": 0.04,
+    "serverlessPerVcpu": 0.03
+   },
+   "ramGbPerVcpu": 2.5,
+   "vcpu": {
+    "max": 32,
+    "min": 2
+   }
+  }
+ ]
+}

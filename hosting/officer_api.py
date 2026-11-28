@@ -13,7 +13,7 @@ from core.http.responses import json_body
 from modules.auth import access
 from modules.auth.routes import officer_route
 
-from . import service, shared, templates
+from . import deploys, service, shared, templates
 
 hosting_officer_blueprint = Blueprint("hosting", __name__)
 _officer = partial(officer_route, hosting_officer_blueprint)
@@ -100,7 +100,7 @@ def app_logs(db, org, name):
 def deploy_app(db, org, name):
     data = json_body()
     dry_run = data.get("dry_run") is True
-    result = service.deploy(
+    result = deploys.deploy(
         db, _org_id(org), str(org.prefix), name, data.get("tag"), _actor(), dry_run=dry_run, ref=data.get("ref")
     )
     return result, 200 if dry_run else 202
@@ -109,7 +109,7 @@ def deploy_app(db, org, name):
 @_officer("/apps/<string:name>/rollback", ["POST"], module="hosting")
 def rollback_app(db, org, name):
     dry_run = json_body().get("dry_run") is True
-    result = service.rollback(db, _org_id(org), str(org.prefix), name, _actor(), dry_run=dry_run)
+    result = deploys.rollback(db, _org_id(org), str(org.prefix), name, _actor(), dry_run=dry_run)
     return result, 200 if dry_run else 202
 
 

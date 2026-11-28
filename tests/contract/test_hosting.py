@@ -6,10 +6,10 @@ import pytest
 from cryptography.fernet import Fernet
 
 from core import hosting
-from core.integrations.runpod import RunPodProvider
+from core.hosting.runpod import RunPodProvider
 
 from .test_godfather import FakeRunPod
-from .test_runpod_apps import MANIFEST
+from .test_hosting_apps import MANIFEST
 
 
 class FakeProvider(RunPodProvider):
@@ -114,7 +114,7 @@ def test_a_pod_runs_on_the_provider_it_names(client, officer_headers, fakecloud)
 
 
 def test_an_app_runs_on_the_provider_it_names(client, officer_headers, fakecloud):
-    from hosting import service as apps
+    from hosting import deploys
 
     name = "app-" + uuid.uuid4().hex[:8]
     base = f"/api/dashboard/ais/apps/{name}"
@@ -127,7 +127,7 @@ def test_an_app_runs_on_the_provider_it_names(client, officer_headers, fakecloud
     from core.db import db_connect
 
     db = db_connect.SessionLocal()
-    apps.check_deployments(db)
+    deploys.check_deployments(db)
     db.close()
     assert "https://pod1.fakecloud.example:8080/health" in fakecloud.checked
 
@@ -139,11 +139,11 @@ def test_an_app_runs_on_the_provider_it_names(client, officer_headers, fakecloud
 
 
 def test_existing_rows_default_to_runpod(client, officer_headers, monkeypatch):
-    from hosting import service as apps
+    from hosting import base as hosting_base
 
-    from .test_runpod_apps import FakeRunPod as FakeApps
+    from .test_hosting_apps import FakeRunPod as FakeApps
 
-    monkeypatch.setattr(apps, "client_for", lambda db, org_id, provider="runpod": FakeApps())
+    monkeypatch.setattr(hosting_base, "client_for", lambda db, org_id, provider="runpod": FakeApps())
     name = "app-" + uuid.uuid4().hex[:8]
     base = f"/api/dashboard/ais/apps/{name}"
     body = client.put(base, json={"manifest": MANIFEST}, headers=officer_headers).get_json()

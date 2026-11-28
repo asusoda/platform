@@ -17,8 +17,10 @@ import yaml
 from core import secrets
 from core.log import get_logger
 
-from . import service
-from .service import AppError
+from . import base, service
+from . import manifest as manifests
+from .base import AppError
+from .models import App
 
 logger = get_logger(__name__)
 
@@ -34,7 +36,7 @@ TEMPLATE_SCHEMA: dict = {
     "properties": {
         "title": {"type": "string", "minLength": 1, "maxLength": 60},
         "summary": {"type": "string", "minLength": 1, "maxLength": 120},
-        "tag": {"type": "string", "pattern": service.TAG_PATTERN.pattern},
+        "tag": {"type": "string", "pattern": manifests.TAG_PATTERN.pattern},
         "inputs": {
             "type": "array",
             "items": {
@@ -110,7 +112,7 @@ def _check(name: str, data: Any) -> dict:
         raise ValueError(f"{name}: two inputs have the same key")
     sample = _fill(name, manifest, inputs, {_input_key(i): _SAMPLES.get(i["kind"], "x") for i in inputs})
     try:
-        service._validated(sample)
+        manifests.validated(sample)
     except AppError as e:
         raise ValueError(f"{name}: {e.message}") from e
     return {
@@ -132,7 +134,7 @@ def _load(root: Path = ROOT) -> dict[str, dict]:
     found = {}
     for path in sorted(root.glob(f"*/{FILE}")):
         name = path.parent.name
-        if not service.NAME_PATTERN.match(name):
+        if not manifests.NAME_PATTERN.match(name):
             raise ValueError(f"{name}: a template folder name is lowercase letters, digits and dashes")
         found[name] = _check(name, yaml.safe_load(path.read_text()))
     return found
@@ -174,12 +176,12 @@ def create(
     already saved can be left out.
     """
     found = get_template(template)
-    if not isinstance(name, str) or not service.NAME_PATTERN.match(name) or name == service.RESERVED_NAME:
+    if not isinstance(name, str) or not manifests.NAME_PATTERN.match(name) or name == manifests.RESERVED_NAME:
         raise AppError("name must be lowercase letters, digits and single dashes, up to 63")
-    if db.query(service.App).filter_by(organization_id=org_id, name=name).first():
+    if db.query(App).filter_by(organization_id=org_id, name=name).first():
         raise AppError("An app with this name exists", 409)
     if provider is not None:
-        service._provider(provider)
+        base.provider(provider)
     values = values if isinstance(values, dict) else {}
     secret_values = secret_values if isinstance(secret_values, dict) else {}
     filled: dict[str, str] = {}
@@ -200,7 +202,7 @@ def create(
         if not value and item["required"]:
             raise AppError(f"{label} is required", 400)
         filled[key] = value
-    manifest = service._validated(_fill(name, found["manifest"], found["inputs"], filled))
+    manifest = manifests.validated(_fill(name, found["manifest"], found["inputs"], filled))
     for secret, value in saved.items():
         try:
             secrets.set_secret(db, org_id, secret, value, actor)

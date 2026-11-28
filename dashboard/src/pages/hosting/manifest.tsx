@@ -33,7 +33,7 @@ export function readManifest(text: string): { manifest?: AppManifest; error?: st
   if (typeof m.image !== 'string') return { error: 'image is required, without a tag' };
   if (/:[^/]*$/.test(m.image) || m.image.includes('@')) return { error: 'image has no tag; the deploy gives the tag' };
   if (!m.health || typeof m.health !== 'object') return { error: 'health is required: {"port": 8080, "path": "/health"}' };
-  if (('gpu' in m) === ('cpu' in m)) return { error: 'Give gpu or cpu, not both' };
+  if ('gpu' in m && 'cpu' in m) return { error: 'Give gpu or cpu, not both' };
   return { manifest: m };
 }
 
@@ -54,13 +54,13 @@ export function ManifestInput({ value, onChange }: { value: string; onChange: (v
         spellCheck={false}
         rows={14}
         className="font-mono text-xs leading-relaxed"
-        placeholder={pretty({ image: 'ghcr.io/org/app', cpu: { id: 'cpu5c', vcpuCount: 4 }, health: { port: 8080, path: '/health' } })}
+        placeholder={pretty({ image: 'ghcr.io/org/app', memory: 2048, cpus: 2, health: { port: 8080, path: '/health' } })}
         aria-invalid={Boolean(check.error)}
         aria-describedby="manifest-hint"
       />
       <span id="manifest-hint" className={cx('block text-xs', check.error ? 'text-bad' : 'text-muted')}>
         {check.error ??
-          'Required: image (no tag), gpu or cpu, and health. secret_env maps a pod env var to an org secret named app_...'}
+          'Required: image (no tag) and health. secret_env maps an env var to an org secret named app_...'}
       </span>
     </div>
   );

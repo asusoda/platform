@@ -5,7 +5,7 @@ from functools import partial
 
 from core import hosting
 from core.tools import tool as _tool
-from hosting import app_mcp, service, shared, templates
+from hosting import app_mcp, deploys, service, shared, templates
 
 # Every tool here needs the runpod module on for the caller's org
 tool = partial(_tool, module="hosting")
@@ -37,7 +37,8 @@ def apps_get(db, org, caller, name: str):
 @tool(
     "hosting.register",
     description="Create an app or replace its manifest. Send a manifest object, or a repo whose manifest file is read. "
-    "provider runpod (default) takes gpu or cpu; provider server (This server) takes memory in MB, and optionally "
+    "memory (MB) and cpus size the app on any provider. provider runpod (default) also takes gpu or cpu, else picks "
+    "the smallest CPU flavor; provider server (This server) needs memory, and takes "
     "publish, volumes, command, workdir, and group with alias for the parts of one app. health is a path, or "
     "{port, tcp: true} for a database, or {running: true} for a part with no port. pod_id adopts a RunPod pod that "
     "already runs the app. mcp ({port, path} or {url}, and token_secret) names the app's MCP server.",
@@ -72,11 +73,11 @@ def apps_delete(db, org, caller, name: str):
 
 
 def _deploy_preview(db, org, caller, name: str, tag: str, ref: str | None = None):
-    return service.deploy(db, int(org.id), str(org.prefix), name, tag, caller.actor, dry_run=True, ref=ref)
+    return deploys.deploy(db, int(org.id), str(org.prefix), name, tag, caller.actor, dry_run=True, ref=ref)
 
 
 def _rollback_preview(db, org, caller, name: str):
-    return service.rollback(db, int(org.id), str(org.prefix), name, caller.actor, dry_run=True)
+    return deploys.rollback(db, int(org.id), str(org.prefix), name, caller.actor, dry_run=True)
 
 
 @tool(
@@ -96,7 +97,7 @@ def _rollback_preview(db, org, caller, name: str):
     },
 )
 def apps_deploy(db, org, caller, name: str, tag: str, ref: str | None = None):
-    return service.deploy(db, int(org.id), str(org.prefix), name, tag, caller.actor, ref=ref)
+    return deploys.deploy(db, int(org.id), str(org.prefix), name, tag, caller.actor, ref=ref)
 
 
 @tool(
@@ -107,7 +108,7 @@ def apps_deploy(db, org, caller, name: str, tag: str, ref: str | None = None):
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
 )
 def apps_rollback(db, org, caller, name: str):
-    return service.rollback(db, int(org.id), str(org.prefix), name, caller.actor)
+    return deploys.rollback(db, int(org.id), str(org.prefix), name, caller.actor)
 
 
 @tool(
