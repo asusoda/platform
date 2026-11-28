@@ -13,7 +13,7 @@ from typing import Any, cast
 from core import hosting
 from core.log import get_logger
 from core.time import utcnow
-from modules.godfather import service
+from modules.godfather import base
 from modules.godfather.models import ComputePod, ComputeSession
 
 logger = get_logger("godfather.schedule")
@@ -26,13 +26,13 @@ MAX_UPCOMING = 100
 def _time(data: dict, key: str) -> datetime.datetime:
     value = data.get(key)
     if not isinstance(value, str):
-        raise service.GodfatherError(f"{key} must be an ISO 8601 time with a timezone")
+        raise base.GodfatherError(f"{key} must be an ISO 8601 time with a timezone")
     try:
         parsed = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as e:
-        raise service.GodfatherError(f"{key} must be an ISO 8601 time with a timezone") from e
+        raise base.GodfatherError(f"{key} must be an ISO 8601 time with a timezone") from e
     if parsed.tzinfo is None:
-        raise service.GodfatherError(f"{key} needs a timezone, such as -07:00 or Z")
+        raise base.GodfatherError(f"{key} needs a timezone, such as -07:00 or Z")
     return parsed.astimezone(datetime.UTC).replace(tzinfo=None)
 
 
@@ -62,7 +62,7 @@ def member_sessions(db, org_id: int, discord_id: str, now=None) -> list[dict]:
     pods = {
         str(row.pod_id): row
         for row in db.query(ComputePod).filter_by(organization_id=org_id)
-        if service._may_connect(row, discord_id)
+        if base.may_connect(row, discord_id)
     }
     if not pods:
         return []
@@ -92,7 +92,7 @@ def member_sessions(db, org_id: int, discord_id: str, now=None) -> list[dict]:
 
 
 def list_sessions(db, org_id: int, pod_id: str) -> list[dict]:
-    service._find(db, org_id, pod_id)
+    base.find_pod(db, org_id, pod_id)
     rows = (
         db.query(ComputeSession)
         .filter_by(organization_id=org_id, pod_id=pod_id)
@@ -104,24 +104,24 @@ def list_sessions(db, org_id: int, pod_id: str) -> list[dict]:
 
 def add_session(db, org_id: int, pod_id: str, data: object, creator: str | None, now=None) -> dict:
     """Schedule a window for a pod. Commits."""
-    service._find(db, org_id, pod_id)
+    base.find_pod(db, org_id, pod_id)
     if not isinstance(data, dict):
-        raise service.GodfatherError("Send start_at and stop_at")
+        raise base.GodfatherError("Send start_at and stop_at")
     data = cast(dict, data)
     start, stop = _time(data, "start_at"), _time(data, "stop_at")
     now = now or utcnow()
     if stop <= start:
-        raise service.GodfatherError("stop_at must be after start_at")
+        raise base.GodfatherError("stop_at must be after start_at")
     if stop - start > MAX_LENGTH:
-        raise service.GodfatherError("A session can be at most 24 hours long")
+        raise base.GodfatherError("A session can be at most 24 hours long")
     if stop <= now:
-        raise service.GodfatherError("stop_at is in the past")
+        raise base.GodfatherError("stop_at is in the past")
     title = data.get("title")
     if title is not None and (not isinstance(title, str) or len(title) > 200):
-        raise service.GodfatherError("title must be text of at most 200 characters")
+        raise base.GodfatherError("title must be text of at most 200 characters")
     upcoming = db.query(ComputeSession).filter_by(organization_id=org_id, pod_id=pod_id, finished=False).count()
     if upcoming >= MAX_UPCOMING:
-        raise service.GodfatherError(f"A pod can have at most {MAX_UPCOMING} upcoming sessions")
+        raise base.GodfatherError(f"A pod can have at most {MAX_UPCOMING} upcoming sessions")
     row = ComputeSession(
         organization_id=org_id, pod_id=pod_id, title=title, start_at=start, stop_at=stop, created_by=creator
     )
@@ -134,7 +134,7 @@ def delete_session(db, org_id: int, pod_id: str, session_id: int) -> None:
     """Remove a session. A pod the job already started for it is stopped at the next run. Commits."""
     row = db.query(ComputeSession).filter_by(organization_id=org_id, pod_id=pod_id, id=session_id).first()
     if row is None:
-        raise service.GodfatherError("Session not found", 404)
+        raise base.GodfatherError("Session not found", 404)
     if row.started and not row.finished:
         # Ending it now lets the next run stop the pod
         row.stop_at = utcnow()
@@ -153,7 +153,7 @@ def run(db, now=None, client_for: Callable[[Any, int, str], hosting.HostingClien
     client_for takes the db, the org id and the provider name.
     """
     now = now or utcnow()
-    client_for = client_for or service._client
+    client_for = client_for or base.get_client
     due = (
         db.query(ComputeSession)
         .filter(ComputeSession.finished.is_(False), ComputeSession.start_at <= now + START_LEAD)
@@ -179,19 +179,19 @@ def run(db, now=None, client_for: Callable[[Any, int, str], hosting.HostingClien
                 clients[(org_id, provider)] = client_for(db, org_id, provider)
             client = clients[(org_id, provider)]
             if active and not all(r.started for r in active):
-                if service._status(service._call(client.get_pod, pod_id), provider) != "RUNNING":
-                    service._call(client.start_pod, pod_id)
+                if base.pod_status(base.call(client.get_pod, pod_id), provider) != "RUNNING":
+                    base.call(client.start_pod, pod_id)
                     result["started"].append(pod_id)
-                    service.announce(org_id, str(pod.name), pod_id, "start", "the session schedule")
+                    base.announce(org_id, str(pod.name), pod_id, "start", "the session schedule")
                 for r in active:
                     r.started = True
             if ended and not active and any(r.started for r in ended):
-                service._call(client.stop_pod, pod_id)
+                base.call(client.stop_pod, pod_id)
                 result["stopped"].append(pod_id)
-                service.announce(org_id, str(pod.name), pod_id, "stop", "the session schedule")
+                base.announce(org_id, str(pod.name), pod_id, "stop", "the session schedule")
             for r in ended:
                 r.finished = True
-        except service.GodfatherError as e:
+        except base.GodfatherError as e:
             logger.warning("godfather schedule failed org=%s pod=%s: %s", org_id, pod_id, e.message)
             result["failed"].append(pod_id)
         db.commit()

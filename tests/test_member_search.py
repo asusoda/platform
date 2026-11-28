@@ -1,7 +1,7 @@
 """DiscordDirectory member lookups and the member picker page built from them."""
 
 from core.integrations.discord import DiscordDirectory
-from modules.godfather.service import member_page
+from modules.godfather.members import member_page
 from modules.users.service import discord_roles
 
 

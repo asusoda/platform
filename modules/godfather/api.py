@@ -19,7 +19,7 @@ from modules.auth import access
 from modules.auth.routes import member_view, officer_route, respond
 from modules.organizations import service as organizations
 
-from . import cli_login, files, schedule, service
+from . import cli_login, connections, files, gpu_stock, members, pod_spec, schedule, service, settings
 
 godfather_blueprint = Blueprint("godfather", __name__)
 logger = get_logger(__name__)
@@ -99,23 +99,23 @@ def list_pods(db, org):
 
 @_officer_route("/pods", ["POST"])
 def create_pod(db, org):
-    image = service.pod_image(db, _org_id(org), config.GODFATHER_POD_IMAGE)
+    image = settings.pod_image(db, _org_id(org), config.GODFATHER_POD_IMAGE)
     return {"pod": service.create_pod(db, _org_id(org), _body(), _caller(), image)}, 201
 
 
 @_officer_route("/gpu-types", ["GET"])
 def gpu_types(db, org):
-    return {"gpu_types": service.gpu_types(db, _org_id(org), request.args.get("cloud", "COMMUNITY").upper())}
+    return {"gpu_types": gpu_stock.gpu_types(db, _org_id(org), request.args.get("cloud", "COMMUNITY").upper())}
 
 
 @_officer_route("/settings", ["GET"])
 def get_settings(db, org):
-    return {"settings": service.godfather_settings(db, _org_id(org), config.GODFATHER_POD_IMAGE)}
+    return {"settings": settings.godfather_settings(db, _org_id(org), config.GODFATHER_POD_IMAGE)}
 
 
 @_officer_route("/settings", ["PUT"])
 def put_settings(db, org):
-    return {"settings": service.update_godfather_settings(db, _org_id(org), _body(), config.GODFATHER_POD_IMAGE)}
+    return {"settings": settings.update_godfather_settings(db, _org_id(org), _body(), config.GODFATHER_POD_IMAGE)}
 
 
 @_officer_route("/pods/<string:pod_id>", ["GET"])
@@ -131,7 +131,7 @@ def update_pod(db, org, pod_id):
 @_officer_route("/pods/<string:pod_id>/action", ["POST"])
 def pod_action(db, org, pod_id):
     data = _body()
-    image = service.pod_image(db, _org_id(org), config.GODFATHER_POD_IMAGE)
+    image = settings.pod_image(db, _org_id(org), config.GODFATHER_POD_IMAGE)
     action = data.get("action") if isinstance(data, dict) else None
     return service.act(db, _org_id(org), pod_id, action, default_image=image)
 
@@ -170,12 +170,12 @@ def _name_lookup(org):
 
 @_officer_route("/pods/<string:pod_id>/members", ["GET"])
 def pod_members(db, org, pod_id):
-    return service.pod_members(db, _org_id(org), pod_id, _name_lookup(org))
+    return members.pod_members(db, _org_id(org), pod_id, _name_lookup(org))
 
 
 @_officer_route("/pods/<string:pod_id>/members/connected", ["GET"])
 def pod_connected(db, org, pod_id):
-    return service.connected_now(db, _org_id(org), pod_id, _name_lookup(org))
+    return members.connected_now(db, _org_id(org), pod_id, _name_lookup(org))
 
 
 @_officer_route("/members", ["GET"])
@@ -191,12 +191,12 @@ def find_members(db, org):
     query = (request.args.get("q") or "").strip()[:100]
     role = (request.args.get("role") or "").strip()
     ids = [i for i in (request.args.get("ids") or "").split(",") if i.isdigit()][:50]
-    limit = max(1, min(request.args.get("limit", type=int) or 50, service.MAX_ALLOWED_USERS))
+    limit = max(1, min(request.args.get("limit", type=int) or 50, pod_spec.MAX_ALLOWED_USERS))
     try:
         if ids:
             names = {i: directory.get_display_name(org.guild_id, i) for i in ids}
             return {"members": [{"id": i, "name": name} for i, name in names.items() if name]}
-        return service.member_page(directory, org.guild_id, query, role if role.isdigit() else "", limit)
+        return members.member_page(directory, org.guild_id, query, role if role.isdigit() else "", limit)
     except DiscordUnavailable as e:
         logger.warning("member lookup failed for org %s: %s", org.id, e)
         if "403" in str(e) and not query:
@@ -219,16 +219,16 @@ def me(db, org, discord_id):
     org_id = _org_id(org)
     return {
         "organization": {"name": org.name, "prefix": org.prefix},
-        "pods": service.member_pods(db, org_id, discord_id),
+        "pods": connections.member_pods(db, org_id, discord_id),
         "sessions": schedule.member_sessions(db, org_id, discord_id),
-        "connections": service.member_connections(db, org_id, discord_id),
+        "connections": connections.member_connections(db, org_id, discord_id),
         "cli": CLI,
     }
 
 
 @_member_route("/pods", ["GET"])
 def my_pods(db, org, discord_id):
-    return {"pods": service.accessible_pods(db, _org_id(org), discord_id)}
+    return {"pods": connections.accessible_pods(db, _org_id(org), discord_id)}
 
 
 @_member_route("/sessions", ["GET"])
@@ -254,7 +254,7 @@ def connect(db, org, discord_id, pod_id):
     data = _body()
     data = data if isinstance(data, dict) else {}
     return {
-        "ssh_info": service.connect(
+        "ssh_info": connections.connect(
             db,
             _org_id(org),
             pod_id,
@@ -276,7 +276,7 @@ def _json() -> dict:
 
 
 def _files(db, org, pod_id):
-    return service.pod_files(db, _org_id(org), pod_id)
+    return connections.pod_files(db, _org_id(org), pod_id)
 
 
 @_officer_route("/pods/<string:pod_id>/files", ["GET"])

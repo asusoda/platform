@@ -8,11 +8,11 @@ from core.jobs import job
 def cleanup_oauth() -> None:
     """Delete expired OAuth requests, finished grants, unused clients and the jti of expired assertions. Runs hourly."""
     from core.log import get_logger
-    from modules.mcp import client_auth, oauth
+    from modules.mcp import client_auth, oauth_grants
 
     db = db_connect.SessionLocal()
     try:
-        result = oauth.cleanup(db) | {"assertions": client_auth.cleanup(db)}
+        result = oauth_grants.cleanup(db) | {"assertions": client_auth.cleanup(db)}
         get_logger("mcp").info("mcp oauth cleanup %s", result)
     finally:
         db.close()

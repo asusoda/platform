@@ -4,7 +4,7 @@ Every request carries a machine token (Authorization: Bearer plat_...). The tool
 per request from that token, so a client sees only the tools its scopes and its org's modules allow.
 
 With a public URL (oauth.public_url: MCP_PUBLIC_URL, else <ACCOUNTS_BASE_URL>/mcp), the server is also
-an OAuth authorization server (oauth.py, oauth_pages.py): a client registers itself, an officer approves
+an OAuth authorization server (the oauth*.py files): a client registers itself, an officer approves
 it, and the client gets a machine token of kind oauth. /mcp then answers 401 with the protected resource
 metadata URL, so a client can find the sign-in. The OAuth routes are under the public path, such as
 /mcp/authorize, so a reverse proxy that sends /mcp to this server reaches them all.
@@ -31,7 +31,16 @@ from core.db import db_connect
 from core.log import get_logger
 from core.tools import ToolError
 from modules.auth import machine_tokens
-from modules.mcp import client_auth, edges, oauth, oauth_pages, runtime
+from modules.mcp import (
+    client_auth,
+    edges,
+    oauth,
+    oauth_discovery,
+    oauth_pages,
+    oauth_provider,
+    oauth_rate_limit,
+    runtime,
+)
 
 logger = get_logger(__name__)
 
@@ -126,19 +135,19 @@ def build_app(host: str = "0.0.0.0"):  # nosec B104 - the container binds all in
     if not public:
         return edges.OriginCheck(server.streamable_http_app(stateless_http=True, json_response=True, host=host), "/mcp")
     path = oauth.public_path()
-    provider = oauth.Provider(oauth_pages.login_url)
+    provider = oauth_provider.Provider(oauth_pages.login_url)
     # From strings, so the issuer keeps the URL as written: clients compare it as a string (RFC 8414)
     auth = AuthSettings.model_validate(
         {
             "issuer_url": public,
             "resource_server_url": public,
-            "client_registration_options": oauth.REGISTRATION,
-            "revocation_options": oauth.REVOCATION,
+            "client_registration_options": oauth_discovery.REGISTRATION,
+            "revocation_options": oauth_discovery.REVOCATION,
             # Tokens that officers make have no resource, so the server does not check it
             "validate_token_resource": False,  # nosec B105 - a setting name, not a password
         }
     )
-    metadata = MetadataHandler(oauth.server_metadata_model())
+    metadata = MetadataHandler(oauth_discovery.server_metadata_model())
     metadata_route = cors_middleware(metadata.handle, ["GET", "OPTIONS"])
     # Replaced below: the SDK's metadata lacks client_id_metadata_document_supported, and its token and
     # revoke routes do not accept private_key_jwt
@@ -148,8 +157,8 @@ def build_app(host: str = "0.0.0.0"):  # nosec B104 - the container binds all in
         for route in create_auth_routes(
             provider,
             auth.issuer_url,
-            client_registration_options=oauth.REGISTRATION,
-            revocation_options=oauth.REVOCATION,
+            client_registration_options=oauth_discovery.REGISTRATION,
+            revocation_options=oauth_discovery.REVOCATION,
         )
         if getattr(route, "path", "") not in replaced
     ]
@@ -162,7 +171,8 @@ def build_app(host: str = "0.0.0.0"):  # nosec B104 - the container binds all in
         Route("/.well-known/oauth-authorization-server", endpoint=metadata_route, methods=["GET", "OPTIONS"])
     )
     root_metadata = [
-        Route(where, endpoint=metadata_route, methods=["GET", "OPTIONS"]) for where in oauth.server_metadata_paths()
+        Route(where, endpoint=metadata_route, methods=["GET", "OPTIONS"])
+        for where in oauth_discovery.server_metadata_paths()
     ]
     app = server.streamable_http_app(
         streamable_http_path=path,
@@ -173,8 +183,8 @@ def build_app(host: str = "0.0.0.0"):  # nosec B104 - the container binds all in
         token_verifier=provider,
         custom_starlette_routes=root_metadata,
     )
-    # The SDK's protected resource metadata has no scopes_supported, so oauth.resource_metadata replaces it
-    resource_path = oauth.resource_metadata_path()
+    # The SDK's protected resource metadata has no scopes_supported, so oauth_discovery.resource_metadata replaces it
+    resource_path = oauth_discovery.resource_metadata_path()
     app.router.routes[:] = [r for r in app.router.routes if getattr(r, "path", "") != resource_path]
     app.router.routes.append(
         Route(
@@ -192,7 +202,7 @@ def build_app(host: str = "0.0.0.0"):  # nosec B104 - the container binds all in
         edged = edges.RefusalLog(edged, path, route, label)
     # Outside the refusal logs, so that they record the client_id of a Basic-only request
     edged = edges.ClientIdFromBasic(edged, path)
-    return oauth.RateLimit(edges.OriginCheck(edged, path), path)
+    return oauth_rate_limit.RateLimit(edges.OriginCheck(edged, path), path)
 
 
 async def _revoke(provider, authenticator, request) -> Response:
@@ -222,4 +232,4 @@ def _client_route(path: str, handle) -> Route:
 
 
 async def _resource_metadata(request) -> JSONResponse:
-    return JSONResponse(oauth.resource_metadata(), headers={"Cache-Control": "public, max-age=3600"})
+    return JSONResponse(oauth_discovery.resource_metadata(), headers={"Cache-Control": "public, max-age=3600"})

@@ -26,7 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from core.db import db_connect
 from core.log import get_logger
 from core.time import utcnow
-from modules.mcp import oauth
+from modules.mcp import oauth, oauth_fetch
 from modules.mcp.models import OAuthAssertion
 
 logger = get_logger(__name__)
@@ -79,8 +79,8 @@ def parse_keys(jwks: object) -> list[tuple[dict, jwt.PyJWK]]:
     return keys
 
 
-def fetch_jwks(url: str) -> oauth.Fetched:
-    return oauth.fetch_public(url, JWKS_MAX_BYTES)
+def fetch_jwks(url: str) -> oauth_fetch.Fetched:
+    return oauth_fetch.fetch_public(url, JWKS_MAX_BYTES)
 
 
 def _remote_keys(url: str, *, refresh: bool = False) -> list[tuple[dict, jwt.PyJWK]]:
@@ -109,7 +109,7 @@ def _remote_keys(url: str, *, refresh: bool = False) -> list[tuple[dict, jwt.PyJ
     except oauth.OAuthError:
         _store(url, now + JWKS_REFETCH_SECONDS, now, None)
         raise
-    _store(url, now + oauth.cache_time(fetched.headers).total_seconds(), now, jwks)
+    _store(url, now + oauth_fetch.cache_time(fetched.headers).total_seconds(), now, jwks)
     return keys
 
 

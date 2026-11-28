@@ -10,7 +10,7 @@ type MemberPage = { members: MemberHit[]; total: number };
 type Role = { id: string; name: string; color: string };
 
 const PAGE = 100;
-// The most ids a pod lists; the same limit as MAX_ALLOWED_USERS in modules/godfather/service.py.
+// The most ids a pod lists; the same limit as MAX_ALLOWED_USERS in modules/godfather/pod_spec.py.
 const MAX_USERS = 500;
 
 function useDebounced<T>(value: T, ms: number): T {

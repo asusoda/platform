@@ -186,7 +186,7 @@ A hosting provider is the cloud that Godfather pods and apps run on. `core/hosti
 2. Write a provider class with `name`, `title` and `integration`, and the methods `configured`, `client`, `status`, `machine`, `ssh_address` and `proxy_url`. `status` returns `RUNNING` for a running pod and `GONE` for `None`.
 3. Register an integration for the provider's keys in `core/integrations/registry.py`, so officers connect it on Integrations.
 4. Call `hosting.register()` in the module, and add the module to `PROVIDER_MODULES` in `core/hosting.py`.
-5. The create bodies of Godfather pods (`pod_request` in `modules/godfather/service.py`) and of app manifests follow the RunPod v2 API. Map them to the new provider's API in its client, or give the provider its own request builder.
+5. The create bodies of Godfather pods (`pod_request` in `modules/godfather/pod_spec.py`) and of app manifests follow the RunPod v2 API. Map them to the new provider's API in its client, or give the provider its own request builder.
 6. Show the provider's own fields in `dashboard/src/pages/godfather/new-pod.tsx` when it is selected, as the RunPod hardware fields are.
 
 The `provider` column of `compute_pods` and `runpod_apps` keeps the name, so a rename breaks existing rows. The module name `runpod` stays, and the tables of `godfather` keep their `compute_` names. A later change can rename `modules/runpod` to `modules/hosting`.

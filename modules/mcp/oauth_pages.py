@@ -30,7 +30,7 @@ from core.log import get_logger
 from modules.auth import machine_tokens
 from modules.auth import scopes as scope_info
 from modules.auth.scopes import SCOPES
-from modules.mcp import oauth
+from modules.mcp import oauth, oauth_clients, oauth_requests
 from modules.organizations.models import Organization
 
 logger = get_logger(__name__)
@@ -154,7 +154,7 @@ def _with_cookie(response: Response, value: str | None) -> Response:
         response.set_cookie(
             COOKIE,
             value,
-            max_age=oauth.REQUEST_SECONDS,
+            max_age=oauth_requests.REQUEST_SECONDS,
             path=_cookie_path(),
             httponly=True,
             secure=oauth.public_url().startswith("https://"),
@@ -173,7 +173,9 @@ def _session(func, *args):
 
 async def login(request: Request) -> Response:
     key = request.query_params.get("request")
-    found = await to_thread.run_sync(_session, lambda db: oauth.find_request(db, key, signed_in=False) is not None)
+    found = await to_thread.run_sync(
+        _session, lambda db: oauth_requests.find_request(db, key, signed_in=False) is not None
+    )
     if not found or not key:
         return _message(f"This sign-in expired or did not start here. {AGAIN}", 400)
     redirect = RedirectResponse(sign_in.discord_consent_url(config.CLIENT_ID, key, callback_url()), 302)
@@ -227,7 +229,7 @@ WARNING = 'style="padding: 0.75rem; border: 1px solid #b26a00; background: #fff4
 
 def _identity(client_id: str, name: str) -> str:
     """Who the client is. A metadata document client is the host of its client_id URL; a registered one is not known."""
-    host = oauth.client_host(client_id)
+    host = oauth_clients.client_host(client_id)
     if host is None:
         return (
             f"<p {WARNING}>This client registered itself, so Platform cannot check that it is {name}. "
@@ -328,8 +330,8 @@ def _scope_inputs(picked: set[str], requested: list[str]) -> str:
 def _consent_page(db, row, consent_key: str, error: str | None = None, chosen: dict | None = None) -> HTMLResponse:
     """The consent form. chosen keeps the org, scopes and limit texts of a form with an error."""
     chosen = chosen or {}
-    info = oauth.get_client(db, str(row.client_id)) or {}
-    name = html.escape(oauth.client_name(info))
+    info = oauth_clients.get_client(db, str(row.client_id)) or {}
+    name = html.escape(oauth_clients.client_name(info))
     orgs = (
         db.query(Organization)
         .filter(Organization.id.in_(row.officer_org_ids or []), Organization.is_active.is_(True))
@@ -366,22 +368,22 @@ def _consent_page(db, row, consent_key: str, error: str | None = None, chosen: d
         "it can continue for up to 24 hours more.</p>"
         f'<script data-cfasync="false">{SCRIPT}</script>'
     )
-    return _page(f"Connect {oauth.client_name(info)}", body, 400 if error else 200, width="44rem")
+    return _page(f"Connect {oauth_clients.client_name(info)}", body, 400 if error else 200, width="44rem")
 
 
 def _signed_in(db, key: str, discord_id: str):
-    row = oauth.find_request(db, key, signed_in=False)
+    row = oauth_requests.find_request(db, key, signed_in=False)
     if row is None:
         return _message(f"This sign-in expired. {AGAIN}", 400), None
     try:
-        orgs = oauth.officer_orgs(db, discord_id)
+        orgs = oauth_requests.officer_orgs(db, discord_id)
     except DiscordUnavailable:
         logger.warning("Discord unavailable during MCP OAuth sign-in", exc_info=True)
         return _message("Discord is not available now. Try again shortly.", 503), None
     if not orgs:
-        oauth.deny(db, row)
+        oauth_requests.deny(db, row)
         return _message("Only an officer of an org can connect an MCP client. You are not an officer.", 403), None
-    consent_key = oauth.signed_in(db, row, discord_id, [o.id for o in orgs])
+    consent_key = oauth_requests.signed_in(db, row, discord_id, [o.id for o in orgs])
     return _consent_page(db, row, consent_key), consent_key
 
 
@@ -405,12 +407,12 @@ async def callback(request: Request) -> Response:
 
 def _decide(db, key: str, action: str, org: str, scopes: list[str], limits: dict, texts: dict[str, str]):
     """The response to the consent form, and whether to keep the cookie."""
-    row = oauth.find_request(db, key, signed_in=True)
+    row = oauth_requests.find_request(db, key, signed_in=True)
     if row is None:
         return _message(f"This sign-in expired. {AGAIN}", 400), False
     redirect_uri, state, discord_id = str(row.redirect_uri), oauth.optional_text(row.state), str(row.discord_id)
     if action != "approve":
-        oauth.deny(db, row)
+        oauth_requests.deny(db, row)
         location = construct_redirect_uri(redirect_uri, error="access_denied", state=state, iss=oauth.public_url())
         return RedirectResponse(location, 303), False
     try:
@@ -418,7 +420,7 @@ def _decide(db, key: str, action: str, org: str, scopes: list[str], limits: dict
     except ValueError:
         org_id = 0
     try:
-        code = oauth.approve(db, row, org_id, scopes, limits)
+        code = oauth_requests.approve(db, row, org_id, scopes, limits)
     except oauth.OAuthError as e:
         chosen = {"org": org, "scopes": scopes, "limits": texts}
         return _consent_page(db, row, key, str(e), chosen), True

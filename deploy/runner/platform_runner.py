@@ -55,6 +55,14 @@ MAX_LOG_LINES = 1000
 MAX_BODY = 200_000
 MAX_ENV_VALUE = 20_000
 LABEL = "platform.managed"
+MAX_COMMAND_OUTPUT = 20_000
+COMMAND_TIMEOUT_SECONDS = 600
+MAX_SHELL_COMMAND = 4000
+SHELL_TIMEOUT_SECONDS = 120
+SHELL_PATH = "/usr/local/bin:/usr/bin:/bin"
+# The container that keeps podman's default bridge and its 10.88.0.1 address up
+BRIDGE = "platform-bridge"
+# Held while a run request counts memory and ports and replaces a container
 _lock = threading.Lock()
 
 
@@ -65,6 +73,9 @@ class Refused(Exception):
         super().__init__(message)
         self.message = message
         self.status = status
+
+
+# podman
 
 
 def podman(*args: str, check: bool = True, timeout: int = 300) -> str:
@@ -84,16 +95,44 @@ def exists(*args: str) -> bool:
     path = shutil.which("podman")
     if path is None:
         raise Refused("podman is not installed on this server", 500)
-    result = subprocess.run(
-        [
-            path,
-            *args,
-        ],
-        capture_output=True,
-        timeout=60,
-        check=False,
-    )  # nosec B603 - fixed command
+    result = subprocess.run([path, *args], capture_output=True, timeout=60, check=False)  # nosec B603 - fixed command
     return result.returncode == 0
+
+
+def _inspect(name: str) -> dict | None:
+    out = podman("container", "inspect", name, check=False)
+    try:
+        found = json.loads(out or "[]")
+    except ValueError:
+        return None
+    return found[0] if found else None
+
+
+def managed() -> list[dict]:
+    """Every container the runner made, as podman inspect shows it."""
+    names = [n for n in podman("ps", "-a", "--filter", f"label={LABEL}=1", "--format", "{{.Names}}").split() if n]
+    return [info for info in (_inspect(n) for n in names) if info]
+
+
+def _network_members(network: str) -> list[dict]:
+    """The containers on a network, running or stopped, as podman inspect shows them."""
+    names = [n for n in podman("ps", "-a", "--filter", f"network={network}", "--format", "{{.Names}}").split() if n]
+    return [info for info in (_inspect(n) for n in names) if info]
+
+
+def _output(*args: str) -> str:
+    """stdout and stderr of a read-only command, such as podman logs, which writes the container's stderr to its
+    own."""
+    path = shutil.which(args[0])
+    if path is None:
+        raise Refused(f"{args[0]} is not installed on this server", 500)
+    result = subprocess.run(  # nosec B603 - fixed command, checked names
+        [path, *args[1:]], capture_output=True, text=True, timeout=30, check=False
+    )
+    return (result.stdout + result.stderr)[-200_000:]
+
+
+# The policy
 
 
 def load_policy(path: str) -> dict:
@@ -116,6 +155,23 @@ def load_policy_dict(policy: dict) -> dict:
     # A container on podman's default network keeps the bridge, and so the 10.88.0.1 bind address, in place
     policy.setdefault("bridge_image", "docker.io/library/nginx:alpine")
     return policy
+
+
+def _section(policy: dict, org: str | None) -> dict:
+    """The policy entry of an org, or the shared section for a shared app."""
+    return (policy.get("shared") if org is None else policy["orgs"].get(org)) or {}
+
+
+def _allowed_host_path(policy: dict, org: str | None, path: str) -> bool:
+    real = os.path.realpath(path)
+    for allowed in _section(policy, org).get("host_paths") or []:
+        base = os.path.realpath(allowed)
+        if real == base or real.startswith(base.rstrip("/") + "/"):
+            return True
+    return False
+
+
+# Names and owners of containers and networks
 
 
 def container_name(org: str | None, app: str) -> str:
@@ -176,28 +232,11 @@ def find(org: str | None, app: str) -> dict | None:
     return None
 
 
-def _section(policy: dict, org: str | None) -> dict:
-    """The policy entry of an org, or the shared section for a shared app."""
-    return (policy.get("shared") if org is None else policy["orgs"].get(org)) or {}
-
-
-def _inspect(name: str) -> dict | None:
-    out = podman("container", "inspect", name, check=False)
-    try:
-        found = json.loads(out or "[]")
-    except ValueError:
-        return None
-    return found[0] if found else None
+# Containers as the API sees them
 
 
 def _memory_mb(info: dict) -> int:
     return int((info.get("HostConfig") or {}).get("Memory") or 0) // (1024 * 1024)
-
-
-def managed() -> list[dict]:
-    """Every container the runner made, as podman inspect shows it."""
-    names = [n for n in podman("ps", "-a", "--filter", f"label={LABEL}=1", "--format", "{{.Names}}").split() if n]
-    return [info for info in (_inspect(n) for n in names) if info]
 
 
 def _published(info: dict) -> list[tuple[int, int]]:
@@ -233,13 +272,7 @@ def describe(info: dict) -> dict:
     }
 
 
-def _allowed_host_path(policy: dict, org: str | None, path: str) -> bool:
-    real = os.path.realpath(path)
-    for allowed in _section(policy, org).get("host_paths") or []:
-        base = os.path.realpath(allowed)
-        if real == base or real.startswith(base.rstrip("/") + "/"):
-            return True
-    return False
+# The checks of a run request
 
 
 def check(policy: dict, org: str | None, app: str, body: dict) -> dict:
@@ -332,7 +365,28 @@ def check(policy: dict, org: str | None, app: str, body: dict) -> dict:
     }
 
 
-BRIDGE = "platform-bridge"
+def _within_memory(policy: dict, org: str | None, app: str, memory: int) -> None:
+    """Raise Refused when the app would put the server over memory_mb_total. The app's own container does not count."""
+    others = sum(_memory_mb(i) for i in managed() if not owns(i, org, app))
+    if others + memory > policy["memory_mb_total"]:
+        raise Refused(
+            f"This server has {policy['memory_mb_total'] - others} MB left for apps; the app asks for {memory} MB",
+            409,
+        )
+
+
+def _ports_free(org: str | None, ports: list[dict]) -> None:
+    """Raise Refused when a container of another org, running or stopped, publishes one of the host ports."""
+    wanted = {p["host"] for p in ports if p["host"] is not None}
+    for info in managed():
+        if _owner(_labels(info)) == (org or ""):
+            continue
+        taken = wanted & {host for _, host in _published(info)}
+        if taken:
+            raise Refused(f"host port {min(taken)} is in use by an app of another org", 409)
+
+
+# Run an app container
 
 
 def ensure_bridge(policy: dict) -> None:
@@ -359,33 +413,6 @@ def ensure_bridge(policy: dict) -> None:
         policy["bridge_image"],
         "infinity",
     )
-
-
-def _within_memory(policy: dict, org: str | None, app: str, memory: int) -> None:
-    """Raise Refused when the app would put the server over memory_mb_total. The app's own container does not count."""
-    others = sum(_memory_mb(i) for i in managed() if not owns(i, org, app))
-    if others + memory > policy["memory_mb_total"]:
-        raise Refused(
-            f"This server has {policy['memory_mb_total'] - others} MB left for apps; the app asks for {memory} MB",
-            409,
-        )
-
-
-def _ports_free(org: str | None, ports: list[dict]) -> None:
-    """Raise Refused when a container of another org, running or stopped, publishes one of the host ports."""
-    wanted = {p["host"] for p in ports if p["host"] is not None}
-    for info in managed():
-        if _owner(_labels(info)) == (org or ""):
-            continue
-        taken = wanted & {host for _, host in _published(info)}
-        if taken:
-            raise Refused(f"host port {min(taken)} is in use by an app of another org", 409)
-
-
-def _network_members(network: str) -> list[dict]:
-    """The containers on a network, running or stopped, as podman inspect shows them."""
-    names = [n for n in podman("ps", "-a", "--filter", f"network={network}", "--format", "{{.Names}}").split() if n]
-    return [info for info in (_inspect(n) for n in names) if info]
 
 
 def _ensure_network(network: str, org: str | None, group: str | None) -> None:
@@ -493,16 +520,7 @@ def run(policy: dict, org: str | None, app: str, body: dict) -> dict:
     return describe(info)
 
 
-def _output(*args: str) -> str:
-    """stdout and stderr of a read-only command, such as podman logs, which writes the container's stderr to its
-    own."""
-    path = shutil.which(args[0])
-    if path is None:
-        raise Refused(f"{args[0]} is not installed on this server", 500)
-    result = subprocess.run(  # nosec B603 - fixed command, checked names
-        [path, *args[1:]], capture_output=True, text=True, timeout=30, check=False
-    )
-    return (result.stdout + result.stderr)[-200_000:]
+# Logs and host control
 
 
 def _lines(query: dict) -> str:
@@ -531,8 +549,8 @@ def host_control(policy: dict, kind: str, name: str, action: str, query: dict) -
     if kind == "containers" and _controlled(policy, kind, name):
         info = _inspect(name)
         if info is None:
-            raise Refused("No such container", 404)
-        if ((info.get("Config") or {}).get("Labels") or {}).get(LABEL) == "1":
+            raise Refused(f"No container named {name}", 404)
+        if _labels(info).get(LABEL) == "1":
             raise Refused("This is an app container. Control it through its app", 409)
         container = str(info["Id"])
         if action == "logs":
@@ -553,8 +571,7 @@ def host_control(policy: dict, kind: str, name: str, action: str, query: dict) -
     return {"name": name, "state": state}
 
 
-MAX_COMMAND_OUTPUT = 20_000
-COMMAND_TIMEOUT_SECONDS = 600
+# Policy commands and the shell
 
 
 def _command(policy: dict, name: str) -> dict:
@@ -606,11 +623,6 @@ def run_command(policy: dict, name: str) -> dict:
         "output": output[-MAX_COMMAND_OUTPUT:],
         "truncated": len(output) > MAX_COMMAND_OUTPUT,
     }
-
-
-MAX_SHELL_COMMAND = 4000
-SHELL_TIMEOUT_SECONDS = 120
-SHELL_PATH = "/usr/local/bin:/usr/bin:/bin"
 
 
 def shell_user(policy: dict) -> pwd.struct_passwd:
@@ -673,6 +685,9 @@ def run_shell(policy: dict, body: dict) -> dict:
     }
 
 
+# Health
+
+
 def health(org: str | None, app: str, port: int, path: str | None) -> dict:
     """GET path on the container's port, from the host: on 127.0.0.1 when the port is published, else on the
     container's own address. With path None, only check that the port accepts a connection."""
@@ -705,6 +720,9 @@ def health(org: str | None, app: str, port: int, path: str | None) -> dict:
         except (OSError, ValueError) as e:
             error = type(e).__name__
     return {"ok": False, "error": error}
+
+
+# The socket server
 
 
 class Handler(BaseHTTPRequestHandler):

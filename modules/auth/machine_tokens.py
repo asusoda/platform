@@ -22,7 +22,7 @@ from modules.auth.scopes import SCOPES
 
 PREFIX = "plat_"
 KINDS = ("app", "agent", "cli")
-# The kind of a token that an MCP OAuth client gets (modules/mcp/oauth.py). An officer cannot make one by hand.
+# The kind of a token that an MCP OAuth client gets (modules/mcp/oauth_grants.py). An officer cannot make one by hand.
 OAUTH_KIND = "oauth"
 # The created_by of a child token: the MachineCaller.actor of its parent
 PARENT_ACTOR = re.compile(r"^(?:app|agent|cli|oauth):.*#(\d+)$")

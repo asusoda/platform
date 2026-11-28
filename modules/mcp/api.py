@@ -12,7 +12,7 @@ from core.db import db_connect
 from core.http.request_log import bearer_token
 from core.tools import ToolError
 from modules.auth import machine_tokens
-from modules.mcp import oauth, runtime
+from modules.mcp import oauth, oauth_discovery, runtime
 
 tools_blueprint = Blueprint("tools", __name__)
 well_known_blueprint = Blueprint("mcp_well_known", __name__)
@@ -63,17 +63,20 @@ def _document(body: dict | None):
 
 def _on(path: str) -> bool:
     """Whether OAuth is on and the request path is one of the MCP server's discovery paths."""
-    return bool(oauth.public_url()) and path in [oauth.resource_metadata_path(), *oauth.server_metadata_paths()]
+    return bool(oauth.public_url()) and path in [
+        oauth_discovery.resource_metadata_path(),
+        *oauth_discovery.server_metadata_paths(),
+    ]
 
 
 @well_known_blueprint.route("/oauth-protected-resource/<path:resource>", methods=["GET"])
 def protected_resource(resource):
     """Protected resource metadata (RFC 9728) of the MCP server."""
-    return _document(oauth.resource_metadata() if _on(request.path) else None)
+    return _document(oauth_discovery.resource_metadata() if _on(request.path) else None)
 
 
 @well_known_blueprint.route("/oauth-authorization-server", methods=["GET"])
 @well_known_blueprint.route("/oauth-authorization-server/<path:issuer>", methods=["GET"])
 def authorization_server(issuer=None):
     """Authorization server metadata (RFC 8414) of the MCP server."""
-    return _document(oauth.server_metadata() if _on(request.path) else None)
+    return _document(oauth_discovery.server_metadata() if _on(request.path) else None)
