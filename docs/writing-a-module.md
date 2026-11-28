@@ -1,6 +1,6 @@
 # Writing a module
 
-This page lists the files a module can have, the places to register it, and the rules that `make ci` checks. The `new-module` skill in `.agents/skills/` has the full procedure. Content for one campus or topic, such as pages to crawl and live queries, is a submodule: see [submodules/README.md](../submodules/README.md).
+This page lists the files a module can have, the places to register it, and the rules that `make ci` checks. The `new-module` skill in `.agents/skills/` has the full procedure. Content for one campus or topic, such as pages to crawl and live queries, is a shared sub-module: see [Shared sub-module](#shared-sub-module).
 
 ## Files
 
@@ -21,7 +21,7 @@ If `service.py` has more than one concern, split it into more Flask-free files. 
 | What | Where |
 | --- | --- |
 | Category | `CATEGORIES` in `modules/manifest.py`. Put the module in one category. Core modules are always on and are not on Explore |
-| Catalog entry | `CATALOG` in `modules/manifest.py`: the title and one-line description that Explore shows, each integration key or setting the module needs (`Need`), and the submodules it reads |
+| Catalog entry | `CATALOG` in `modules/manifest.py`: the title and one-line description that Explore shows, and each integration key or setting the module needs (`Need`) |
 | Blueprint and URL prefix | `MOUNTS` in `modules/registry.py`, and the import at the top of that file |
 | Tables | `MODEL_MODULES` in `modules/manifest.py`, then `uv run alembic revision --autogenerate -m "..."` |
 | Jobs | `JOB_MODULES` in `modules/manifest.py` |
@@ -77,6 +77,45 @@ A sub-module is a part of a module with its own switch, such as `points.store`. 
 3. Add the name to `SUBMODULES["<module>"]` in `modules/manifest.py`, and list its `models.py`, `jobs.py` and `tools.py` there by their full path.
 4. Use the key `<module>.<name>` in `module=` on the `Mount` or `endpoint_modules`, on each `@tool`, and in `module_enabled`.
 5. Add a `README.md` and a row in `modules/README.md`. A sub-module with no entry in an org's switches is off, so a migration that adds one to existing orgs sets the key.
+
+### Shared sub-module
+
+A shared sub-module holds content that the deployment makes once for every org that has it on, such as `knowledge.asu` (pages and live queries) or `feeds.jobs` (feed presets). It holds content and settings, not new behavior.
+
+1. Make the sub-module as above, with `shared=True` on its `Submodule`. Its switch and the org's row in `submodule_subscriptions` go together: `set_modules` adds or deletes the row in the same commit, checks the `submodules.subscriptions` limit, and then runs `on_enable`.
+2. For knowledge, add `content.py` with `CONTENT`, a `Content` from `modules/knowledge/content/types.py`:
+
+   ```python
+   from modules.knowledge.content.types import Content, QueryParam, QuerySource, Source
+
+   CONTENT = Content(
+       name="example",
+       sources=(
+           Source(key="library_hours", url="https://lib.example.edu/hours", category="library", fetch_every_hours=24),
+       ),
+       queries=(
+           QuerySource(
+               key="events",
+               description="Campus events that match keywords.",
+               params=(QueryParam("keywords", "Words to search for."),),
+               to_url=lambda p: "https://events.example.edu/search?q=" + p.get("keywords", ""),
+           ),
+       ),
+       timezone="America/Los_Angeles",
+   )
+   ```
+
+   The name is lowercase letters, digits and underscores. The content owns the shared sources with keys that start with `<name>/`, and the org's live results under `<name>-live/`. Give `on_enable` that syncs the shared pages and starts the crawl, as `modules/knowledge/submodules/asu/__init__.py` does.
+3. The `search` tool fills a query's parameters from one plain query: the first text parameter takes the words, a parameter with `choices` takes the choices the words name, and a `QueryParam` with `date=True` takes a YYYY-MM-DD in the words, else today when it is required. A query sets `query_param` to fill another text parameter, `narrow` to cut the words its site cannot match, and `derive` for values the words imply, like the term of a class search. See `modules/knowledge/submodules/asu/params.py`.
+4. Give a `Source` or `QuerySource` an `extractor` that turns the fetched page into one line for each record. Helpers are in `modules/knowledge/content/text.py`. A query that calls an API sets `answer` instead of `to_url`. Add `modules.knowledge.submodules.web.query` to `queries` for web search.
+5. For feeds, set `FEEDS` in `__init__.py`: a tuple of `Feed` from `modules/feeds/types.py`, each with a key (lowercase letters, digits and dashes), a title, a description, and the `kind` and `config` that the [feeds module](./modules/feeds.md) takes. Add the kind to `KIND_MODULES` in `modules/feeds/service.py`.
+6. Platform makes the sub-module's row in the `submodules` table the first time an org turns it on (`row_for` in `core/submodules.py`). A migration is needed only to turn it on for existing orgs.
+7. Add tests in `tests/contract/` with saved pages in a fixtures folder. Do not fetch live pages in tests.
+
+Rules:
+
+- Public pages only. Do not add pages that need a sign-in. `knowledge.asu_signin` is the one exception: it has its own switch, routes in the dashboard module and an org secret, and its results are never indexed.
+- Do not change a source key after orgs use it. A new key makes a new source, and the old one is turned off on the next sync.
 
 `hosting/` is a layer, not a module: it is next to `modules/`, in no category, and `LAYERS` in `modules/manifest.py` lists it.
 

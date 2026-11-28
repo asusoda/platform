@@ -7,9 +7,9 @@ from core.tools import ToolError
 from core.tools import tool as _tool
 from modules.auth import scopes
 from modules.knowledge import fetch
-from modules.knowledge.submodules.web import query as web
 from modules.knowledge.content.search import query_scope
 from modules.knowledge.content.types import QueryError
+from modules.knowledge.submodules.web import query as web
 
 # Every tool here needs the knowledge.web sub-module on for the caller's org
 tool = partial(_tool, module="knowledge.web")

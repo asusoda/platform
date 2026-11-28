@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 
-from modules.knowledge.extract import extract_text
 from modules.knowledge.content.types import Fetched
+from modules.knowledge.extract import extract_text
 
 _WS = re.compile(r"[ \t\r\f\v]+")
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")

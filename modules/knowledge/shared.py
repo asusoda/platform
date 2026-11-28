@@ -10,14 +10,14 @@ fetches one page or API with parameters, answers the caller, and then indexes wh
 
 import hashlib
 from functools import partial
-from typing import Any, cast
+from typing import Any
 
 from sqlalchemy import func
 
 from core import submodules
 from core.jobs import defer
 from core.log import get_logger
-from core.submodules import SharedContent, SubmoduleSubscription, Submodule, row_for, subscribed_keys
+from core.submodules import SharedContent, Submodule, SubmoduleSubscription, row_for, subscribed_keys
 from core.time import utcnow
 from modules.auth import scopes
 from modules.knowledge import crawl, fetch

@@ -180,7 +180,7 @@ def set_modules(db, org: Organization, changes: object, actor: str | None = None
     for key, on in mapped.items():
         sub = submodules.get(key)
         if sub is not None and sub.shared:
-            submodules.set_subscription(db, cast(int, org.id), sub, on, actor)
+            submodules.set_subscription(db, org.id, sub, on, actor)
     config = dict(cast(dict, org.config) or {})
     config["modules"] = {**(config.get("modules") or {}), **mapped}
     org.config = config

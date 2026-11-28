@@ -1,6 +1,5 @@
 """ASU live queries: one module per source."""
 
-from modules.knowledge.submodules.web import query as web
 from modules.knowledge.content.types import QuerySource
 from modules.knowledge.submodules.asu.queries import (
     campus_map,
@@ -19,6 +18,7 @@ from modules.knowledge.submodules.asu.queries import (
     study_rooms,
     sun_devil_central,
 )
+from modules.knowledge.submodules.web import query as web
 
 _MODULES = (
     courses,

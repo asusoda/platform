@@ -82,6 +82,7 @@ def _subscription(org_id: int, on: bool) -> None:
     db = db_connect.SessionLocal()
     try:
         org = db.get(Organization, org_id)
+        assert org is not None
         if on:
             shared.subscribe(db, org, "asu", actor="test")
         else:

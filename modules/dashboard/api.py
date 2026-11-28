@@ -19,14 +19,13 @@ from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
 from modules.integrations import oauth
-from modules.knowledge import crawl, documents, embedder, reembed, runs, settings
+from modules.knowledge import crawl, documents, embedder, reembed, runs, settings, shared
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
+from modules.knowledge.submodules.asu_signin import service as asu
 from modules.mcp import service as tool_groups
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.knowledge import shared
-from modules.knowledge.submodules.asu_signin import service as asu
 
 from . import ci, errors, notices, service
 from . import trends as trends_service
@@ -123,7 +122,7 @@ def start_asu_signin(db, org):
 
 @_route("/submodules/asu/signin", ["DELETE"])
 def stop_asu_signin(db, org):
-    """Sign out. Allowed after the org stops its subscription, so the saved session can go."""
+    """Sign out. Allowed with the sub-modules off, so the saved session can go."""
     return asu.sign_out(db, _org_id(org))
 
 

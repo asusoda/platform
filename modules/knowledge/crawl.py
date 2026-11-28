@@ -15,6 +15,7 @@ from sqlalchemy import or_, select
 
 from core import limits
 from core.log import get_logger
+from core.submodules import SubmoduleSubscription
 from core.time import utcnow
 from modules.knowledge import extract, fetch, render, runs, settings
 from modules.knowledge.embedder import Embedder
@@ -36,7 +37,6 @@ from modules.knowledge.service import (
 )
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from core.submodules import SubmoduleSubscription
 
 logger = get_logger("knowledge.crawl")
 

@@ -27,7 +27,6 @@ const sections: Record<string, Section> = {
       ['modules/points.md', 'points'],
       ['modules/hosting.md', 'hosting'],
       ['modules/store.md', 'store'],
-      ['modules/submodules.md', 'submodules'],
       ['modules/uptime.md', 'uptime'],
     ],
   },

@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 from tests.contract.migrations import alembic as _alembic
 
-BEFORE = "a3c5e7f9b1d2"
+BEFORE = "c4e6a8b0d2f4"
 AFTER = "c5e7a9b1d3f4"
 OLD_SWITCHES = ("knowledge", "integrations", "feeds")
 KINDS = ("github_jobs", "hackathons")
@@ -205,7 +205,7 @@ def _read(url: str) -> tuple[dict[int, dict], dict[int, set[str]], dict[str, int
             for org_id, key in conn.execute(query).all():
                 subscribed.setdefault(org_id, set()).add(key)
             keys = {key: row_id for row_id, key in conn.execute(sa.select(rows.c.id, rows.c.key)).all()}
-            shared = list(conn.execute(sa.select(sources.c.key, sources.c.submodule_id)).all())
+            shared = [tuple(r) for r in conn.execute(sa.select(sources.c.key, sources.c.submodule_id)).all()]
             return configs, subscribed, keys, shared
     finally:
         engine.dispose()

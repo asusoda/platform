@@ -18,12 +18,12 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from core import limits
 from core.errors import ServiceError
+from core.submodules import SubmoduleSubscription
 from core.time import iso, utcnow
 from modules.auth import scopes
 from modules.knowledge.embedder import Embedder, EmbeddingError
 from modules.knowledge.models import DIMENSIONS, KnowledgeChunk, KnowledgeSource, KnowledgeVersion
 from modules.organizations.models import Organization
-from core.submodules import SubmoduleSubscription
 
 scopes.declare(
     "knowledge:read", "Search the organization's knowledge and public sources", uses=("embeddings", "searxng")

@@ -66,23 +66,23 @@ Views get a database session from `officer_route`, `machine_route` or `member_vi
 
 A module is a folder in `modules/` with only the files it needs: `service.py` for the logic, `api.py` for the routes, `models.py`, `jobs.py` and `tools.py`. The REST routes, jobs, tools and the bot call the same `service.py` functions. [Writing a module](./writing-a-module.md) gives the rules and the places to register a module.
 
-Orgs can turn on and off the optional modules: `points`, `calendar`, `godfather`, `feeds`, `uptime`, `knowledge`, `integrations` and the `hosting` layer. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`. The Core modules, `mcp` and `submodules` among them, are always on. When a module is off for an org, its routes return 404 for the org (`module=` on `officer_route`, `machine_route` or the `Mount`), its tools are not listed, and its jobs skip the org. With `integrations` off, the org has no tools of connected services. If `bot.games` is off for each org of an officer, the `/api/bot` routes return 404 for that officer. The switches are in `Organization.config["modules"]`. A module with no entry is on, so an org made before the switch existed keeps the module. A new org gets an entry for each optional module and sub-module: on for the modules in `NEW_ORG_MODULES` in `modules/manifest.py`, off for the others. `NEW_ORG_MODULES` is empty, so a new org starts with Core only. Officers add and remove modules on the dashboard Explore page, or with `flask --app main org modules <prefix> --on x --off y`.
+Orgs can turn on and off the optional modules: `points`, `calendar`, `godfather`, `feeds`, `uptime`, `knowledge`, `integrations` and the `hosting` layer. The list is `OPTIONAL_MODULES` in `modules/organizations/service.py`. The Core modules, `mcp` among them, are always on. When a module is off for an org, its routes return 404 for the org (`module=` on `officer_route`, `machine_route` or the `Mount`), its tools are not listed, and its jobs skip the org. With `integrations` off, the org has no tools of connected services. If `bot.games` is off for each org of an officer, the `/api/bot` routes return 404 for that officer. The switches are in `Organization.config["modules"]`. A module with no entry is on, so an org made before the switch existed keeps the module. A new org gets an entry for each optional module and sub-module: on for the modules in `NEW_ORG_MODULES` in `modules/manifest.py`, off for the others. `NEW_ORG_MODULES` is empty, so a new org starts with Core only. Officers add and remove modules on the dashboard Explore page, or with `flask --app main org modules <prefix> --on x --off y`.
 
-### Modules, submodules, apps and integrations
+### Modules, shared content, apps and integrations
 
 Platform has four kinds of part. Each one lives in one place. The dashboard and the site use plain names; the code keeps its own:
 
 | Kind (dashboard name) | Code name | Is | Where | Example | Who adds it |
 | --- | --- | --- | --- | --- | --- |
 | Feature | module | Something Platform does, with code. Its data belongs to each org | `modules/<name>/`; the Features tab of Explore | `knowledge`, `feeds`, `godfather` | A developer, by pull request |
-| Shared content | submodule | Content made once for every org, with no code of its own | `submodules/<name>/`; the Shared tab of Explore | `asu` (campus pages, live queries), `careers` (job and hackathon feeds) | A developer, by pull request |
+| Shared content | shared sub-module | Content made once for every org, in a sub-module of the module that reads it | `modules/<module>/submodules/<name>/`; the module page and the Shared tab of Explore | `knowledge.asu` (campus pages, live queries), `feeds.jobs` and `feeds.hackathons` (feed presets) | A developer, by pull request |
 | App | app | A program in its own container or pod | The Hosting page | Vaultwarden, an org's own Discord agent | The org, from a manifest or a template |
 | Integration | integration | A connection to an outside service | The Integrations tab of Explore | RunPod, OpenRouter, Firecrawl, Embeddings | The org with its own keys, or the deployment as the default |
 
 ```mermaid
 flowchart LR
   org["Org (a Discord server)"] -->|"turns on"| modules["Features (modules): knowledge, feeds, uptime..."]
-  org -->|"subscribes to"| subs["Shared content (submodules): asu, careers"]
+  org -->|"turns on"| subs["Shared content (shared sub-modules): knowledge.asu, feeds.jobs, feeds.hackathons"]
   org -->|"deploys"| apps["Apps: Hosting page"]
   org -->|"connects"| integrations["Integrations: own keys or the deployment's"]
   subs -->|"pages"| knowledge["knowledge search"]
@@ -92,26 +92,28 @@ flowchart LR
   modules --> mcp
 ```
 
-An org turns modules on and subscribes to submodules. Each module that is on gets its part of each subscribed submodule. An app never runs inside Platform: it is its own container or pod, and it calls Platform over MCP with a token of its org.
+An org turns modules and sub-modules on. A shared sub-module gives its module content that the deployment makes once for every org that has it on. An app never runs inside Platform: it is its own container or pod, and it calls Platform over MCP with a token of its org.
 
-`CATALOG` in `modules/manifest.py` gives each module a title, a description, what it needs (integration keys or settings) and the submodules it reads. `CATEGORIES` puts each module in one category:
+`CATALOG` in `modules/manifest.py` gives each module a title, a description, and what it needs (integration keys or settings). `CATEGORIES` puts each module in one category:
 
 | Category | Modules |
 | --- | --- |
-| Core | `alerts`, `auth`, `bot`, `dashboard`, `mcp`, `members`, `organizations`, `public`, `submodules`, `superadmin`. Always on and not on Explore |
+| Core | `alerts`, `auth`, `bot`, `dashboard`, `mcp`, `members`, `organizations`, `public`, `superadmin`. Always on and not on Explore |
 | Members | `points`, with its sub-modules `points.leaderboard`, `points.checkins` and `points.store` |
-| AI | `knowledge`, `integrations` |
-| Automations | `feeds`, `calendar`, `uptime` |
+| AI | `knowledge`, with its sub-modules `knowledge.asu`, `knowledge.web` and `knowledge.asu_signin`; `integrations` |
+| Automations | `feeds`, with its sub-modules `feeds.jobs` and `feeds.hackathons`; `calendar`, `uptime` |
 | Discord | `bot.leetcode`, `bot.games` |
 | Compute | `godfather` |
 
 Hosting is a layer, not a module: the `hosting/` package next to `modules/`, in no category. `LAYERS` in `modules/manifest.py` gives its title and needs. It has a switch, `hosting`, and its own Apps section in the sidebar and on Explore.
 
-The dashboard sidebar has one section for each category except Core. Submodule subscriptions need no module switch; live queries need `knowledge`. `GET /api/dashboard/<org>/modules` returns the catalog with the org's switches, whether each need is connected, and the limits that each module's use counts against.
+The dashboard sidebar has one section for each category except Core. The subscription routes and tools of shared sub-modules need no module switch; live queries need `knowledge`. `GET /api/dashboard/<org>/modules` returns the catalog with the org's switches, whether each need is connected, and the limits that each module's use counts against.
 
 ### Sub-modules
 
-A sub-module is a part of a module with its own switch, in `modules/<module>/submodules/<name>/`. Its switch key is `<module>.<name>`, such as `points.store`. A sub-module is on only while its module is on, and a sub-module with no entry in `config["modules"]` is off.
+A sub-module is a part of a module with its own switch, in `modules/<module>/submodules/<name>/`. Its switch key is `<module>.<name>`, such as `points.store`. A sub-module is on only while its module is on, and a sub-module with no entry in `config["modules"]` is off. For one release, `knowledge.web` is also on while `knowledge` is off and `integrations` is on (`LEGACY_PARENTS` in `modules/organizations/service.py`), because the web search tool was part of `integrations`.
+
+A shared sub-module (`shared=True`) has content that the deployment makes once, in the `submodules` table, and a row in `submodule_subscriptions` for each org that has it on. `set_modules` in `modules/organizations/service.py` adds or deletes that row in the same commit as the switch, checks the `submodules.subscriptions` limit, and then runs the sub-module's `on_enable`. See [Shared sub-modules](./modules/knowledge.md#shared-sub-modules).
 
 ```mermaid
 flowchart LR
@@ -120,9 +122,14 @@ flowchart LR
   points --> store["points.store"]
   bot["bot (Core)"] --> leetcode["bot.leetcode"]
   bot --> games["bot.games"]
+  knowledge["knowledge"] --> asu["knowledge.asu (shared)"]
+  knowledge --> web["knowledge.web"]
+  knowledge --> signin["knowledge.asu_signin"]
+  feeds["feeds"] --> jobs["feeds.jobs (shared)"]
+  feeds --> hack["feeds.hackathons (shared)"]
 ```
 
-`core/submodules.py` has the `Submodule` declaration and its loader. `SUBMODULES` in `modules/manifest.py` lists the folders. For one release, a write of an old switch key (`runpod`, `storefront`, `leetcode`, `games`) sets the new key. Responses use the new keys only.
+`core/submodules.py` has the `Submodule` declaration, its loader, and the shared content and subscription tables. `SUBMODULES` in `modules/manifest.py` lists the folders. For one release, a write of an old switch key (`runpod`, `storefront`, `leetcode`, `games`) sets the new key. Responses use the new keys only.
 
 ### Sharing and isolation
 
@@ -145,13 +152,13 @@ flowchart TB
       fair["Fair jobs: one heavy job per org at a time, crawl batches by org"]
     end
   end
-  db[("One database: each row has its organization_id; submodule pages have none")]
+  db[("One database: each row has its organization_id; shared sub-module pages have none")]
   process --> db
 ```
 
 | Layer | Does | See |
 | --- | --- | --- |
-| Data | Each query filters on `organization_id`. A submodule's shared pages have no org, and only subscribers search them | [Data model](./data-model.md) |
+| Data | Each query filters on `organization_id`. The pages of a shared sub-module have no org, and only orgs with the sub-module on search them | [Data model](./data-model.md) |
 | Per-org limits | Each module declares count and rate limits; the superadmin sets them for each org; each says who pays | [Limits](./limits.md) |
 | Container caps | A memory and CPU cap on each service | [Operations](./operations.md#container-limits) |
 | Apps | Each app is its own container or pod, never a Platform process | [Hosting apps](./modules/hosting.md) |
@@ -221,9 +228,9 @@ flowchart TD
 | `store.save_product`, `store.update_orders`, `store.delete_products` (confirm), `store.delete_orders` (confirm) | `store:write` | storefront |
 | `knowledge.search`, `knowledge.sources`, `knowledge.read_source`, `knowledge.submodules`, `knowledge.settings`, `knowledge.runs` | `knowledge:read` | knowledge |
 | `knowledge.add_document`, `knowledge.delete_source` (confirm), `knowledge.set_crawl`, `knowledge.crawl_now`, `knowledge.sync_submodule`, `knowledge.update_settings`, `knowledge.reindex` (confirm) | `knowledge:write` | knowledge |
-| `modules.submodules` | `submodules:read` | submodules |
-| `modules.subscribe` (confirm), `modules.unsubscribe` (confirm) | `submodules:manage` | submodules |
-| `knowledge.query`, `search` | `knowledge:read` | submodules |
+| `modules.submodules` | `submodules:read` | knowledge (works with it off) |
+| `modules.subscribe` (confirm), `modules.unsubscribe` (confirm) | `submodules:manage` | knowledge (works with it off) |
+| `knowledge.query`, `search` | `knowledge:read` | knowledge |
 | `hosting.shared` | `submodules:read` | runpod (works with it off) |
 | `hosting.subscribe_shared` (confirm) | `submodules:manage` | runpod (works with it off) |
 | `hosting.list`, `hosting.get`, `hosting.pod`, `hosting.templates`, `hosting.providers` | `apps:read` | runpod |
@@ -249,7 +256,7 @@ flowchart TD
 | `google.gmail_send` (confirm) | `gmail:send` | integrations |
 | `notion.search`, `notion.read_page`, `notion.query_database` | `notion:read` | integrations |
 | `notion.create_page` (confirm) | `notion:write` | integrations |
-| `knowledge.web_search` | `web:read` | integrations |
+| `knowledge.web_search` | `web:read` | knowledge.web |
 
 A tool marked confirm changes or deletes something that is hard to undo. It runs only when the call has `confirm=true`. Without it, nothing changes and the result has `confirm_required`, the arguments, and for `hosting.deploy` and `hosting.rollback` the dry run. An agent shows that to a person, then calls again with `confirm=true`. Over MCP, read tools have `readOnlyHint` and confirm tools have `destructiveHint`.
 

@@ -12,8 +12,8 @@ from defusedxml import ElementTree as SafeET
 from defusedxml.common import DefusedXmlException
 
 from modules.knowledge import fetch as knowledge_fetch
-from modules.knowledge.fetch import Fetched, fetch_http
 from modules.knowledge.content.types import QueryError
+from modules.knowledge.fetch import Fetched, fetch_http
 
 _TAG = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")

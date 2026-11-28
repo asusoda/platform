@@ -16,17 +16,16 @@ Each org route checks access. The audit log records each change that an officer 
 | `bot.leetcode`, `bot.games` | The daily LeetCode post and Jeopardy in Discord, sub-modules of `bot` |
 | `organizations`, `superadmin` | Orgs, officers, module switches, secrets and machine tokens; for the superadmin, the server's services and the shared apps |
 | `godfather` | GPU and CPU pods on the org's RunPod account. Members connect over SSH with 12-hour certificates |
-| `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages |
-| `submodules` | Shared content from `submodules/`: content made once for every org, such as the ASU campus pages and live queries for knowledge, and the job and hackathon feeds for Feeds |
+| `knowledge` | Hybrid search (pgvector and full text) over documents and crawled public pages, and the sub-modules `knowledge.asu` (shared ASU pages and live queries), `knowledge.web` (web search) and `knowledge.asu_signin` |
 | `alerts` | Org events, such as a failed job or a site that is down, sent to the org's Discord destinations |
-| `feeds` | New job listings and hackathons posted to an alert destination |
+| `feeds` | New job listings and hackathons posted to an alert destination, with the sub-modules `feeds.jobs` and `feeds.hackathons` and their presets |
 | `hosting` | The Hosting layer in `hosting/`: deploys of an org's apps to RunPod or This server (capped containers on the deployment's server), with health checks and rollback; shared apps such as the vault |
 | `uptime` | Checks of sites and Hosting apps on a schedule, with events when one goes down or up |
 | `dashboard` | One page for each org with problems, activity, jobs, CI runs and module state |
 | `mcp` | An MCP server and `/api/tools` that give agents the module tools through scoped machine tokens |
 | `auth`, `public`, `bot` | Discord sign-in, tokens and access checks; open reads for public pages; the Discord bot |
 
-The dashboard calls modules features and submodules shared content. Each module is in one category: Core, Members, AI, Automations, Discord or Compute. Hosting is a layer in no category, with its own Apps section. Core modules are always on. A new org starts with each other module and each sub-module off. A sub-module, such as `points.store`, has its own switch and is on only while its module is on. A module can read submodules from `submodules/`: content made once for every org. See [Architecture](docs/architecture.md#categories-modules-and-submodules).
+The dashboard calls modules features and shared sub-modules shared content. Each module is in one category: Core, Members, AI, Automations, Discord or Compute. Hosting is a layer in no category, with its own Apps section. Core modules are always on. A new org starts with each other module and each sub-module off. A sub-module, such as `points.store`, has its own switch and is on only while its module is on. A shared sub-module, such as `knowledge.asu`, holds content made once for every org that has it on. See [Architecture](docs/architecture.md#modules-shared-content-apps-and-integrations).
 
 ## Processes
 

@@ -4,11 +4,10 @@ import datetime
 import os
 from zoneinfo import ZoneInfo
 
-from modules.knowledge import embedder, search
-from modules.knowledge.service import KnowledgeError
-from modules.knowledge import shared
+from modules.knowledge import embedder, search, shared
 from modules.knowledge.content import catalog, fill
 from modules.knowledge.content.types import Content, QueryError, QuerySource
+from modules.knowledge.service import KnowledgeError
 
 #: The live query a search that names no source falls back to.
 WEB = "web"

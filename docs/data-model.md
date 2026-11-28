@@ -111,8 +111,8 @@ erDiagram
 | calendar | `calendar_event_links` (not used by the sync, which uses Google event properties) |
 | bot.games | `jeopardy_game` (the stored games of each org, one for each name), `active_game` (the set-up game of each org: the game state and the Discord ids that `GameCog` reads after a restart) |
 | bot.leetcode | `leetcode_link`, `leetcode_solve` (one solve for each member and day), `leetcode_daily` |
-| knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload). A source and its chunks belong to an org, or with no org to a shared submodule (`submodule_id`) |
-| submodules | `submodules` (one row for each submodule), `submodule_subscriptions` (the orgs that subscribe to each) |
+| knowledge | `knowledge_sources`, `knowledge_versions`, `knowledge_chunks`, `knowledge_runs` (one row for each crawl or upload). A source and its chunks belong to an org, or with no org to a shared sub-module (`submodule_id`) |
+| `core/submodules.py` | `submodules` (one row for each shared sub-module, by its key, such as `knowledge.asu`), `submodule_subscriptions` (the orgs that have each one on) |
 | godfather | `compute_pods` (with pod admin and the image digest and version), `compute_keys`, `compute_sessions`, `compute_connections` (one row for each pod certificate, kept 90 days), `compute_cli_codes` (one-time CLI sign-in codes, 2 minutes) |
 | hosting | `runpod_apps` (with no org for a shared app), `runpod_deployments`, `shared_app_subscriptions` (the orgs that use a shared app, and whom Platform invited) |
 | alerts | `webhooks` (the destinations of each org and their events), `deliveries` (each message sent or tried, kept 30 days) |
