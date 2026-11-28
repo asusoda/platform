@@ -26,7 +26,7 @@ from core import audit
 from core.db import db_connect
 from core.log import get_logger
 from modules.auth import machine_tokens
-from modules.mcp import oauth, runtime
+from modules.mcp import oauth, oauth_discovery, runtime
 
 logger = get_logger(__name__)
 
@@ -142,7 +142,7 @@ class ScopeChallenge:
         self.path = path.rstrip("/")
 
     def _metadata_url(self) -> str:
-        return f"{urlsplit(oauth.public_url())._replace(path='', query='').geturl()}{oauth.resource_metadata_path()}"
+        return f"{urlsplit(oauth.public_url())._replace(path='', query='').geturl()}{oauth_discovery.resource_metadata_path()}"
 
     async def __call__(self, scope, receive, send):
         if not _is_mcp(scope, self.path) or scope.get("method") != "POST":
@@ -156,7 +156,7 @@ class ScopeChallenge:
 
     def _hint(self, send):
         """Add the scope hint to a 401 of the SDK."""
-        scopes = " ".join(oauth.BASE_SCOPES)
+        scopes = " ".join(oauth_discovery.BASE_SCOPES)
 
         async def hinted(message):
             if message["type"] == "http.response.start" and message["status"] == 401:

@@ -89,7 +89,7 @@ flowchart TD
 
 ## OAuth for MCP clients
 
-The MCP server is also an OAuth 2.1 authorization server, so an MCP client can connect with no token to paste. The client identifies itself with a Client ID Metadata Document, or registers itself (dynamic client registration, RFC 7591). An officer signs in with Discord and approves an org, scopes and integration limits. The client then gets a machine token of kind `oauth`. The code is in `modules/mcp/`: `oauth.py`, `oauth_pages.py`, `client_auth.py` and `edges.py`. The `mcp` SDK serves the protocol routes. The rules follow the MCP spec of 2026-07-28.
+The MCP server is also an OAuth 2.1 authorization server, so an MCP client can connect with no token to paste. The client identifies itself with a Client ID Metadata Document, or registers itself (dynamic client registration, RFC 7591). An officer signs in with Discord and approves an org, scopes and integration limits. The client then gets a machine token of kind `oauth`. The code is in `modules/mcp/`: the `oauth*.py` files, `client_auth.py` and `edges.py`. `oauth.py` lists what each file holds. The `mcp` SDK serves the protocol routes. The rules follow the MCP spec of 2026-07-28.
 
 The public URL of the MCP server is `<ACCOUNTS_BASE_URL>/mcp`, such as `https://api.thesoda.io/mcp`. `MCP_PUBLIC_URL` replaces it when the MCP server has its own host, such as `https://<pod id>-8001.proxy.runpod.net/mcp`. OAuth is on when this URL uses HTTPS, or HTTP on `localhost`. If the URL is missing or not valid, the MCP server logs a warning, has no OAuth routes and works as before. The Connections page shows the URL and whether OAuth is on.
 
@@ -199,7 +199,7 @@ A client often shows only a general error, such as "Failed to register dynamic c
 
 ### Rate limits
 
-Each client IP has a limit on the OAuth routes. Over the limit, the route returns 429 with `Retry-After`. Each process of the MCP server counts on its own. The limits are `RATE_LIMITS` in `modules/mcp/oauth.py`.
+Each client IP has a limit on the OAuth routes. Over the limit, the route returns 429 with `Retry-After`. Each process of the MCP server counts on its own. The limits are `RATE_LIMITS` in `modules/mcp/oauth_rate_limit.py`.
 
 The client IP comes from `X-Forwarded-For` when the request comes from a trusted address. `mcp_main.py` trusts `127.0.0.1`, `::1` and the default gateway. In a container, the gateway is the host, where the reverse proxy runs. The log line `X-Forwarded-For trusted from ...` at the start shows the list. If the proxy connects from another address, set `FORWARDED_ALLOW_IPS` to it. Each request line of `podman logs soda-mcp` starts with the client IP, so you can check it.
 

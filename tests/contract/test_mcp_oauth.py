@@ -28,12 +28,12 @@ def oauth_client(app, monkeypatch, signed_in):
 
     from core.config import config
     from modules.accounts import providers
-    from modules.mcp import oauth
+    from modules.mcp import oauth_requests
     from modules.mcp.server import build_app
 
     monkeypatch.setattr(config, "MCP_PUBLIC_URL", "")
     monkeypatch.setenv("ACCOUNTS_BASE_URL", HOST)
-    monkeypatch.setattr(oauth, "discord_directory", FakeBot)
+    monkeypatch.setattr(oauth_requests, "discord_directory", FakeBot)
 
     def discord_user_id(client_id, client_secret, code, redirect_uri):
         assert redirect_uri == f"{PUBLIC}/oauth/callback"
@@ -343,13 +343,13 @@ def test_callback_needs_the_cookie(oauth_client):
 
 
 def test_not_an_officer(oauth_client, monkeypatch, signed_in):
-    from modules.mcp import oauth
+    from modules.mcp import oauth_requests
 
     class NoOfficer(FakeBot):
         def officer_guilds(self, user_id, org_roles):
             return []
 
-    monkeypatch.setattr(oauth, "discord_directory", NoOfficer)
+    monkeypatch.setattr(oauth_requests, "discord_directory", NoOfficer)
     signed_in["discord_id"] = "900000000000000002"
     registered = _register(oauth_client)
     authorize = oauth_client.get(
@@ -428,7 +428,7 @@ def test_cleanup(oauth_client, client, officer_headers):
 
     from core.db import db_connect
     from modules.auth.models import MachineToken
-    from modules.mcp import oauth
+    from modules.mcp import oauth_grants
     from modules.mcp.models import OAuthClient, OAuthGrant, OAuthRequest
 
     registered = _register(oauth_client)
@@ -458,7 +458,7 @@ def test_cleanup(oauth_client, client, officer_headers):
             OAuthRequest(client_id=registered["client_id"], redirect_uri=REDIRECT, code_challenge="x", expires_at=past)
         )
         db.commit()
-        oauth.cleanup(db)
+        oauth_grants.cleanup(db)
         assert db.query(OAuthGrant).filter_by(client_id=registered["client_id"]).count() == 0
         assert db.query(OAuthClient).filter_by(client_id=registered["client_id"]).count() == 0
         assert db.query(OAuthRequest).filter_by(client_id=registered["client_id"]).count() == 0
@@ -570,7 +570,7 @@ def test_a_narrow_refresh_keeps_the_grant(oauth_client, client, officer_headers)
 def test_refresh_stops_when_the_officer_loses_the_role(oauth_client, client, officer_headers, monkeypatch):
     from core.db import db_connect
     from modules.auth.models import MachineToken
-    from modules.mcp import oauth
+    from modules.mcp import oauth_requests
 
     registered, tokens = _connect(oauth_client, client, officer_headers)
     row = _oauth_row(client, officer_headers)
@@ -579,7 +579,7 @@ def test_refresh_stops_when_the_officer_loses_the_role(oauth_client, client, off
         def officer_guilds(self, user_id, org_roles):
             return []
 
-    monkeypatch.setattr(oauth, "discord_directory", NoOfficer)
+    monkeypatch.setattr(oauth_requests, "discord_directory", NoOfficer)
     refused = _token(
         oauth_client,
         grant_type="refresh_token",
@@ -601,7 +601,7 @@ def test_refresh_when_discord_does_not_answer(oauth_client, client, officer_head
 
     from core.db import db_connect
     from core.integrations.discord import DiscordUnavailable
-    from modules.mcp import oauth
+    from modules.mcp import oauth_requests
     from modules.mcp.models import OAuthGrant
 
     registered, tokens = _connect(oauth_client, client, officer_headers)
@@ -610,7 +610,7 @@ def test_refresh_when_discord_does_not_answer(oauth_client, client, officer_head
         def officer_guilds(self, user_id, org_roles):
             raise DiscordUnavailable("down")
 
-    monkeypatch.setattr(oauth, "discord_directory", Down)
+    monkeypatch.setattr(oauth_requests, "discord_directory", Down)
     # A recent check is enough
     first = _token(
         oauth_client,
@@ -638,7 +638,7 @@ def test_refresh_when_discord_does_not_answer(oauth_client, client, officer_head
 
 
 def test_refresh_asks_discord_only_about_the_tokens_org(oauth_client, client, officer_headers, monkeypatch):
-    from modules.mcp import oauth
+    from modules.mcp import oauth_requests
 
     registered, tokens = _connect(oauth_client, client, officer_headers)
     asked: list = []
@@ -648,7 +648,7 @@ def test_refresh_asks_discord_only_about_the_tokens_org(oauth_client, client, of
             asked.append(org_roles)
             return [guild_id for guild_id, _ in org_roles]
 
-    monkeypatch.setattr(oauth, "discord_directory", Recording)
+    monkeypatch.setattr(oauth_requests, "discord_directory", Recording)
     refreshed = _token(
         oauth_client,
         grant_type="refresh_token",
@@ -660,9 +660,9 @@ def test_refresh_asks_discord_only_about_the_tokens_org(oauth_client, client, of
 
 
 def test_requests_of_one_ip_are_limited(oauth_client, monkeypatch):
-    from modules.mcp import oauth
+    from modules.mcp import oauth_rate_limit
 
-    monkeypatch.setitem(oauth.RATE_LIMITS, "/register", (2, 3600))
+    monkeypatch.setitem(oauth_rate_limit.RATE_LIMITS, "/register", (2, 3600))
     body = {"redirect_uris": [REDIRECT], "token_endpoint_auth_method": "none"}
     assert oauth_client.post("/mcp/register", json=body).status_code == 201
     assert oauth_client.post("/mcp/register", json=body).status_code == 201
@@ -674,10 +674,10 @@ def test_requests_of_one_ip_are_limited(oauth_client, monkeypatch):
 
 
 def test_rate_limit_windows():
-    from modules.mcp import oauth
+    from modules.mcp import oauth_rate_limit
 
-    limiter = oauth.RateLimit(None, "/mcp")
-    count, seconds = oauth.RATE_LIMITS["/token"]
+    limiter = oauth_rate_limit.RateLimit(None, "/mcp")
+    count, seconds = oauth_rate_limit.RATE_LIMITS["/token"]
     assert limiter._rule("/mcp/token") == "/token"
     assert limiter._rule("/mcp/oauth/consent") == "/oauth"
     assert limiter._rule("/mcp") is None and limiter._rule("/mcp/tokens") is None
@@ -708,7 +708,7 @@ def documents(monkeypatch):
     """A fake web: the URL a fetch asks for, and the answer for each URL. Counts the fetches."""
     import json
 
-    from modules.mcp import oauth
+    from modules.mcp import oauth, oauth_clients, oauth_fetch
 
     served: dict = {"answers": {}, "fetches": []}
 
@@ -718,9 +718,9 @@ def documents(monkeypatch):
         if answer is None:
             raise oauth.OAuthError("could not be fetched")
         status, headers, body = answer
-        return oauth.Fetched(status, headers, body if isinstance(body, bytes) else json.dumps(body).encode())
+        return oauth_fetch.Fetched(status, headers, body if isinstance(body, bytes) else json.dumps(body).encode())
 
-    monkeypatch.setattr(oauth, "fetch_metadata_document", fetch)
+    monkeypatch.setattr(oauth_clients, "fetch_metadata_document", fetch)
     served["answers"][DOCUMENT_URL] = (200, {"cache-control": "max-age=600"}, _document())
     _forget_documents()
     yield served
@@ -940,30 +940,30 @@ def test_a_changed_document_replaces_the_cached_one(oauth_client, documents):
     ],
 )
 def test_client_id_urls_that_the_draft_does_not_allow(url):
-    from modules.mcp import oauth
+    from modules.mcp import oauth, oauth_clients
 
     with pytest.raises(oauth.OAuthError):
-        oauth.check_metadata_url(url)
+        oauth_clients.check_metadata_url(url)
 
 
 def test_a_client_id_url_with_a_query_is_allowed():
-    from modules.mcp import oauth
+    from modules.mcp import oauth_clients
 
-    oauth.check_metadata_url("https://agent.example/client.json?v=2")
+    oauth_clients.check_metadata_url("https://agent.example/client.json?v=2")
 
 
 @pytest.mark.parametrize("host", ["localhost", "127.0.0.1", "10.0.0.5", "169.254.169.254", "[::1]"])
 def test_the_fetch_refuses_private_addresses(host):
-    from modules.mcp import oauth
+    from modules.mcp import oauth, oauth_clients
 
     with pytest.raises(oauth.OAuthError, match="non-public"):
-        oauth.fetch_metadata_document(f"https://{host}/client.json")
+        oauth_clients.fetch_metadata_document(f"https://{host}/client.json")
 
 
 def test_the_fetch_connects_to_the_checked_address(monkeypatch):
     import socket
 
-    from modules.mcp import oauth
+    from modules.mcp import oauth, oauth_clients
 
     answers = iter(["93.184.216.34", "10.0.0.5"])
     monkeypatch.setattr(socket, "getaddrinfo", lambda host, port: [(socket.AF_INET, 0, 0, "", (next(answers), port))])
@@ -975,7 +975,7 @@ def test_the_fetch_connects_to_the_checked_address(monkeypatch):
 
     monkeypatch.setattr(socket, "create_connection", connect)
     with pytest.raises(oauth.OAuthError, match="could not be fetched"):
-        oauth.fetch_metadata_document("https://agent.example/client.json")
+        oauth_clients.fetch_metadata_document("https://agent.example/client.json")
     # A second lookup could give 10.0.0.5; the connection uses the address that passed the check
     assert seen["address"] == ("93.184.216.34", 443)
 
@@ -993,9 +993,9 @@ def test_the_fetch_connects_to_the_checked_address(monkeypatch):
     ],
 )
 def test_cache_time(header, seconds):
-    from modules.mcp import oauth
+    from modules.mcp import oauth_fetch
 
-    assert oauth.cache_time({"cache-control": header} if header else {}).total_seconds() == seconds
+    assert oauth_fetch.cache_time({"cache-control": header} if header else {}).total_seconds() == seconds
 
 
 @pytest.mark.parametrize(
@@ -1290,7 +1290,7 @@ def test_keys_from_jwks_uri_and_rotation(oauth_client, client, officer_headers, 
     from cryptography.hazmat.primitives.asymmetric import ec
     from jwt.algorithms import ECAlgorithm
 
-    from modules.mcp import client_auth, oauth
+    from modules.mcp import client_auth, oauth_fetch
 
     private, public = client_key
     keys_url = "https://agent.example/oauth/jwks.json"
@@ -1299,7 +1299,7 @@ def test_keys_from_jwks_uri_and_rotation(oauth_client, client, officer_headers, 
 
     def fetch(url):
         fetches.append(url)
-        return oauth.Fetched(200, {"cache-control": "max-age=3600"}, json.dumps(served).encode())
+        return oauth_fetch.Fetched(200, {"cache-control": "max-age=3600"}, json.dumps(served).encode())
 
     monkeypatch.setattr(client_auth, "fetch_jwks", fetch)
     monkeypatch.setattr(client_auth, "JWKS_REFETCH_SECONDS", 0)
@@ -1394,7 +1394,7 @@ def test_a_public_client_can_revoke(oauth_client, client, officer_headers):
 
 def test_documents_cannot_fill_the_registration_cap(oauth_client, documents, monkeypatch):
     from core.db import db_connect
-    from modules.mcp import oauth
+    from modules.mcp import oauth_clients
     from modules.mcp.models import OAuthClient
 
     db = db_connect.SessionLocal()
@@ -1403,8 +1403,8 @@ def test_documents_cannot_fill_the_registration_cap(oauth_client, documents, mon
         registered_now = db.query(OAuthClient).filter(OAuthClient.cache_until.is_(None)).count()
     finally:
         db.close()
-    monkeypatch.setattr(oauth, "MAX_DOCUMENT_CLIENTS", documents_now + 1)
-    monkeypatch.setattr(oauth, "MAX_REGISTERED_CLIENTS", registered_now + 1)
+    monkeypatch.setattr(oauth_clients, "MAX_DOCUMENT_CLIENTS", documents_now + 1)
+    monkeypatch.setattr(oauth_clients, "MAX_REGISTERED_CLIENTS", registered_now + 1)
     assert _authorize(oauth_client, DOCUMENT_URL, _pkce()[1]).status_code == 302
     other = "https://agent.example/oauth/other.json"
     documents["answers"][other] = (200, {}, _document(client_id=other))
@@ -1416,18 +1416,18 @@ def test_documents_cannot_fill_the_registration_cap(oauth_client, documents, mon
 
 def test_cleanup_deletes_unused_documents_at_once(oauth_client, documents):
     from core.db import db_connect
-    from modules.mcp import oauth
+    from modules.mcp import oauth_grants
     from modules.mcp.models import OAuthClient, OAuthRequest
 
     assert _authorize(oauth_client, DOCUMENT_URL, _pkce()[1]).status_code == 302
     db = db_connect.SessionLocal()
     try:
-        oauth.cleanup(db)
+        oauth_grants.cleanup(db)
         # An open request keeps the document
         assert db.query(OAuthClient).filter_by(client_id=DOCUMENT_URL).count() == 1
         db.query(OAuthRequest).filter_by(client_id=DOCUMENT_URL).delete()
         db.commit()
-        oauth.cleanup(db)
+        oauth_grants.cleanup(db)
         assert db.query(OAuthClient).filter_by(client_id=DOCUMENT_URL).count() == 0
     finally:
         db.close()
@@ -1462,11 +1462,11 @@ def test_a_large_chunked_body_skips_the_step_up_check(oauth_client, client, offi
 
 
 def test_a_full_rate_limit_table_stays_bounded(monkeypatch):
-    from modules.mcp import oauth
+    from modules.mcp import oauth_rate_limit
 
-    limiter = oauth.RateLimit(None, "/mcp")
+    limiter = oauth_rate_limit.RateLimit(None, "/mcp")
     monkeypatch.setattr(limiter, "MAX_KEYS", 2)
-    seconds = oauth.RATE_LIMITS["/token"][1]
+    seconds = oauth_rate_limit.RATE_LIMITS["/token"][1]
     start = 1000.0 * seconds
     assert limiter.allow("/token", "a", now=start) == 0
     assert limiter.allow("/token", "b", now=start) == 0
@@ -1482,13 +1482,13 @@ def test_a_full_rate_limit_table_stays_bounded(monkeypatch):
 
 
 def test_a_failed_key_fetch_is_not_tried_again_at_once(monkeypatch, client_key):
-    from modules.mcp import client_auth, oauth
+    from modules.mcp import client_auth, oauth, oauth_fetch
 
     fetches = []
 
     def fetch(url):
         fetches.append(url)
-        return oauth.Fetched(503, {}, b"")
+        return oauth_fetch.Fetched(503, {}, b"")
 
     monkeypatch.setattr(client_auth, "fetch_jwks", fetch)
     url = "https://agent.example/oauth/jwks.json"
@@ -1501,12 +1501,12 @@ def test_a_failed_key_fetch_is_not_tried_again_at_once(monkeypatch, client_key):
 def test_the_key_cache_stays_bounded(monkeypatch, client_key):
     import json
 
-    from modules.mcp import client_auth, oauth
+    from modules.mcp import client_auth, oauth_fetch
 
     _, public = client_key
     monkeypatch.setattr(client_auth, "JWKS_MAX_ENTRIES", 3)
     monkeypatch.setattr(
-        client_auth, "fetch_jwks", lambda url: oauth.Fetched(200, {}, json.dumps({"keys": [public]}).encode())
+        client_auth, "fetch_jwks", lambda url: oauth_fetch.Fetched(200, {}, json.dumps({"keys": [public]}).encode())
     )
     for n in range(10):
         client_auth._remote_keys(f"https://agent.example/jwks/{n}.json")
@@ -1807,15 +1807,17 @@ def test_the_consent_page_shows_presets_and_groups(oauth_client):
 def test_exchange_refresh_refuses_a_scope_outside_the_grant(oauth_client, client, officer_headers):
     """The cap does not depend on the SDK: exchange_refresh itself refuses and changes nothing."""
     from core.db import db_connect
-    from modules.mcp import oauth
+    from modules.mcp import oauth, oauth_grants
 
     registered, tokens = _connect(oauth_client, client, officer_headers, scope=["org:read"])
     db = db_connect.SessionLocal()
     try:
         with pytest.raises(oauth.OAuthError, match=oauth.INVALID_SCOPE):
-            oauth.exchange_refresh(db, registered["client_id"], tokens["refresh_token"], ["org:read", "points:write"])
+            oauth_grants.exchange_refresh(
+                db, registered["client_id"], tokens["refresh_token"], ["org:read", "points:write"]
+            )
         db.rollback()
-        fresh = oauth.exchange_refresh(db, registered["client_id"], tokens["refresh_token"], [])
+        fresh = oauth_grants.exchange_refresh(db, registered["client_id"], tokens["refresh_token"], [])
     finally:
         db.close()
     assert fresh["scope"] == "org:read"

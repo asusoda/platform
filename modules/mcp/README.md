@@ -7,7 +7,14 @@ Serves the tools of other modules to apps and agents with a machine token: over 
 | File | Holds |
 | --- | --- |
 | `server.py` | The MCP server app (`build_app`), run by `mcp_main.py`. With a public URL, it adds OAuth under that URL's path |
-| `oauth.py` | OAuth for MCP clients: the public URL and discovery documents, registered clients and Client ID Metadata Documents (fetch, checks, cache), authorization requests, codes, grants, refresh with the officer check, the rate limit of each IP, and the provider of the mcp SDK |
+| `oauth.py` | OAuth for MCP clients: the public URL, `OAuthError` and the helpers that the other `oauth_*.py` files use |
+| `oauth_discovery.py` | The discovery documents (RFC 9728, RFC 8414) and the SDK's registration and revocation options |
+| `oauth_rate_limit.py` | The limit of requests of each client IP on the OAuth routes (`RATE_LIMITS`) |
+| `oauth_fetch.py` | The fetch of a URL that a client gives, to public addresses only, and its cache time |
+| `oauth_clients.py` | Registered clients and Client ID Metadata Documents (checks, cache) |
+| `oauth_requests.py` | Authorization requests, the officer check with Discord, consent and the authorization code |
+| `oauth_grants.py` | The code exchange, refresh with the officer check, revocation and the cleanup of old rows |
+| `oauth_provider.py` | The provider of the mcp SDK, on top of the files above |
 | `oauth_pages.py` | The Discord sign-in and the consent page of the OAuth flow (`/mcp/oauth/login`, `/mcp/oauth/callback`, `/mcp/oauth/consent`) |
 | `client_auth.py` | Client keys: `private_key_jwt` client assertions (RFC 7523), the keys of a client, and the authenticator of `/mcp/token` and `/mcp/revoke` |
 | `edges.py` | HTTP rules in front of the SDK: the `Origin` check, the scope hint and step-up (403 `insufficient_scope`), `iss` on error redirects, the log of refused registrations, token requests and token revocations, and `client_id` from the Basic header |
@@ -23,6 +30,6 @@ Serves the tools of other modules to apps and agents with a machine token: over 
 - Jobs: `mcp.cleanup_oauth`, schedule `15 * * * *`. It deletes expired requests, grants whose token is revoked or whose refresh token expired, registered clients with no grant that were not used for 7 days, cached metadata documents with no grant and no open request, and the `jti` of expired client assertions.
 - Tools: `modules.list`, `modules.skill`, `modules.tools` and `modules.call`, the gateway to module tools. A token sees it when one or more module tools sit behind it. `batch`, which runs 1 to 25 calls of other tools in order. Each call has its own scope check, module switch, confirm step and audit entry. A token sees `batch` when it can call one or more other tools. `guide`, which gives the skills in [skills/](../../skills/README.md) for agents, and a token sees it with `batch`. The other tools are `core.tools.TOOLS`, which the modules in `TOOL_MODULES` in `modules/manifest.py` fill.
 - Tables: `oauth_clients`, `oauth_requests`, `oauth_grants`, `oauth_assertions`.
-- Limits: `RATE_LIMITS` (`oauth.py`) for the OAuth routes, by client IP, in each process. `mcp.calls_per_minute` (`runtime.py`), and `tools.live_per_minute`, `tools.costly_per_minute` and `tools.send_per_minute` for the rate classes in `core/tools.py`. Each tool call, also each call in a batch, counts. Over the limit the call returns 429. See [docs/limits.md](../../docs/limits.md).
+- Limits: `RATE_LIMITS` (`oauth_rate_limit.py`) for the OAuth routes, by client IP, in each process. `mcp.calls_per_minute` (`runtime.py`), and `tools.live_per_minute`, `tools.costly_per_minute` and `tools.send_per_minute` for the rate classes in `core/tools.py`. Each tool call, also each call in a batch, counts. Over the limit the call returns 429. See [docs/limits.md](../../docs/limits.md).
 
 See [docs/authentication.md](../../docs/authentication.md#oauth-for-mcp-clients) for OAuth and [docs/architecture.md](../../docs/architecture.md#tools-and-the-mcp-server).
