@@ -5,8 +5,9 @@ The kinds of feed are github_jobs (github_jobs.py: the job table of a GitHub REA
 org has it off, its feeds are hidden and do not run. The presets come from the submodules the org subscribes to.
 
 A feed's first run records every current item without posting, so turning a feed on does not
-flood the channel. Later runs post items not seen before. The URL is the destination's, encrypted with
-SECRETS_KEY and never returned by a route. A feed made before destinations has the org secret alert_webhook_<key>.
+flood the channel. Later runs post items not seen before, through the alerts send path (modules/alerts/delivery.py),
+which logs each post in deliveries. The URL is the destination's, encrypted with SECRETS_KEY and never returned
+by a route. A feed made before destinations has the org secret alert_webhook_<key>.
 """
 
 import datetime
@@ -21,6 +22,8 @@ from core import limits, secrets, webhooks
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import utcnow
+from modules.alerts import delivery
+from modules.alerts.models import Destination
 from modules.auth import scopes
 from modules.feeds import github_jobs as jobs_table
 from modules.feeds import hackathons
@@ -74,52 +77,36 @@ def http_get(url: str) -> str:
     return response.text
 
 
-def post_webhook(url: str, payload: dict) -> None:
-    """POST one message to a Discord webhook, waiting once when Discord asks to slow down."""
-    for _ in range(2):
-        response = requests.post(url, json=payload, timeout=10)
-        if response.status_code == 429:
-            time.sleep(min(float(response.json().get("retry_after", 1)), 10))
-            continue
-        response.raise_for_status()
-        return
-    raise requests.HTTPError("Discord kept rate limiting the webhook")
-
-
-def embed(item: Item, kind: str) -> dict:
-    """The Discord embed for an item."""
-    body: dict = {
-        "title": item.title[:256],
-        "color": COLORS.get(kind, 0),
-        "fields": [
-            {"name": name, "value": value[:1024] or "-", "inline": len(value) < 40} for name, value in item.fields
-        ],
-        "timestamp": utcnow().isoformat() + "Z",
-    }
-    if item.url:
-        body["url"] = item.url
-    if item.footer:
-        body["footer"] = {"text": item.footer[:2048]}
-    return body
+def _message(item: Item, kind: str, now: datetime.datetime) -> webhooks.Message:
+    """The alert message for an item."""
+    return webhooks.Message(
+        title=item.title,
+        fields=tuple(item.fields),
+        url=item.url,
+        color=COLORS.get(kind, 0),
+        footer=item.footer,
+        timestamp=now.isoformat() + "Z",
+    )
 
 
 def _secret_name(key: str) -> str:
     return SECRET_PREFIX + key
 
 
-def _destination(db, org_id: int, destination_id: int | None) -> webhooks.Webhook | None:
+def _destination(db, org_id: int, destination_id: int | None) -> Destination | None:
     if destination_id is None:
         return None
-    return db.query(webhooks.Webhook).filter_by(organization_id=org_id, id=destination_id).first()
+    return db.query(Destination).filter_by(organization_id=org_id, id=destination_id).first()
 
 
-def _webhook(db, feed: AlertFeed) -> str | None:
-    """The URL the feed posts to: its alert destination's, else the older alert_webhook_<key> secret."""
-    org_id = feed.organization_id
+def _target(db, feed: AlertFeed) -> delivery.Target | None:
+    """Where the feed posts: its alert destination, else the older alert_webhook_<key> secret."""
+    org_id = int(feed.organization_id)
     if feed.destination_id is not None:
         row = _destination(db, org_id, feed.destination_id)
-        return secrets.decrypt(str(row.url_ciphertext)) if row is not None and row.enabled else None
-    return secrets.get_secret(db, org_id, _secret_name(feed.key))
+        return delivery.target_of(row) if row is not None and row.enabled else None
+    url = secrets.get_secret(db, org_id, _secret_name(feed.key))
+    return delivery.Target("discord", url, None, org_id) if url else None
 
 
 def kinds_on(db, org_id: int) -> set[str]:
@@ -146,7 +133,7 @@ def describe(db, feed: AlertFeed) -> dict:
         "every_hours": feed.every_hours,
         "enabled": feed.enabled,
         "destination_id": feed.destination_id,
-        "webhook_set": _webhook(db, feed) is not None,
+        "webhook_set": _target(db, feed) is not None,
         "seeded_at": feed.seeded_at.isoformat() if feed.seeded_at else None,
         "last_run_at": feed.last_run_at.isoformat() if feed.last_run_at else None,
         "last_error": feed.last_error,
@@ -271,8 +258,8 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
     """
     started = time.monotonic()
     feed.last_run_at = utcnow()
-    webhook = _webhook(db, feed)
-    if webhook is None:
+    target = _target(db, feed)
+    if target is None:
         return _fail(db, feed, "No destination, the destination is off, or SECRETS_KEY is missing", started)
     try:
         items = _read(feed)
@@ -302,13 +289,11 @@ def run(db, feed: AlertFeed, post_existing: bool = False) -> dict:
             continue
         if seeding:
             continue
-        try:
-            post_webhook(webhook, {"embeds": [embed(item, str(feed.kind))]})
-        except Exception as e:
+        error = delivery.deliver(db, target, _message(item, str(feed.kind), utcnow()), "feed", str(feed.key))
+        if error:
             # Unposted items stay new and go out on the next run
             db.delete(row)
             db.commit()
-            error = f"Discord webhook failed: {e}"
             break
         posted += 1
         time.sleep(POST_GAP_SECONDS)

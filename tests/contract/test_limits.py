@@ -116,6 +116,40 @@ def test_rate_limit_counts_per_window_and_refuses_without_counting(db, clean_lim
     assert limits.used(db, soda, "knowledge.uploads_per_day", now=NOW + datetime.timedelta(days=1)) == 0
 
 
+def test_take_is_atomic_and_counts_each_sub_key(db, clean_limits):
+    from core.db import db_connect
+
+    soda = _org_id("soda")
+    limits.set_values(db, soda, {"knowledge.uploads_per_day": 4})
+    results: list[bool] = []
+
+    def take() -> None:
+        session = db_connect.SessionLocal()
+        try:
+            results.append(limits.take(session, soda, "knowledge.uploads_per_day", now=NOW))
+            session.commit()
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=take) for _ in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(results) == [False] * 6 + [True] * 4
+    assert limits.used(db, soda, "knowledge.uploads_per_day", now=NOW) == 4
+    # An amount over the limit takes nothing, also in a new window
+    later = NOW + datetime.timedelta(days=1)
+    assert limits.take(db, soda, "knowledge.uploads_per_day", amount=5, now=later) is False
+    assert limits.used(db, soda, "knowledge.uploads_per_day", now=later) == 0
+    # A sub key has its own counter; used() gives the busiest one
+    assert limits.take(db, soda, "knowledge.uploads_per_day", sub="a", now=later)
+    assert limits.take(db, soda, "knowledge.uploads_per_day", amount=3, sub="b", now=later)
+    assert limits.take(db, soda, "knowledge.uploads_per_day", amount=2, sub="b", now=later) is False
+    db.commit()
+    assert limits.used(db, soda, "knowledge.uploads_per_day", now=later) == 3
+
+
 def test_count_limit_refuses_the_next_monitor(client, officer_headers, db, clean_limits, monitors, monkeypatch):
     from core import net
 

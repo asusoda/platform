@@ -21,7 +21,7 @@ The `careers` [submodule](./submodules.md) gives ready feeds of both kinds. When
 
 Before 2026-10, the two kinds were the modules `job_webhook` and `hackathon_webhook`. Migration `a3c5e7f9b1d3` turned `feeds` on for each org that had either one on.
 
-The first run of a feed records all current items and posts none. Thus a new feed does not post hundreds of old listings. Later runs post up to 25 new items, with half a second between posts. If a post fails, the item stays new and goes out on the next run. A run records an item before it posts it, so two runs at the same time do not post the same item.
+The first run of a feed records all current items and posts none. Thus a new feed does not post hundreds of old listings. Later runs post up to 25 new items, with half a second between posts. If a post fails, the item stays new and goes out on the next run. A run records an item before it posts it, so two runs at the same time do not post the same item. Each post goes through the Alerts send path: it is logged in `deliveries` and sets the destination's last result on the Alerts page.
 
 ## Dashboard
 

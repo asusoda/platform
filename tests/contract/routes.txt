@@ -182,6 +182,7 @@
 /api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id> DELETE,OPTIONS alerts.delete_webhook
 /api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id> OPTIONS,PUT alerts.update_webhook
 /api/dashboard/<string:org_prefix>/webhooks/<int:webhook_id>/test OPTIONS,POST alerts.test_webhook
+/api/dashboard/<string:org_prefix>/webhooks/deliveries GET,HEAD,OPTIONS alerts.list_deliveries
 /api/dashboard/integrations/oauth/callback GET,HEAD,OPTIONS dashboard.oauth_callback
 /api/feeds/<string:org_prefix>/feeds GET,HEAD,OPTIONS feeds.list_feeds
 /api/feeds/<string:org_prefix>/feeds/<string:key> DELETE,OPTIONS feeds.delete_feed

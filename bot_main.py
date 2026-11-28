@@ -16,6 +16,7 @@ from core.config import config
 from core.log import get_logger, init_sentry
 from modules.bot.factory import create_bot
 from modules.dashboard import errors as error_alerts
+from modules.manifest import load_jobs
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,8 @@ logger = get_logger(__name__)
 def main() -> int:
     init_sentry(config.SENTRY, "bot")
     error_alerts.setup("bot")
+    # On the inline queue a job runs in the process that queues it, such as events.deliver after a bot command
+    load_jobs()
     if not config.BOT_TOKEN:
         logger.error("BOT_TOKEN is not set; the bot cannot start")
         return 1

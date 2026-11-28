@@ -23,7 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, UniqueConstraint, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Mapped, mapped_column
@@ -180,16 +180,23 @@ def window_start(window: str, now: datetime.datetime | None = None) -> datetime.
 
 
 def used(db, org_id: int, key: str, now: datetime.datetime | None = None) -> int:
-    """What the org uses now: the count for a count limit, the current window's counter for a rate limit."""
+    """What the org uses now: the count for a count limit, the current window's counter for a rate limit.
+
+    A rate limit taken with sub keys gives its busiest counter.
+    """
     spec = _spec(key)
     if spec.window is None:
         return int(cast(Callable, spec.usage)(db, org_id))
-    row = (
-        db.query(UsageCounter)
-        .filter_by(organization_id=org_id, key=key, window_start=window_start(spec.window, now))
-        .first()
+    counts = (
+        db.query(UsageCounter.count)
+        .filter(
+            UsageCounter.organization_id == org_id,
+            UsageCounter.window_start == window_start(spec.window, now),
+            or_(UsageCounter.key == key, UsageCounter.key.startswith(key + ":", autoescape=True)),
+        )
+        .all()
     )
-    return int(row.count) if row is not None else 0
+    return max((int(count) for (count,) in counts), default=0)
 
 
 def _refusal(spec: Limit, limit: int) -> str:
@@ -209,29 +216,50 @@ def check(db, org_id: int, key: str, add: int = 1) -> None:
         raise LimitError(_refusal(spec, limit), 409)
 
 
-def consume(db, org_id: int, key: str, amount: int = 1, now: datetime.datetime | None = None) -> None:
-    """Add amount to the org's counter of a rate limit. Raises LimitError (429), and counts nothing, when it is over.
+def _count(db, org_id: int, stored: str, start: datetime.datetime) -> int:
+    row = db.query(UsageCounter.count).filter_by(organization_id=org_id, key=stored, window_start=start).first()
+    return int(row[0]) if row is not None else 0
 
-    Flushes, does not commit: the caller's commit keeps the count, and a rollback drops it.
+
+def take(
+    db, org_id: int, key: str, amount: int = 1, sub: str | None = None, now: datetime.datetime | None = None
+) -> bool:
+    """Add amount to the org's counter of a rate limit in one statement. False, and nothing counted, when it is over.
+
+    With sub, the counter is <key>:<sub>, so one limit can count each event on its own. Flushes, does not commit.
     """
     spec = _spec(key)
     if spec.window is None:
         raise ValueError(f"{key} is a count limit; use check()")
     if amount <= 0:
-        return
-    start = window_start(spec.window, now)
+        return True
     limit = value(db, org_id, key)
-    if limit is not None and used(db, org_id, key, now) + amount > limit:
-        raise LimitError(_refusal(spec, limit), 429)
-    values = {"organization_id": org_id, "key": key, "window_start": start, "count": amount}
+    stored = f"{key}:{sub}" if sub else key
+    start = window_start(spec.window, now)
+    if limit is not None and _count(db, org_id, stored, start) + amount > limit:
+        # A read first, so a refused call takes no write lock. The WHERE below covers a call that runs at the same time.
+        return False
+    values = {"organization_id": org_id, "key": stored, "window_start": start, "count": amount}
     insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
     statement = insert(UsageCounter).values(**values)
     statement = statement.on_conflict_do_update(
         index_elements=["organization_id", "key", "window_start"],
         set_={"count": UsageCounter.count + amount},
-    )
-    db.execute(statement)
+        where=(UsageCounter.count + amount <= limit) if limit is not None else None,
+    ).returning(UsageCounter.count)
+    taken = db.execute(statement).first() is not None
     db.flush()
+    return taken
+
+
+def consume(db, org_id: int, key: str, amount: int = 1, now: datetime.datetime | None = None) -> None:
+    """Add amount to the org's counter of a rate limit. Raises LimitError (429), and counts nothing, when it is over.
+
+    Flushes, does not commit: the caller's commit keeps the count, and a rollback drops it.
+    """
+    if not take(db, org_id, key, amount, now=now):
+        limit = value(db, org_id, key)
+        raise LimitError(_refusal(_spec(key), cast(int, limit)), 429)
 
 
 def catalog() -> list[dict]:
