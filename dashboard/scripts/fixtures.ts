@@ -577,7 +577,7 @@ export function fixtures(now: number = Date.now()) {
     { pod_id: 'm3v8c1tz', title: 'Vision team training run', start_at: at(11 * DAY), stop_at: at(11 * DAY + 8 * HOUR) },
   ];
 
-  // Live pods from GET /api/compute/<org>/pods; machine and costPerHr come from RunPod as is.
+  // Live pods from GET /api/compute/<org>/pods; machine and cost_per_hour come from RunPod.
   const livePods = [
     {
       id: '7kq2x9ab',
@@ -837,11 +837,11 @@ export function fixtures(now: number = Date.now()) {
   const telemetryPod = {
     id: 'v6h2w9xe',
     name: 'robotics-rover-telemetry',
-    desiredStatus: 'RUNNING',
+    status: 'RUNNING',
     image: 'ghcr.io/robotics-club/rover-telemetry:v1.8.2',
-    costPerHr: 0.27,
-    gpu: { displayName: 'RTX A5000', count: 1 },
-    machine: { location: 'US' },
+    cost: 0.27,
+    gpu: { id: 'NVIDIA RTX A5000', count: 1 },
+    dataCenterId: 'US-KS-2',
   };
 
   const preview = (tag: string) => ({
@@ -1274,7 +1274,7 @@ export function fixtures(now: number = Date.now()) {
     '    return service.create_pod(db, org, body, actor)',
     '  File "modules/godfather/service.py", line 214, in create_pod',
     '    pod = runpod.create_pod(key, spec)',
-    '  File "core/integrations/runpod.py", line 61, in create_pod',
+    '  File "core/hosting/runpod.py", line 61, in create_pod',
     '    response = requests.post(url, json=spec, timeout=30)',
     '  File "/app/.venv/lib/python3.12/site-packages/requests/api.py", line 115, in post',
     '    return request("post", url, data=data, json=json, **kwargs)',
@@ -1387,7 +1387,7 @@ export function fixtures(now: number = Date.now()) {
   ];
 
   const orgErrors = [
-    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/integrations/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack, {
+    errorGroup(41, 'api', ORG.prefix, 'ReadTimeout', 'Exception on /api/compute/robotics/pods [POST]: Read timed out. (read timeout=30)', 'core/hosting/runpod.py:create_pod', '/api/compute/<string:org_prefix>/pods', 7, -18 * MINUTE, -2 * DAY, podStack, {
       request: 'POST /api/compute/robotics/pods',
       logger: 'flask.app',
       line: 'modules/godfather/api.py:88',

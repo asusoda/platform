@@ -81,7 +81,8 @@ def _object(properties: dict, required: tuple[str, ...] = (), **extra) -> dict:
     "godfather.create_pod",
     description=(
         "Create a pod on the org's RunPod account. It costs money while it runs. Without image_name it uses the "
-        "org's pod image. allowed_users are Discord ids of members who may connect; is_public lets every member."
+        "org's pod image. allowed_users are Discord ids of members who may connect; is_public lets every member. "
+        "Send a new request_id (a UUID) and reuse it on a retry: a second call with it gets the same pod."
     ),
     scope="godfather:manage",
     module="godfather",
@@ -101,6 +102,7 @@ def _object(properties: dict, required: tuple[str, ...] = (), **extra) -> dict:
             "env": {"type": "object", "additionalProperties": {"type": "string"}},
             "is_public": {"type": "boolean"},
             "allowed_users": DISCORD_IDS,
+            "request_id": {"type": "string", "format": "uuid", "maxLength": 36},
         }
     ),
 )

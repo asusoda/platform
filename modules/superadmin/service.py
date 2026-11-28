@@ -13,7 +13,7 @@ from core.config import superadmin_ids
 from core.db import Base
 from core.error_log import ErrorGroup
 from core.errors import ServiceError
-from core.integrations import server as runner
+from core.hosting import server as runner
 from core.integrations.discord import DiscordUnavailable
 from core.log import get_logger
 from core.time import utcnow

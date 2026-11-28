@@ -3,8 +3,8 @@
 A provider gives an org a client for its own account, tells whether the org configured it, and reads the
 provider's pod shape: status, hardware, SSH address and public URL of a port. Modules store the provider
 name with each pod and app and call get() with it. A module in PROVIDER_MODULES calls register() when it
-is imported. The providers are RunPod (core/integrations/runpod.py), on the org's own account, and This server
-(core/integrations/server.py), capped containers on the deployment's server.
+is imported. The providers are RunPod (core/hosting/runpod.py), on the org's own account, and This server
+(core/hosting/server.py), capped containers on the deployment's server.
 """
 
 import importlib
@@ -43,6 +43,8 @@ class HostingClient(Protocol):
 
     def stop_pod(self, pod_id: str) -> Any: ...
 
+    def restart_pod(self, pod_id: str) -> Any: ...
+
     def delete_pod(self, pod_id: str) -> Any: ...
 
 
@@ -68,6 +70,10 @@ class HostingProvider(Protocol):
         """RUNNING, EXITED, GONE (pod is None), UNKNOWN, or another upper-case state of the provider."""
         ...
 
+    def pod_name(self, pod: dict) -> str | None:
+        """The name the pod was created with: the name field of the create body."""
+        ...
+
     def machine(self, pod: dict | None) -> dict | None:
         """The pod's hardware and location, or None."""
         ...
@@ -90,15 +96,26 @@ class HostingProvider(Protocol):
         ...
 
     def request(
-        self, app_name: str, org_prefix: str | None, pod_id: str | None, manifest: dict, image: str, env: dict
+        self,
+        app_name: str,
+        org_prefix: str | None,
+        pod_id: str | None,
+        manifest: dict,
+        image: str,
+        env: dict,
+        client: HostingClient | None,
     ) -> tuple[str, str, dict]:
-        """The call a deploy makes, as (method, path, body): create the pod, or change the one in pod_id."""
+        """The call a deploy makes, as (method, path, body): create the pod, or change the one in pod_id.
+
+        client is the org's client, for a provider that reads its catalog to fill the body. None in a dry run
+        without keys. Raises HostingError when the body needs the client and it is None.
+        """
         ...
 
 
 PROVIDERS: dict[str, HostingProvider] = {}
 # Importing these registers their providers
-PROVIDER_MODULES = ["core.integrations.runpod", "core.integrations.server"]
+PROVIDER_MODULES = ["core.hosting.runpod", "core.hosting.server"]
 
 
 def register(provider: HostingProvider) -> None:
@@ -119,6 +136,34 @@ def get(name: object) -> HostingProvider:
         known = ", ".join(sorted(PROVIDERS)) or "none"
         raise ProviderError(f"provider must be one of: {known}")
     return provider
+
+
+# A pod in this state is gone for good and is never adopted
+TERMINATED = "TERMINATED"
+
+
+def find_by_name(
+    provider: HostingProvider, client: HostingClient, name: str, held: set[str] | frozenset[str] = frozenset()
+) -> dict | None:
+    """The newest pod on the account that has this name, is not terminated and has no id in held, or None.
+
+    A create that timed out or failed with a 5xx may have made the pod anyway. The caller adopts the pod
+    this returns, so a retry does not make a second one.
+    """
+    found = [
+        pod
+        for pod in client.list_pods()
+        if provider.pod_name(pod) == name
+        and str(pod.get("id")) not in held
+        and provider.status(pod) not in (TERMINATED, "GONE")
+    ]
+    found.sort(key=lambda pod: str(pod.get("createdAt") or pod.get("started_at") or ""))
+    return found[-1] if found else None
+
+
+def retryable(error: HostingError) -> bool:
+    """Whether a failed create may have made the pod: no answer, or a 5xx answer."""
+    return error.status is None or error.status >= 500
 
 
 def listing(db, org_id: int) -> list[dict]:

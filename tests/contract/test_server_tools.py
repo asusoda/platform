@@ -2,7 +2,7 @@
 
 import pytest
 
-from core.integrations import server as runner
+from core.hosting import server as runner
 
 from .test_access import SUPERADMIN_ID, headers_for
 

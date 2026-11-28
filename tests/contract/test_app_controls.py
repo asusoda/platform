@@ -9,7 +9,7 @@ import uuid
 import pytest
 
 from core import host
-from core.integrations import server
+from core.hosting import server
 from tests import runner_fake
 
 from .test_access import SUPERADMIN_ID, headers_for
@@ -153,7 +153,7 @@ def test_officers_cannot_control_server_services(client, officer_headers, runner
 
 
 def test_a_database_part_is_healthy_by_tcp(client, officer_headers, runner, apps):
-    from hosting import service
+    from hosting import deploys
 
     tcp_db = {**CRM_DB, "health": {"port": 5432, "tcp": True}}
     name = _deployed(client, officer_headers, apps, tcp_db)
@@ -161,7 +161,7 @@ def test_a_database_part_is_healthy_by_tcp(client, officer_headers, runner, apps
 
     db = db_connect.SessionLocal()
     try:
-        service.check_deployments(db)
+        deploys.check_deployments(db)
     finally:
         db.close()
     assert ("health", "soda", name, 5432, None) in runner.calls
@@ -170,7 +170,7 @@ def test_a_database_part_is_healthy_by_tcp(client, officer_headers, runner, apps
 
 
 def test_runpod_needs_an_http_health_path(client, officer_headers, apps):
-    from .test_runpod_apps import MANIFEST
+    from .test_hosting_apps import MANIFEST
 
     name = "ctl-" + uuid.uuid4().hex[:8]
     apps.append(name)
@@ -181,13 +181,13 @@ def test_runpod_needs_an_http_health_path(client, officer_headers, apps):
 
 def test_a_worker_with_no_port_is_healthy_while_it_runs(client, officer_headers, runner, apps):
     from core.db import db_connect
-    from hosting import service
+    from hosting import deploys
 
     worker = {k: v for k, v in CRM_DB.items() if k not in ("alias", "health")} | {"health": {"running": True}}
     name = _deployed(client, officer_headers, apps, worker)
     db = db_connect.SessionLocal()
     try:
-        service.check_deployments(db)
+        deploys.check_deployments(db)
     finally:
         db.close()
     detail = client.get(f"/api/dashboard/soda/apps/{name}", headers=officer_headers).get_json()

@@ -8,7 +8,7 @@ from flask import Blueprint, g, request
 from core.http.responses import json_body
 from modules.auth.routes import machine_route
 
-from . import service, templates
+from . import deploys, service, templates
 
 apps_blueprint = Blueprint("apps", __name__)
 _route = partial(machine_route, apps_blueprint, module="hosting")
@@ -99,7 +99,7 @@ def app_logs(db, org, name):
 @_route("/<string:name>/deploy", "apps:deploy", ["POST"])
 def deploy(db, org, name):
     data = json_body()
-    result = service.deploy(
+    result = deploys.deploy(
         db,
         _org_id(org),
         str(org.prefix),
@@ -114,7 +114,7 @@ def deploy(db, org, name):
 
 @_route("/<string:name>/rollback", "apps:manage", ["POST"])
 def rollback(db, org, name):
-    result = service.rollback(
+    result = deploys.rollback(
         db, _org_id(org), str(org.prefix), name, _actor(), dry_run=json_body().get("dry_run") is True
     )
     return result, 200 if result.get("dry_run") else 202

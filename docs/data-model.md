@@ -124,7 +124,9 @@ erDiagram
 
 The `godfather` tables keep the `compute_` names of the module's old name. The `feeds` tables keep the `alert_` names. The `hosting` tables keep the `runpod_` names, and the `members` tables keep the `users` names.
 
-`compute_pods` and `runpod_apps` have a `provider` column: the name of the hosting provider in `core/hosting.py`. Migration `dde330bf1668` added it with the default `runpod`, so existing rows stay on RunPod.
+`compute_pods` and `runpod_apps` have a `provider` column: the name of the hosting provider in `core/hosting/`. Migration `dde330bf1668` added it with the default `runpod`, so existing rows stay on RunPod.
+
+`compute_pods.request_id` is the UUID that a create request sent, unique for each org (`uq_compute_pod_request`). The row is saved with `pod_id` `pending-<request_id>` before the provider call, so a second request with the same id finds it. Migration `3f7ab9fccd70` added it; rows from before have none.
 
 `audit_log` has one row for each successful POST, PUT, PATCH or DELETE under `/api`, and one row for each job run. It keeps the route, org, caller, status and path. It never keeps request bodies or file contents. The `audit.prune` job removes rows older than `AUDIT_RETENTION_DAYS` (default 365).
 

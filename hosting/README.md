@@ -1,6 +1,6 @@
 # hosting
 
-Deploys an org's own apps to pods on a hosting provider: register an app's manifest, deploy a new image tag from the app's CI, and roll back. A deploy ends when the app's health path answers, or fails after 15 minutes. Uptime checks the apps after that. Each app keeps its `provider`, and calls go through `core/hosting.py`: RunPod, where each org pays with its own key, or This server (`server`), capped containers on the deployment's server through the runner in `deploy/runner/`. `hosting/` is the apps layer: it sits next to `modules/`, not in it, because it runs the org's own apps, not Platform features. Its switch is `hosting`. The tables, the job name and the limit keys keep their `runpod` names.
+Deploys an org's own apps to pods on a hosting provider: register an app's manifest, deploy a new image tag from the app's CI, and roll back. A deploy ends when the app's health path answers, or fails after 15 minutes. Uptime checks the apps after that. Each app keeps its `provider`, and calls go through `core/hosting/`: RunPod, where each org pays with its own key, or This server (`server`), capped containers on the deployment's server through the runner in `deploy/runner/`. `hosting/` is the apps layer: it sits next to `modules/`, not in it, because it runs the org's own apps, not Platform features. Its switch is `hosting`. The tables, the job name and the limit keys keep their `runpod` names.
 
 ## Files
 
@@ -8,7 +8,10 @@ Deploys an org's own apps to pods on a hosting provider: register an app's manif
 | --- | --- |
 | `api.py` | Machine routes for apps, deployments, deploy and rollback |
 | `officer_api.py` | Officer routes under `/api/dashboard/<org>`: apps, app templates, `hosting/providers` and shared apps |
-| `service.py` | Manifests (inline, or `platform.app.yaml` from the app's repo), deploys, the deploy check and rollback on the app's provider; declares `apps:read`, `apps:manage`, `apps:deploy` and the `runpod_api_key`, `github_token` and `app_*` secrets |
+| `service.py` | Register, list, delete, start, stop and read the logs of apps; the app limits; declares `apps:read`, `apps:manage`, `apps:deploy` and the `app_*` secrets |
+| `manifest.py` | The manifest schema that every provider shares, the provider checks, and `platform.app.yaml` from the app's repo (`github_token`) |
+| `deploys.py` | Deploys, adopting a pod a failed create left, the deploy check and rollback; the `app.deployed` event |
+| `base.py` | `AppError`, the provider and client of an app, and app lookup |
 | `shared.py` | Shared apps: apps with no org that the deployment runs on This server, their deployment secrets, and org subscriptions, which invite people (Vaultwarden) |
 | `templates.py` | App templates from `apps/<name>/platform.app.yaml`, and new apps made from them |
 | `models.py` | Apps, with their `provider`, and deployments |
@@ -24,7 +27,7 @@ Deploys an org's own apps to pods on a hosting provider: register an app's manif
 - Webhook events: `app.deployed`, when a deploy becomes healthy or fails. See [docs/webhooks.md](../docs/webhooks.md).
 - Tables: `runpod_apps`, `runpod_deployments`, `shared_app_subscriptions`.
 - Limits: `runpod.apps`, checked before a new app is made; `runpod.server_apps` and `runpod.server_memory_mb`, checked when an app on This server is registered or deployed. See [docs/limits.md](../docs/limits.md).
-- One deploy of an app at a time creates its pod. While the first deploy of an app creates the pod, another deploy of that app gets 409.
+- One deploy of an app at a time creates its pod. While the first deploy of an app creates the pod, another deploy of that app gets 409. The first deploy adopts a pod with the app's name, before the create and after a create that timed out or got a 5xx, so a retry makes no second pod.
 - An app name has no two dashes in a row. On This server, each deploy saves the container name that the runner answers as the app's `pod_id`, because the runner moves a container with an old name to `app-<org>--<app>`.
 
 See [docs/modules/hosting.md](../docs/modules/hosting.md).

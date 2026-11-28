@@ -4,15 +4,15 @@ import uuid
 
 import pytest
 
-from hosting import service as apps
+from hosting import base
 
-from .test_runpod_apps import MANIFEST, FakeRunPod
+from .test_hosting_apps import MANIFEST, FakeRunPod
 
 
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(apps, "client_for", lambda db, org_id, provider="runpod": client)
+    monkeypatch.setattr(base, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 
@@ -40,7 +40,7 @@ def test_officer_registers_deploys_and_deletes_an_app(client, officer_headers, f
 
     detail = client.get(base, headers=officer_headers).get_json()
     assert detail["current_tag"] == "v1" and [d["tag"] for d in detail["deployments"]] == ["v1"]
-    assert client.get(f"{base}/pod", headers=officer_headers).get_json()["pod"]["desiredStatus"] == "RUNNING"
+    assert client.get(f"{base}/pod", headers=officer_headers).get_json()["pod"]["status"] == "RUNNING"
     assert name in [
         a["name"] for a in client.get("/api/dashboard/ais/apps", headers=officer_headers).get_json()["apps"]
     ]

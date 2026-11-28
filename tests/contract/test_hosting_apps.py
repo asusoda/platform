@@ -8,35 +8,69 @@ import pytest
 from cryptography.fernet import Fernet
 
 from core.db import db_connect
-from core.integrations import runpod
-from hosting import service
+from core.hosting import runpod
+from hosting import base, deploys, service
+from hosting import manifest as manifests
+from tests.contract import runpod_v2
 
 
 class FakeRunPod:
+    """An org's RunPod account. Request bodies must match the v2 spec; pods are the spec's example pod."""
+
     def __init__(self):
         self.calls = []
         self.fail = False
+        self.pods: dict[str, dict] = {}
 
     def create_pod(self, body):
+        runpod_v2.check(body, "CreatePodRequest")
         self.calls.append(("POST", None, body))
         if self.fail:
             raise runpod.RunPodError("RunPod answered 500", 500)
-        return {"id": "pod123"}
+        self.pods["pod123"] = runpod_v2.pod(id="pod123", name=body["name"], status="RUNNING")
+        return self.pods["pod123"]
 
     def update_pod(self, pod_id, body):
+        runpod_v2.check(body, "UpdatePodRequest")
         self.calls.append(("PATCH", pod_id, body))
         if self.fail:
             raise runpod.RunPodError("RunPod answered 500", 500)
-        return {"id": pod_id}
+        return runpod_v2.pod(id=pod_id)
+
+    def list_pods(self):
+        return list(self.pods.values())
 
     def get_pod(self, pod_id):
-        return {"id": pod_id, "desiredStatus": "RUNNING"}
+        return runpod_v2.pod(id=pod_id, status="RUNNING")
+
+    def cpu_types(self):
+        return runpod_v2.load("cpu_types")["cpus"] + [
+            {"id": "cpu5g", "vcpu": {"min": 2, "max": 32}, "ramGbPerVcpu": 4, "price": {"securePerVcpu": 0.03}},
+            {"id": "cpu5m", "vcpu": {"min": 2, "max": 8}, "ramGbPerVcpu": 8, "price": {"securePerVcpu": 0.06}},
+        ]
+
+
+@pytest.fixture(autouse=True)
+def _forget_new_apps(app):
+    """Delete the apps a test registers, so the org stays under its app limit."""
+    from hosting.models import App
+
+    db = db_connect.SessionLocal()
+    before = {a.id for a in db.query(App.id)}
+    db.close()
+    yield
+    db = db_connect.SessionLocal()
+    try:
+        for row in db.query(App).filter(App.id.notin_(before)).all():
+            service.delete_app(db, row.organization_id, str(row.name))
+    finally:
+        db.close()
 
 
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(service, "client_for", lambda db, org_id, provider="runpod": client)
+    monkeypatch.setattr(base, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 
@@ -48,7 +82,7 @@ def healthy(monkeypatch):
         state["urls"].append(url)
         return state["up"]
 
-    from core.integrations import runpod
+    from core.hosting import runpod
 
     monkeypatch.setattr(
         runpod.RunPodProvider, "healthy", lambda self, pod_id, port, path: check(runpod.proxy_url(pod_id, port, path))
@@ -104,7 +138,7 @@ def _register(client, manager, manifest=None):
 def _check():
     db = db_connect.SessionLocal()
     try:
-        return service.check_deployments(db)
+        return deploys.check_deployments(db)
     finally:
         db.close()
 
@@ -161,7 +195,7 @@ def test_secret_env_comes_from_org_secrets_and_dry_run_redacts(client, manager, 
 
     dry = client.post(f"/api/apps/{name}/deploy", json={"tag": "v1", "dry_run": True}, headers=deployer)
     assert dry.status_code == 200
-    assert dry.get_json()["request"]["body"]["env"]["DISCORD_TOKEN"] == service.REDACTED
+    assert dry.get_json()["request"]["body"]["env"]["DISCORD_TOKEN"] == deploys.REDACTED
     assert fake.calls == []
 
     assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 409
@@ -185,10 +219,10 @@ def test_failed_health_and_rollback(client, manager, deployer, fake, healthy):
     _check()
     healthy["up"] = False
     client.post(f"/api/apps/{name}/deploy", json={"tag": "v2"}, headers=deployer)
-    later = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) + service.HEALTH_TIMEOUT
+    later = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) + deploys.HEALTH_TIMEOUT
     db = db_connect.SessionLocal()
     try:
-        service.check_deployments(db, now=later)
+        deploys.check_deployments(db, now=later)
     finally:
         db.close()
 
@@ -230,7 +264,7 @@ def test_second_first_deploy_waits_for_the_pod(client, manager, deployer, fake):
         db = db_connect.SessionLocal()
         try:
             org_id = db.query(Organization.id).filter_by(prefix="ais").scalar()
-            service.deploy(db, org_id, "ais", name, "v2", "ci")
+            deploys.deploy(db, org_id, "ais", name, "v2", "ci")
         except service.AppError as e:
             seen.append(e.status)
         finally:
@@ -250,8 +284,10 @@ def test_second_first_deploy_waits_for_the_pod(client, manager, deployer, fake):
     "manifest",
     [
         {k: v for k, v in MANIFEST.items() if k != "health"},
-        {k: v for k, v in MANIFEST.items() if k != "gpu"},
         {**MANIFEST, "cpu": {"id": "cpu5c", "vcpuCount": 4}},
+        {**MANIFEST, "mounts": {"persistent": {"size": 5, "path": "/workspace"}}},
+        {**{k: v for k, v in MANIFEST.items() if k != "gpu"}, "mounts": {"persistent": {"size": 20, "path": "/w"}}},
+        {**MANIFEST, "publish": {"8080": 18080}},
         {**MANIFEST, "image": "ghcr.io/x/y:latest"},
         {**MANIFEST, "ports": ["8080"]},
         {**MANIFEST, "unknown": 1},
@@ -326,7 +362,7 @@ def github(monkeypatch):
         text = files.get((f"{owner}/{repo}", path, ref))
         return _GitHubFile(404) if text is None else _GitHubFile(200, text)
 
-    monkeypatch.setattr(service.requests, "get", get)
+    monkeypatch.setattr(manifests.requests, "get", get)
     return files, seen
 
 
@@ -400,7 +436,7 @@ def test_private_repo_uses_the_github_secret_and_rollback_reuses_the_old_manifes
     db = db_connect.SessionLocal()
     try:
         org_id = db.query(Organization.id).filter_by(prefix="ais").scalar()
-        secrets.set_secret(db, org_id, service.GITHUB_SECRET, "ghp_test")
+        secrets.set_secret(db, org_id, manifests.GITHUB_SECRET, "ghp_test")
     finally:
         db.close()
     try:
@@ -419,7 +455,7 @@ def test_private_repo_uses_the_github_secret_and_rollback_reuses_the_old_manifes
     finally:
         db = db_connect.SessionLocal()
         try:
-            secrets.delete_secret(db, org_id, service.GITHUB_SECRET)
+            secrets.delete_secret(db, org_id, manifests.GITHUB_SECRET)
         finally:
             db.close()
 
@@ -457,3 +493,74 @@ def test_uptime_watches_a_new_app_and_forgets_a_deleted_one(client, manager):
     deleted = client.delete(f"/api/apps/{name}", headers=manager)
     assert deleted.get_json()["deleted"] is True
     assert _monitors(name) == []
+
+
+# Provider-neutral manifests and adopting a pod by name
+
+
+def test_memory_and_cpus_pick_the_smallest_cpu_flavor(client, manager, deployer, fake):
+    small = {"image": "ghcr.io/example-club/site", "memory": 2048, "cpus": 1, "health": MANIFEST["health"]}
+    name = _register(client, manager, small)
+    dry = client.post(f"/api/apps/{name}/deploy", json={"tag": "v1", "dry_run": True}, headers=deployer)
+    assert dry.get_json()["request"]["body"]["cpu"] == {"id": "cpu5g", "vcpuCount": 2}
+    assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 202
+    assert fake.calls[-1][2]["cpu"] == {"id": "cpu5g", "vcpuCount": 2} and "memory" not in fake.calls[-1][2]
+
+    # 16 GB: the flavor with the most memory for each vCPU is the cheapest
+    name = _register(client, manager, small | {"memory": 16384, "cpus": 2})
+    assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 202
+    assert fake.calls[-1][2]["cpu"] == {"id": "cpu5m", "vcpuCount": 2}
+
+    name = _register(client, manager, small | {"memory": 300_000})
+    calls = len(fake.calls)
+    too_big = client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer)
+    assert too_big.status_code == 400 and "No CPU flavor" in too_big.get_json()["error"]
+    assert len(fake.calls) == calls
+    assert client.get(f"/api/apps/{name}/deployments", headers=manager).get_json()["deployments"] == []
+
+
+def test_cpu_without_gpu_is_a_cpu_pod(client, manager, deployer, fake):
+    manifest = {k: v for k, v in MANIFEST.items() if k != "gpu"} | {"cpu": {"id": "cpu3c", "vcpuCount": 4}}
+    name = _register(client, manager, manifest | {"memory": 99999})
+    client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer)
+    assert fake.calls[-1][2]["cpu"] == {"id": "cpu3c", "vcpuCount": 4} and "gpu" not in fake.calls[-1][2]
+
+
+def test_a_create_that_times_out_adopts_the_pod_by_name(client, manager, deployer, fake):
+    name = _register(client, manager)
+    pod_id = "t" + uuid.uuid4().hex[:12]
+
+    def made_then_timed_out(body):
+        fake.calls.append(("POST", None, body))
+        fake.pods[pod_id] = runpod_v2.pod(id=pod_id, name=body["name"], status="PROVISIONING")
+        raise runpod.RunPodError("RunPod could not be reached")
+
+    fake.create_pod = made_then_timed_out
+    assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 202
+    assert [(c[0], c[1]) for c in fake.calls] == [("POST", None), ("PATCH", pod_id)]
+    assert client.get(f"/api/apps/{name}", headers=manager).get_json()["pod_id"] == pod_id
+
+
+def test_an_existing_pod_with_the_app_name_is_adopted(client, manager, deployer, fake):
+    name = _register(client, manager)
+    left, gone, other = ("p" + uuid.uuid4().hex[:12] for _ in range(3))
+    fake.pods[gone] = runpod_v2.pod(id=gone, name=f"ais-{name}", status="TERMINATED")
+    fake.pods[left] = runpod_v2.pod(id=left, name=f"ais-{name}", status="EXITED")
+    fake.pods[other] = runpod_v2.pod(id=other, name="ais-another-app", status="RUNNING")
+    assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 202
+    assert [(c[0], c[1]) for c in fake.calls] == [("PATCH", left)]
+    assert fake.calls[0][2]["image"].endswith(":v1")
+
+
+def test_a_refused_create_adopts_nothing(client, manager, deployer, fake):
+    name = _register(client, manager)
+    fake.pods["x" + uuid.uuid4().hex[:12]] = runpod_v2.pod(name="ais-unrelated")
+
+    def refuse(body):
+        fake.calls.append(("POST", None, body))
+        raise runpod.RunPodError("RunPod answered 400: no capacity", 400)
+
+    fake.create_pod = refuse
+    assert client.post(f"/api/apps/{name}/deploy", json={"tag": "v1"}, headers=deployer).status_code == 502
+    assert [c[0] for c in fake.calls] == ["POST"]
+    assert client.get(f"/api/apps/{name}", headers=manager).get_json()["pod_id"] is None

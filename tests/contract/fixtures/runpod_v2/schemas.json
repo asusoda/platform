@@ -1,0 +1,1212 @@
+{
+ "components": {
+  "schemas": {
+   "AvailabilityLevel": {
+    "enum": [
+     "NONE",
+     "LOW",
+     "MEDIUM",
+     "HIGH"
+    ],
+    "type": "string"
+   },
+   "BaseContainerConfig": {
+    "properties": {
+     "args": {
+      "type": "string"
+     },
+     "cmd": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "disk": {
+      "minimum": 1,
+      "type": "integer"
+     },
+     "entrypoint": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "env": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object"
+     },
+     "image": {
+      "type": "string"
+     },
+     "ports": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
+   "BaseCpuConfig": {
+    "properties": {
+     "id": {
+      "minLength": 1,
+      "type": "string"
+     },
+     "vcpuCount": {
+      "minimum": 2,
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "vcpuCount"
+    ],
+    "type": "object"
+   },
+   "BaseGpuConfig": {
+    "properties": {
+     "count": {
+      "default": 1,
+      "maximum": 1024,
+      "minimum": 1,
+      "type": "integer"
+     },
+     "id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "type": "object"
+   },
+   "BaseMounts": {
+    "properties": {
+     "network": {
+      "items": {
+       "$ref": "#/components/schemas/NetworkMount"
+      },
+      "type": "array"
+     },
+     "persistent": {
+      "$ref": "#/components/schemas/PersistentMount"
+     }
+    },
+    "type": "object"
+   },
+   "Cloud": {
+    "enum": [
+     "SECURE",
+     "COMMUNITY"
+    ],
+    "type": "string"
+   },
+   "ContainerConfig": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/BaseContainerConfig"
+     },
+     {
+      "properties": {
+       "registry": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "type": "object"
+     }
+    ]
+   },
+   "CostCenter": {
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "value"
+    ],
+    "type": "object"
+   },
+   "CpuConfig": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/BaseCpuConfig"
+     },
+     {
+      "properties": {
+       "memory": {
+        "minimum": 1,
+        "type": "integer"
+       }
+      },
+      "required": [
+       "memory"
+      ],
+      "type": "object"
+     }
+    ]
+   },
+   "CpuType": {
+    "properties": {
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityLevel"
+     },
+     "dataCenters": {
+      "items": {
+       "$ref": "#/components/schemas/DataCenterAvailability"
+      },
+      "type": "array"
+     },
+     "group": {
+      "type": "string"
+     },
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "price": {
+      "properties": {
+       "securePerVcpu": {
+        "format": "float",
+        "type": "number"
+       },
+       "serverlessPerVcpu": {
+        "format": "float",
+        "type": "number"
+       }
+      },
+      "required": [
+       "securePerVcpu",
+       "serverlessPerVcpu"
+      ],
+      "type": "object"
+     },
+     "ramGbPerVcpu": {
+      "format": "float",
+      "type": "number"
+     },
+     "vcpu": {
+      "properties": {
+       "max": {
+        "type": "integer"
+       },
+       "min": {
+        "type": "integer"
+       }
+      },
+      "required": [
+       "min",
+       "max"
+      ],
+      "type": "object"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "group",
+     "vcpu",
+     "ramGbPerVcpu",
+     "price"
+    ],
+    "type": "object"
+   },
+   "CreateCpuConfig": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/BaseCpuConfig"
+     }
+    ],
+    "unevaluatedProperties": false
+   },
+   "CreateGpuConfig": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/BaseGpuConfig"
+     },
+     {
+      "properties": {
+       "allowedCudaVersions": {
+        "items": {
+         "pattern": "^\\d+\\.\\d+$",
+         "type": "string"
+        },
+        "type": "array"
+       },
+       "minCudaVersion": {
+        "pattern": "^\\d+\\.\\d+$",
+        "type": "string"
+       },
+       "minRamPerGpu": {
+        "maximum": 65536,
+        "minimum": 1,
+        "type": "integer"
+       },
+       "minVcpuCountPerGpu": {
+        "maximum": 4096,
+        "minimum": 1,
+        "type": "integer"
+       }
+      },
+      "type": "object"
+     }
+    ],
+    "unevaluatedProperties": false
+   },
+   "CreatePodRequest": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/ContainerConfig"
+     },
+     {
+      "properties": {
+       "cloud": {
+        "allOf": [
+         {
+          "$ref": "#/components/schemas/Cloud"
+         }
+        ],
+        "default": "SECURE"
+       },
+       "cpu": {
+        "$ref": "#/components/schemas/CreateCpuConfig"
+       },
+       "dataCenterIds": {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       "globalNetworking": {
+        "default": false,
+        "type": "boolean"
+       },
+       "gpu": {
+        "$ref": "#/components/schemas/CreateGpuConfig"
+       },
+       "mounts": {
+        "$ref": "#/components/schemas/Mounts"
+       },
+       "name": {
+        "minLength": 1,
+        "type": "string"
+       },
+       "queue": {
+        "$ref": "#/components/schemas/PodQueueOptions"
+       },
+       "startJupyter": {
+        "default": false,
+        "type": "boolean"
+       },
+       "startSsh": {
+        "default": false,
+        "type": "boolean"
+       },
+       "templateId": {
+        "minLength": 1,
+        "type": "string"
+       }
+      },
+      "required": [
+       "name"
+      ],
+      "type": "object"
+     }
+    ],
+    "if": {
+     "not": {
+      "required": [
+       "templateId"
+      ]
+     }
+    },
+    "then": {
+     "required": [
+      "image"
+     ]
+    },
+    "unevaluatedProperties": false
+   },
+   "CudaVersionAvailability": {
+    "properties": {
+     "available": {
+      "type": "boolean"
+     },
+     "version": {
+      "pattern": "^\\d+\\.\\d+$",
+      "type": "string"
+     }
+    },
+    "required": [
+     "version",
+     "available"
+    ],
+    "type": "object"
+   },
+   "DataCenterAvailability": {
+    "properties": {
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityLevel"
+     },
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "availability"
+    ],
+    "type": "object"
+   },
+   "GlobalMount": {
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "volumeId": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "volumeId"
+    ],
+    "type": "object"
+   },
+   "GlobalMountPatch": {
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "minLength": 1,
+      "type": "string"
+     },
+     "remove": {
+      "type": "boolean"
+     },
+     "volumeId": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "volumeId"
+    ],
+    "type": "object"
+   },
+   "GpuConfig": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/BaseGpuConfig"
+     },
+     {
+      "properties": {
+       "memory": {
+        "format": "double",
+        "minimum": 1,
+        "type": "number"
+       },
+       "vcpuCount": {
+        "format": "double",
+        "minimum": 1,
+        "type": "number"
+       }
+      },
+      "required": [
+       "vcpuCount",
+       "memory"
+      ],
+      "type": "object"
+     }
+    ]
+   },
+   "GpuManufacturer": {
+    "enum": [
+     "NVIDIA",
+     "AMD",
+     "UNKNOWN"
+    ],
+    "type": "string"
+   },
+   "GpuType": {
+    "properties": {
+     "availability": {
+      "$ref": "#/components/schemas/AvailabilityLevel"
+     },
+     "community": {
+      "type": "boolean"
+     },
+     "cudaVersions": {
+      "items": {
+       "$ref": "#/components/schemas/CudaVersionAvailability"
+      },
+      "type": "array"
+     },
+     "dataCenters": {
+      "items": {
+       "$ref": "#/components/schemas/DataCenterAvailability"
+      },
+      "type": "array"
+     },
+     "id": {
+      "type": "string"
+     },
+     "manufacturer": {
+      "$ref": "#/components/schemas/GpuManufacturer"
+     },
+     "maxCount": {
+      "properties": {
+       "community": {
+        "type": "integer"
+       },
+       "secure": {
+        "type": "integer"
+       }
+      },
+      "required": [
+       "secure",
+       "community"
+      ],
+      "type": "object"
+     },
+     "memory": {
+      "type": "integer"
+     },
+     "minRam": {
+      "type": "integer"
+     },
+     "minVcpuCount": {
+      "type": "integer"
+     },
+     "name": {
+      "type": "string"
+     },
+     "pool": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "price": {
+      "properties": {
+       "community": {
+        "format": "float",
+        "type": "number"
+       },
+       "secure": {
+        "format": "float",
+        "type": "number"
+       },
+       "serverless": {
+        "format": "float",
+        "type": "number"
+       }
+      },
+      "required": [
+       "secure",
+       "community"
+      ],
+      "type": "object"
+     },
+     "secure": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "pool",
+     "manufacturer",
+     "memory",
+     "secure",
+     "community",
+     "price",
+     "maxCount"
+    ],
+    "type": "object"
+   },
+   "ListCpuTypesResponse": {
+    "properties": {
+     "cpus": {
+      "items": {
+       "$ref": "#/components/schemas/CpuType"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "cpus"
+    ],
+    "type": "object"
+   },
+   "ListGpuTypesResponse": {
+    "properties": {
+     "gpus": {
+      "items": {
+       "$ref": "#/components/schemas/GpuType"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "gpus"
+    ],
+    "type": "object"
+   },
+   "ListPodsResponse": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/PodList"
+     },
+     {
+      "$ref": "#/components/schemas/Paginated"
+     }
+    ]
+   },
+   "Mounts": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/BaseMounts"
+     },
+     {
+      "properties": {
+       "global": {
+        "items": {
+         "$ref": "#/components/schemas/GlobalMount"
+        },
+        "maxItems": 1,
+        "type": "array"
+       },
+       "network": {
+        "items": {
+         "$ref": "#/components/schemas/NetworkMount"
+        },
+        "maxItems": 4,
+        "type": "array"
+       }
+      },
+      "type": "object"
+     }
+    ],
+    "unevaluatedProperties": false
+   },
+   "NetworkMount": {
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "volumeId": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "volumeId",
+     "path"
+    ],
+    "type": "object"
+   },
+   "NetworkMountPatch": {
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "minLength": 1,
+      "type": "string"
+     },
+     "remove": {
+      "type": "boolean"
+     },
+     "volumeId": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "volumeId"
+    ],
+    "type": "object"
+   },
+   "Paginated": {
+    "properties": {
+     "pagination": {
+      "$ref": "#/components/schemas/Pagination"
+     }
+    },
+    "required": [
+     "pagination"
+    ],
+    "type": "object"
+   },
+   "Pagination": {
+    "properties": {
+     "hasNextPage": {
+      "type": "boolean"
+     },
+     "nextCursor": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "nextCursor",
+     "hasNextPage"
+    ],
+    "type": "object"
+   },
+   "PersistentMount": {
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "size": {
+      "minimum": 10,
+      "type": "integer"
+     }
+    },
+    "required": [
+     "size",
+     "path"
+    ],
+    "type": "object"
+   },
+   "PersistentMountPatch": {
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "minLength": 1,
+      "type": "string"
+     },
+     "remove": {
+      "type": "boolean"
+     },
+     "size": {
+      "minimum": 10,
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "Pod": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/ContainerConfig"
+     },
+     {
+      "properties": {
+       "actions": {
+        "items": {
+         "$ref": "#/components/schemas/PodAction"
+        },
+        "type": "array"
+       },
+       "cloud": {
+        "$ref": "#/components/schemas/Cloud"
+       },
+       "cluster": {
+        "allOf": [
+         {
+          "$ref": "#/components/schemas/PodCluster"
+         }
+        ]
+       },
+       "cost": {
+        "format": "float",
+        "type": "number"
+       },
+       "costCenter": {
+        "$ref": "#/components/schemas/ResourceCostCenter"
+       },
+       "cpu": {
+        "allOf": [
+         {
+          "$ref": "#/components/schemas/CpuConfig"
+         }
+        ]
+       },
+       "createdAt": {
+        "format": "date-time",
+        "type": "string"
+       },
+       "cudaVersion": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "dataCenterId": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "globalNetworking": {
+        "$ref": "#/components/schemas/PodGlobalNetworking"
+       },
+       "gpu": {
+        "allOf": [
+         {
+          "$ref": "#/components/schemas/GpuConfig"
+         }
+        ]
+       },
+       "id": {
+        "type": "string"
+       },
+       "locked": {
+        "type": "boolean"
+       },
+       "mounts": {
+        "$ref": "#/components/schemas/Mounts"
+       },
+       "name": {
+        "type": "string"
+       },
+       "runtime": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/PodRuntime"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "ssh": {
+        "allOf": [
+         {
+          "$ref": "#/components/schemas/PodSsh"
+         }
+        ]
+       },
+       "startedAt": {
+        "format": "date-time",
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "status": {
+        "$ref": "#/components/schemas/PodStatus"
+       },
+       "tags": {
+        "$ref": "#/components/schemas/ResourceTags"
+       },
+       "template": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "name",
+       "status",
+       "actions",
+       "image",
+       "args",
+       "disk",
+       "mounts",
+       "ports",
+       "env",
+       "registry",
+       "cloud",
+       "dataCenterId",
+       "cudaVersion",
+       "ssh",
+       "template",
+       "cost",
+       "locked",
+       "runtime",
+       "createdAt",
+       "startedAt",
+       "globalNetworking"
+      ],
+      "type": "object"
+     }
+    ]
+   },
+   "PodAction": {
+    "enum": [
+     "start",
+     "stop",
+     "restart",
+     "terminate"
+    ],
+    "type": "string"
+   },
+   "PodActionRequest": {
+    "additionalProperties": false,
+    "properties": {
+     "action": {
+      "$ref": "#/components/schemas/PodAction"
+     }
+    },
+    "required": [
+     "action"
+    ],
+    "type": "object"
+   },
+   "PodCluster": {
+    "additionalProperties": false,
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "ip": {
+      "type": "string"
+     },
+     "rank": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "role": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/PodClusterRole"
+       }
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "rank"
+    ],
+    "type": "object"
+   },
+   "PodClusterRole": {
+    "enum": [
+     "SLURM_CONTROLLER",
+     "SLURM_COMPUTE",
+     "RAY_HEAD",
+     "RAY_WORKER"
+    ],
+    "type": "string"
+   },
+   "PodGlobalNetworking": {
+    "properties": {
+     "enabled": {
+      "type": "boolean"
+     },
+     "internalDns": {
+      "type": "string"
+     },
+     "ip": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "enabled"
+    ],
+    "type": "object"
+   },
+   "PodGpuUtilization": {
+    "properties": {
+     "memoryUtil": {
+      "type": "integer"
+     },
+     "util": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "PodList": {
+    "properties": {
+     "pods": {
+      "items": {
+       "$ref": "#/components/schemas/Pod"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "pods"
+    ],
+    "type": "object"
+   },
+   "PodQueueAllowedHours": {
+    "properties": {
+     "friday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     },
+     "monday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     },
+     "saturday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     },
+     "sunday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     },
+     "thursday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     },
+     "tuesday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     },
+     "wednesday": {
+      "$ref": "#/components/schemas/PodQueueHours"
+     }
+    },
+    "type": "object",
+    "unevaluatedProperties": false
+   },
+   "PodQueueHours": {
+    "items": {
+     "maximum": 23,
+     "minimum": 0,
+     "type": "integer"
+    },
+    "type": "array"
+   },
+   "PodQueueOptions": {
+    "properties": {
+     "allowedHours": {
+      "$ref": "#/components/schemas/PodQueueAllowedHours"
+     },
+     "expiresAt": {
+      "format": "date-time",
+      "type": "string"
+     },
+     "notifyEmail": {
+      "format": "email",
+      "type": "string"
+     },
+     "startsAt": {
+      "format": "date-time",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "unevaluatedProperties": false
+   },
+   "PodRuntime": {
+    "properties": {
+     "cpu": {
+      "$ref": "#/components/schemas/Utilization"
+     },
+     "gpus": {
+      "items": {
+       "$ref": "#/components/schemas/PodGpuUtilization"
+      },
+      "type": "array"
+     },
+     "memory": {
+      "$ref": "#/components/schemas/Utilization"
+     },
+     "ports": {
+      "items": {
+       "$ref": "#/components/schemas/PodRuntimePort"
+      },
+      "type": "array"
+     },
+     "uptime": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   },
+   "PodRuntimePort": {
+    "properties": {
+     "ip": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "private": {
+      "type": "integer"
+     },
+     "public": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "type": {
+      "type": "string"
+     }
+    },
+    "type": "object"
+   },
+   "PodSsh": {
+    "properties": {
+     "direct": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PodSshEndpoint"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "proxy": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PodSshEndpoint"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "proxy",
+     "direct"
+    ],
+    "type": "object"
+   },
+   "PodSshEndpoint": {
+    "properties": {
+     "command": {
+      "type": "string"
+     },
+     "host": {
+      "type": "string"
+     },
+     "port": {
+      "type": "integer"
+     },
+     "username": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "host",
+     "port",
+     "username",
+     "command"
+    ],
+    "type": "object"
+   },
+   "PodStatus": {
+    "enum": [
+     "PROVISIONING",
+     "STARTING",
+     "RUNNING",
+     "EXITED",
+     "ERROR",
+     "TERMINATED"
+    ],
+    "type": "string"
+   },
+   "ResourceCostCenter": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/CostCenter"
+     }
+    ]
+   },
+   "ResourceTags": {
+    "items": {
+     "$ref": "#/components/schemas/TagReference"
+    },
+    "type": "array"
+   },
+   "TagReference": {
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "key": {
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "value"
+    ],
+    "type": "object"
+   },
+   "UpdatePodMounts": {
+    "additionalProperties": false,
+    "properties": {
+     "global": {
+      "items": {
+       "$ref": "#/components/schemas/GlobalMountPatch"
+      },
+      "maxItems": 2,
+      "type": "array"
+     },
+     "network": {
+      "items": {
+       "$ref": "#/components/schemas/NetworkMountPatch"
+      },
+      "maxItems": 8,
+      "type": "array"
+     },
+     "persistent": {
+      "$ref": "#/components/schemas/PersistentMountPatch"
+     }
+    },
+    "type": "object"
+   },
+   "UpdatePodRequest": {
+    "allOf": [
+     {
+      "$ref": "#/components/schemas/ContainerConfig"
+     },
+     {
+      "properties": {
+       "globalNetworking": {
+        "type": "boolean"
+       },
+       "locked": {
+        "type": "boolean"
+       },
+       "mounts": {
+        "$ref": "#/components/schemas/UpdatePodMounts"
+       },
+       "name": {
+        "minLength": 1,
+        "type": "string"
+       },
+       "templateId": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     }
+    ],
+    "unevaluatedProperties": false
+   },
+   "Utilization": {
+    "properties": {
+     "util": {
+      "type": "integer"
+     }
+    },
+    "type": "object"
+   }
+  }
+ },
+ "fetched": "2026-11-28",
+ "sha256": "61739e732dc832c8fc6cb6353b93403cc309650f41905655d640b45442298e9c",
+ "source": "https://api.runpod.io/v2/openapi.json",
+ "version": "2.0.0"
+}

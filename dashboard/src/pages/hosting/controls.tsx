@@ -22,12 +22,12 @@ export function RunControls({ prefix, app }: { prefix: string; app: App }) {
   });
   if (!app.pod_id) return null;
   const found = pod.data?.pod as (RunPodPod & ServerPod) | null | undefined;
-  const state = String(found?.state ?? found?.desiredStatus ?? '').toLowerCase();
+  const state = String(found?.state ?? found?.status ?? '').toLowerCase();
   const running = state === 'running';
   const busy = act.isPending ? act.variables : null;
   return (
     <>
-      <Button onClick={() => act.mutate('restart')} disabled={act.isPending} title="Stop and start the app">
+      <Button onClick={() => act.mutate('restart')} disabled={act.isPending} title="Restart the app">
         {busy === 'restart' ? <Spinner className="size-3.5" /> : <RotateCw className="size-4" />} Restart
       </Button>
       <Button onClick={() => act.mutate(running ? 'stop' : 'start')} disabled={act.isPending || !found}>

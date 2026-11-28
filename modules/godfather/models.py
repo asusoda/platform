@@ -32,8 +32,13 @@ class ComputePod(Base):
     # The image the pod was created from, pinned by digest. A pod with no version predates the image check.
     image_digest: Mapped[str | None] = mapped_column(String(80), nullable=True)
     image_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The UUID the create request sent, so a repeated request finds this row instead of making a second pod
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    __table_args__ = (UniqueConstraint("organization_id", "pod_id", name="uq_compute_pod"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "pod_id", name="uq_compute_pod"),
+        UniqueConstraint("organization_id", "request_id", name="uq_compute_pod_request"),
+    )
 
 
 class ComputeKey(Base):

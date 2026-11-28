@@ -145,10 +145,21 @@ def keypair(db, org_id: int, kind: str) -> tuple[str, str]:
     return str(row.public_key), private
 
 
+# The pod id of a row whose create request still waits for the provider
+PENDING_PREFIX = "pending-"
+
+
+def pending(row: ComputePod) -> bool:
+    """Whether the row holds a create request that the provider has not answered yet."""
+    return str(row.pod_id).startswith(PENDING_PREFIX)
+
+
 def find_pod(db, org_id: int, pod_id: str) -> ComputePod:
     row = db.query(ComputePod).filter_by(organization_id=org_id, pod_id=pod_id).first()
     if row is None:
         raise GodfatherError("Pod not found", 404)
+    if pending(row):
+        raise GodfatherError("The pod is still being created. Try again in a minute", 409)
     return row
 
 

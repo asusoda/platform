@@ -2,15 +2,15 @@
 
 import pytest
 
-from hosting import app_mcp, service
+from hosting import app_mcp, base
 
-from .test_runpod_apps import MANIFEST, FakeRunPod, _issue, _name
+from .test_hosting_apps import MANIFEST, FakeRunPod, _issue, _name
 
 
 @pytest.fixture
 def fake(monkeypatch):
     client = FakeRunPod()
-    monkeypatch.setattr(service, "client_for", lambda db, org_id, provider="runpod": client)
+    monkeypatch.setattr(base, "client_for", lambda db, org_id, provider="runpod": client)
     return client
 
 
@@ -30,12 +30,12 @@ def test_an_app_adopts_a_pod_and_its_mcp_address_is_the_pod_proxy(client, manage
     assert response.get_json()["pod_id"] == "8pgxxcyb1slrc6"
 
     from core.db import db_connect
-    from hosting.service import _find
+    from hosting.base import find
 
     db = db_connect.SessionLocal()
     try:
         org_id = _find_org(db)
-        assert app_mcp.endpoint(_find(db, org_id, name)) == "https://8pgxxcyb1slrc6-6006.proxy.runpod.net/mcp"
+        assert app_mcp.endpoint(find(db, org_id, name)) == "https://8pgxxcyb1slrc6-6006.proxy.runpod.net/mcp"
     finally:
         db.close()
 

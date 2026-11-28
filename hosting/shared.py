@@ -19,7 +19,7 @@ from core import secrets
 from core.errors import ServiceError
 from core.log import get_logger
 from core.time import iso
-from hosting import service
+from hosting import base, service
 from hosting.models import App, SharedAppSubscription
 
 logger = get_logger(__name__)
@@ -42,12 +42,8 @@ def _find(db, name: str) -> App:
     return app
 
 
-def _manifest(app: App) -> dict:
-    return service._manifest(app)
-
-
 def _summary(db, app: App) -> dict:
-    manifest = _manifest(app)
+    manifest = base.manifest_of(app)
     subscribers = db.query(SharedAppSubscription).filter_by(app_id=app.id).count()
     return {
         "name": app.name,
@@ -66,12 +62,12 @@ def _summary(db, app: App) -> dict:
 def list_shared(db) -> list[dict]:
     """Every shared app, with its latest deployment and how many orgs subscribe."""
     apps = db.query(App).filter(App.organization_id.is_(None)).order_by(App.name).all()
-    return [service._app_dict(db, app) | {"subscribers": _summary(db, app)["subscribers"]} for app in apps]
+    return [service.app_dict(db, app) | {"subscribers": _summary(db, app)["subscribers"]} for app in apps]
 
 
 def put_shared(db, name: str, manifest: Any) -> dict:
     """Create a shared app or replace its manifest. Shared apps run on This server. Commits."""
-    return service.put_app(db, None, name, manifest=manifest, provider=service.SERVER)
+    return service.put_app(db, None, name, manifest=manifest, provider=base.SERVER)
 
 
 def get_shared(db, name: str) -> dict:
@@ -137,7 +133,7 @@ def for_org(db, org_id: int) -> list[dict]:
     """The deployed shared apps that orgs subscribe to (those with an access kind), and whether the org subscribes
     and whom it invited. Others, such as the embedding server, are the deployment's own."""
     apps = db.query(App).filter(App.organization_id.is_(None), App.current_tag.isnot(None)).order_by(App.name).all()
-    apps = [a for a in apps if (_manifest(a).get("access") or {}).get("kind")]
+    apps = [a for a in apps if (base.manifest_of(a).get("access") or {}).get("kind")]
     mine = {s.app_id: s for s in db.query(SharedAppSubscription).filter_by(organization_id=org_id).all()}
     out = []
     for app in apps:
@@ -162,16 +158,16 @@ def _emails(value: Any) -> list[str]:
 
 def _vaultwarden_invite(db, app: App, emails: list[str]) -> dict[str, str]:
     """Invite each email to Vaultwarden through its admin page. Returns email to result."""
-    manifest = _manifest(app)
-    base = str(manifest.get("url") or "").rstrip("/")
+    manifest = base.manifest_of(app)
+    url = str(manifest.get("url") or "").rstrip("/")
     token_name = (manifest.get("secret_env") or {}).get("ADMIN_TOKEN")
     token = secrets.get_deployment_secret(db, token_name) if token_name else None
-    if not base or not token:
+    if not url or not token:
         raise SharedAppError("The vault has no url or no ADMIN_TOKEN secret yet. Ask the superadmin", 409)
     session = requests.Session()
     session.headers["User-Agent"] = "Platform shared apps"
     try:
-        login = session.post(f"{base}/admin", data={"token": token}, timeout=TIMEOUT_SECONDS, allow_redirects=False)
+        login = session.post(f"{url}/admin", data={"token": token}, timeout=TIMEOUT_SECONDS, allow_redirects=False)
     except requests.RequestException as e:
         raise SharedAppError(f"The vault did not answer: {type(e).__name__}", 502) from e
     if login.status_code >= 400 or "VW_ADMIN" not in session.cookies:
@@ -179,7 +175,7 @@ def _vaultwarden_invite(db, app: App, emails: list[str]) -> dict[str, str]:
     results = {}
     for email in emails:
         try:
-            response = session.post(f"{base}/admin/invite", json={"email": email}, timeout=TIMEOUT_SECONDS)
+            response = session.post(f"{url}/admin/invite", json={"email": email}, timeout=TIMEOUT_SECONDS)
         except requests.RequestException as e:
             results[email] = f"not invited: {type(e).__name__}"
             continue
@@ -200,7 +196,7 @@ def subscribe(db, org_id: int, name: str, emails: Any, actor: str | None) -> dic
     app = _find(db, name)
     if not app.current_tag:
         raise SharedAppError("This shared app is not deployed yet", 409)
-    access = (_manifest(app).get("access") or {}).get("kind")
+    access = (base.manifest_of(app).get("access") or {}).get("kind")
     if not access:
         raise SharedAppError("Orgs do not subscribe to this shared app", 409)
     chosen = _emails(emails) if access else []
