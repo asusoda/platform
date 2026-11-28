@@ -1291,6 +1291,7 @@ export function fixtures(now: number = Date.now()) {
     ['monitor.down', 'Monitors down', 'An uptime monitor finds its address down.', 'uptime'],
     ['monitor.up', 'Monitors up', 'An uptime monitor that was down finds its address up again.', 'uptime'],
     ['asu.session_expired', 'ASU sign-in expired', 'The saved ASU sign-in expired. An officer signs in again on the Integrations page.', null],
+    ['leetcode.post_failed', 'LeetCode post failures', 'The bot could not post the daily LeetCode question. Sent once a day.', 'leetcode'],
   ].map(([key, label, description, module]) => ({ key, label, description, module }));
   const webhook = (
     id: number,
@@ -1814,6 +1815,27 @@ export function fixtures(now: number = Date.now()) {
       kinds: [{ key: 'discord', label: 'Discord', example: 'https://discord.com/api/webhooks/...' }],
       feeds: feeds.map(({ key, kind, enabled, destination_id, webhook_set, last_run_at, last_error }) => ({ key, kind, enabled, destination_id, webhook_set, last_run_at, last_error })),
       secrets_key: true,
+    },
+    [`/api/dashboard/${ORG.prefix}/webhooks/deliveries` as const]: {
+      deliveries: [
+        [6, 1, 'event', 'errors', 'KeyError in points.award', 'sent', null, null, -38 * MINUTE],
+        [5, null, 'leetcode', 'org:1', 'Daily LeetCode: Two Sum', 'sent', null, 'https://discord.com/channels/1/2/3', -90 * MINUTE],
+        [4, 5, 'feed', 'internships', 'New Job: Acme Robotics', 'sent', null, null, -100 * MINUTE],
+        [3, 2, 'event', 'pod.started', 'Pod gpu-1 started', 'sent', null, null, -2 * HOUR - 5 * MINUTE],
+        [2, 3, 'event', 'order.created', 'New store order #418', 'failed', 'Discord refused the message with status 404', null, -5 * DAY],
+        [1, 3, 'test', 'test', `Test from ${ORG.name}`, 'sent', null, null, -6 * DAY],
+      ].map(([id, destination_id, source, ref, title, status, error, message_url, ago]) => ({
+        id,
+        destination_id,
+        source,
+        ref,
+        title,
+        status,
+        error,
+        message_url,
+        created_at: at(ago as number),
+      })),
+      next: null,
     },
     ...Object.fromEntries(
       webhooks.map((w) => [`/api/dashboard/${ORG.prefix}/webhooks/${w.id}/test`, { ok: true, message: 'Sent. Look for the message in the channel.' }]),
