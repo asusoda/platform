@@ -1,14 +1,12 @@
 from flask import Blueprint, g, jsonify, request
-from sqlalchemy import func
 
 from core.db import db_connect
 from core.http.responses import error_handler
 from modules.auth.access import decide
 from modules.auth.decorators import auth_required, dual_auth_required, org_officer_required
 from modules.organizations.service import find_by_prefix
-from modules.points.models import Points
 from modules.storefront import service
-from modules.storefront.models import Order, Product
+from modules.storefront.models import Product
 from modules.users.models import User, UserOrganizationMembership
 
 storefront_blueprint = Blueprint("storefront", __name__)
@@ -214,32 +212,8 @@ def get_orders(org_prefix):
             return jsonify({"error": "Organization not found"}), 404
 
         orders = service.orders(db, org.id)
-        return jsonify(
-            [
-                {
-                    "id": o.id,
-                    "user_id": o.user_id,
-                    "total_amount": o.total_amount,
-                    "status": o.status,
-                    "message": o.message,
-                    "created_at": o.created_at.isoformat(),
-                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
-                    "organization_id": o.organization_id,
-                    "user_name": o.user.name if o.user else "Unknown User",
-                    "user_email": o.user.email if o.user else None,
-                    "items": [
-                        {
-                            "id": item.id,
-                            "product_id": item.product_id,
-                            "quantity": item.quantity,
-                            "price_at_time": item.price_at_time,
-                        }
-                        for item in o.items
-                    ],
-                }
-                for o in orders
-            ]
-        ), 200
+        held = service.held_points(db, org.id, [o.id for o in orders])
+        return jsonify([service.order_dict(o, held[o.id]) for o in orders]), 200
     finally:
         db.close()
 
@@ -336,36 +310,23 @@ def place_order(db, org, user, org_prefix, total_amount: float, items):
     """
     try:
         order_items, priced = service.price_items(db, org.id, items)
+        if price_mismatch(org_prefix, total_amount, priced):
+            return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
+        created_order = service.place_order(db, org.id, user, order_items, priced, status="completed")
     except service.StoreError as e:
         return jsonify({"error": e.message}), e.status
-
-    if price_mismatch(org_prefix, total_amount, priced):
-        return jsonify({"error": "Prices have changed. Reload the store and try again."}), 409
-
-    charge = service.catalog_total(priced)
-    points_sum = (
-        db.query(func.sum(Points.points)).filter(Points.user_id == user.id, Points.organization_id == org.id).scalar()
-        or 0
-    )
-    if points_sum < charge:
-        need = service.points_number(charge)
-        return jsonify({"error": f"Insufficient points. You have {points_sum} points but need {need}"}), 400
-
-    service.take_stock(priced)
-    new_order = Order(user_id=user.id, total_amount=charge, status="completed")
-    created_order = service.create_order(db, new_order, order_items, org.id, charge=charge)
 
     return jsonify(
         {
             "message": "Order placed and points deducted successfully",
             "id": created_order.id,
-            "points_deducted": service.points_number(charge),
+            "points_deducted": service.points_number(created_order.total_amount),
             "order": {
                 "id": created_order.id,
                 "user_id": created_order.user_id,
                 "total_amount": created_order.total_amount,
                 "status": created_order.status,
-                "created_at": created_order.created_at.isoformat(),
+                "created_at": created_order.created_at.isoformat() if created_order.created_at else None,
             },
         }
     ), 201
