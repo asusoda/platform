@@ -60,40 +60,31 @@ class HostingProvider(Protocol):
 
     def configured(self, db, org_id: int | None) -> bool:
         """Whether the org saved the keys this provider needs. org_id None is the deployment, for shared apps."""
-        ...
 
     def client(self, db, org_id: int | None) -> HostingClient:
         """A client for the org's account. Raises ProviderError with status 400 when the org has no keys."""
-        ...
 
     def status(self, pod: dict | None) -> str:
         """RUNNING, EXITED, GONE (pod is None), UNKNOWN, or another upper-case state of the provider."""
-        ...
 
     def pod_name(self, pod: dict) -> str | None:
         """The name the pod was created with: the name field of the create body."""
-        ...
 
     def machine(self, pod: dict | None) -> dict | None:
         """The pod's hardware and location, or None."""
-        ...
 
     def ssh_address(self, pod: dict) -> tuple[str, int] | None:
         """(host, port) of a running pod's SSH port, or None when it has none yet."""
-        ...
 
     def proxy_url(self, pod_id: str, port: int, path: str) -> str:
         """The address of an http port of a pod that Platform can reach. Raises HostingError when there is none."""
-        ...
 
     def healthy(self, pod_id: str, port: int, path: str | None) -> bool:
         """Whether the pod answers path on port with a status below 400. path None checks that the port accepts a
         connection."""
-        ...
 
     def validate(self, manifest: dict) -> None:
         """Raise HostingError when the app manifest has fields this provider cannot run, or lacks one it needs."""
-        ...
 
     def request(
         self,
@@ -110,7 +101,6 @@ class HostingProvider(Protocol):
         client is the org's client, for a provider that reads its catalog to fill the body. None in a dry run
         without keys. Raises HostingError when the body needs the client and it is None.
         """
-        ...
 
 
 PROVIDERS: dict[str, HostingProvider] = {}
