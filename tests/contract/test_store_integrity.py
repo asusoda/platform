@@ -206,15 +206,18 @@ def test_cancel_of_a_member_order_gives_back_the_hold_once(member_client, office
     assert client.put(path, json={"status": "cancelled"}, headers=officer_headers).status_code == 200
     assert _balance(db) == before
     assert _stock(db, mug) == 10
-    assert client.put(path, json={"status": "cancelled"}, headers=officer_headers).status_code == 200
-    assert client.delete(path, headers=officer_headers).status_code == 200
+    again = client.put(path, json={"status": "cancelled"}, headers=officer_headers)
+    assert again.status_code == 200
+    deleted = client.delete(path, headers=officer_headers)
+    assert deleted.status_code == 200
     assert _balance(db) == before
 
 
 def test_delete_of_a_pending_member_order_gives_back_the_hold(member_client, officer_headers, client, db, mug):
     before = _balance(db)
     path = f"/api/storefront/soda/orders/{_member_order(member_client, mug).get_json()['id']}"
-    assert client.delete(path, headers=officer_headers).status_code == 200
+    deleted = client.delete(path, headers=officer_headers)
+    assert deleted.status_code == 200
     assert _balance(db) == before
     assert _stock(db, mug) == 10
 
