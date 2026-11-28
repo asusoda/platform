@@ -118,15 +118,15 @@ Some MCP servers take no API key. The officer signs in with the service, and the
 
 ### Sign in to ASU
 
-Sun Devil Central, the ASU club system, needs an ASU sign-in. An officer signs in one time, and agents then search its clubs and events. Only an org that subscribes to the ASU submodule can sign in; the routes and tools refuse the others. The code is in `submodules/asu/signin/`.
+Sun Devil Central, the ASU club system, needs an ASU sign-in. An officer signs in one time, and agents then search its clubs and events. Only an org with the `knowledge.asu` and `knowledge.asu_signin` sub-modules on can sign in; the routes and queries refuse the others. The code is in `modules/knowledge/submodules/asu_signin/`.
 
-1. On the Shared tab of Explore, subscribe to Arizona State University, then click **Sign in to ASU** on its card.
+1. On Explore, open the Knowledge module and turn on ASU and ASU sign-in. Then, on the Shared tab, click **Sign in to ASU** on the Arizona State University card.
 2. Type your NetID and password, and click **Sign in**.
 3. Approve the Duo push on your phone. If Duo shows a code, the card shows the same code. Type it in the Duo app.
 4. When the card shows **Signed in**, agents with `knowledge:read` can search `clubs` and `club_events`.
 
 - Platform keeps only the browser cookies, as the org secret `asu_session`, encrypted with `SECRETS_KEY`. It does not keep, log or audit the NetID or the password.
-- The live queries `clubs` and `club_events` run only when the org subscribes to ASU and has a saved sign-in. Any live query can name a sign-in this way (`signin` on a `QuerySource`, registered in `modules/submodules/signins.py`). Their results go only to the caller. Platform never adds them to knowledge.
+- The live queries `clubs` and `club_events` run only when the org has both sub-modules on and a saved sign-in. Any live query can name a sign-in this way (`signin` on a `QuerySource`, registered in `modules/knowledge/content/signins.py`). Their results go only to the caller. Platform never adds them to knowledge.
 - The public ASU events calendar is the `events` live query, with no sign-in.
 - When a page load ends on a sign-in page, the sign-in has expired. The queries return an error, the card shows **Sign-in expired**, and Platform sends the event `asu.session_expired` one time. The notification links to the Shared tab of Explore. Sign in again to clear it.
 - **Sign out** removes the saved cookies.
@@ -154,9 +154,9 @@ All routes are under `/api/dashboard/<org>`, for officers of the org.
 | `POST /integrations/<key>/test` | `{"ok": true or false, "message": "..."}` |
 | `POST /integrations/<key>/oauth` | Starts a sign-in. Returns `{"url": "..."}` to open in the browser |
 | `DELETE /integrations/<key>/oauth` | Removes the saved sign-in |
-| `GET /submodules/asu/signin` | The ASU sign-in: `signed_in`, `signed_in_by`, `signed_in_at`, `expired_at`, `blocked` and the latest `attempt`. The dashboard polls it during a sign-in |
-| `POST /submodules/asu/signin` | Body `{"netid": "...", "password": "..."}`. Starts a sign-in and returns 202 with the state. 404 when the org does not subscribe to ASU. 409 when one is running or the API cannot sign in |
-| `DELETE /submodules/asu/signin` | Removes the saved ASU sign-in. Allowed after the subscription ends |
+| `GET /submodules/asu/signin` | 404 when either sub-module is off. The ASU sign-in: `signed_in`, `signed_in_by`, `signed_in_at`, `expired_at`, `blocked` and the latest `attempt`. The dashboard polls it during a sign-in |
+| `POST /submodules/asu/signin` | Body `{"netid": "...", "password": "..."}`. Starts a sign-in and returns 202 with the state. 404 when the org has `knowledge.asu` or `knowledge.asu_signin` off. 409 when one is running or the API cannot sign in |
+| `DELETE /submodules/asu/signin` | Removes the saved ASU sign-in. Allowed with the sub-modules off |
 
 An `attempt` has a `state`: `running`, `duo_code` (`code` has the number to type in Duo), `done` or `failed` (`reason` says why, such as a NetID or password that ASU did not accept).
 

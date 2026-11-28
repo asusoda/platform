@@ -111,7 +111,7 @@ def test_firecrawl_of_an_org_refuses_a_rebound_address(server, rebind):
 
 def test_searxng_of_an_org_refuses_a_rebound_address(server, rebind):
     from modules.knowledge import fetch
-    from modules.submodules import search
+    from modules.knowledge.content import search
 
     with pytest.raises(fetch.FetchRejected):
         search.search_json(f"http://rebind.test:{server.server_address[1]}/search?q=x&format=json", True)

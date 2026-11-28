@@ -15,7 +15,14 @@ SUBMODULES_ON = {
     "points.leaderboard": True,
     "points.checkins": True,
     "points.store": True,
+    "knowledge.asu": False,
+    "knowledge.web": True,
+    "knowledge.asu_signin": True,
+    "feeds.jobs": True,
+    "feeds.hackathons": True,
 }
+# The shared sub-modules, which clean_submodules sets back to these values
+SHARED_SEED = {"knowledge.asu": False, "feeds.jobs": True, "feeds.hackathons": True}
 
 NOTION_PAGE = {
     "id": "notion-page-1",
@@ -351,14 +358,18 @@ def sent(app, monkeypatch):
 
 @pytest.fixture
 def clean_submodules(app):
-    """Removes every submodule subscription and shared submodule source after the test.
+    """Removes every shared sub-module subscription and shared source after the test, and sets the shared switches
+    back to the seed.
 
     Shared sources have no org, so the per-org cleanups of other fixtures leave them, and they are due at once.
     """
     yield
+    from sqlalchemy.orm.attributes import flag_modified
+
     from core.db import db_connect
+    from core.submodules import SharedContent, SubmoduleSubscription
     from modules.knowledge.models import KnowledgeChunk, KnowledgeSource, KnowledgeVersion
-    from modules.submodules.models import Submodule, SubmoduleSubscription
+    from modules.organizations.models import Organization
 
     db = db_connect.SessionLocal()
     shared = [s.id for s in db.query(KnowledgeSource.id).filter(KnowledgeSource.submodule_id.isnot(None))]
@@ -367,6 +378,36 @@ def clean_submodules(app):
         db.query(KnowledgeVersion).filter(KnowledgeVersion.source_id.in_(shared)).delete(synchronize_session=False)
         db.query(KnowledgeSource).filter(KnowledgeSource.id.in_(shared)).delete(synchronize_session=False)
     db.query(SubmoduleSubscription).delete()
-    db.query(Submodule).delete()
+    db.query(SharedContent).delete()
+    for org in db.query(Organization).all():
+        config = dict(org.config or {})
+        config["modules"] = {**(config.get("modules") or {}), **SHARED_SEED}
+        org.config = config
+        flag_modified(org, "config")
     db.commit()
     db.close()
+
+
+@pytest.fixture(params=["sqlite", "postgresql"])
+def database_url(request, tmp_path):
+    """An empty database for a migration test: SQLite, then Postgres when TEST_DATABASE_URL is a Postgres URL."""
+    import sqlalchemy as sa
+
+    from tests.contract.migrations import postgres_url
+
+    if request.param == "sqlite":
+        yield f"sqlite:///{tmp_path / 'migration.db'}"
+        return
+    server = postgres_url()
+    if server is None:
+        pytest.skip("TEST_DATABASE_URL is not a Postgres URL")
+    name = f"migration_{uuid.uuid4().hex[:12]}"
+    admin = sa.create_engine(server, isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
+    try:
+        yield sa.engine.make_url(server).set(database=name).render_as_string(hide_password=False)
+    finally:
+        with admin.connect() as conn:
+            conn.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        admin.dispose()

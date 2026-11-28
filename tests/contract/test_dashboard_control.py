@@ -74,7 +74,7 @@ def test_officer_manages_crawls(client, officer_headers, queued):
 
 
 def test_officer_subscribes_to_a_submodule(client, officer_headers, queued, clean_submodules):
-    from submodules.asu.sources import SOURCES
+    from modules.knowledge.submodules.asu.sources import SOURCES
 
     base = "/api/dashboard/ais"
 

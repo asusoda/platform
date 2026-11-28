@@ -64,30 +64,18 @@ function Needs({ m, prefix }: { m: CatalogModule; prefix: string }) {
   );
 }
 
-// The sub-modules of the module, with their switches, and its shared content. Knowledge and feeds list what the
-// org can subscribe to or add.
+// The sub-modules of the module with their switches. A shared sub-module's switch is the org's subscription to its
+// content. Feeds also lists the presets it offers.
 function Submodules({ m, prefix, busy, onSwitch }: { m: CatalogModule; prefix: string; busy: boolean; onSwitch: (key: string, on: boolean) => void }) {
-  const live = m.enabled && (m.name === 'knowledge' || m.name === 'feeds');
-  if (!live && !m.submodules.length && !m.shared_content.length) return null;
+  if (!m.submodules.length) return null;
   return (
     <Section title="Sub-modules">
       <div className="-mt-px">
         <SubmoduleSwitches m={m} busy={busy} onSwitch={onSwitch} />
       </div>
-      {live ? (
-        <div className="-mt-px">
-          <SubModules m={m} prefix={prefix} />
-        </div>
-      ) : (
-        m.shared_content.map((s) => (
-          <Row key={s.name}>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{s.title}</div>
-              <div className="truncate text-xs text-muted">{s.description}</div>
-            </div>
-          </Row>
-        ))
-      )}
+      <div className="-mt-px">
+        <SubModules m={m} prefix={prefix} />
+      </div>
     </Section>
   );
 }

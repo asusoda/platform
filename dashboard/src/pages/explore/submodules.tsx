@@ -12,7 +12,7 @@ import type { Submodule } from '../../lib/types';
 
 export const submodulesKey = (prefix: string) => ['submodules', prefix];
 
-// The submodules an org can subscribe to, such as a campus or careers.
+// The shared sub-modules an org can subscribe to, such as knowledge.asu or feeds.jobs.
 export function useSubmodules(prefix: string) {
   return useQuery({
     queryKey: submodulesKey(prefix),
@@ -20,7 +20,8 @@ export function useSubmodules(prefix: string) {
   });
 }
 
-// Subscribe or end a subscription. Invalidates the lists that read submodules: knowledge and feed presets.
+// Subscribe or end a subscription, which turns the sub-module's switch on or off. Invalidates the lists that read
+// it: the module catalog, knowledge and feed presets.
 export function useSubscription(prefix: string) {
   const client = useQueryClient();
   return useMutation({
@@ -28,6 +29,7 @@ export function useSubscription(prefix: string) {
       send(`/api/dashboard/${prefix}/submodules/${name}/subscription`, on ? 'PUT' : 'DELETE'),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: submodulesKey(prefix) });
+      client.invalidateQueries({ queryKey: ['catalog', prefix] });
       client.invalidateQueries({ queryKey: ['knowledge', prefix] });
       client.invalidateQueries({ queryKey: ['feeds', prefix] });
     },
@@ -36,7 +38,7 @@ export function useSubscription(prefix: string) {
 
 const PART_NAME = { pages: ['page', 'pages'], queries: ['live query', 'live queries'], feeds: ['feed', 'feeds'] } as const;
 
-// What a submodule brings, and who pays for each part.
+// What a shared sub-module brings, and who pays for each part.
 function Parts({ s }: { s: Submodule }) {
   if (!s.parts.length) return <p className="mt-3 text-xs text-muted">No parts yet</p>;
   return (
@@ -54,7 +56,7 @@ function Parts({ s }: { s: Submodule }) {
 
 function matchesQuery(s: Submodule, query: string): boolean {
   const q = query.trim().toLowerCase();
-  return !q || `${s.title} ${s.description} ${s.name}`.toLowerCase().includes(q);
+  return !q || `${s.title} ${s.description} ${s.key}`.toLowerCase().includes(q);
 }
 
 export function SubmodulesTab({ prefix, query }: { prefix: string; query: string }) {
@@ -64,6 +66,8 @@ export function SubmodulesTab({ prefix, query }: { prefix: string; query: string
   if (submodules.isLoading) return <PageSkeleton />;
   if (submodules.error || !submodules.data) return <ErrorNote error={submodules.error ?? 'No data'} />;
   const titles = new Map((catalog.data?.modules ?? []).map((m) => [m.name, m]));
+  // The ASU sign-in shows once its own sub-module is on
+  const signIn = (catalog.data?.modules ?? []).flatMap((m) => m.submodules).find((s) => s.key === 'knowledge.asu_signin');
   const list = submodules.data.submodules.filter((s) => matchesQuery(s, query));
   return (
     <div className="space-y-4">
@@ -81,7 +85,7 @@ export function SubmodulesTab({ prefix, query }: { prefix: string; query: string
           {list.map((s) => {
             const busy = change.isPending && change.variables?.name === s.name;
             return (
-              <Card key={s.name} className="flex flex-col p-4" data-submodule={s.name}>
+              <Card key={s.key} className="flex flex-col p-4" data-submodule={s.key}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold">{s.title}</h3>
@@ -103,7 +107,7 @@ export function SubmodulesTab({ prefix, query }: { prefix: string; query: string
                     })}
                   </div>
                 ) : null}
-                {s.name === 'asu' && s.subscribed ? <AsuSignIn prefix={prefix} /> : null}
+                {s.key === 'knowledge.asu' && s.subscribed && signIn?.enabled ? <AsuSignIn prefix={prefix} /> : null}
                 <div className="mt-auto flex items-center justify-between gap-3 pt-4">
                   <span className="text-xs text-muted tabular-nums">
                     {s.subscribers} {s.subscribers === 1 ? 'org' : 'orgs'}

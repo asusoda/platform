@@ -19,14 +19,13 @@ from core.integrations import registry as integrations
 from modules.auth import access
 from modules.auth.routes import officer_route
 from modules.integrations import oauth
-from modules.knowledge import crawl, documents, embedder, reembed, runs, settings
+from modules.knowledge import crawl, documents, embedder, reembed, runs, settings, shared
 from modules.knowledge import service as knowledge
 from modules.knowledge.search import search as search_chunks
+from modules.knowledge.submodules.asu_signin import service as asu
 from modules.mcp import service as tool_groups
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
-from modules.submodules import service as submodules
-from submodules.asu.signin import service as asu
 
 from . import ci, errors, notices, service
 from . import trends as trends_service
@@ -110,7 +109,7 @@ def set_tool_groups(db, org):
 
 @_route("/submodules/asu/signin", ["GET"])
 def asu_signin(db, org):
-    """The ASU sign-in of the org. Only for an org that subscribes to the ASU submodule."""
+    """The ASU sign-in of the org. Only for an org with knowledge.asu and knowledge.asu_signin on."""
     asu.require_subscribed(db, _org_id(org))
     return asu.status(db, _org_id(org))
 
@@ -123,7 +122,7 @@ def start_asu_signin(db, org):
 
 @_route("/submodules/asu/signin", ["DELETE"])
 def stop_asu_signin(db, org):
-    """Sign out. Allowed after the org stops its subscription, so the saved session can go."""
+    """Sign out. Allowed with the sub-modules off, so the saved session can go."""
     return asu.sign_out(db, _org_id(org))
 
 
@@ -265,33 +264,34 @@ def run_crawl(db, org, key):
 
 @_route("/knowledge/submodules", ["GET"], module="knowledge")
 def list_submodules(db, org):
-    return {"submodules": submodules.list_submodules(db, _org_id(org))}
+    return {"submodules": shared.list_submodules(db, _org_id(org))}
 
 
 @_route("/knowledge/submodules/<string:name>/sync", ["POST"], module="knowledge")
 def sync_submodule(db, org, name):
     """Older name of PUT /submodules/<name>/subscription."""
-    counts = submodules.sync(db, _org_id(org), str(org.prefix), name)
+    counts = shared.sync(db, org, name)
     crawl.start_crawl_due()
     return counts
 
 
 @_route("/submodules", ["GET"])
 def list_shared_submodules(db, org):
-    return {"submodules": submodules.list_submodules(db, _org_id(org))}
+    return {"submodules": shared.list_submodules(db, _org_id(org))}
 
 
 @_route("/submodules/<string:name>/subscription", ["PUT"])
 def subscribe_submodule(db, org, name):
-    """Subscribe the org to the submodule (its pages, feeds and other parts), then start the crawl of its due pages."""
-    result = submodules.subscribe(db, _org_id(org), name, actor=_actor())
+    """Turn the shared sub-module on for the org (its pages, feeds and other parts), then start the crawl of its due
+    pages."""
+    result = shared.subscribe(db, org, name, actor=_actor())
     crawl.start_crawl_due()
     return result
 
 
 @_route("/submodules/<string:name>/subscription", ["DELETE"])
 def unsubscribe_submodule(db, org, name):
-    return submodules.unsubscribe(db, _org_id(org), name)
+    return shared.unsubscribe(db, org, name)
 
 
 @_route("/knowledge/search", ["POST"], module="knowledge")

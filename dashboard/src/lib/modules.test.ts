@@ -13,7 +13,7 @@ const points: CatalogModule = {
   ready: true,
   needs: [{ key: 'discord', label: 'Discord bot', kind: 'integration', optional: false, connected: true }],
   submodules: [{ key: 'points.store', title: 'Store', description: 'Merch paid with points', shared: false, enabled: true }],
-  shared_content: [{ name: 'asu', title: 'ASU', description: 'Campus pages' }],
+  shared_content: [{ name: 'asu', key: 'knowledge.asu', title: 'ASU', description: 'Campus pages' }],
   limits: [],
 };
 

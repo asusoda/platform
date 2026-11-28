@@ -247,9 +247,9 @@ def put_org_limits(org_id):
 @superadmin_required
 def get_submodules():
     """Every submodule with its subscribers, shared pages, passages and failing pages."""
-    from modules.submodules import service as submodules
+    from modules.knowledge import shared
 
-    return _run(lambda db: {"submodules": submodules.overview(db)})
+    return _run(lambda db: {"submodules": shared.overview(db)})
 
 
 @superadmin_blueprint.route("/shared-apps", methods=["GET"])

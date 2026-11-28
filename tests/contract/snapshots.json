@@ -331,6 +331,11 @@
           "modules": {
             "bot.games": "bool",
             "bot.leetcode": "bool",
+            "feeds.hackathons": "bool",
+            "feeds.jobs": "bool",
+            "knowledge.asu": "bool",
+            "knowledge.asu_signin": "bool",
+            "knowledge.web": "bool",
             "points.checkins": "bool",
             "points.leaderboard": "bool",
             "points.store": "bool"
@@ -356,6 +361,11 @@
           "modules": {
             "bot.games": "bool",
             "bot.leetcode": "bool",
+            "feeds.hackathons": "bool",
+            "feeds.jobs": "bool",
+            "knowledge.asu": "bool",
+            "knowledge.asu_signin": "bool",
+            "knowledge.web": "bool",
             "points.checkins": "bool",
             "points.leaderboard": "bool",
             "points.store": "bool"

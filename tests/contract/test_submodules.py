@@ -6,10 +6,11 @@ import pytest
 
 from core.db import db_connect
 from modules.knowledge import crawl, fetch
+from modules.knowledge import shared as service
+from modules.knowledge.content import queries
 from modules.knowledge.models import KnowledgeSource
-from modules.submodules import queries, service
-from submodules.asu import SUBMODULE
-from submodules.asu.sources import SOURCES
+from modules.knowledge.submodules.asu.content import CONTENT as SUBMODULE
+from modules.knowledge.submodules.asu.sources import SOURCES
 
 QUERIES = {q.key: q for q in SUBMODULE.queries}
 
@@ -259,23 +260,35 @@ def test_old_asu_routes_still_answer(client, writer, pages, queued):
 
 
 def test_every_submodule_feed_is_a_valid_alert_feed():
+    from core import submodules
     from modules.feeds import service as alerts
-    from modules.submodules import catalog
+    from modules.manifest import load_submodules
 
-    for submodule in catalog.SUBMODULES.values():
-        for feed in submodule.feeds:
-            assert alerts.KEY_PATTERN.match(feed.key), f"{submodule.name}/{feed.key}"
-            assert feed.kind in alerts.KINDS, f"{submodule.name}/{feed.key}"
+    load_submodules()
+    for sub in submodules.of("feeds"):
+        feeds = submodules.attribute(sub.key, "FEEDS", ())
+        assert feeds, sub.key
+        for feed in feeds:
+            assert alerts.KEY_PATTERN.match(feed.key), f"{sub.key}/{feed.key}"
+            assert alerts.KIND_MODULES[feed.kind] == sub.key, f"{sub.key}/{feed.key}"
             alerts.KINDS[feed.kind].validate(dict(feed.config))
 
 
 def test_alert_presets_come_from_subscribed_submodules(client, officer_headers, clean_submodules, monkeypatch):
     monkeypatch.setattr(crawl, "start_crawl_due", lambda: None)
+    client.delete("/api/dashboard/ais/submodules/careers/subscription", headers=officer_headers)
     presets = client.get("/api/feeds/ais/presets", headers=officer_headers).get_json()["presets"]
-    assert not [p for p in presets if p["submodule"] == "careers"]
+    assert not presets
+    # careers is the old name of both feeds sub-modules
     assert client.put("/api/dashboard/ais/submodules/careers/subscription", headers=officer_headers).status_code == 200
     presets = client.get("/api/feeds/ais/presets", headers=officer_headers).get_json()["presets"]
     internships = next(p for p in presets if p["key"] == "internships")
-    assert internships["submodule"] == "careers" and internships["kind"] == "github_jobs"
+    assert internships["submodule"] == "jobs" and internships["submodule_key"] == "feeds.jobs"
+    assert internships["kind"] == "github_jobs" and internships["module"] == "feeds"
     assert internships["config"]["repo"] == "vanshb03/Summer2026-Internships" and internships["added"] is False
+    assert {p["key"] for p in presets} == {"internships", "new-grad", "hackathons"}
+    # Turning one sub-module off drops its presets
+    client.delete("/api/dashboard/ais/submodules/hackathons/subscription", headers=officer_headers)
+    presets = client.get("/api/feeds/ais/presets", headers=officer_headers).get_json()["presets"]
+    assert {p["key"] for p in presets} == {"internships", "new-grad"}
     assert client.get("/api/feeds/ais/presets").status_code == 401

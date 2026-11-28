@@ -48,6 +48,12 @@ LEGACY_SWITCHES = {
 }
 
 
+# For one release, a sub-module that may be on while its module is off, when this other module is on. The web
+# search tool belonged to integrations before knowledge.web, and an org with integrations on and knowledge off
+# keeps it.
+LEGACY_PARENTS = {"knowledge.web": "integrations"}
+
+
 def switch_keys() -> list[str]:
     """Every key an org can turn on or off: the optional modules, then each sub-module as <module>.<name>."""
     load_submodules()
@@ -96,12 +102,16 @@ def name_for_guild(db, guild_id: object) -> str | None:
 def module_enabled(org: Organization, name: str) -> bool:
     """Whether a module or a sub-module is on. A sub-module is on when its module is on and its own switch is on.
 
-    A missing module switch is on. A missing sub-module switch is off.
+    A missing module switch is on. A missing sub-module switch is off. A sub-module in LEGACY_PARENTS is also on
+    when its own switch and the module it names are on.
     """
     settings = (org.config or {}).get("modules") or {}
     module, _, sub = name.partition(".")
     if sub:
-        return module_enabled(org, module) and settings.get(name) is True
+        if settings.get(name) is not True:
+            return False
+        legacy = LEGACY_PARENTS.get(name)
+        return module_enabled(org, module) or (legacy is not None and module_enabled(org, legacy))
     if name not in OPTIONAL_MODULES:
         return True
     return settings.get(name, True) is not False
@@ -147,10 +157,11 @@ def switch_key(name: str) -> str:
     return LEGACY_SWITCHES.get(name, name)
 
 
-def set_modules(db, org: Organization, changes: object) -> list[dict]:
+def set_modules(db, org: Organization, changes: object, actor: str | None = None) -> list[dict]:
     """Turn modules and sub-modules on or off. `changes` maps a switch key (or a legacy key) to a bool. Commits.
 
-    A sub-module that goes from off to on runs its on_enable after the commit.
+    A shared sub-module also gets or loses its subscription row in the same commit, with the subscriptions limit
+    checked. A sub-module that goes from off to on runs its on_enable after the commit.
     """
     if not isinstance(changes, dict) or not changes:
         raise ModuleError("Send a non-empty object of module name to true or false")
@@ -166,6 +177,10 @@ def set_modules(db, org: Organization, changes: object) -> list[dict]:
     turned_on = [
         sub for key, on in mapped.items() if on and (sub := submodules.get(key)) and not module_enabled(org, key)
     ]
+    for key, on in mapped.items():
+        sub = submodules.get(key)
+        if sub is not None and sub.shared:
+            submodules.set_subscription(db, org.id, sub, on, actor)
     config = dict(cast(dict, org.config) or {})
     config["modules"] = {**(config.get("modules") or {}), **mapped}
     org.config = config
@@ -189,7 +204,8 @@ def create_organization(
     modules_on: tuple[str, ...] = (),
     modules_off: tuple[str, ...] = (),
 ) -> Organization:
-    """Create an org with default settings and the module switches of a new org, then the given changes. Commits."""
+    """Create an org with default settings and the module switches of a new org, then the given changes through
+    set_modules, so a shared sub-module gets its subscription row. Commits."""
     from modules.organizations.config import OrganizationSettings
 
     if not PREFIX_PATTERN.match(prefix):
@@ -207,11 +223,7 @@ def create_organization(
     if unknown:
         raise OrganizationError(f"Unknown or required module: {', '.join(unknown)}")
     config = OrganizationSettings().to_dict()
-    config["modules"] = (
-        new_org_switches()
-        | dict.fromkeys(map(switch_key, modules_on), True)
-        | dict.fromkeys(map(switch_key, modules_off), False)
-    )
+    config["modules"] = new_org_switches()
     org = Organization(
         name=name,
         prefix=prefix,
@@ -223,6 +235,9 @@ def create_organization(
     )
     db.add(org)
     db.commit()
+    changes = dict.fromkeys(modules_on, True) | dict.fromkeys(modules_off, False)
+    if changes:
+        set_modules(db, org, changes)
     return org
 
 

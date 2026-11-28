@@ -118,8 +118,7 @@ def problems(db, org_id: int) -> list[dict]:
     )
     for f in rows:
         if f.kind in on:
-            module = feeds.KIND_MODULES[str(f.kind)]
-            found.append(_notice(module, cast(str, f.key), cast(str, f.last_error), FEED_PAGES[str(f.kind)]))
+            found.append(_notice("feeds", cast(str, f.key), cast(str, f.last_error), FEED_PAGES[str(f.kind)]))
     for app in db.query(App).filter_by(organization_id=org_id).order_by(App.name):
         latest = db.query(AppDeployment).filter_by(app_id=app.id).order_by(AppDeployment.started_at.desc()).first()
         if latest and latest.status == "failed":

@@ -4,7 +4,9 @@
 export type FeedPreset = {
   // The webhook module that runs the feed
   module: string;
+  // The short name and the key of the sub-module that offers it, such as jobs and feeds.jobs
   submodule: string;
+  submodule_key: string;
   submodule_title: string;
   key: string;
   title: string;

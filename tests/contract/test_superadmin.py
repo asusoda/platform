@@ -78,13 +78,13 @@ def _org_with_data(prefix):
     import uuid
 
     from core.db import db_connect
+    from core.submodules import SharedContent
     from hosting.models import App, AppDeployment
     from modules.auth import machine_tokens
     from modules.members.models import User, UserOrganizationMembership
     from modules.organizations.models import Organization
     from modules.points.models import Points
     from modules.points.submodules.store.models import Order, OrderItem, Product
-    from modules.submodules.models import Submodule
 
     db = db_connect.SessionLocal()
     try:
@@ -99,7 +99,7 @@ def _org_with_data(prefix):
         app = App(organization_id=org.id, name="bot", manifest="{}")
         db.add_all([product, order, app, UserOrganizationMembership(user_id=user.id, organization_id=org.id)])
         db.add(Points(user_id=user.id, organization_id=org.id, points=5, event="GBM", awarded_by_officer="x"))
-        db.add(Submodule(key=f"{prefix}-pack", title="Pack", owner_org_id=org.id))
+        db.add(SharedContent(key=f"{prefix}-pack", title="Pack", owner_org_id=org.id))
         db.flush()
         db.add(OrderItem(organization_id=org.id, order_id=order.id, product_id=product.id, quantity=1, price_at_time=5))
         db.add(AppDeployment(app_id=app.id, tag="v1", status="failed"))
@@ -113,11 +113,11 @@ def _org_with_data(prefix):
 def test_remove_org_deletes_its_rows_and_keeps_shared_ones(client, monkeypatch):
     from core.config import config
     from core.db import db_connect
+    from core.submodules import SharedContent
     from modules.members.models import User
     from modules.organizations.models import Organization
     from modules.points.models import Points
     from modules.points.submodules.store.models import Order, OrderItem
-    from modules.submodules.models import Submodule
 
     monkeypatch.setattr(config, "SUPERADMIN_USER_ID", SUPERADMIN_ID)
     org_id, user_id = _org_with_data("doomed")
@@ -131,7 +131,7 @@ def test_remove_org_deletes_its_rows_and_keeps_shared_ones(client, monkeypatch):
         for model in (Points, Order, OrderItem):
             assert db.query(model).filter_by(organization_id=org_id).count() == 0
         assert db.get(User, user_id) is not None
-        assert db.query(Submodule).filter_by(key="doomed-pack").one().owner_org_id is None
+        assert db.query(SharedContent).filter_by(key="doomed-pack").one().owner_org_id is None
         assert (
             db.query(Points)
             .filter_by(organization_id=db.query(Organization.id).filter_by(prefix="soda").scalar_subquery())

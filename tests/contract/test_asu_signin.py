@@ -13,10 +13,10 @@ from pathlib import Path
 import pytest
 from cryptography.fernet import Fernet
 
-from modules.submodules.types import Fetched
-from submodules.asu.signin import browser as browsers
-from submodules.asu.signin import service, sso, sundevil_central
-from submodules.asu.signin.browser import Loaded
+from modules.knowledge.content.types import Fetched
+from modules.knowledge.submodules.asu_signin import browser as browsers
+from modules.knowledge.submodules.asu_signin import service, sso, sundevil_central
+from modules.knowledge.submodules.asu_signin.browser import Loaded
 
 BASE = "/api/dashboard/soda/submodules/asu/signin"
 NETID = "sparky1"
@@ -76,14 +76,17 @@ def soda(client, officer_headers, monkeypatch, clean_submodules):
 
 def _subscription(org_id: int, on: bool) -> None:
     from core.db import db_connect
-    from modules.submodules import service as submodules
+    from modules.knowledge import shared
+    from modules.organizations.models import Organization
 
     db = db_connect.SessionLocal()
     try:
+        org = db.get(Organization, org_id)
+        assert org is not None
         if on:
-            submodules.subscribe(db, org_id, "asu", actor="test")
-        elif "asu" in submodules.subscribed_names(db, org_id):
-            submodules.unsubscribe(db, org_id, "asu")
+            shared.subscribe(db, org, "asu", actor="test")
+        else:
+            shared.unsubscribe(db, org, "asu")
     finally:
         db.close()
 
@@ -318,7 +321,7 @@ def test_only_an_org_that_subscribes_to_asu_signs_in(client, officer_headers, so
     _subscription(soda, False)
     assert client.get(BASE, headers=officer_headers).status_code == 404
     refused = client.post(BASE, json={"netid": NETID, "password": PASSWORD}, headers=officer_headers)
-    assert refused.status_code == 404 and "Subscribe" in refused.get_json()["error"]
+    assert refused.status_code == 404 and "ASU sign-in is off" in refused.get_json()["error"]
     agent = _token(client, officer_headers, soda, ["knowledge:read"])
     assert _query(client, agent, "clubs").status_code == 409
     # Signing out stays allowed, so the saved session can go

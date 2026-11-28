@@ -44,6 +44,7 @@ interface ModuleLimit {
 
 interface Submodule {
   name: string;
+  key: string;
   title: string;
   description: string;
 }
@@ -246,7 +247,23 @@ export const MODULES: ModuleState[] = [
   { name: 'points.leaderboard', description: 'Members ranked by points, for officers, the public page and agents.', enabled: true, parent: 'points', shared: false },
   { name: 'points.checkins', description: 'Gives event points to each member on an attendance CSV.', enabled: true, parent: 'points', shared: false },
   { name: 'points.store', description: 'A merch store that members pay for with points.', enabled: true, parent: 'points', shared: false },
+  { name: 'knowledge.asu', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.', enabled: true, parent: 'knowledge', shared: true },
+  { name: 'knowledge.web', description: "Search the web through Google, Brave and Bing with the org's SearXNG, or the deployment's.", enabled: true, parent: 'knowledge', shared: false },
+  { name: 'knowledge.asu_signin', description: "An officer's ASU sign-in, so agents can read clubs and events on Sun Devil Central.", enabled: true, parent: 'knowledge', shared: false },
+  { name: 'feeds.jobs', description: 'New software internship and new grad roles from GitHub job lists.', enabled: true, parent: 'feeds', shared: true },
+  { name: 'feeds.hackathons', description: 'Upcoming hackathons from Hack Club, Euro-Hackathons and Hackalist.', enabled: false, parent: 'feeds', shared: true },
 ];
+// The title of each sub-module switch
+const SUBMODULE_TITLES: Record<string, string> = {
+  'points.leaderboard': 'Leaderboard',
+  'points.checkins': 'Check-ins',
+  'points.store': 'Store',
+  'knowledge.asu': 'Arizona State University',
+  'knowledge.web': 'Web search',
+  'knowledge.asu_signin': 'ASU sign-in',
+  'feeds.jobs': 'Job alerts',
+  'feeds.hackathons': 'Hackathons',
+};
 
 // The modules on the Explore page, as GET /api/dashboard/<org>/modules returns them. enabled comes from MODULES.
 const need = (key: string, label: string, connected: boolean, extra: Partial<Need> = {}): Need => ({
@@ -259,9 +276,9 @@ const need = (key: string, label: string, connected: boolean, extra: Partial<Nee
 });
 const CATALOG = [
   { name: 'points', title: 'Points', description: "Points, leaderboards and event check-ins.", category: 'Members', switchable: true, needs: [], submodules: ['points.leaderboard', 'points.checkins', 'points.store'], shared_content: [] },
-  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'AI', switchable: true, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true })], submodules: [], shared_content: ['asu'] },
+  { name: 'knowledge', title: 'Knowledge', description: "Pages and documents that agents search, with crawls on a schedule.", category: 'AI', switchable: true, needs: [need('embeddings', 'Embeddings service', true, { optional: true }), need('firecrawl', 'Firecrawl', false, { optional: true }), need('searxng', 'Web search (SearXNG)', true, { optional: true })], submodules: ['knowledge.asu', 'knowledge.web', 'knowledge.asu_signin'], shared_content: ['asu'] },
   { name: 'integrations', title: 'Integration tools', description: "Gives agents the tools of the services that the org connects.", category: 'AI', switchable: true, needs: [], submodules: [], shared_content: [] },
-  { name: 'feeds', title: 'Feeds', description: 'Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.', category: 'Automations', switchable: true, needs: [], submodules: [], shared_content: ['careers'] },
+  { name: 'feeds', title: 'Feeds', description: 'Posts new internship and new grad roles from GitHub job lists, and upcoming hackathons, to Discord channels.', category: 'Automations', switchable: true, needs: [], submodules: ['feeds.jobs', 'feeds.hackathons'], shared_content: ['jobs', 'hackathons'] },
   { name: 'calendar', title: 'Calendar sync', description: "Copies Notion events to Google Calendar and the public events feed.", category: 'Automations', switchable: true, needs: [need('notion', 'Notion', false), need('google', 'Google service account', true)], submodules: [], shared_content: [] },
   { name: 'uptime', title: 'Uptime', description: "Checks the org's sites and Hosting apps, with an event when one goes down or comes back.", category: 'Automations', switchable: true, needs: [], submodules: [], shared_content: [] },
   { name: 'bot.leetcode', title: 'LeetCode', description: "Posts the daily LeetCode question in a Discord channel and checks who solved it.", category: 'Discord', parent: 'bot', switchable: true, needs: [need('discord', 'Discord bot', true)], submodules: [], shared_content: [] },
@@ -273,8 +290,9 @@ const LAYERS = [
 ];
 const CATEGORIES = ['Members', 'AI', 'Automations', 'Discord', 'Compute'];
 const SUBMODULES: Record<string, Submodule> = {
-  asu: { name: 'asu', title: 'Arizona State University', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.' },
-  careers: { name: 'careers', title: 'Internships and hackathons', description: 'Alert feeds for software internships, new grad roles and upcoming hackathons.' },
+  asu: { name: 'asu', key: 'knowledge.asu', title: 'Arizona State University', description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.' },
+  jobs: { name: 'jobs', key: 'feeds.jobs', title: 'Job alerts', description: 'New software internship and new grad roles from GitHub job lists.' },
+  hackathons: { name: 'hackathons', key: 'feeds.hackathons', title: 'Hackathons', description: 'Upcoming hackathons from Hack Club, Euro-Hackathons and Hackalist.' },
 };
 
 // The body of GET /api/dashboard/<org>/modules for the given switch states.
@@ -300,7 +318,7 @@ export function moduleCatalog(states: ModuleState[] = MODULES) {
     ready: m.needs.every((n) => n.connected || n.optional),
     submodules: m.submodules.map((key) => {
       const state = states.find((x) => x.name === key);
-      return { key, title: key === 'points.store' ? 'Store' : key === 'points.checkins' ? 'Check-ins' : 'Leaderboard', description: state?.description ?? '', shared: false, enabled: state?.enabled ?? true };
+      return { key, title: SUBMODULE_TITLES[key] ?? key, description: state?.description ?? '', shared: state?.shared ?? false, enabled: state?.enabled ?? true };
     }),
     shared_content: m.shared_content.map((p) => SUBMODULES[p]),
     limits: MODULE_LIMITS[m.name] ?? [],
@@ -1164,7 +1182,7 @@ export function fixtures(now: number = Date.now()) {
       editable: true,
       source: null,
       testable: true,
-      used_by: ['knowledge', 'submodules'],
+      used_by: ['knowledge'],
     },
     {
       key: 'github',
@@ -1225,7 +1243,7 @@ export function fixtures(now: number = Date.now()) {
       key: 'searxng',
       title: 'Web search (SearXNG)',
       description: 'Connect a SearXNG server for live web search.',
-      docs: 'modules/submodules',
+      docs: 'modules/knowledge',
       fields: [
         field('searxng_url', 'Server URL', 'A SearXNG server with the json format on, on a public address.', null, 'url', { secret: false }),
         field('searxng_engines', 'Engines', 'Comma-separated. Leave empty for google,brave,bing.', null, 'text', { secret: false, optional: true }),
@@ -1233,7 +1251,7 @@ export function fixtures(now: number = Date.now()) {
       editable: true,
       source: 'deployment',
       testable: true,
-      used_by: ['submodules'],
+      used_by: ['knowledge'],
     },
   ];
 
@@ -1663,10 +1681,11 @@ export function fixtures(now: number = Date.now()) {
     return { org: { id: o.id, name: o.name, prefix: o.prefix, is_active: true }, limits, near, overrides };
   });
   const GB = 1024 ** 3;
-  // Submodules: ASU shared by 3 orgs and subscribed here; careers not subscribed
+  // Shared sub-modules: ASU shared by 3 orgs and subscribed here; job alerts subscribed; hackathons not
   const sharedSubmodules = [
     {
       name: 'asu',
+      key: 'knowledge.asu',
       title: 'Arizona State University',
       description: 'Public ASU pages and live queries: library hours, events, courses, dining, scholarships, news, shuttles, jobs, sports.',
       key_prefix: 'asu/',
@@ -1684,18 +1703,35 @@ export function fixtures(now: number = Date.now()) {
       modules: ['knowledge'],
     },
     {
-      name: 'careers',
-      title: 'Internships and hackathons',
-      description: 'Feeds of software internships, new grad roles and hackathons.',
-      key_prefix: 'careers/',
+      name: 'jobs',
+      key: 'feeds.jobs',
+      title: 'Job alerts',
+      description: 'New software internship and new grad roles from GitHub job lists.',
+      key_prefix: null,
       pages: 0,
       queries: [],
-      feeds: ['internships', 'new-grad', 'hackathons'],
-      parts: [{ kind: 'feeds', count: 3, paid_by: 'org', module: 'feeds' }],
+      feeds: ['internships', 'new-grad'],
+      parts: [{ kind: 'feeds', count: 2, paid_by: 'org', module: 'feeds' }],
       sources: 0,
       last_crawl: null,
       subscribed: true,
       subscribers: 2,
+      modules: ['feeds'],
+    },
+    {
+      name: 'hackathons',
+      key: 'feeds.hackathons',
+      title: 'Hackathons',
+      description: 'Upcoming hackathons from Hack Club, Euro-Hackathons and Hackalist.',
+      key_prefix: null,
+      pages: 0,
+      queries: [],
+      feeds: ['hackathons'],
+      parts: [{ kind: 'feeds', count: 1, paid_by: 'org', module: 'feeds' }],
+      sources: 0,
+      last_crawl: null,
+      subscribed: false,
+      subscribers: 1,
       modules: ['feeds'],
     },
   ];
@@ -1836,8 +1872,9 @@ export function fixtures(now: number = Date.now()) {
     },
     '/api/superadmin/submodules': {
       submodules: [
-        { key: 'asu', title: 'ASU', origin: 'code', status: 'shared', subscribers: 3, sources: 42, passages: 18_240, failing: [{ key: 'asu/catalog/fall', error: 'HTTP 503 from catalog.apps.asu.edu' }] },
-        { key: 'careers', title: 'Careers', origin: 'code', status: 'shared', subscribers: 2, sources: 0, passages: 0, failing: [] },
+        { key: 'knowledge.asu', title: 'Arizona State University', origin: 'code', status: 'shared', subscribers: 3, sources: 42, passages: 18_240, failing: [{ key: 'asu/catalog/fall', error: 'HTTP 503 from catalog.apps.asu.edu' }] },
+        { key: 'feeds.jobs', title: 'Job alerts', origin: 'code', status: 'shared', subscribers: 2, sources: 0, passages: 0, failing: [] },
+        { key: 'feeds.hackathons', title: 'Hackathons', origin: 'code', status: 'shared', subscribers: 1, sources: 0, passages: 0, failing: [] },
         { key: 'robotics-pack', title: 'Robotics build guides', origin: 'org', status: 'draft', subscribers: 0, sources: 6, passages: 410, failing: [] },
       ],
     },
@@ -1897,8 +1934,9 @@ export function fixtures(now: number = Date.now()) {
       presets: [
         {
           module: 'feeds',
-          submodule: 'careers',
-          submodule_title: 'Internships and hackathons',
+          submodule: 'jobs',
+          submodule_key: 'feeds.jobs',
+          submodule_title: 'Job alerts',
           key: 'new-grad',
           title: 'New grad roles',
           description: 'New rows in the 2026 new grad list that vanshb03 keeps on GitHub.',
