@@ -14,7 +14,7 @@ KEY = {"type": "string", "minLength": 1, "maxLength": 64}
 
 @tool(
     "org.overview",
-    description="The org at a glance: members, points, store, Godfather, webhook feeds, apps, knowledge, agents and tokens.",
+    description="The org at a glance: members, points, store, Godfather, webhook feeds, apps, knowledge and tokens.",
     scope="activity:read",
 )
 def org_overview(db, org, caller):

@@ -28,9 +28,7 @@ def test_modules_are_on_by_default(client, officer_headers, soda_id):
         "feeds": True,
         "uptime": True,
         "knowledge": True,
-        "agents": True,
         "integrations": True,
-        "accounts": True,
         "runpod": True,
     }
 
@@ -127,7 +125,7 @@ def test_catalog_needs_name_real_integrations(app):
 
 
 def test_agent_modules_off_close_their_routes_and_tools(client, officer_headers, soda_id):
-    body = {"name": "test-agent", "kind": "agent", "scopes": ["knowledge:read", "agents:read"]}
+    body = {"name": "test-agent", "kind": "agent", "scopes": ["knowledge:read", "org:read"]}
     issued = client.post(f"/api/organizations/{soda_id}/tokens", json=body, headers=officer_headers)
     headers = {"Authorization": f"Bearer {issued.get_json()['token']}"}
 

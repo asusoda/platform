@@ -25,7 +25,7 @@ def _names(client, headers):
 
 def test_batch_is_listed_only_with_other_tools(client):
     assert "batch" in _names(client, _issue("org:read"))
-    assert _names(client, _issue("agents:read")) == []
+    assert _names(client, _issue("knowledge:discover")) == []
 
 
 def test_each_call_needs_its_own_scope(client):

@@ -6,7 +6,14 @@ import { useTrends } from '../lib/queries';
 
 const RANGES = [7, 30, 90] as const;
 
-// Daily charts of what happened in the org: actions, jobs, points, orders, agent questions, knowledge and alerts.
+// The last chart fills the rest of its row, so the grid shows no empty cell at 2 or 3 columns.
+const SM_FILL = ['', 'sm:col-span-2'];
+const LG_FILL = ['lg:col-span-1', 'lg:col-span-3', 'lg:col-span-2'];
+function fillRow(count: number) {
+  return cx(SM_FILL[count % 2], LG_FILL[count % 3]);
+}
+
+// Daily charts of what happened in the org: actions, jobs, points, orders, knowledge and alerts.
 export function TrendsCard({ prefix }: { prefix: string }) {
   const [days, setDays] = useState<(typeof RANGES)[number]>(30);
   const { data, isLoading, error } = useTrends(prefix, days);
@@ -50,8 +57,8 @@ export function TrendsCard({ prefix }: { prefix: string }) {
         </div>
       ) : (
         <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
-          {data.series.map((s) => (
-            <div key={s.key} className="bg-panel p-4">
+          {data.series.map((s, i) => (
+            <div key={s.key} className={cx('bg-panel p-4', i === data.series.length - 1 && fillRow(data.series.length))}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm text-muted">{s.title}</span>
                 {s.failed ? <span className="text-xs text-bad">{compact(s.failed)} failed</span> : null}

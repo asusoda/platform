@@ -98,8 +98,8 @@ An org turns modules on and subscribes to submodules. Each module that is on get
 | Category | Modules |
 | --- | --- |
 | Core | `alerts`, `auth`, `bot`, `dashboard`, `mcp`, `organizations`, `public`, `submodules`, `superadmin`, `users`. Always on and not on Explore |
-| Storage | `knowledge`, `points`, `storefront`, `accounts` |
-| AI and agents | `agents`, `integrations` |
+| Storage | `knowledge`, `points`, `storefront` |
+| AI and agents | `integrations` |
 | Automations | `feeds`, `calendar`, `uptime` |
 | Bots | `leetcode`, `games` |
 | Compute | `godfather`, `runpod` (Hosting) |

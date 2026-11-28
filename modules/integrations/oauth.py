@@ -5,7 +5,7 @@ browser back to the callback route with a code, and Platform trades the code for
 secrets named oauth_<key>, refreshed before they expire. The agent acts as the person who signed in.
 
 Notion: Platform finds the sign-in URLs from the MCP server (RFC 9728 and RFC 8414) and registers itself as a
-client (RFC 7591). Google: Platform uses the Google OAuth app of connected accounts (ACCOUNTS_GOOGLE_*).
+client (RFC 7591). Google: Platform uses its Google OAuth app (ACCOUNTS_GOOGLE_*, core/sign_in.py).
 Both use PKCE. The sign-in must finish within PENDING_SECONDS.
 """
 
@@ -21,10 +21,9 @@ from urllib.parse import urlencode, urlparse
 
 import requests
 
-from core import secrets
+from core import secrets, sign_in
 from core.errors import ServiceError
 from core.log import get_logger
-from modules.accounts import providers
 
 logger = get_logger(__name__)
 
@@ -70,7 +69,7 @@ def _pending_name(key: str) -> str:
 
 
 def redirect_uri() -> str:
-    return f"{providers.base_url()}{CALLBACK_PATH}"
+    return f"{sign_in.base_url()}{CALLBACK_PATH}"
 
 
 def _load(db, org_id: int, name: str) -> dict | None:
@@ -101,9 +100,9 @@ def _service(key: str) -> Service:
 def ready(key: str) -> str | None:
     """Why the sign-in cannot start on this server, or None when it can."""
     service = _service(key)
-    if not providers.base_url():
+    if not sign_in.base_url():
         return "Set ACCOUNTS_BASE_URL, the public URL of this API, in .env"
-    if service.kind == "google" and providers.get("google") is None:
+    if service.kind == "google" and sign_in.google_app() is None:
         return "Set ACCOUNTS_GOOGLE_CLIENT_ID and ACCOUNTS_GOOGLE_CLIENT_SECRET in .env"
     return None
 
@@ -202,7 +201,7 @@ def start(db, org_id: int, key: str, actor: str | None) -> str:
         "code_challenge_method": "S256",
     }
     if service.kind == "google":
-        app = providers.get("google")
+        app = sign_in.google_app()
         if app is None:
             raise OAuthError("The Google OAuth app is not set", 409)
         client = {"client_id": app.client_id, "client_secret": app.client_secret}

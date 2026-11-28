@@ -84,5 +84,4 @@ Campus content is a submodule in `submodules/`, such as `submodules/asu`. Anothe
 ## Open questions
 
 - [ ] Maintainers and CODEOWNERS for each module when more than one org contributes.
-- [ ] Privacy defaults for agent data on each deployment: who can read conversations, and whether the 180-day retention must be shorter.
 - [ ] Keep Flask, or move to FastAPI one blueprint at a time.
