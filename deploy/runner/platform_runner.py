@@ -819,11 +819,24 @@ def serve(policy: dict) -> None:
         os.unlink(path)
     Handler.policy = policy
     ensure_bridge(policy)
-    server = Server(path, Handler)
-    if os.geteuid() == 0:
-        os.chown(path, 0, int(policy.get("socket_gid", 0)))
-    os.chmod(path, 0o660)  # nosec B103 - group write lets only socket_gid, the Platform containers, connect
+    server = bind(path, int(policy.get("socket_gid", 0)))
     server.serve_forever()
+
+
+def bind(path: str, gid: int) -> Server:
+    """The server on a new socket at path, mode 0660 and group gid. Never follows a symlink planted at path.
+
+    The umask makes the socket 0660 when bind creates it, so no chmod runs on the path. lchown changes the
+    path itself, not a link target.
+    """
+    old = os.umask(0o117)
+    try:
+        server = Server(path, Handler)
+    finally:
+        os.umask(old)
+    if os.geteuid() == 0:
+        os.lchown(path, 0, gid)
+    return server
 
 
 def main() -> None:

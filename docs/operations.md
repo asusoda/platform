@@ -46,7 +46,7 @@ A container that goes over its memory cap is stopped and starts again (`restart:
 
 ## Host agent
 
-The host agent lists each container and host process on the server for the Services card on the Superadmin page. It runs on the host as root, because only root sees every container. It only reads: `podman ps`, `podman stats`, the proxy hosts of Nginx Proxy Manager (opened read-only), the listening ports, and the cgroups of host processes. Every 30 seconds it writes `data/host.json`, which the API reads as `/app/data/host.json`. It writes a new temporary file with a random name and renames it to `data/host.json`. Thus it never writes through a symlink that a container puts in `data/`. The API has no access to the podman socket.
+The host agent lists each container and host process on the server for the Services card on the Superadmin page. It runs on the host as root, because only root sees every container. It only reads: `podman ps`, `podman stats`, the proxy hosts of Nginx Proxy Manager (opened read-only), the listening ports, and the cgroups of host processes. Every 30 seconds it writes `data/host.json`, which the API reads as `/app/data/host.json`. It writes a new temporary file with a random name and renames it to `data/host.json`. Thus it never writes through a symlink that a container puts in `data/`. When `data/host.json` is a directory, it logs that and skips the write. On start it deletes `data/.host-*.json` files older than 10 minutes, which a killed run leaves. The API has no access to the podman socket.
 
 1. Copy the unit: `cp deploy/host-agent/platform-host-agent.service /etc/systemd/system/`.
 2. Add one `--port` to `ExecStart` for each host process that no proxy host forwards to.
@@ -56,7 +56,7 @@ A container started by `docker-compose.yml` is Platform's. A container with the 
 
 ## This server runner
 
-The runner lets orgs deploy apps to this server (provider `server` on the Hosting page). It runs on the host as root, because podman runs the server's containers as root. The API reaches it over the Unix socket `data/runner.sock`, which only uid 1000 (Platform's containers) can open. The runner checks each request against `/etc/platform-runner.json` and refuses the rest, so the API cannot start a container that the policy does not allow.
+The runner lets orgs deploy apps to this server (provider `server` on the Hosting page). It runs on the host as root, because podman runs the server's containers as root. The API reaches it over the Unix socket `data/runner.sock`, which only uid 1000 (Platform's containers) can open. The socket is made with mode 0660 by its umask, and its group is set with `lchown`, so a symlink that a container puts at that path is never followed. The runner checks each request against `/etc/platform-runner.json` and refuses the rest, so the API cannot start a container that the policy does not allow.
 
 | Policy key | Means |
 | --- | --- |

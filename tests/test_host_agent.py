@@ -83,3 +83,31 @@ def test_write_does_not_follow_a_planted_symlink(tmp_path):
     assert json.loads((data / "host.json").read_text()) == {"version": 1}
     assert (data / "host.json").stat().st_mode & 0o777 == 0o644
     assert sorted(p.name for p in data.iterdir()) == ["host.json", "host.tmp"]
+
+
+def test_write_skips_a_directory_at_the_path(tmp_path):
+    data = tmp_path / "data"
+    (data / "host.json").mkdir(parents=True)
+    agent.write(data / "host.json", {"version": 1})
+    assert (data / "host.json").is_dir()
+    assert [p.name for p in data.iterdir()] == ["host.json"]
+
+
+def test_old_temporary_files_are_removed_and_links_not_followed(tmp_path):
+    import os
+    import time
+
+    victim = tmp_path / "victim"
+    victim.write_text("keep")
+    old = tmp_path / ".host-old.json"
+    old.write_text("{}")
+    new = tmp_path / ".host-new.json"
+    new.write_text("{}")
+    link = tmp_path / ".host-link.json"
+    link.symlink_to(victim)
+    past = time.time() - 3600
+    os.utime(old, (past, past))
+    os.utime(link, (past, past), follow_symlinks=False)
+    agent.remove_stale(tmp_path)
+    assert not old.exists() and new.exists() and not link.is_symlink()
+    assert victim.read_text() == "keep"
