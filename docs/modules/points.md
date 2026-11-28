@@ -1,10 +1,10 @@
 # Points
 
-Keeps the points that an org's members earn at events. Officers add members, give points by hand or from an attendance CSV, and read the leaderboard. The `points` switch turns the module on and off.
+Keeps the points that an org's members earn at events. Officers add members, give points by hand or from an attendance CSV, and read the leaderboard. The `points` switch turns the module on and off. Three sub-modules have their own switch and are on only while points is on: `points.leaderboard` (the leaderboard routes and tool), `points.checkins` (the attendance CSV) and `points.store` (the [store](./store.md)).
 
 ## In the dashboard
 
-The Points page (Storage > Points) has two tabs:
+The Points page (Members > Points) has two tabs:
 
 - **Members**: the leaderboard with each member's total. Search by name or email. Add a member, or give points to one member. Open a member to see the member drawer: the total, the points of the last 30 days and the entries by event. A store order and its refund show as one line, `held` while the order holds the points. Edit, Award and delete of one entry are in the drawer. `?member=<email or uuid>` opens it from a link.
 - **Events**: the points given at each event. Upload an attendance CSV for an event, or delete the points of an event.

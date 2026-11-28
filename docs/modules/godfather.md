@@ -4,7 +4,7 @@ Godfather is a module: GPU and CPU pods on an org's own hosting provider account
 
 ## Setup
 
-1. Connect RunPod on the Integrations tab of the dashboard Explore page. This saves the org secret `runpod_api_key`. The runpod module uses the same key. `SECRETS_KEY` must be set.
+1. Connect RunPod on the Integrations tab of the dashboard Explore page. This saves the org secret `runpod_api_key`. The hosting layer uses the same key. `SECRETS_KEY` must be set.
 2. Add the `godfather` module on Explore for the org.
 3. Optional: set these in the server's `.env`.
    - `GODFATHER_CLI_NAME`: the CLI name in sign-in pages and errors. Default `godfather`. The old name `COMPUTE_CLI_NAME` still works.

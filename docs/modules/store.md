@@ -1,10 +1,10 @@
 # Store
 
-A merch store that members pay for with points. Officers add products and manage orders. Members buy with their points balance. The `storefront` switch turns the module on and off.
+A merch store that members pay for with points. Officers add products and manage orders. Members buy with their points balance. The `points.store` switch turns the store on and off. It is a sub-module of points, so it is on only while points is on.
 
 ## In the dashboard
 
-The Store page (Storage > Store) has two tabs:
+The Store page (Members > Store) has two tabs:
 
 - **Products**: name, price in points, stock, category and image. Add, edit and delete products.
 - **Orders**: each order with the member, the items and the total. Change the status: pending, processing, shipped, delivered or cancelled.

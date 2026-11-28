@@ -1,6 +1,6 @@
 # Hosting apps
 
-Deploys an org's own apps (a Discord bot, an agent, a site) to a hosting provider. An officer registers the app's manifest one time. Then the app's CI deploys each new image tag with a token that can do nothing else. There are two providers:
+Deploys an org's own apps (a Discord bot, an agent, a site) to a hosting provider. Hosting is a layer in `hosting/`, next to `modules/`, with the switch `hosting`. Its limit keys keep the `runpod.` prefix. An officer registers the app's manifest one time. Then the app's CI deploys each new image tag with a token that can do nothing else. There are two providers:
 
 | Provider | Runs an app as | Who pays | Limits |
 | --- | --- | --- | --- |

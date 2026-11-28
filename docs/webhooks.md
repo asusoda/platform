@@ -29,13 +29,13 @@ The Alerts page has two cards. Destinations lists each destination with its stat
 | `pod.stopped` | Pods stopped | `modules/godfather/service.py`, `schedule.py` | An officer or a tool stops or terminates a pod, or the session schedule stops it |
 | `pod.root_access` | Root on a pod | `modules/godfather/connections.py` | An officer gets a one-hour root certificate for a pod with pod admin on |
 | `app.deployed` | App deploys | `hosting/service.py` | A deploy of an org's app, on RunPod or This server, becomes healthy or fails. A shared app has no org, so its deploys show only on the Shared apps page of the superadmin space |
-| `order.created` | Store orders | `modules/storefront/service.py` | A member places an order |
+| `order.created` | Store orders | `modules/points/submodules/store/service.py` | A member places an order |
 | `member.joined` | New members | `modules/members/service.py` | A person joins the org at sign-in, through a form or a CSV import. A Discord member sync does not send it |
 | `knowledge.crawl_failed` | Knowledge crawl failures | `modules/knowledge/runs.py` | A crawl of a knowledge source fails |
 | `monitor.down` | Monitors down | `modules/uptime/service.py` | A monitor's first check is down, or a check is down after an up check. See [Uptime](./modules/uptime.md) |
 | `monitor.up` | Monitors up | `modules/uptime/service.py` | A check is up after a down check |
 | `asu.session_expired` | ASU sign-in expired | `submodules/asu/signin/service.py` | An `asu.*` tool finds that the saved ASU sign-in expired. Sent one time for each sign-in |
-| `leetcode.post_failed` | LeetCode post failures | `modules/leetcode/daily.py` | The bot cannot post the org's daily question. Sent once a day; the post is tried again every 5 minutes |
+| `leetcode.post_failed` | LeetCode post failures | `modules/bot/submodules/leetcode/daily.py` | The bot cannot post the org's daily question. Sent once a day; the post is tried again every 5 minutes |
 
 The page lists and sends an event only when its module is on for the org. Pods need `godfather`, orders need `storefront` and monitors need `uptime`. An event of a module that is off stays on the destination, so it is sent again when the module comes back. Uptime checks each Hosting app; `app.deployed` says only how a deploy ended.
 

@@ -22,9 +22,9 @@ A rate counter starts again at the start of each window, in UTC. The `usage_coun
 | `knowledge.jobs_per_day` | knowledge | Crawls, re-indexes and re-embeds that an officer or a token starts | 200 |
 | `knowledge.renders_per_day` | knowledge | Pages rendered in the shared browser a day. 0 turns rendering off for the org | 0 |
 | `godfather.pods` | godfather | Pods | 10 |
-| `runpod.apps` | runpod | Hosting apps | 25 |
-| `runpod.server_apps` | runpod | Apps on This server | 2 |
-| `runpod.server_memory_mb` | runpod | Memory of the apps on This server, from their manifests, in MB | 1,024 |
+| `runpod.apps` | hosting | Hosting apps | 25 |
+| `runpod.server_apps` | hosting | Apps on This server | 2 |
+| `runpod.server_memory_mb` | hosting | Memory of the apps on This server, from their manifests, in MB | 1,024 |
 | `uptime.monitors` | uptime | Uptime monitors | 50 |
 | `alerts.destinations` | alerts | Alert destinations | 20 |
 | `alerts.messages` | alerts | Alert messages for each event, an hour | 30 |
