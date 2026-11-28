@@ -5,8 +5,8 @@ general:
   instance_name: platform-search
 
 server:
-  # Overridden by SEARXNG_SECRET.
-  secret_key: "set-SEARXNG_SECRET-in-env"
+  # SearXNG refuses this value; SEARXNG_SECRET replaces it
+  secret_key: "ultrasecretkey"
   limiter: false
   image_proxy: false
   public_instance: false

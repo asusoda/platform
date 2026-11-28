@@ -1,36 +1,29 @@
 """The browser that signs in to ASU and loads Sun Devil Central pages with the saved cookies.
 
 Browser is the interface that service.py uses; tests give a fake one. Chromium is the real one. It needs
-the browser extra (uv sync --extra browser). With BROWSER_URL set it uses the deployment's shared browser,
-the browser compose service; else it starts Chromium on this machine (playwright install chromium). At
-most MAX_OPEN browsers are open at one time in a process.
+the browser extra (uv sync --extra browser). core/browser.py opens it: the deployment's shared browser at
+BROWSER_URL, else Chromium on this machine (playwright install chromium). Its guard answers every request
+of the context from Python, so the browser reaches public addresses only.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import os
-import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from core import browser as browsers
 from submodules.asu.signin import sso
 from submodules.asu.signin.sso import Report, SignInFailed
 
-MAX_OPEN = 2
 NAV_MS = 60_000
 DUO_SECONDS = 120.0
 USER_AGENT = "PlatformASU/1.0 (+https://github.com/theaisocietyasu/bedrock)"
-# Requests of these types are not loaded when a tool reads a page.
-SKIPPED = frozenset({"image", "media", "font"})
 # The optional package that runs the browser
 PACKAGE = "playwright"
 INSTALL = "Install the browser extra on the API: uv sync --extra browser, then playwright install chromium"
-CONNECT_MS = 10_000
-
-_open = threading.BoundedSemaphore(MAX_OPEN)
 
 
 @dataclass(frozen=True)
@@ -65,6 +58,8 @@ def missing() -> str | None:
 
 
 def _reason(error: Exception) -> str:
+    if isinstance(error, browsers.BrowserConfigError):
+        return str(error)
     text = str(error)
     if "Executable doesn't exist" in text:
         return "Chromium is not installed on the API. Run playwright install chromium"
@@ -73,17 +68,16 @@ def _reason(error: Exception) -> str:
 
 @contextmanager
 def _chromium() -> Iterator[Any]:
-    """A headless Chromium: the shared browser at BROWSER_URL, else a local one. Waits while MAX_OPEN are open."""
-    server = os.environ.get("BROWSER_URL", "").strip()
-    with _open, sso.api().sync_playwright() as playwright:
-        if server:
-            browser = playwright.chromium.connect(server, timeout=CONNECT_MS)
-        else:
-            browser = playwright.chromium.launch(headless=True)
-        try:
-            yield browser
-        finally:
-            browser.close()
+    """A headless Chromium from core.browser: the shared browser at BROWSER_URL, else a local one."""
+    with sso.api().sync_playwright() as playwright, browsers.open_browser(playwright) as browser:
+        yield browser
+
+
+def _context(browser: Any, **options: Any) -> Any:
+    """A new context whose requests all go through the guard of core.browser."""
+    context = browser.new_context(user_agent=USER_AGENT, **options)
+    browsers.guard(context)
+    return context
 
 
 def _load(context: Any, url: str) -> Loaded:
@@ -95,23 +89,13 @@ def _load(context: Any, url: str) -> Loaded:
         page.close()
 
 
-def _skip_heavy(context: Any) -> None:
-    def route(r: Any) -> None:
-        if r.request.resource_type in SKIPPED:
-            r.abort()
-        else:
-            r.continue_()
-
-    context.route("**/*", route)
-
-
 class Chromium:
     """The Browser that runs headless Chromium through Playwright."""
 
     def sign_in(self, netid: str, password: str, report: Report) -> dict:
         try:
             with _chromium() as browser:
-                context = browser.new_context(user_agent=USER_AGENT)
+                context = _context(browser)
                 page = context.new_page()
                 page.goto(sso.LOGIN_URL, wait_until="networkidle", timeout=NAV_MS)
                 if not sso.on_form(page):
@@ -125,14 +109,13 @@ class Chromium:
                 return context.storage_state()
         except SignInFailed:
             raise
-        except sso.api().Error as e:
+        except (sso.api().Error, browsers.BrowserConfigError) as e:
             raise SignInFailed(_reason(e)) from e
 
     def load(self, state: dict, url: str) -> Loaded:
         try:
             with _chromium() as browser:
-                context = browser.new_context(storage_state=state, user_agent=USER_AGENT)
-                _skip_heavy(context)
+                context = _context(browser, storage_state=state)
                 loaded = _load(context, url)
                 if not sso.is_login_url(loaded.url):
                     return loaded
@@ -147,5 +130,5 @@ class Chromium:
                 if sso.is_login_url(again.url):
                     return again
                 return Loaded(url=again.url, status=again.status, html=again.html, state=context.storage_state())
-        except sso.api().Error as e:
+        except (sso.api().Error, browsers.BrowserConfigError) as e:
             raise LoadFailed(_reason(e)) from e

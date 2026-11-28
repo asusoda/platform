@@ -323,3 +323,64 @@ def test_only_an_org_that_subscribes_to_asu_signs_in(client, officer_headers, so
     # Signing out stays allowed, so the saved session can go
     assert client.delete(BASE, headers=officer_headers).status_code == 200
     _subscription(soda, True)
+
+
+def test_the_real_browser_puts_the_guard_on_each_context(monkeypatch):
+    """Chromium.load and sign_in open their context through core.browser and route it before the first page."""
+    from contextlib import contextmanager
+
+    from core import browser as core_browser
+
+    events: list[str] = []
+
+    class Page:
+        url = "https://sundevilcentral.eoss.asu.edu/organizations"
+
+        def goto(self, url, **kwargs):
+            events.append("goto")
+            return type("Response", (), {"status": 200})()
+
+        def content(self):
+            return "<html></html>"
+
+        def close(self):
+            pass
+
+    class Context:
+        def new_page(self):
+            events.append("page")
+            return Page()
+
+        def storage_state(self):
+            return {}
+
+    class Browser:
+        def new_context(self, **kwargs):
+            events.append("context")
+            return Context()
+
+    @contextmanager
+    def open_browser(playwright, server=None):
+        events.append("open")
+        yield Browser()
+
+    class Api:
+        Error = RuntimeError
+
+        @staticmethod
+        @contextmanager
+        def sync_playwright():
+            yield object()
+
+    monkeypatch.setattr(sso, "api", lambda: Api)
+    monkeypatch.setattr(core_browser, "open_browser", open_browser)
+    monkeypatch.setattr(core_browser, "guard", lambda context: events.append("guard"))
+    loaded = browsers.Chromium().load({}, Page.url)
+    assert loaded.status == 200
+    assert events[:4] == ["open", "context", "guard", "page"]
+
+    events.clear()
+    monkeypatch.setattr(sso, "on_form", lambda page: False)
+    with pytest.raises(sso.SignInFailed):
+        browsers.Chromium().sign_in(NETID, PASSWORD, lambda *args: None)
+    assert events[:4] == ["open", "context", "guard", "page"]

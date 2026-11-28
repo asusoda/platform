@@ -67,8 +67,12 @@ fi
 start_browser() {
   export PLAYWRIGHT_BROWSERS_PATH="$DATA/ms-playwright"
   uv run playwright install --with-deps chromium || return 1
-  uv run playwright run-server --port 3000 --host 127.0.0.1 &
-  export BROWSER_URL="ws://127.0.0.1:3000/"
+  # A new secret path on each start, so a page in the browser cannot open its own browser on the server
+  local secret
+  secret=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+  uv run playwright run-server --port 3000 --host 127.0.0.1 --path "/$secret" \
+    --max-clients "${BROWSER_MAX_CLIENTS:-2}" &
+  export BROWSER_URL="ws://127.0.0.1:3000/$secret"
 }
 if [ "${RUN_BROWSER:-false}" = "true" ] && [ -z "${BROWSER_URL:-}" ]; then
   start_browser || echo "the browser did not start; pages are read without JavaScript" >&2

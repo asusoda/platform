@@ -184,6 +184,6 @@ An org sets its own embeddings service and Firecrawl on the Integrations tab of 
 | `KNOWLEDGE_DISCOVER_EVERY_HOURS` | 168 | How often a page an agent read is fetched again |
 | `KNOWLEDGE_USER_AGENT` | `PlatformKnowledgeBot/1.0` | Sent with fetches and matched against robots.txt |
 | `FIRECRAWL_URL`, `FIRECRAWL_API_KEY` | not set | A Firecrawl for JavaScript pages |
-| `BROWSER_URL` | not set | The shared browser, a Playwright server such as `ws://browser:3000/`. See [operations](../operations.md#run-the-shared-browser) |
-| `BROWSER_MAX_PAGES` | 2 | Pages that one process renders at one time; the others wait |
+| `BROWSER_URL` | not set | The shared browser, a Playwright server on a secret path, such as `ws://browser:3000/<BROWSER_SECRET>`. See [operations](../operations.md#run-the-shared-browser) |
+| `BROWSER_MAX_PAGES` | 2 | Browsers that one process opens at one time; the others wait |
 | `KNOWLEDGE_RENDER_THIN_CHARS` | 400 | A GET page with less text than this is rendered in the browser |

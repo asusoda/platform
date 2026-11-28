@@ -214,7 +214,8 @@ services:
     cpus: ${SEARXNG_CPUS:-0.5}
     profiles: ["search"]
     environment:
-      - SEARXNG_SECRET=${SEARXNG_SECRET:-}
+      # SearXNG refuses to start with ultrasecretkey, so a server with no secret fails closed
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-ultrasecretkey}
     volumes:
       - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
     logging:
@@ -232,8 +233,10 @@ services:
 
   # The shared browser: a Playwright server that renders pages that need JavaScript, for every org within
   # its knowledge.renders_per_day limit, and runs the ASU sign-in. Off unless started with --profile browser.
-  # It is only on browser-network, so it cannot reach Postgres or the other services on soda-network, and
-  # Platform lets it load public addresses only. deploy/browser/Dockerfile pins the Playwright version.
+  # It is only on browser-network, which is internal: it cannot reach the internet, Postgres or the services
+  # on soda-network. Platform answers every request of a page itself (core/browser.py). The server listens
+  # on the secret path BROWSER_SECRET, and runs at most BROWSER_MAX_CLIENTS browsers; others wait.
+  # deploy/browser/Dockerfile pins the Playwright version.
   browser:
     build:
       context: ./deploy/browser
@@ -246,6 +249,11 @@ services:
     cpus: ${BROWSER_CPUS:-1}
     shm_size: 256m
     profiles: ["browser"]
+    command:
+      [
+        "playwright", "run-server", "--port", "3000", "--host", "0.0.0.0",
+        "--path", "/${BROWSER_SECRET:-unset}", "--max-clients", "${BROWSER_MAX_CLIENTS:-2}",
+      ]
     logging:
       driver: json-file
       options:
@@ -286,6 +294,7 @@ volumes:
 networks:
   soda-network:
     driver: bridge
-  # The browser and the services that call it
+  # The browser and the services that call it. Internal: no route to the internet or the host.
   browser-network:
     driver: bridge
+    internal: true
