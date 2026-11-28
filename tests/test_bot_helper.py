@@ -2,7 +2,7 @@
 
 import asyncio
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import discord
 
@@ -55,3 +55,22 @@ def test_clear_refuses_without_manage_channels_and_roles():
     assert refused.deleted == []
     done = _run(discord.Permissions(manage_guild=True, manage_channels=True, manage_roles=True))
     assert done.deleted == ["channel", "category", "role"]
+
+
+def test_sign_up_reaction_adds_the_member_to_the_game_of_its_server():
+    executed: list[tuple] = []
+    bot = SimpleNamespace(user=SimpleNamespace(id=1), execute=lambda *args: executed.append(args))
+    cog = HelperCog(cast(Any, bot))
+    cog.add_to_listner(cast(Any, SimpleNamespace(id=50)), "✅")
+    member = SimpleNamespace(id=7)
+
+    def reaction(user_id, message_id=50, emoji="✅"):
+        payload = SimpleNamespace(message_id=message_id, user_id=user_id, guild_id=1001, emoji=emoji, member=member)
+        asyncio.run(cog.on_raw_reaction_add(cast(Any, payload)))
+
+    reaction(1)
+    reaction(7, message_id=51)
+    reaction(7, emoji="❌")
+    assert executed == []
+    reaction(7)
+    assert executed == [("GameCog", "add_member", 1001, member)]
