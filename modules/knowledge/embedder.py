@@ -79,6 +79,8 @@ class Embedder:
                 net.check_public(self.url)
             except ValueError as e:
                 raise EmbeddingError(str(e)) from e
+            if self.api_key and not self.url.startswith("https://"):
+                raise EmbeddingError("The embeddings URL must be https: the key would be sent in clear text")
         post = net.post if self.public_only else requests.post
         try:
             response = post(
@@ -174,9 +176,10 @@ register(
             Field(
                 URL_SECRET,
                 "Base URL",
-                f"For example {openrouter.BASE_URL}, on a public address. Platform adds /embeddings.",
+                f"For example {openrouter.BASE_URL}, https on a public address. Platform adds /embeddings.",
                 kind="url",
                 secret=False,
+                https_only=True,
             ),
             Field(
                 MODEL_SECRET,

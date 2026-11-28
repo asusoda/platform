@@ -563,6 +563,8 @@ def test_a_narrow_refresh_keeps_the_grant(oauth_client, client, officer_headers)
         scope="org:read points:write",
     )
     assert more.status_code == 400
+    assert more.json()["error"] == "invalid_scope"
+    assert _oauth_row(client, officer_headers)["scopes"] == ["org:read", "points:read"]
 
 
 def test_refresh_stops_when_the_officer_loses_the_role(oauth_client, client, officer_headers, monkeypatch):
@@ -1800,3 +1802,20 @@ def test_the_consent_page_shows_presets_and_groups(oauth_client):
     assert '<details class="group" open><summary><span class="title">Members</span>' in page.text
     assert '<details class="group"><summary><span class="title">Hosting</span>' in page.text
     assert '<span class="tag admin">admin</span>' in page.text
+
+
+def test_exchange_refresh_refuses_a_scope_outside_the_grant(oauth_client, client, officer_headers):
+    """The cap does not depend on the SDK: exchange_refresh itself refuses and changes nothing."""
+    from core.db import db_connect
+    from modules.mcp import oauth
+
+    registered, tokens = _connect(oauth_client, client, officer_headers, scope=["org:read"])
+    db = db_connect.SessionLocal()
+    try:
+        with pytest.raises(oauth.OAuthError, match=oauth.INVALID_SCOPE):
+            oauth.exchange_refresh(db, registered["client_id"], tokens["refresh_token"], ["org:read", "points:write"])
+        db.rollback()
+        fresh = oauth.exchange_refresh(db, registered["client_id"], tokens["refresh_token"], [])
+    finally:
+        db.close()
+    assert fresh["scope"] == "org:read"

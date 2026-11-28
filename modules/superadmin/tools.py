@@ -78,7 +78,6 @@ def server_logs(db, org, caller, name: str, lines: int = 200):
     "server.control",
     description="Start, stop or restart a service that the runner's policy lists.",
     scope="server:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"name": NAME, "action": {"type": "string", "enum": list(service.SERVICE_ACTIONS)}},
@@ -105,7 +104,6 @@ def server_commands(db, org, caller):
     "server.run",
     description="Run one named command from server.commands, such as health or deploy. Takes no arguments.",
     scope="server:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"name": {"type": "string", "pattern": r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"}},
@@ -123,7 +121,6 @@ def server_run(db, org, caller, name: str):
     description="Run a command line with bash on the server, as the unprivileged user of the runner's policy, not "
     "root. Off unless the policy turns the shell on. Returns the exit code and the last output.",
     scope="server:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"command": {"type": "string", "minLength": 1, "maxLength": runner.MAX_SHELL_COMMAND}},

@@ -31,6 +31,9 @@ A rate counter starts again at the start of each window, in UTC. The `usage_coun
 | `feeds.feeds` | feeds | Feeds | 20 |
 | `submodules.subscriptions` | submodules | Shared content the org subscribes to. Its pages count against no org | 20 |
 | `mcp.calls_per_minute` | mcp | Tool calls a minute, over MCP and `/api/tools`. Each call in a batch counts | 300 |
+| `tools.live_per_minute` | mcp | Calls a minute of tools in the `live` rate class (`core/tools.py`), on top of `mcp.calls_per_minute` | 30 |
+| `tools.costly_per_minute` | mcp | Calls a minute of tools in the `costly` rate class: jobs, deploys, pods and writes of a connected service | 10 |
+| `tools.send_per_minute` | mcp | Calls a minute of tools in the `send` rate class: messages that leave Platform | 5 |
 
 Each embedding counts, whichever service the org uses. A search over the embedding limit searches on text only and does not fail. A crawl or an upload over a limit records the error on the source or the file, and the other sources and files go on.
 

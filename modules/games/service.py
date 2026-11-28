@@ -78,5 +78,7 @@ def read_game_file(file_name: object) -> dict:
     requested_path = os.path.abspath(os.path.join(base_dir, f"{file_name}.json"))
     if not requested_path.startswith(base_dir + os.sep):
         raise GameError("Attempted path traversal or invalid path")
+    if not os.path.isfile(requested_path):
+        raise GameError("Game file not found", 404)
     with open(requested_path) as f:
         return json.load(f)

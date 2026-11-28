@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify
 from sentry_sdk import set_tag, start_transaction
 
 from core.db import db_connect
+from core.http.responses import internal_error
 from core.log import get_logger
 from modules.auth.access import any_officer_denial
 from modules.auth.decorators import auth_required
@@ -31,9 +32,8 @@ def debug_organizations():
             orgs = session.query(Organization).filter(Organization.is_active).all()
             org_list = [{"id": org.id, "name": org.name, "prefix": org.prefix} for org in orgs]
             return jsonify({"status": "success", "organizations": org_list, "count": len(org_list)})
-    except Exception as e:
-        logger.error(f"Error in debug_organizations: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception:
+        return internal_error("debug_organizations", key="message", status="error")
 
 
 @calendar_blueprint.route("/<org_prefix>/events", methods=["GET"])

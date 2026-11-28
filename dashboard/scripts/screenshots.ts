@@ -63,6 +63,13 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: 'tool-groups',
+    path: 'connections',
+    before: async (page) => {
+      await page.getByRole('heading', { name: 'Tool groups' }).scrollIntoViewIfNeeded();
+    },
+  },
+  {
     name: 'integrations-sign-in',
     path: 'explore?tab=integrations',
     before: async (page) => {

@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
 from core.db import db_connect
-from core.http.responses import error_handler
+from core.http.responses import error_handler, internal_error
 from core.log import get_logger
 from modules.auth import access
 from modules.auth.decorators import auth_required
@@ -92,8 +92,8 @@ def view_user_in_org(org_prefix):
 
         return jsonify(user_data), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("view_user_in_org")
     finally:
         db.close()
 
@@ -165,9 +165,9 @@ def create_user_in_org(org_prefix):
 
         return jsonify({"message": "User created and added to organization successfully."}), 201
 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        return internal_error("create_user_in_org")
     finally:
         db.close()
 
@@ -286,9 +286,9 @@ def user_in_org(org_prefix):
 
                 return jsonify({"message": "User created and added to organization successfully."}), 201
 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        return internal_error("user_in_org")
     finally:
         db.close()
 
@@ -348,8 +348,8 @@ def get_organization_users(org_prefix):
             }
         ), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("get_organization_users")
     finally:
         db.close()
 
@@ -411,8 +411,8 @@ def get_user_in_organization(org_prefix, user_identifier):
             }
         ), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("get_user_in_organization")
     finally:
         db.close()
 
@@ -464,8 +464,8 @@ def add_user_to_organization(org_prefix):
             }
         ), 201
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("add_user_to_organization")
     finally:
         db.close()
 

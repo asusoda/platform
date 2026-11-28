@@ -110,7 +110,6 @@ def _sync_preview(db, org, caller, roles: list[str] | None = None):
         "roles is empty. Returns counts: matched, new_users, joined and already."
     ),
     scope="members:write",
-    confirm=True,
     preview=_sync_preview,
     input_schema={"type": "object", "properties": {"roles": ROLES}, "additionalProperties": False},
 )

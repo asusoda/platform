@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from core.db import db_connect
 from core.errors import ServiceError
+from core.http.responses import internal_error
 from core.log import get_logger
 from modules.auth.access import current_principal, discord_directory
 from modules.auth.decorators import header_token_refusal, superadmin_required
@@ -47,9 +48,8 @@ def check_superadmin():
         if service.is_superadmin(user_discord_id):
             return jsonify({"is_superadmin": True}), 200
         return jsonify({"is_superadmin": False}), 403
-    except Exception as e:
-        logger.exception(f"Error in check_superadmin: {e}")
-        return jsonify({"error": f"Error checking superadmin status: {str(e)}"}), 500
+    except Exception:
+        return internal_error("superadmin.check_superadmin")
 
 
 @superadmin_blueprint.route("/dashboard", methods=["GET"])
@@ -75,9 +75,8 @@ def get_dashboard():
                 "officer_orgs": [org.to_dict() for org in officer_orgs],
             }
         )
-    except Exception as e:
-        logger.exception(f"Error in get_dashboard: {e}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("superadmin.get_dashboard")
     finally:
         if "db" in locals():
             db.close()
@@ -115,9 +114,8 @@ def get_guild_roles(guild_id):
             return jsonify({"error": "Guild not found"}), 404
 
         return jsonify({"roles": service.guild_roles(directory, guild_id_int)})
-    except Exception as e:
-        logger.exception(f"Error in get_guild_roles: {e}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("superadmin.get_guild_roles")
 
 
 @superadmin_blueprint.route("/update_officer_role/<int:org_id>", methods=["PUT"])
@@ -155,15 +153,14 @@ def update_officer_role(org_id):
 
         except (ValueError, AttributeError) as e:
             logger.error(f"Error verifying role: {e}")
-            return jsonify({"error": f"Invalid role ID format: {str(e)}"}), 400
+            return jsonify({"error": "Invalid role ID format"}), 400
 
         org.officer_role_id = officer_role_id
         db.commit()
 
         return jsonify({"message": f"Officer role updated successfully for {org.name}", "organization": org.to_dict()})
-    except Exception as e:
-        logger.exception(f"Error in update_officer_role: {e}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        return internal_error("superadmin.update_officer_role")
     finally:
         if "db" in locals():
             db.close()
@@ -205,10 +202,9 @@ def remove_organization(org_id):
     except ServiceError as e:
         db.rollback()
         return jsonify({"error": e.message}), e.status
-    except Exception as e:
-        logger.exception(f"Error in remove_organization: {e}")
+    except Exception:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        return internal_error("superadmin.remove_organization")
     finally:
         db.close()
 

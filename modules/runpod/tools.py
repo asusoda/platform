@@ -65,7 +65,6 @@ def apps_register(db, org, caller, name: str, manifest=None, repo=None, manifest
     description="Forget an app. On This server its container goes too; a RunPod pod keeps running until it is "
     "terminated on RunPod.",
     scope="apps:manage",
-    confirm=True,
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
 )
 def apps_delete(db, org, caller, name: str):
@@ -84,7 +83,6 @@ def _rollback_preview(db, org, caller, name: str):
     "hosting.deploy",
     description="Deploy an image tag of an app. The health check rolls a failed deploy back.",
     scope="apps:deploy",
-    confirm=True,
     preview=_deploy_preview,
     input_schema={
         "type": "object",
@@ -105,7 +103,6 @@ def apps_deploy(db, org, caller, name: str, tag: str, ref: str | None = None):
     "hosting.rollback",
     description="Deploy the newest healthy tag other than the current one.",
     scope="apps:manage",
-    confirm=True,
     preview=_rollback_preview,
     input_schema={"type": "object", "properties": {"name": NAME}, "required": ["name"], "additionalProperties": False},
 )
@@ -199,7 +196,6 @@ def apps_create_from_template(db, org, caller, template: str, name: str, values=
     "hosting.action",
     description="Start, stop or restart a deployed app.",
     scope="apps:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"name": NAME, "action": {"enum": list(service.ACTIONS)}},
@@ -241,7 +237,6 @@ def shared_apps_list(db, org, caller):
     description="Subscribe the org to a shared app and invite people by email. For the vault, each person gets an "
     "invite and sets their own master password.",
     scope="submodules:manage",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {

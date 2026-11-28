@@ -35,7 +35,7 @@ flask --app main org|jobs|config ...
 | Path | Holds |
 | --- | --- |
 | `main.py`, `bot_main.py`, `worker_main.py`, `mcp_main.py` | API, Discord bot, job worker (Postgres only), MCP server on port 8001 |
-| `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, the public URL and OAuth sign-in helpers (`core/sign_in.py`), hosting providers (`core/hosting.py`: RunPod and This server), per-org limits (`core/limits.py`), server health and the host agent's file (`core/host.py`) |
+| `core/` | Config, database (`core/db/`), jobs, tools, secrets, audit, logs, the in-process cache, HTTP hooks, Discord and RunPod clients, the public URL and OAuth sign-in helpers (`core/sign_in.py`), hosting providers (`core/hosting.py`: RunPod and This server), per-org limits (`core/limits.py`), server health and the host agent's file (`core/host.py`), the browser and its request guard (`core/browser.py`) |
 | `modules/<name>/` | One module: `README.md`, `service.py`, `api.py`, `models.py`, `jobs.py`, `tools.py`, `SKILL.md` (for agents, when it has tools), only the files it needs |
 | `modules/registry.py`, `modules/manifest.py` | Blueprint mounts and module switches; categories, the module catalog, the modules of a new org, and model, job and tool modules |
 | `apps/` | App templates that officers create apps from on the Hosting page, such as Hermes and Vaultwarden. No Platform code |
@@ -53,6 +53,7 @@ Modules: alerts, auth, bot, calendar, dashboard, feeds, games, godfather, integr
 
 - `core/` imports nothing from `modules/`. Only the route files (`api.py`, `member_api.py`), `registry.py`, `cli.py` and the route helpers in `modules/auth/` import Flask. `make ci` checks both with import-linter.
 - A new module is registered in each place that `docs/writing-a-module.md` lists. `tests/test_module_layout.py` checks them.
+- A new tool gets a row in `GUARDRAILS` in `core/tools.py`: whether it writes, needs confirm, and its rate class.
 - A service takes a database session and plain values and raises a `core.errors.ServiceError` subclass.
 - Use `officer_route`, `machine_route` and `member_view` from `modules/auth/routes.py` for new routes.
 - A module that stores data or calls a paid service declares its limits with `limits.declare(...)` and checks them. See `docs/limits.md`.

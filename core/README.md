@@ -10,7 +10,7 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `db/` | `Base` (`base.py`), `DBConnect`, the `db_connect` instance and `session()` (`session.py`) |
 | `errors.py`, `time.py` | `ServiceError`, the error a service raises with an HTTP status; `utcnow()` and `iso()` for naive UTC times |
 | `jobs.py` | `@job` and `defer()`: Procrastinate on Postgres, threads on SQLite (at most `JOB_THREADS` at a time). A job with `once` runs once at a time for the same arguments; a second `defer()` raises `JobBusy`. A failed job with an org argument sends the `job.failed` webhook event |
-| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) |
+| `tools.py` | The `@tool` registry (`TOOLS`, `ToolSpec`, `ToolError`) and `GUARDRAILS`, one row for each tool: writes, confirm and rate class, with the `tools.<class>_per_minute` limits |
 | `audit.py` | The `audit_log` table, `record()` and the `audit.prune` job |
 | `error_log.py` | The `error_groups` table, `ErrorLogHandler` that records log lines at ERROR and above, `capture()`, and the `error_log.prune` job |
 | `webhooks.py` | The event registry (`declare()`), `emit()` that queues the `events.deliver` job, the job that saves the `notifications` row and calls the senders (`modules/alerts/delivery.py`). See [docs/webhooks.md](../docs/webhooks.md) |
@@ -22,7 +22,8 @@ Shared code that modules use: config, database, logs, HTTP hooks, Discord and Ru
 | `http/` | `responses.py` (`json_body`, `error`, `error_handler`), `request_log.py` (one line for each request, `bearer_token()`), `audit_hook.py` (writes successful changes to the audit log), `cached.py` (`cached_json`: an org read kept in `cache` with an ETag, and the hook that publishes a drop of the cached org reads after a successful write) |
 | `integrations/` | `discord.py` (`DiscordDirectory`, messages and reactions over Discord's REST API) and `runpod.py` (RunPod REST client and the `runpod` hosting provider) |
 | `sign_in.py` | `base_url()` (`ACCOUNTS_BASE_URL`, the public URL of the API), `google_app()` (the Google OAuth app) and the Discord identify sign-in that MCP OAuth and the Godfather CLI use |
-| `net.py` | `check_public()` and `public_addresses()`, which refuse a URL whose host resolves to a non-public address. `get()` and `post()` send a request that connects only to an address that passed the check |
+| `net.py` | `check_public()` and `public_addresses()`, which refuse a URL whose host resolves to a non-public address, also one inside an IPv6 address. `request()`, `get()` and `post()` connect only to an address that passed the check, with a new session (no cookies) for each call |
+| `browser.py` | `open_browser()`: the shared Playwright server at `BROWSER_URL` (it must have a secret path), else a local Chromium. `guard()` answers every request of a browser context through `net.py` and closes WebSockets |
 | `hosting.py` | Hosting providers: the `HostingProvider` and `HostingClient` protocols, the registry (`register()`, `get()`, `listing()`) and `HostingError`. See [docs/modules/godfather.md](../docs/modules/godfather.md#adding-a-hosting-provider) |
 
 ## Surface

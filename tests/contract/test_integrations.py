@@ -273,3 +273,23 @@ def test_embeddings_use_the_openrouter_key(client, officer_headers, cleared, pub
         assert _embedder_key(db, _org_id()) is None
     finally:
         db.close()
+
+
+def test_an_http_url_for_a_keyed_service_is_refused(client, officer_headers, cleared, public_dns):
+    for key, fields in (
+        ("firecrawl", {"firecrawl_url": "http://fc.example", "firecrawl_api_key": "k"}),
+        ("embeddings", {"embeddings_url": "http://e.example/v1", "embeddings_model": "m"}),
+    ):
+        refused = client.put(f"{BASE}/{key}", json={"fields": fields}, headers=officer_headers)
+        assert refused.status_code == 400 and "https" in refused.get_json()["error"], key
+
+
+def test_a_saved_http_url_with_a_key_is_refused_at_call_time(public_dns):
+    from modules.knowledge import embedder, fetch
+
+    service = embedder.Embedder(url="http://e.example/v1", model="m", api_key="k", public_only=True)
+    with pytest.raises(embedder.EmbeddingError, match="https"):
+        service.embed(["text"])
+    firecrawl = fetch.Firecrawl("http://fc.example", api_key="k", public_only=True)
+    with pytest.raises(fetch.FetchRejected, match="https"):
+        fetch.fetch_firecrawl("https://example.com/", firecrawl)

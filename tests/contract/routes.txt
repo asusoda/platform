@@ -140,6 +140,8 @@
 /api/dashboard/<string:org_prefix>/submodules/asu/signin DELETE,OPTIONS dashboard.stop_asu_signin
 /api/dashboard/<string:org_prefix>/submodules/asu/signin GET,HEAD,OPTIONS dashboard.asu_signin
 /api/dashboard/<string:org_prefix>/submodules/asu/signin OPTIONS,POST dashboard.start_asu_signin
+/api/dashboard/<string:org_prefix>/tool-groups GET,HEAD,OPTIONS dashboard.list_tool_groups
+/api/dashboard/<string:org_prefix>/tool-groups OPTIONS,PUT dashboard.set_tool_groups
 /api/dashboard/<string:org_prefix>/trends GET,HEAD,OPTIONS dashboard.trends
 /api/dashboard/<string:org_prefix>/webhooks GET,HEAD,OPTIONS alerts.list_webhooks
 /api/dashboard/<string:org_prefix>/webhooks OPTIONS,POST alerts.create_webhook

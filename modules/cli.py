@@ -175,6 +175,12 @@ def config_check():
     if not getattr(config, "ACCESS_ENFORCE", False):
         report("WARN", "ACCESS_ENFORCE is off: access checks only log")
 
+    from core import browser
+
+    if server := browser.server_url():
+        problem = browser.url_problem(server)
+        report("FAIL" if problem else "ok", f"BROWSER_URL: {problem}" if problem else "BROWSER_URL has a secret path")
+
     _check_database(report)
     if failures:
         raise click.ClickException(f"{failures} check(s) failed")

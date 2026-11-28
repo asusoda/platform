@@ -12,8 +12,9 @@ Serves the tools of other modules to apps and agents with a machine token: over 
 | `client_auth.py` | Client keys: `private_key_jwt` client assertions (RFC 7523), the keys of a client, and the authenticator of `/mcp/token` and `/mcp/revoke` |
 | `edges.py` | HTTP rules in front of the SDK: the `Origin` check, the scope hint and step-up (403 `insufficient_scope`), `iss` on error redirects, the log of refused registrations, token requests and token revocations, and `client_id` from the Basic header |
 | `models.py`, `jobs.py` | The OAuth tables; the job that deletes old OAuth rows |
-| `runtime.py` | Lists and calls tools for a machine caller: scope, module switch and input checks; writes each call to the audit log; runs the `batch` and `guide` tools and the modules gateway |
+| `runtime.py` | Lists and calls tools for a machine caller: scope, module switch, tool group and input checks, the confirm step and the rate class of the tool's `GUARDRAILS` row; writes each call to the audit log; runs the `batch` and `guide` tools and the modules gateway |
 | `layers.py` | Sorts tools into base, module and service tools, finds a module's `SKILL.md`, and reads the skills in `skills/` for `guide` |
+| `service.py` | The tool groups an org's tokens can reach (`Organization.config["mcp"]["tool_groups"]`): the list, the check, and the save |
 | `api.py` | `GET /api/tools` lists tools; `POST /api/tools/<name>` calls one. The OAuth discovery documents at `/.well-known/` on the API host |
 
 ## Surface
@@ -22,6 +23,6 @@ Serves the tools of other modules to apps and agents with a machine token: over 
 - Jobs: `mcp.cleanup_oauth`, schedule `15 * * * *`. It deletes expired requests, grants whose token is revoked or whose refresh token expired, registered clients with no grant that were not used for 7 days, cached metadata documents with no grant and no open request, and the `jti` of expired client assertions.
 - Tools: `modules.list`, `modules.skill`, `modules.tools` and `modules.call`, the gateway to module tools. A token sees it when one or more module tools sit behind it. `batch`, which runs 1 to 25 calls of other tools in order. Each call has its own scope check, module switch, confirm step and audit entry. A token sees `batch` when it can call one or more other tools. `guide`, which gives the skills in [skills/](../../skills/README.md) for agents, and a token sees it with `batch`. The other tools are `core.tools.TOOLS`, which the modules in `TOOL_MODULES` in `modules/manifest.py` fill.
 - Tables: `oauth_clients`, `oauth_requests`, `oauth_grants`, `oauth_assertions`.
-- Limits: `RATE_LIMITS` (`oauth.py`) for the OAuth routes, by client IP, in each process. `mcp.calls_per_minute` (`runtime.py`). Each tool call, also each call in a batch, counts. Over the limit the call returns 429. See [docs/limits.md](../../docs/limits.md).
+- Limits: `RATE_LIMITS` (`oauth.py`) for the OAuth routes, by client IP, in each process. `mcp.calls_per_minute` (`runtime.py`), and `tools.live_per_minute`, `tools.costly_per_minute` and `tools.send_per_minute` for the rate classes in `core/tools.py`. Each tool call, also each call in a batch, counts. Over the limit the call returns 429. See [docs/limits.md](../../docs/limits.md).
 
 See [docs/authentication.md](../../docs/authentication.md#oauth-for-mcp-clients) for OAuth and [docs/architecture.md](../../docs/architecture.md#tools-and-the-mcp-server).

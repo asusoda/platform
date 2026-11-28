@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, send_from_directory
 from sqlalchemy import func
 
 from core.db import db_connect
-from core.http.responses import error_handler
+from core.http.responses import error_handler, internal_error
 from modules.auth.access import member_details_allowed
 from modules.organizations.service import find_by_prefix
 from modules.points import service as points
@@ -45,8 +45,8 @@ def get_leaderboard(org_prefix):
 
         leaderboard_data = points.public_leaderboard(db, org, member_details_allowed(org))
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_leaderboard")
     finally:
         db.close()
 
@@ -65,8 +65,8 @@ def get_global_leaderboard():
     db = next(db_connect.get_db())
     try:
         leaderboard = points.global_leaderboard(db)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_global_leaderboard")
     finally:
         db.close()
 
@@ -112,8 +112,8 @@ def get_organization_users(org_prefix):
             }
         ), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_organization_users")
     finally:
         db.close()
 
@@ -152,7 +152,7 @@ def get_organization_stats(org_prefix):
             }
         ), 200
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    except Exception:
+        return internal_error("get_organization_stats")
     finally:
         db.close()

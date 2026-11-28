@@ -6,7 +6,15 @@ services the org connected (layers.py), and the gateway to module tools: modules
 modules.tools and modules.call. The guide tool gives the skills in skills/. The batch tool runs up to MAX_BATCH calls in one request; each call, also
 through the gateway, gets its own scope check, confirm step and audit entry.
 
-Each call of a tool, also inside a batch, counts against the org's mcp.calls_per_minute limit.
+Each call of a tool, also inside a batch, goes through the same checks in this order:
+
+1. mcp.calls_per_minute for the org.
+2. The tool exists, the token's scopes and the org's module switches allow it, and the org allows its tool group
+   (service.py). A tool that fails any of these gets 404, the same answer as an unknown tool.
+3. The arguments match the tool's schema.
+4. A tool whose GUARDRAILS row has confirm returns a preview without confirm=true.
+5. A tool whose row has a rate class counts against tools.<class>_per_minute (429 when used up).
+6. The tool runs. After a tool that writes, the cached org reads of this process are dropped.
 """
 
 import time
@@ -18,11 +26,12 @@ from core import audit, limits
 from core.cache import publish
 from core.errors import ServiceError
 from core.log import get_logger
-from core.tools import TOOLS, ToolError, ToolSpec
+from core.tools import TOOLS, ToolError, ToolSpec, rate_limit
 from modules.auth.machine_tokens import OAUTH_KIND, MachineCaller
 from modules.integrations import service as remote
 from modules.manifest import CATALOG
 from modules.mcp import layers
+from modules.mcp import service as tool_groups
 from modules.organizations import service as organizations
 from modules.organizations.models import Organization
 
@@ -137,6 +146,8 @@ def _usable(db, spec: ToolSpec, org: Organization, caller: MachineCaller, *, any
     """Whether the caller may call the tool. any_scope skips the scope check, for step-up."""
     if not any_scope and not caller.allows(spec.scope):
         return False
+    if not tool_groups.reaches(org, spec.name):
+        return False
     if spec.module is not None and not organizations.module_enabled(org, spec.module):
         return False
     return spec.available is None or spec.available(db, caller.organization_id)
@@ -181,7 +192,9 @@ def _remote(db, org: Organization, caller: MachineCaller) -> list[ToolSpec]:
     """The tools of the org's connected MCP servers, when the integrations module is on."""
     if not organizations.module_enabled(org, "integrations"):
         return []
-    return remote.tools_for(db, caller.organization_id, caller)
+    return [
+        spec for spec in remote.tools_for(db, caller.organization_id, caller) if tool_groups.reaches(org, spec.name)
+    ]
 
 
 def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source: str) -> Any:
@@ -202,7 +215,12 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
         spec = TOOLS.get(name)
         if spec is not None and not _usable(db, spec, org, caller):
             spec = None
-        if spec is None and name not in TOOLS and organizations.module_enabled(org, "integrations"):
+        if (
+            spec is None
+            and name not in TOOLS
+            and organizations.module_enabled(org, "integrations")
+            and tool_groups.reaches(org, name)
+        ):
             spec = remote.find(db, caller.organization_id, caller, name)
         if spec is None:
             # Same answer for unknown and not allowed, so a token cannot probe for tools
@@ -224,6 +242,10 @@ def call(db, caller: MachineCaller, name: str, arguments: dict | None, *, source
             if spec.preview is not None:
                 result["preview"] = spec.preview(db, org, caller, **args)
             return result
+        rate = rate_limit(spec.guard.rate)
+        if rate is not None:
+            limits.consume(db, caller.organization_id, rate)
+            db.commit()
         result = spec.func(db, org, caller, **args)
         if not spec.read_only:
             # Drops the cached org reads of every process, as an HTTP write does
@@ -367,5 +389,7 @@ def describe(spec: ToolSpec) -> dict:
         "scope": spec.scope,
         "read_only": spec.read_only,
         "confirm": spec.confirm,
+        "rate": spec.guard.rate,
+        "group": spec.group,
         "input_schema": spec.input_schema,
     }

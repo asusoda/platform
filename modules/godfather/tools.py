@@ -27,7 +27,6 @@ def godfather_pods(db, org, caller):
     ),
     scope="godfather:manage",
     module="godfather",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {
@@ -86,7 +85,6 @@ def _object(properties: dict, required: tuple[str, ...] = (), **extra) -> dict:
     ),
     scope="godfather:manage",
     module="godfather",
-    confirm=True,
     input_schema=_object(
         {
             "name": {"type": "string", "minLength": 1, "maxLength": 100},
@@ -178,7 +176,6 @@ def godfather_sessions(db, org, caller, pod_id: str):
     ),
     scope="godfather:manage",
     module="godfather",
-    confirm=True,
     input_schema=_object(
         {
             "pod_id": POD_ID,
@@ -234,7 +231,6 @@ def godfather_read_file(db, org, caller, pod_id: str, path: str):
     description="Write a text file on a running pod. It replaces a file with that path.",
     scope="godfather:manage",
     module="godfather",
-    confirm=True,
     input_schema=_object(
         {"pod_id": POD_ID, "path": PATH, "content": {"type": "string", "maxLength": files.MAX_READ_BYTES}},
         ("pod_id", "path", "content"),
@@ -277,7 +273,6 @@ def godfather_move_file(db, org, caller, pod_id: str, old_path: str, new_path: s
     description="Delete a file, or a folder and all it holds, on a running pod.",
     scope="godfather:manage",
     module="godfather",
-    confirm=True,
     input_schema=_object({"pod_id": POD_ID, "path": PATH}, ("pod_id", "path")),
 )
 def godfather_delete_file(db, org, caller, pod_id: str, path: str):

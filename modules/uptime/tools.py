@@ -82,7 +82,6 @@ def uptime_save(db, org, caller, id: int | None = None, **body):
     description="Delete monitors and their checks by id, up to 50. If one id is missing, nothing changes.",
     scope="uptime:manage",
     module="uptime",
-    confirm=True,
     input_schema={
         "type": "object",
         "properties": {"ids": {"type": "array", "items": ID, "minItems": 1, "maxItems": service.MAX_IDS}},

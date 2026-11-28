@@ -1,12 +1,17 @@
 """Checks that a URL names a public host, so a URL from a user cannot make the server reach its own network.
 
-get() and post() connect only to an address that passed the check. A second DNS answer cannot move the connection
-to a private address.
+get(), post() and request() connect only to an address that passed the check. A second DNS answer cannot move
+the connection to a private address. An IPv6 address that holds an IPv4 address (IPv4-mapped, 6to4, NAT64) must
+pass the check by its IPv4 part too.
+
+Each call uses a new session, so no cookie from one call goes with the next. The connection pools are shared.
+Proxies from the environment are not used (a proxy would resolve the host again), but REQUESTS_CA_BUNDLE and
+CURL_CA_BUNDLE are.
 """
 
 import ipaddress
+import os
 import socket
-import threading
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
@@ -27,6 +32,23 @@ class NoHost(ValueError):
     """The host of the URL does not resolve."""
 
 
+NAT64 = ipaddress.ip_network("64:ff9b::/96")
+
+
+def _is_public(address: str) -> bool:
+    """Whether the address is global, and also its embedded IPv4 address when it has one."""
+    ip = ipaddress.ip_address(address)
+    if not ip.is_global:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and ip in NAT64:
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None and not embedded.is_global:
+            return False
+    return True
+
+
 def public_addresses(host: str, port: int) -> list[str]:
     """The addresses of host, after a check that each one is public. Raises NoHost or NotPublic.
 
@@ -38,7 +60,7 @@ def public_addresses(host: str, port: int) -> list[str]:
         raise NoHost(f"{host} does not resolve") from e
     addresses = [str(info[4][0]).split("%")[0] for info in infos]
     for address in addresses:
-        if not ipaddress.ip_address(address).is_global:
+        if not _is_public(address):
             raise NotPublic(f"{host} resolves to a non-public address")
     if not addresses:
         raise NoHost(f"{host} does not resolve")
@@ -69,12 +91,12 @@ def _connect_public(connection: HTTPConnection) -> socket.socket:
                 source_address=connection.source_address,
                 socket_options=connection.socket_options,
             )
-        except TimeoutError as e:
-            raise ConnectTimeoutError(
-                connection, f"Connection to {host} timed out. (connect timeout={connection.timeout})"
-            ) from e
         except OSError as e:
             error = e
+    if isinstance(error, TimeoutError):
+        raise ConnectTimeoutError(
+            connection, f"Connection to {host} timed out. (connect timeout={connection.timeout})"
+        ) from error
     raise NewConnectionError(connection, f"Failed to establish a new connection: {error}")
 
 
@@ -118,26 +140,30 @@ class _PublicAdapter(HTTPAdapter):
         self.poolmanager = _PublicPoolManager(num_pools=connections, maxsize=maxsize, block=block, **pool_kwargs)
 
 
-_local = threading.local()
+_HTTP = _PublicAdapter()
+_HTTPS = _PublicAdapter()
 
 
 def _session() -> requests.Session:
-    """A session for this thread that reaches public addresses only. It uses no proxy from the environment."""
-    session = getattr(_local, "session", None)
-    if session is None:
-        session = requests.Session()
-        session.trust_env = False
-        session.mount("http://", _PublicAdapter())
-        session.mount("https://", _PublicAdapter())
-        _local.session = session
+    """A new session with no cookies that reaches public addresses only, through the shared pools."""
+    session = requests.Session()
+    session.trust_env = False
+    session.verify = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("CURL_CA_BUNDLE") or True
+    session.mount("http://", _HTTP)
+    session.mount("https://", _HTTPS)
     return session
+
+
+def request(method: str, url: str, **kwargs: Any) -> requests.Response:
+    """requests.request to a public address only. Raises NotPublic or a requests.RequestException."""
+    return _session().request(method, url, **kwargs)
 
 
 def get(url: str, **kwargs: Any) -> requests.Response:
     """requests.get to a public address only. Raises NotPublic or a requests.RequestException."""
-    return _session().get(url, **kwargs)
+    return request("GET", url, **kwargs)
 
 
 def post(url: str, **kwargs: Any) -> requests.Response:
     """requests.post to a public address only. Raises NotPublic or a requests.RequestException."""
-    return _session().post(url, **kwargs)
+    return request("POST", url, **kwargs)

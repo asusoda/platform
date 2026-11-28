@@ -94,7 +94,6 @@ def submodules_list(db, org, caller):
     "modules.subscribe",
     description="Subscribe the org to shared content (a submodule): knowledge search reads its pages and its feeds become presets.",
     scope="submodules:manage",
-    confirm=True,
     input_schema=NAME,
 )
 def submodules_subscribe(db, org, caller, name: str):
@@ -107,7 +106,6 @@ def submodules_subscribe(db, org, caller, name: str):
     "modules.unsubscribe",
     description="End the org's subscription to shared content (a submodule). Feeds the org already made keep running.",
     scope="submodules:manage",
-    confirm=True,
     input_schema=NAME,
 )
 def submodules_unsubscribe(db, org, caller, name: str):

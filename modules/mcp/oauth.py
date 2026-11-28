@@ -112,6 +112,10 @@ class OAuthError(ValueError):
     pass
 
 
+# The message of the OAuthError for a refresh that asks for a scope outside the grant
+INVALID_SCOPE = "invalid_scope"
+
+
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -757,7 +761,8 @@ def load_refresh(db, client_id: str, refresh: str) -> dict | None:
 def exchange_refresh(db, client_id: str, refresh: str, scopes: list[str]) -> dict:
     """New access and refresh tokens for a grant. The old values stop working. Raises OAuthError. Commits.
 
-    The access token gets scopes, or all the scopes of the grant when scopes is empty. The grant keeps its scopes.
+    The access token gets scopes, or all the scopes of the grant when scopes is empty. A scope outside the grant
+    raises OAuthError(INVALID_SCOPE). The grant's scopes change only when an officer approves it.
     """
     found = _grant_for_refresh(db, client_id, refresh)
     if found is None:
@@ -778,6 +783,8 @@ def exchange_refresh(db, client_id: str, refresh: str, scopes: list[str]) -> dic
     if checked is None and grant.checked_at <= now - RECHECK_GRACE:
         raise OAuthError("Platform cannot check the officer role now. Try again later")
     granted = _granted_scopes(grant, token)
+    if set(scopes) - set(granted):
+        raise OAuthError(INVALID_SCOPE)
     new_refresh = REFRESH_PREFIX + secrets.token_urlsafe(32)
     # The update finds the old hash only once, so a refresh token that two requests send rotates once
     changed = (
@@ -787,7 +794,8 @@ def exchange_refresh(db, client_id: str, refresh: str, scopes: list[str]) -> dic
             {
                 "refresh_hash": _hash(new_refresh),
                 "refresh_expires_at": now + datetime.timedelta(days=REFRESH_DAYS),
-                "scopes": granted,
+                # A grant from before grants kept their scopes gets the scopes it was approved with
+                **({"scopes": granted} if grant.scopes is None else {}),
                 **({"checked_at": now} if checked else {}),
             }
         )
@@ -795,7 +803,6 @@ def exchange_refresh(db, client_id: str, refresh: str, scopes: list[str]) -> dic
     if changed != 1:
         db.rollback()
         raise OAuthError("The refresh token is not valid")
-    token.scopes = granted
     access = machine_tokens.rotate(db, token, ACCESS_SECONDS, scopes or granted)
     _touch(db, client_id)
     db.commit()
@@ -830,17 +837,23 @@ def cleanup(db) -> dict:
     now = _now()
     requests = db.query(OAuthRequest).filter(OAuthRequest.expires_at <= now).delete(synchronize_session=False)
     finished = [
-        (grant.id, grant.machine_token_id)
+        (grant.id, grant.machine_token_id, token.organization_id if token is not None else None)
         for grant, token in db.query(OAuthGrant, MachineToken).outerjoin(
             MachineToken, MachineToken.id == OAuthGrant.machine_token_id
         )
         if token is None or token.revoked_at is not None or grant.refresh_expires_at <= now
     ]
-    # An expired grant leaves no live token on the Connections page
+    # An expired grant leaves no live token on the Connections page, and no live token that it issued
     db.query(MachineToken).filter(
-        MachineToken.id.in_([token_id for _, token_id in finished]), MachineToken.revoked_at.is_(None)
+        MachineToken.id.in_([token_id for _, token_id, _ in finished]), MachineToken.revoked_at.is_(None)
     ).update({"revoked_at": now}, synchronize_session=False)
-    db.query(OAuthGrant).filter(OAuthGrant.id.in_([grant_id for grant_id, _ in finished])).delete(
+    by_org: dict[int, list[int]] = {}
+    for _, token_id, org_id in finished:
+        if org_id is not None:
+            by_org.setdefault(int(org_id), []).append(int(token_id))
+    for org_id, token_ids in by_org.items():
+        machine_tokens.revoke_children(db, org_id, token_ids)
+    db.query(OAuthGrant).filter(OAuthGrant.id.in_([grant_id for grant_id, _, _ in finished])).delete(
         synchronize_session=False
     )
     in_use = db.query(OAuthGrant.client_id)
@@ -970,6 +983,8 @@ class Provider(sdk.OAuthAuthorizationServerProvider[sdk.AuthorizationCode, Platf
         try:
             token = await _run(exchange_refresh, str(client.client_id), refresh_token.token, scopes)
         except OAuthError as e:
+            if str(e) == INVALID_SCOPE:
+                raise sdk.TokenError("invalid_scope", "The refresh asks for a scope outside the grant") from e
             raise sdk.TokenError("invalid_grant", str(e)) from e
         return OAuthToken.model_validate(token)
 
