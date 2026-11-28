@@ -4,7 +4,7 @@ No code reads or writes these tables or organizations.points_per_message and poi
 makes them again, empty, with the old defaults.
 
 Revision ID: cd5b737f15ca
-Revises: 3f7ab9fccd70
+Revises: c5e7a9b1d3f4
 Create Date: 2026-11-28 14:00:00.000000
 
 """
@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "cd5b737f15ca"
-down_revision: str | Sequence[str] | None = "3f7ab9fccd70"
+down_revision: str | Sequence[str] | None = "c5e7a9b1d3f4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # Export Alembic metadata names so static analyzers treat them as intentionally used.
