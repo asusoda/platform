@@ -1,7 +1,7 @@
 """Points tools."""
 
 from core.tools import tool
-from modules.points import service
+from modules.points import csv_import, service
 
 MEMBER = {"type": "string", "minLength": 1, "maxLength": 255, "description": "Email, uuid, username or Discord id"}
 EVENT = {"type": "string", "minLength": 1, "maxLength": 255}
@@ -107,7 +107,7 @@ def points_delete(db, org, caller, ids: list[int] | None = None, event: str | No
     "points.import_csv",
     description=(
         "Give event_points to each checked-in row of an attendance CSV, once per email, in the background. "
-        "A row with no member makes one."
+        "A row with no member makes one. points.imports shows the progress and the errors of the run."
     ),
     scope="points:write",
     module="points",
@@ -123,13 +123,23 @@ def points_delete(db, org, caller, ids: list[int] | None = None, event: str | No
     },
 )
 def points_import_csv(db, org, caller, content: str, event_name: str, event_points: int):
-    from core.jobs import defer
+    run = csv_import.queue(db, org, content, event_name, event_points, caller.actor)
+    return {"queued": True, "import_id": run.id}
 
-    defer(
-        "points.import_event_csv",
-        file_content=content,
-        event_name=event_name,
-        event_points=event_points,
-        org_prefix=str(org.prefix),
-    )
-    return {"queued": True}
+
+@tool(
+    "points.imports",
+    description=(
+        "The org's newest attendance CSV imports: status, rows done of rows total, points awarded, "
+        "duplicates skipped, and the CSV row, email and message of each failed row."
+    ),
+    scope="members:read",
+    module="points",
+    input_schema={
+        "type": "object",
+        "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10}},
+        "additionalProperties": False,
+    },
+)
+def points_imports(db, org, caller, limit: int = 10):
+    return {"imports": csv_import.runs(db, int(org.id), limit)}

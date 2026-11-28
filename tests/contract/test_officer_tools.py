@@ -62,13 +62,18 @@ def test_points_csv_import_queues_the_job(client, monkeypatch):
     monkeypatch.setattr(jobs, "defer", lambda name, **kwargs: queued.append((name, kwargs)))
     headers = _issue("points:write")
     csv = "email,checked_in\nalice@asu.edu,yes\n"
-    assert _result(client, headers, "points.import_csv", content=csv, event_name="GBM 2", event_points=5) == {
-        "queued": True
-    }
+    result = _result(client, headers, "points.import_csv", content=csv, event_name="GBM 2", event_points=5)
+    assert result == {"queued": True, "import_id": result["import_id"]}
     assert queued == [
         (
             "points.import_event_csv",
-            {"file_content": csv, "event_name": "GBM 2", "event_points": 5, "org_prefix": "soda"},
+            {
+                "file_content": csv,
+                "event_name": "GBM 2",
+                "event_points": 5,
+                "org_prefix": "soda",
+                "import_id": result["import_id"],
+            },
         )
     ]
 
