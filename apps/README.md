@@ -10,7 +10,7 @@ Ready-made apps that officers create from the Templates dialog of the Hosting pa
 ## Write a template
 
 1. Make a folder `apps/<name>/`. The name is lowercase letters, digits and dashes.
-2. Write `platform.app.yaml`: a [manifest](../docs/hosting.md#manifest) and a `template` block. Use images from GHCR. For an image that is only on Docker Hub, pull it through `mirror.gcr.io`, never from Docker Hub itself.
+2. Write `platform.app.yaml`: a [manifest](../docs/modules/hosting.md#manifest) and a `template` block. Use images from GHCR. For an image that is only on Docker Hub, pull it through `mirror.gcr.io`, never from Docker Hub itself.
 
    ```yaml
    template:

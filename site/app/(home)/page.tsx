@@ -20,7 +20,7 @@ const modules: Module[] = [
     icon: ShoppingBag,
     name: 'Merch store',
     text: 'Members spend points. Officers manage products and orders.',
-    href: '/docs/modules/storefront',
+    href: '/docs/modules/store',
   },
   {
     icon: CalendarDays,

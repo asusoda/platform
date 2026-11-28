@@ -27,4 +27,4 @@ Deploys an org's own apps to pods on a hosting provider: register an app's manif
 - One deploy of an app at a time creates its pod. While the first deploy of an app creates the pod, another deploy of that app gets 409.
 - An app name has no two dashes in a row. On This server, each deploy saves the container name that the runner answers as the app's `pod_id`, because the runner moves a container with an old name to `app-<org>--<app>`.
 
-See [docs/hosting.md](../docs/hosting.md).
+See [docs/modules/hosting.md](../docs/modules/hosting.md).
