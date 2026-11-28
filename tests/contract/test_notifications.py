@@ -72,7 +72,9 @@ def test_webhook_events_are_notifications(client, officer_headers, sent, monkeyp
     monkeypatch.setattr(webhooks, "KEEP_COUNT", 2)
     for title in ("first", "second", "third"):
         webhooks.emit("ais", "pod.stopped", webhooks.Message(title=f"pod {title}", fields=(("Pod", "abc"),)))
+        sent.wait()
     webhooks.emit("ais", "errors", webhooks.Message(title="KeyError", text="boom", color=webhooks.RED))
+    sent.wait()
     try:
         body = client.get(BASE, headers=officer_headers).get_json()
         events = [n for n in body["notifications"] if n["kind"] == "event"]
@@ -97,6 +99,7 @@ def test_delete_events_in_a_batch(client, officer_headers, sent, failing_source)
     _, source = failing_source
     for title in ("one", "two", "three"):
         webhooks.emit("ais", "pod.started", webhooks.Message(title=f"pod {title}"))
+    sent.wait()
     try:
         body = client.get(BASE, headers=officer_headers).get_json()
         events = [n["id"] for n in body["notifications"] if n["kind"] == "event"]

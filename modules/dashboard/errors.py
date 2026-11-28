@@ -1,14 +1,11 @@
 """The error log for officers: the org's errors, resolve and reopen, dashboard reports, and alerts.
 
 core/error_log.py stores the errors. setup() installs its handler in a process and adds the org lookup and
-the alert. A new error group, or a resolved one that comes back, sends the errors webhook event to the org's
-webhooks (core/webhooks.py), and posts to ERROR_WEBHOOK_URL from .env, at most ALERTS_PER_HOUR per process.
-No Flask here.
+the alert. A new error group, or a resolved one that comes back, sends the errors event (core/webhooks.py) to the
+org's destinations, and to ERROR_WEBHOOK_URL from .env when it is set (modules/alerts/delivery.py). No Flask here.
 """
 
 import os
-import threading
-import time
 from typing import cast
 
 from sqlalchemy import or_
@@ -16,12 +13,9 @@ from sqlalchemy import or_
 from core import error_log, webhooks
 from core.db import session
 from core.errors import ServiceError
-from core.log import get_logger
+from modules.alerts.models import Destination
 from modules.organizations.models import Organization
 
-logger = get_logger("error_alerts")
-
-ALERTS_PER_HOUR = 30
 MAX_REPORT_FIELD = 5000
 
 webhooks.declare(
@@ -29,9 +23,6 @@ webhooks.declare(
     "Errors",
     "A new error, or a resolved error that comes back. At most 30 messages an hour.",
 )
-
-_sent: list[float] = []
-_sent_lock = threading.Lock()
 
 
 class ErrorLogError(ServiceError, ValueError):
@@ -47,16 +38,6 @@ def _org_prefix(value: str | None) -> str | None:
         return str(org.prefix) if org is not None else value
 
 
-def _allow_alert() -> bool:
-    now = time.monotonic()
-    with _sent_lock:
-        _sent[:] = [t for t in _sent if now - t < 3600]
-        if len(_sent) >= ALERTS_PER_HOUR:
-            return False
-        _sent.append(now)
-        return True
-
-
 def _message(group: dict) -> webhooks.Message:
     where = " · ".join(p for p in (group["source"], group.get("org"), group.get("route") or group.get("location")) if p)
     return webhooks.Message(
@@ -65,19 +46,8 @@ def _message(group: dict) -> webhooks.Message:
 
 
 def _alert(group: dict) -> None:
-    """Send a new or returning error group to the org's webhooks and to ERROR_WEBHOOK_URL, in the background."""
-    message = _message(group)
-    if group.get("org"):
-        webhooks.emit(group["org"], "errors", message)
-    url = os.environ.get("ERROR_WEBHOOK_URL")
-    if url and _allow_alert():
-        webhooks.spawn(_post_server, url, message)
-
-
-def _post_server(url: str, message: webhooks.Message) -> None:
-    error = webhooks.post("discord", url, message)
-    if error:
-        logger.warning("error alert to ERROR_WEBHOOK_URL failed: %s", error)
+    """Queue a new or returning error group for the org's destinations and ERROR_WEBHOOK_URL."""
+    webhooks.emit(group.get("org"), "errors", _message(group), server=bool(os.environ.get("ERROR_WEBHOOK_URL")))
 
 
 def setup(source: str) -> None:
@@ -101,7 +71,7 @@ def listing(db, org: Organization, status: str = "open", limit: int = 50) -> dic
 
 def _sends_errors(db, org_id: int) -> bool:
     """True when an enabled webhook of the org takes the errors event."""
-    rows = db.query(webhooks.Webhook).filter_by(organization_id=org_id, enabled=True).all()
+    rows = db.query(Destination).filter_by(organization_id=org_id, enabled=True).all()
     return any("errors" in (row.events or []) for row in rows)
 
 

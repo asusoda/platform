@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from flask import Blueprint
+from flask import Blueprint, request
 
 from core.http import audit_hook
 from core.http.responses import json_body
@@ -26,6 +26,20 @@ def _actor() -> str:
 @_route("/webhooks", ["GET"])
 def list_webhooks(db, org):
     return service.listing(db, org)
+
+
+@_route("/webhooks/deliveries", ["GET"])
+def list_deliveries(db, org):
+    args = request.args
+    return service.deliveries(
+        db,
+        org,
+        source=args.get("source"),
+        destination_id=args.get("destination_id"),
+        status=args.get("status"),
+        before=args.get("before"),
+        limit=args.get("limit"),
+    )
 
 
 @_route("/webhooks", ["POST"])

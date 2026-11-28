@@ -146,11 +146,11 @@ def _execute(entry: Job, kwargs: dict) -> None:
 
 
 def _send_failure(entry: Job, kwargs: dict, error: Exception) -> None:
-    """Send the job.failed webhook event when the job ran for one org."""
+    """Send the job.failed event when the job ran for one org. An events.* job sends none, so it cannot loop."""
     from core import webhooks
 
     org = kwargs.get("org_id") or kwargs.get("org_prefix")
-    if isinstance(org, int | str):
+    if isinstance(org, int | str) and not entry.name.startswith("events."):
         message = webhooks.Message(
             title=f"Job {entry.name} failed",
             text=f"{type(error).__name__}: {error}"[:500],

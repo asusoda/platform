@@ -1,6 +1,6 @@
 # feeds
 
-Posts new job listings and hackathons to Discord channels: each feed reads one source on a schedule and posts only new items to its alert destination (`destination_id`, see `modules/alerts`). A feed has a kind: `github_jobs` (the job table of a GitHub README) or `hackathons` (Hack Club, Euro-Hackathons and Hackalist). When the org has the module off, its feeds are hidden and do not run. The presets come from the submodules the org subscribes to, such as `careers`. Other org events go through `core/webhooks.py` to the same destinations.
+Posts new job listings and hackathons to Discord channels: each feed reads one source on a schedule and posts only new items to its alert destination (`destination_id`, see `modules/alerts`). A feed has a kind: `github_jobs` (the job table of a GitHub README) or `hackathons` (Hack Club, Euro-Hackathons and Hackalist). When the org has the module off, its feeds are hidden and do not run. The presets come from the submodules the org subscribes to, such as `careers`. Each post goes through the alerts send path (`modules/alerts/delivery.py`), which logs it in `deliveries` and updates the destination's last result. Other org events go to the same destinations.
 
 ## Files
 
@@ -8,7 +8,7 @@ Posts new job listings and hackathons to Discord channels: each feed reads one s
 | --- | --- |
 | `api.py` | Officer routes to create, list, update, delete and run feeds |
 | `tools.py` | The `feeds.*` tools for agents |
-| `service.py` | Feeds, runs, duplicate checks and Discord webhook posts |
+| `service.py` | Feeds, runs, duplicate checks, and the message of each new item |
 | `types.py` | `Item`, `SourceError` and the fetch signature of a source |
 | `github_jobs.py` | The `github_jobs` kind: reads the job table, config checks and the fetch |
 | `hackathons.py` | The `hackathons` kind: reads the hackathon listings, config checks and the fetch |

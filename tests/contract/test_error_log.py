@@ -4,7 +4,6 @@ import logging
 import uuid
 
 from core import error_log
-from modules.dashboard import errors
 from tests.contract.conftest import OFFICER_DISCORD_ID
 from tests.contract.test_access import SUPERADMIN_ID, headers_for
 
@@ -115,13 +114,19 @@ def test_webhook_alerts_new_errors_once(client, officer_headers, sent):
 
 
 def test_server_webhook_gets_every_org(sent, monkeypatch):
+    from modules.alerts import delivery
+
     monkeypatch.setenv("ERROR_WEBHOOK_URL", WEBHOOK)
-    monkeypatch.setattr(errors, "_sent", [])
+    monkeypatch.setattr(delivery, "_server_sent", [])
+    monkeypatch.setattr(delivery, "SERVER_PER_HOUR", 2)
     marker = uuid.uuid4().hex
     _raise(marker, "soda")
     _raise(uuid.uuid4().hex, None)
     assert [p[0] for p in sent] == [WEBHOOK, WEBHOOK]
-    assert marker in sent[0][1]["embeds"][0]["description"]
+    assert any(marker in payload["embeds"][0]["description"] for _, payload in sent)
+    # At most SERVER_PER_HOUR an hour
+    _raise(uuid.uuid4().hex, None)
+    assert len(sent) == 2
 
 
 def test_superadmin_sees_every_org(client, monkeypatch, app):
