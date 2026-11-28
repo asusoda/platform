@@ -12,8 +12,6 @@ from core.http.request_log import bearer_token
 from core.log import get_logger
 from modules.auth.access import decide, discord_directory
 from modules.auth.tokens import token_manager
-from modules.members import service as users
-from modules.members.models import User, UserOrganizationMembership
 from modules.points import service
 from modules.points.api import ORG_NOT_FOUND, active_org, points_blueprint
 from modules.points.submodules.leaderboard import service as leaderboards
@@ -64,32 +62,14 @@ def member_login(org_prefix):
         organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
-
-        fields = users.member_input(data)
-        user_data = {
-            key: fields.get(key) for key in ("name", "username", "email", "student_id", "class_standing", "major")
-        }
-        user = users.link_or_create_user(organization.id, user_data, session.get("discord_id"))
-        if not user:
-            return jsonify({"error": "Failed to create or link user account"}), 500
-
-        session["member_user_id"] = user.id
+        body = service.member_login(db, organization, data, session.get("discord_id"))
+        session["member_user_id"] = body["user"]["id"]
         session["member_org_id"] = organization.id
-        return jsonify(
-            {
-                "message": "Login successful",
-                "user": {
-                    "id": user.id,
-                    "name": user.name,
-                    "username": user.username,
-                    "email": user.email,
-                    "asu_id": user.student_id,
-                    "discord_linked": bool(user.discord_id),
-                },
-                "organization": {"id": organization.id, "name": organization.name, "prefix": organization.prefix},
-            }
-        ), 200
+        return jsonify(body), 200
+    except service.PointsError as e:
+        return jsonify({"error": e.message}), e.status
     except Exception:
+        db.rollback()
         logger.exception("member_login failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while retrieving user points"}), 500
     finally:
@@ -109,43 +89,11 @@ def get_member_profile(org_prefix):
         organization = active_org(db, org_prefix)
         if not organization:
             return jsonify({"error": ORG_NOT_FOUND}), 404
-
-        if discord_id:
-            # As member_required: the Discord user must be in the org's server
-            directory = discord_directory()
-            if directory is None or not directory.is_ready():
-                return jsonify({"error": "Discord bot not available"}), 503
-            if not directory.check_user_membership(int(discord_id), int(organization.guild_id)):
-                return jsonify({"error": "You must be a member of this organization to access this resource"}), 403
-            user = db.query(User).filter_by(discord_id=str(discord_id)).first()
-        else:
-            user = db.query(User).filter_by(id=member_user_id).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        membership = (
-            db.query(UserOrganizationMembership)
-            .filter_by(user_id=user.id, organization_id=organization.id, is_active=True)
-            .first()
-        )
-        orgs = service.member_orgs(db, user.id, organization.id)
-        current_points = next((o["points"] for o in orgs if o["is_current"]), 0)
-        return jsonify(
-            {
-                "user": {
-                    **service.member_json(user, membership),
-                    "created_at": user.created_at.isoformat() if user.created_at else None,
-                },
-                "current_organization": {
-                    "id": organization.id,
-                    "name": organization.name,
-                    "prefix": organization.prefix,
-                    "points": current_points,
-                },
-                "organizations": orgs,
-                "total_points_all_orgs": sum(o["points"] for o in orgs),
-            }
-        ), 200
+        # As member_required: a Discord user must be in the org's server
+        directory = discord_directory() if discord_id else None
+        return jsonify(service.member_profile(db, organization, discord_id, member_user_id, directory)), 200
+    except service.PointsError as e:
+        return jsonify({"error": e.message}), e.status
     except Exception:
         logger.exception("member_profile failed org=%s", org_prefix)
         return jsonify({"error": "An error occurred while retrieving user points across organizations"}), 500

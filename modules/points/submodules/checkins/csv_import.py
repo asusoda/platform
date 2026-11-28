@@ -12,6 +12,7 @@ from modules.members.models import User, UserOrganizationMembership
 from modules.members.service import manage_user_in_organization
 from modules.organizations import service as organizations
 from modules.points.models import Points, PointsImport
+from modules.points.service import PointsError
 
 logger = get_logger(__name__)
 
@@ -20,6 +21,7 @@ MAX_ERRORS = 200  # errors kept on one run
 KEEP_RUNS = 50  # runs kept for each org
 CHECKED_IN = "Checked-In Date"
 CSV_UPLOAD = "CSV Upload"
+MAX_UPLOAD_BYTES = 2_000_000
 
 
 def changed(org_prefix: str) -> None:
@@ -91,6 +93,29 @@ def queue(db, org, file_content: str, event: str, points: int, created_by: str |
         db.commit()
         raise
     return run
+
+
+def queue_upload(
+    db, org, filename: str | None, raw: bytes, event: str, event_points: str, created_by: str | None
+) -> PointsImport:
+    """Check an uploaded CSV and queue its import. raw may hold one byte more than MAX_UPLOAD_BYTES. Commits.
+
+    Raises PointsError 400 for points that are not a whole number, a name without .csv or text that is not
+    UTF-8, and 413 for a file larger than MAX_UPLOAD_BYTES.
+    """
+    try:
+        points = int(event_points.strip())
+    except (AttributeError, ValueError):
+        raise PointsError("event_points must be a whole number") from None
+    if not filename or not filename.endswith(".csv"):
+        raise PointsError("File must be a CSV")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise PointsError("The CSV is larger than 2 MB", 413)
+    try:
+        content = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise PointsError("The CSV must be UTF-8 text") from None
+    return queue(db, org, content, event, points, created_by)
 
 
 def runs(db, organization_id, limit: int = 20) -> list[dict]:

@@ -6,9 +6,9 @@ Keeps the points that an org's members earn. Officers add members, give points b
 
 | File | Holds |
 | --- | --- |
-| `api.py` | `points_blueprint`; officer routes: members, point entries, awards, the CSV upload and its runs |
+| `api.py` | `points_blueprint`; officer routes (`officer_route`): members, point entries, awards, the CSV upload and its runs |
 | `member_api.py` | Member and public routes on the same blueprint: store sign-in, member profile, leaderboard |
-| `service.py` | Point totals, the member list with points, a member's orgs, and the award, list and delete of entries; declares `points:read` and `points:write` |
+| `service.py` | Point totals, the member list with points, a member's orgs, the member save and profile, the award, list and delete of entries, and the bodies of the routes; declares `points:read` and `points:write` |
 | `models.py`, `tools.py` | Point entries and import runs; the `points.*` tools |
 
 ## Surface
@@ -22,4 +22,4 @@ Keeps the points that an org's members earn. Officers add members, give points b
 
 ## Known gaps
 
-- Most views in `api.py` and `member_api.py` open their own session and query. The member list, point adds and the event and entry deletes are in `service.py`; the leaderboards and the CSV import are in the sub-modules. Move the rest one route at a time, with the contract tests.
+- `POST /<org_prefix>/add_points` answers 400 for an unknown org, not 404, so it does not use `officer_route`.

@@ -1,15 +1,19 @@
 """Points logic shared by the REST API, tools and jobs. No Flask here."""
 
-from typing import cast
+from collections.abc import Mapping
+from typing import Any, cast
 
 from sqlalchemy import func
 
 from core.errors import ServiceError
+from core.log import get_logger
 from modules.auth import scopes
 from modules.members import service as users
 from modules.members.models import User, UserOrganizationMembership
 from modules.organizations.models import Organization
 from modules.points.models import Points
+
+logger = get_logger(__name__)
 
 scopes.declare("points:read", "Read the org's points leaderboard (names and totals, no emails or student IDs)")
 scopes.declare("points:write", "Award points, delete point entries and import event attendance CSVs")
@@ -250,3 +254,193 @@ def history(db, user_id, organization_id) -> list[Points]:
         .order_by(Points.last_updated.desc())
         .all()
     )
+
+
+def all_entries(db, organization_id) -> list[dict]:
+    """Every point entry of the org, oldest first."""
+    rows = db.query(Points).filter_by(organization_id=organization_id).order_by(Points.id).all()
+    return [point_json(point) for point in rows]
+
+
+def _org_json(organization: Organization) -> dict:
+    return {"name": organization.name, "prefix": organization.prefix}
+
+
+def save_member(db, organization: Organization, data: Mapping[str, Any]) -> tuple[dict, bool]:
+    """Create, update or link a member of the org for an officer. Returns (body, created). Commits.
+
+    A missing field keeps the stored value. Raises PointsError 400 when the member is refused.
+    """
+    fields = users.member_input(data)
+    user_data = {
+        key: fields.get(key)
+        for key in ("username", "email", "name", "student_id", "class_standing", "major", "profile_fields")
+    }
+    user_data = {key: value for key, value in user_data.items() if value is not None}
+    user, ok, message = users.manage_user_in_organization(
+        db, organization.id, user_data, data.get("discord_id"), data.get("user_identifier"), by_officer=True
+    )
+    if not ok or user is None:
+        raise PointsError(message)
+    membership = (
+        db.query(UserOrganizationMembership).filter_by(user_id=user.id, organization_id=organization.id).first()
+    )
+    body = {
+        "message": message,
+        "user": {
+            **member_json(user, membership),
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        },
+        "organization": _org_json(organization),
+    }
+    return body, "created" in message
+
+
+def add_points(db, organization_id, data: Mapping[str, Any], awarded_by) -> dict:
+    """Add points to the user with this Discord id, else this email, uuid or username. Commits."""
+    discord_id = data.get("user_discord_id")
+    user_identifier = data.get("user_identifier")
+    if not discord_id and not user_identifier:
+        raise PointsError("Either 'user_discord_id' or 'user_identifier' must be provided")
+    if "points" not in data:
+        raise PointsError("points is required")
+    user = db.query(User).filter_by(discord_id=discord_id).first() if discord_id else None
+    if not user and user_identifier:
+        user = users.find_by_identifier(db, user_identifier)
+    if not user:
+        raise PointsError("User does not exist", 404)
+    return point_json(add_entry(db, organization_id, user, data["points"], data.get("event"), awarded_by))
+
+
+def _points_value(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise PointsError("points must be a number") from None
+
+
+def assign(db, organization: Organization, data: Mapping[str, Any], awarded_by) -> dict:
+    """Add points to an active member of the org found by email, uuid or username. Commits."""
+    if not data.get("user_identifier"):
+        raise PointsError("user_identifier is required")
+    if not data.get("points"):
+        raise PointsError("points is required")
+    points = _points_value(data["points"])
+    user = users.find_by_identifier(db, data["user_identifier"])
+    if not user:
+        raise PointsError("User not found", 404)
+    if not users.active_membership(db, user.id, organization.id):
+        raise PointsError("User is not a member of this organization")
+    point = add_entry(db, organization.id, user, points, data.get("event"), awarded_by)
+    return {
+        "message": "Points assigned successfully",
+        "points": point_json(point),
+        "user": {"name": user.name, "email": user.email},
+        "organization": _org_json(organization),
+    }
+
+
+def delete_event_points(db, organization_id, data: Mapping[str, Any]) -> dict:
+    """Delete a member's first entry for an event, by the member's email. Commits."""
+    if "user_email" not in data or "event" not in data:
+        raise PointsError("user_email and event are required")
+    entry = delete_event_entry(db, organization_id, data["user_email"], data["event"])
+    return {
+        "message": "Points deleted successfully",
+        "deleted_points": {
+            "points": entry.points,
+            "event": entry.event,
+            "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
+            "awarded_by_officer": entry.awarded_by_officer,
+            "user_id": entry.user_id,
+            "organization_id": entry.organization_id,
+        },
+    }
+
+
+def update_member_fields(db, organization_id, user_identifier: str, data: Mapping[str, Any]) -> dict:
+    """Update the fields sent for an active member. Commits.
+
+    The body has "details" when a field failed. Raises MemberError when the member is not found.
+    """
+    result = users.update_member(db, organization_id, user_identifier, data)
+    updated_fields, errors = result["updated_fields"], result["errors"]
+    if errors:
+        return {"error": "Some fields failed to update", "details": errors}
+    if not updated_fields:
+        return {"message": "No fields to update"}
+    return {
+        "message": f"Updated fields: {', '.join(updated_fields)}",
+        "updated_fields": updated_fields,
+        "user": member_json(result["user"], result["membership"]),
+    }
+
+
+def member_points(db, organization: Organization, user_identifier: str, show_details: bool) -> dict:
+    """An active member's total and points history. show_details adds student ids, profile fields and the major."""
+    user = users.find_by_identifier(db, user_identifier)
+    if not user:
+        raise PointsError("User not found", 404)
+    membership = users.active_membership(db, user.id, organization.id)
+    if not membership:
+        raise PointsError("User is not a member of this organization")
+    details = {**users.member_fields(user, membership), "major": user.major} if show_details else {}
+    return {
+        "user": {"id": user.id, "name": user.name, "email": user.email, "username": user.username, **details},
+        "organization": _org_json(organization),
+        "total_points": total_points(db, user.id, organization.id) or 0,
+        "points_history": [history_json(r) for r in history(db, user.id, organization.id)],
+    }
+
+
+def member_login(db, organization: Organization, data: Mapping[str, Any], discord_id) -> dict:
+    """Link or create the member that signs in to the store. Commits. Raises PointsError 500 when it fails."""
+    fields = users.member_input(data)
+    user_data = {key: fields.get(key) for key in ("name", "username", "email", "student_id", "class_standing", "major")}
+    user, ok, message = users.manage_user_in_organization(db, organization.id, user_data, discord_id=discord_id)
+    if not ok or user is None:
+        logger.warning("member login refused org=%s: %s", organization.prefix, message)
+        raise PointsError("Failed to create or link user account", 500)
+    return {
+        "message": "Login successful",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "username": user.username,
+            "email": user.email,
+            "asu_id": user.student_id,
+            "discord_linked": bool(user.discord_id),
+        },
+        "organization": {"id": organization.id, **_org_json(organization)},
+    }
+
+
+def member_profile(db, organization: Organization, discord_id, member_user_id, directory) -> dict:
+    """The signed-in member's profile, orgs and points. A Discord id comes first and must be in the org's server."""
+    if discord_id:
+        if directory is None or not directory.is_ready():
+            raise PointsError("Discord bot not available", 503)
+        if not directory.check_user_membership(int(discord_id), int(organization.guild_id)):
+            raise PointsError("You must be a member of this organization to access this resource", 403)
+        user = db.query(User).filter_by(discord_id=str(discord_id)).first()
+    else:
+        user = db.query(User).filter_by(id=member_user_id).first()
+    if not user:
+        raise PointsError("User not found", 404)
+    membership = users.active_membership(db, user.id, organization.id)
+    orgs = member_orgs(db, user.id, organization.id)
+    current_points = next((o["points"] for o in orgs if o["is_current"]), 0)
+    return {
+        "user": {
+            **member_json(user, membership),
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        },
+        "current_organization": {
+            "id": organization.id,
+            "name": organization.name,
+            "prefix": organization.prefix,
+            "points": current_points,
+        },
+        "organizations": orgs,
+        "total_points_all_orgs": sum(o["points"] for o in orgs),
+    }
