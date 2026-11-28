@@ -1,21 +1,25 @@
 // Empty, loading and error states, notices, and the footer of long lists.
-import { X } from 'lucide-react';
+import { ArrowRight, RotateCw, X } from 'lucide-react';
 import { type ComponentType, type ReactNode, useState } from 'react';
+import { Link } from 'react-router';
 import { count } from '../../lib/format';
 import { Button } from './controls';
 import { cx } from './cx';
-import { Card, StatGrid } from './layout';
+import { Card, DocsLink, StatGrid } from './layout';
 
+// A list or page with nothing in it: an icon, a title, one short line, an action and a link to the docs.
 export function EmptyState({
   icon: Icon,
   title,
   children,
   action,
+  docs,
 }: {
   icon?: ComponentType<{ className?: string }>;
   title?: string;
   children?: ReactNode;
   action?: ReactNode;
+  docs?: string;
 }) {
   return (
     <div className="flex flex-col items-center px-6 py-10 text-center">
@@ -26,7 +30,12 @@ export function EmptyState({
       ) : null}
       {title ? <p className="text-sm font-medium">{title}</p> : null}
       {children ? <div className={cx('max-w-sm text-sm text-pretty text-muted', title && 'mt-1')}>{children}</div> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      {action || docs ? (
+        <div className="mt-4 flex items-center gap-2">
+          {action}
+          {docs ? <DocsLink page={docs} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -87,6 +96,50 @@ export function ErrorNote({ error }: { error: unknown }) {
   );
 }
 
+// The main request of a page failed: the error and a button that tries again.
+export function PageError({ error, retry }: { error: unknown; retry?: () => void }) {
+  return (
+    <div className="flex flex-wrap items-start gap-3">
+      <div className="min-w-0 flex-1">
+        <ErrorNote error={error} />
+      </div>
+      {retry ? (
+        <Button onClick={retry}>
+          <RotateCw className="size-4" /> Try again
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+// A line above the page content that links to the page that fixes something, such as a missing integration.
+export function BannerLink({
+  to,
+  icon: Icon,
+  tone = 'warn',
+  label,
+  children,
+}: {
+  to: string;
+  icon: ComponentType<{ className?: string }>;
+  tone?: 'warn' | 'bad';
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      className="mb-6 flex animate-in items-center gap-3 rounded-lg border border-line bg-panel px-4 py-2.5 text-sm shadow-xs transition-colors hover:bg-panel-2/60"
+    >
+      <Icon className={cx('size-4 shrink-0', tone === 'bad' ? 'text-bad' : 'text-warn')} />
+      <span className="min-w-0 flex-1">{children}</span>
+      <span className="flex shrink-0 items-center gap-1 text-xs text-muted">
+        {label} <ArrowRight className="size-3.5" />
+      </span>
+    </Link>
+  );
+}
+
 // A message that an action worked.
 export function OkNote({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -105,14 +158,9 @@ export function Notice({ children, onDismiss }: { children: ReactNode; onDismiss
     >
       <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-info" aria-hidden />
       <div className="min-w-0 flex-1 text-pretty">{children}</div>
-      <button
-        type="button"
-        aria-label="Dismiss"
-        className="-my-0.5 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-fg"
-        onClick={onDismiss}
-      >
+      <Button variant="ghost" size="icon" aria-label="Dismiss" className="-my-1 size-7" onClick={onDismiss}>
         <X className="size-3.5" />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -143,7 +191,7 @@ export function ShowMore({ list, noun }: { list: { shown: unknown[]; total: numb
       <span className="tabular-nums">
         {count(list.shown.length)} of {count(list.total)} {noun}
       </span>
-      <Button variant="ghost" className="h-7 px-2.5 text-xs" onClick={list.more}>
+      <Button variant="ghost" size="sm" onClick={list.more}>
         Show {count(next)} more
       </Button>
     </div>

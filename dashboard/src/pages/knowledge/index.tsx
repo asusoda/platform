@@ -140,12 +140,7 @@ export function KnowledgePage() {
 
   return (
     <>
-      <PageHeader
-        title="Knowledge"
-        description="Pages and documents that agents search."
-        docs="modules/knowledge"
-        action={headerActions}
-      />
+      <PageHeader action={headerActions} />
       <StatGrid className="mb-6">
         <Stat label="Sources" value={list.data ? count(sources.length) : '-'} />
         <Stat label="Crawled on a schedule" value={list.data ? count(crawled.length) : '-'} />

@@ -22,7 +22,7 @@ export function PublishersPage() {
   const error = list.error ?? orgs.error ?? change.error;
   return (
     <>
-      <PageHeader title="Knowledge publishers" docs="modules/knowledge" />
+      <PageHeader />
       <Card>
         {error ? (
           <div className="p-4">

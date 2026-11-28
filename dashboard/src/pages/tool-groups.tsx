@@ -39,7 +39,7 @@ export function ToolGroupsCard({ prefix }: { prefix: string }) {
     <Card className="mt-6">
       <CardHeader
         title="Tool groups"
-        hint="The tools that agents and tokens of this org can call. A token also needs the scope."
+        hint="What agents and tokens of this org can call."
         action={
           <Button
             variant="primary"

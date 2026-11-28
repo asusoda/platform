@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { FileUp, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { Badge, Button, CheckOption, cx, Dot, Field, FormActions, Input, Mono, Spinner } from '../../components/ui';
+import { Badge, Button, CheckOption, cx, Dot, Field, FormActions, Input, Mono, Spinner, TextButton } from '../../components/ui';
 import { api } from '../../lib/api';
 import { bytes } from '../../lib/format';
 import type { UploadResult } from '../../lib/types';
@@ -163,13 +163,7 @@ export function UploadForm({
               {!typeOk(f) ? <Badge tone="bad">type not read</Badge> : null}
               {f.size > MAX_FILE_BYTES ? <Badge tone="bad">too large</Badge> : null}
               <span className="text-xs text-muted tabular-nums">{bytes(f.size)}</span>
-              <button
-                type="button"
-                className="text-xs text-muted hover:text-fg"
-                onClick={() => setFiles(files.filter((x) => x !== f))}
-              >
-                Remove
-              </button>
+              <TextButton onClick={() => setFiles(files.filter((x) => x !== f))}>Remove</TextButton>
             </li>
           ))}
         </ul>

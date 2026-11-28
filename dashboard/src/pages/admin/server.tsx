@@ -52,7 +52,7 @@ export function ServerPage() {
   const memoryUsed = s?.memory ? s.memory.total - s.memory.available : null;
   return (
     <>
-      <PageHeader title="Server" docs="codebase/operations" />
+      <PageHeader />
       {server.error ? <ErrorNote error={server.error} /> : null}
       {server.isLoading ? <PageSkeleton stats /> : null}
       {s ? (

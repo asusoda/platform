@@ -10,7 +10,7 @@ export function LogsView({ url }: { url: string }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-muted">Last 200 lines</span>
-        <Button variant="ghost" className="h-7 px-2 text-xs" disabled={logs.isFetching} onClick={() => logs.refetch()}>
+        <Button variant="ghost" size="sm" disabled={logs.isFetching} onClick={() => logs.refetch()}>
           {logs.isFetching ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />} Refresh
         </Button>
       </div>

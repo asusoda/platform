@@ -30,12 +30,6 @@
   }
 }
 
-@keyframes ui-fade {
-  from {
-    opacity: 0;
-  }
-}
-
 :root {
   color-scheme: light;
   --bg: hsl(0, 0%, 96%);

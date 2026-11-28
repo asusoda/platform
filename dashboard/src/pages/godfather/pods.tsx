@@ -15,6 +15,7 @@ import {
   Switch,
   Table,
   Td,
+  TextButton,
   Th,
   Tr,
 } from '../../components/ui';
@@ -96,9 +97,9 @@ function PodRow({ prefix, pod, open, providers }: { prefix: string; pod: Pod; op
         {pod.image_current ? null : (
           <div className="mt-1 flex items-center gap-2">
             <Badge tone="warn">Old image</Badge>
-            <button type="button" className="text-xs font-medium text-fg underline-offset-2 hover:underline" onClick={recreate}>
+            <TextButton tone="strong" className="text-xs" onClick={recreate}>
               Recreate
-            </button>
+            </TextButton>
           </div>
         )}
         {action.error || admin.error ? (

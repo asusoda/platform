@@ -10,9 +10,10 @@ import {
   CardHeader,
   Checkbox,
   Code,
+  cx,
   DeleteButton,
   Dialog,
-  cx,
+  DocsLink,
   EmptyState,
   ErrorNote,
   Field,
@@ -20,6 +21,7 @@ import {
   Input,
   Mono,
   PageHeader,
+  Segmented,
   SkeletonRows,
   Table,
   Td,
@@ -199,23 +201,20 @@ function PresetBar({
   const same = (names: string[]) => names.length === chosen.length && names.every((scope) => chosen.includes(scope));
   return (
     <div className="mb-2 flex flex-wrap items-center gap-3">
-      <div role="group" aria-label="Presets" className="flex flex-wrap rounded-md border border-line p-0.5">
-        {all.map((preset) => (
-          <button
-            key={preset.key}
-            type="button"
-            aria-pressed={same(preset.scopes)}
-            onClick={() => onPick(preset.scopes)}
-            className={cx(
-              'h-7 cursor-pointer rounded px-2.5 text-xs transition-colors',
-              same(preset.scopes) ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:text-fg',
-            )}
-          >
-            {preset.label}
-            {preset.scopes.length ? <span className="ml-1 text-muted tabular-nums">{preset.scopes.length}</span> : null}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Presets"
+        onChange={(key) => onPick(all.find((p) => p.key === key)?.scopes ?? [])}
+        options={all.map((preset) => ({
+          value: preset.key,
+          pressed: same(preset.scopes),
+          label: (
+            <>
+              {preset.label}
+              {preset.scopes.length ? <span className="ml-1 text-muted tabular-nums">{preset.scopes.length}</span> : null}
+            </>
+          ),
+        }))}
+      />
       <span className="text-xs text-muted tabular-nums">
         {chosen.length} of {total} scopes chosen
       </span>
@@ -342,10 +341,7 @@ function NewToken({
             total={choosable(Object.keys(scopes)).length}
             onPick={pick}
           />
-          <p className="mb-2 text-xs text-muted">
-            Read only and Read and write leave out the admin scopes, which give tokens, secrets, keys or the access
-            tokens of members. Presets also choose the tools of each connected integration below.
-          </p>
+          <p className="mb-2 text-xs text-muted">Presets leave out the admin scopes.</p>
           <div className="divide-y divide-line rounded-lg border border-line">
             {platformGroups.map((group) => (
               <ScopeGroup
@@ -517,11 +513,7 @@ export function ConnectionsPage() {
   const loading = list.isLoading || !org;
   return (
     <>
-      <PageHeader
-        title="Connections"
-        description="Agents and services that call Platform."
-        docs="codebase/authentication"
-      />
+      <PageHeader />
       {list.error ? (
         <div className="mb-4">
           <ErrorNote error={list.error} />
@@ -541,7 +533,7 @@ export function ConnectionsPage() {
       <Card className="mt-6">
         <CardHeader
           title="For services"
-          hint="Tokens for things that run with no one signed in: bots, CI jobs, scripts, Sparky. Send Authorization: Bearer plat_..."
+          hint="Tokens for bots, CI jobs and scripts."
           action={
             <Button onClick={() => setAdding(true)} disabled={!list.data}>
               <Plus className="size-4" /> New token
@@ -598,17 +590,10 @@ function ConnectCard({ mcp }: { mcp?: TokenList['mcp'] }) {
             </Button>
           ) : null}
         </div>
-        {mcp?.oauth ? (
-          <ol className="list-decimal space-y-1 pl-5 text-muted">
-            <li>Add the URL as an MCP server in the client.</li>
-            <li>Sign in with Discord, then pick the org and scopes.</li>
-            <li>The agent shows under Agents. Revoke it there.</li>
-          </ol>
-        ) : (
-          <p className="text-xs text-muted">
-            OAuth is off. Set ACCOUNTS_BASE_URL or MCP_PUBLIC_URL on the server, or use a service token below.
-          </p>
-        )}
+        <div className="flex items-center justify-between gap-3 text-xs text-muted">
+          <span>{mcp?.oauth ? 'Add the URL to the client and sign in with Discord.' : 'Sign-in for MCP clients is off on this server.'}</span>
+          <DocsLink page="codebase/authentication#oauth-for-mcp-clients" className="-my-1.5 shrink-0" />
+        </div>
       </div>
     </Card>
   );

@@ -334,7 +334,7 @@ export function NewPodDialog({ prefix, onClose }: { prefix: string; onClose: () 
 
         <fieldset className="space-y-3 border-t border-line pt-5">
           <legend className="text-sm font-medium">Member setup</legend>
-          <p className="text-xs text-muted">Optional. Each member gets it once, on their first connection. Needs image 2.4.0 or later.</p>
+          <p className="text-xs text-muted">Optional. Needs image 2.4.0 or later.</p>
           <MemberSetupFields value={setup} onChange={setSetup} />
         </fieldset>
 

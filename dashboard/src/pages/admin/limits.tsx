@@ -16,7 +16,7 @@ export function LimitsPage() {
   const orgs = all.data?.orgs ?? [];
   return (
     <>
-      <PageHeader title="Limits" description="Marked at 80% of a limit." docs="codebase/limits" />
+      <PageHeader />
       <Card>
         {all.error ? (
           <div className="p-4">

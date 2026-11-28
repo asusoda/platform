@@ -1,6 +1,8 @@
 // Buttons and form fields.
 import { Check, Minus, Search } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useEffect, useRef } from 'react';
+import { Link } from 'react-router';
+import { Tooltip } from '../tooltip';
 import { cx } from './cx';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -12,18 +14,74 @@ const buttonStyles: Record<ButtonVariant, string> = {
   danger: 'border border-line bg-panel text-bad shadow-xs hover:border-bad/40 hover:bg-bad/10 active:bg-bad/15',
 };
 
+type ButtonSize = 'md' | 'sm' | 'icon';
+
+const buttonSizes: Record<ButtonSize, string> = {
+  md: 'h-8 px-3 text-sm',
+  sm: 'h-7 px-2 text-xs',
+  icon: 'size-8 text-sm',
+};
+
+// The classes of a button, for an element that is not a button, such as a link.
+export function buttonClass(variant: ButtonVariant = 'secondary', size: ButtonSize = 'md', className?: string): string {
+  return cx(
+    'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] duration-150 ease-out select-none active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50',
+    buttonSizes[size],
+    buttonStyles[variant],
+    className,
+  );
+}
+
 export function Button({
   variant = 'secondary',
   size = 'md',
   className,
   ...props
-}: ComponentProps<'button'> & { variant?: ButtonVariant; size?: 'md' | 'icon' }) {
+}: ComponentProps<'button'> & { variant?: ButtonVariant; size?: ButtonSize }) {
+  return <button className={buttonClass(variant, size, className)} {...props} />;
+}
+
+// A link to a dashboard page that looks like a button.
+export function LinkButton({
+  variant = 'secondary',
+  size = 'md',
+  className,
+  ...props
+}: ComponentProps<typeof Link> & { variant?: ButtonVariant; size?: ButtonSize }) {
+  return <Link className={buttonClass(variant, size, className)} {...props} />;
+}
+
+// A ghost button with only an icon. The label is its accessible name and its tooltip.
+export function IconButton({
+  label,
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<'button'>, 'aria-label'> & { label: string }) {
+  return (
+    <Tooltip label={label} side="top">
+      <button type="button" aria-label={label} className={buttonClass('ghost', 'icon', className)} {...props}>
+        {children}
+      </button>
+    </Tooltip>
+  );
+}
+
+// A button that reads as text: a row title that opens its details, or a small action in a line of text.
+// quiet is muted until hover; strong is the row title; row is a block of two lines whose first line underlines.
+export function TextButton({
+  tone = 'quiet',
+  className,
+  ...props
+}: ComponentProps<'button'> & { tone?: 'quiet' | 'strong' | 'row' }) {
   return (
     <button
+      type="button"
       className={cx(
-        'inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] duration-150 ease-out select-none active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50',
-        size === 'icon' ? 'w-8' : 'px-3',
-        buttonStyles[variant],
+        'cursor-pointer rounded-sm text-left underline-offset-2 transition-colors duration-150 hover:underline disabled:pointer-events-none disabled:opacity-50',
+        tone === 'quiet' && 'text-xs text-muted hover:text-fg',
+        tone === 'strong' && 'min-w-0 font-medium text-fg',
+        tone === 'row' && 'group block w-full min-w-0 hover:no-underline [&>:first-child]:group-hover:underline',
         className,
       )}
       {...props}
@@ -168,5 +226,42 @@ export function CheckOption({
         {children ? <span className="mt-0.5 block text-xs text-muted">{children}</span> : null}
       </span>
     </label>
+  );
+}
+
+// A row of toggle buttons in one box, such as a time range. The pressed one has a fill.
+export function Segmented<T extends string | number>({
+  label,
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  label: string;
+  options: { value: T; label: ReactNode; pressed?: boolean }[];
+  value?: T;
+  onChange: (value: T) => void;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className={cx('flex flex-wrap rounded-md border border-line p-0.5', className)}>
+      {options.map((o) => {
+        const pressed = o.pressed ?? o.value === value;
+        return (
+          <button
+            key={String(o.value)}
+            type="button"
+            aria-pressed={pressed}
+            onClick={() => onChange(o.value)}
+            className={cx(
+              'h-7 cursor-pointer rounded px-2.5 text-xs transition-colors duration-150',
+              pressed ? 'bg-panel-2 font-medium text-fg' : 'text-muted hover:text-fg',
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

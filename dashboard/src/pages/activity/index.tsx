@@ -7,8 +7,10 @@ import { AuditLog } from './audit-log';
 import { CiRuns } from './ci-runs';
 import { ErrorsTab } from './errors';
 import { NotificationsTab } from './notifications';
+import { Timeline } from './timeline';
 
 const TABS = [
+  { id: 'timeline', label: 'Timeline' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'errors', label: 'Errors' },
   { id: 'changes', label: 'Changes' },
@@ -22,7 +24,7 @@ export function ActivityPage() {
   const [tab, setTab] = useTabParam(TABS);
   return (
     <>
-      <PageHeader title="Activity" description="What happened in your org." />
+      <PageHeader />
       <TabBar
         label="Activity"
         tabs={TABS}
@@ -38,8 +40,10 @@ export function ActivityPage() {
         <KnowledgeRuns />
       ) : tab === 'changes' ? (
         <AuditLog />
-      ) : (
+      ) : tab === 'notifications' ? (
         <NotificationsTab />
+      ) : (
+        <Timeline />
       )}
     </>
   );

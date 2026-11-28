@@ -303,9 +303,6 @@ export function AlertsPage() {
   return (
     <>
       <PageHeader
-        title="Alerts"
-        description="Where the org's events and feeds go."
-        docs="codebase/webhooks"
         action={
           <Button variant="primary" disabled={!data?.secrets_key} onClick={() => setEditing('new')}>
             <Plus className="size-4" /> New destination
@@ -331,7 +328,7 @@ export function AlertsPage() {
             hooks.map((h) => <WebhookRow key={h.id} prefix={prefix} hook={h} labels={labels} onEdit={() => setEditing(h)} />)
           ) : (
             <EmptyState icon={Megaphone} title="No destinations">
-              Add a Discord channel webhook. Events still show in Activity.
+              Add a Discord channel webhook.
             </EmptyState>
           )}
         </Card>

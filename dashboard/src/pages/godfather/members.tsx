@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { Check, Plus, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { Button, cx, Input, Select } from '../../components/ui';
+import { Button, cx, IconButton, Input, Select, TextButton } from '../../components/ui';
 import { ApiError, api } from '../../lib/api';
 import { godfatherPath, isDiscordId } from './shared';
 
@@ -126,9 +126,7 @@ export function UsersEditor({
           Allowed members
         </label>
         {users.length ? (
-          <button type="button" onClick={() => onChange([])} className="cursor-pointer text-xs text-muted hover:text-fg">
-            Clear all ({users.length})
-          </button>
+          <TextButton onClick={() => onChange([])}>Clear all ({users.length})</TextButton>
         ) : null}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -243,9 +241,7 @@ export function UsersEditor({
         </div>
       </div>
       {addAll.isError ? <p className="text-xs text-bad">{errorText(addAll.error, 'Could not add the role.')}</p> : null}
-      <p className="text-xs text-muted">
-        Listed members can connect even when the pod is not open to everyone. The list keeps who you add, not the role.
-      </p>
+      <p className="text-xs text-muted">Listed members can always connect.</p>
       {users.length ? (
         <ul className="flex flex-wrap gap-1.5" aria-label="Allowed members">
           {users.map((user) => {
@@ -260,14 +256,9 @@ export function UsersEditor({
                 )}
               >
                 {name ?? user}
-                <button
-                  type="button"
-                  aria-label={`Remove ${name ?? user}`}
-                  onClick={() => onChange(users.filter((u) => u !== user))}
-                  className="flex size-6 cursor-pointer items-center justify-center rounded text-muted hover:bg-panel hover:text-fg"
-                >
+                <IconButton label={`Remove ${name ?? user}`} className="size-6" onClick={() => onChange(users.filter((u) => u !== user))}>
                   <X className="size-3.5" />
-                </button>
+                </IconButton>
               </li>
             );
           })}

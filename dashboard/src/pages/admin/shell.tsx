@@ -1,9 +1,9 @@
 import { ArrowLeft, ShieldX } from 'lucide-react';
 import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { AuthFrame } from '../../components/auth-frame';
 import { ADMIN_PATH, AdminMark, Crumb, Frame, HomeCrumb, SidebarNav, Switcher, useCurrentEntry } from '../../components/shell';
-import { ErrorNote, Spinner } from '../../components/ui';
+import { ErrorNote, LinkButton, Spinner } from '../../components/ui';
 import { useOrganizations } from '../../lib/org';
 import { useSuperadmin } from '../../lib/queries';
 import { ADMIN_PAGES, ADMIN_SECTIONS } from './registry';
@@ -20,9 +20,9 @@ function NotAllowed() {
         </span>
         <h1 className="text-xl font-semibold tracking-tight">Not allowed</h1>
         <p className="mt-1.5 text-sm text-muted">This page is for the Platform superadmin.</p>
-        <Link to="/" className="mt-6 inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium shadow-xs transition-colors hover:bg-panel-2">
+        <LinkButton to="/" className="mt-6">
           <ArrowLeft className="size-4" /> Your orgs
-        </Link>
+        </LinkButton>
       </div>
     </AuthFrame>
   );
@@ -67,6 +67,7 @@ function AdminSpace() {
 
   return (
     <Frame
+      page={page}
       header={(state) => <AdminSwitcher {...state} />}
       nav={(state) => <SidebarNav sections={sections} {...state} />}
       crumbs={

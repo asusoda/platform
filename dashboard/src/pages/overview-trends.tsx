@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DailyBars } from '../components/charts';
-import { Card, CardHeader, cx, ErrorNote, Skeleton } from '../components/ui';
+import { Card, CardHeader, cx, ErrorNote, Segmented, Skeleton } from '../components/ui';
 import { compact } from '../lib/format';
 import { useTrends } from '../lib/queries';
 
@@ -24,22 +24,7 @@ export function TrendsCard({ prefix }: { prefix: string }) {
         title="Activity over time"
         hint="Per day, UTC"
         action={
-          <div role="group" aria-label="Range" className="flex rounded-md border border-line p-0.5">
-            {RANGES.map((n) => (
-              <button
-                key={n}
-                type="button"
-                aria-pressed={days === n}
-                onClick={() => setDays(n)}
-                className={cx(
-                  'h-6 cursor-pointer rounded px-2 text-xs transition-colors',
-                  days === n ? 'bg-panel-2 text-fg' : 'text-muted hover:text-fg',
-                )}
-              >
-                {n}d
-              </button>
-            ))}
-          </div>
+          <Segmented label="Range" value={days} onChange={setDays} options={RANGES.map((n) => ({ value: n, label: `${n}d` }))} />
         }
       />
       {error ? (

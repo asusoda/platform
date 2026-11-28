@@ -135,7 +135,7 @@ export function OrganizationsPage() {
   const close = () => setOpen(null);
   return (
     <>
-      <PageHeader title="Organizations" />
+      <PageHeader />
       <div className="space-y-6">
         <Card>
           <CardHeader title={orgs.data ? `${orgs.data.length} ${orgs.data.length === 1 ? 'organization' : 'organizations'}` : 'Organizations'} />

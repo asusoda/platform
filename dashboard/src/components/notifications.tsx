@@ -3,6 +3,7 @@ import { ArrowUpRight, Bell, Check, CheckCheck, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { timeAgo } from '../lib/format';
+import { moduleLabel } from '../lib/modules';
 import { useCurrentOrg } from '../lib/org';
 import { useNotificationChange, useNotifications } from '../lib/queries';
 import type { Notification } from '../lib/types';
@@ -10,22 +11,7 @@ import { Checkbox } from './selection';
 import { Tooltip } from './tooltip';
 import { Badge, Button, cx, Mono, Spinner } from './ui';
 
-const MODULE_LABELS: Record<string, string> = {
-  feeds: 'Feeds',
-  // Older notifications, from before the two feed modules became feeds
-  job_webhook: 'Job alerts',
-  hackathon_webhook: 'Hackathons',
-  apps: 'Hosting',
-  app: 'Hosting',
-  knowledge: 'Knowledge',
-  errors: 'Errors',
-  jobs: 'Jobs',
-  godfather: 'Godfather',
-  order: 'Store',
-  member: 'Members',
-};
-
-export const moduleLabel = (module: string) => MODULE_LABELS[module] ?? module;
+export { moduleLabel } from '../lib/modules';
 
 // One notification: the module, the subject, the message, a link to the page that fixes it, and resolve or reopen.
 // With onSelect, a checkbox takes the place of the dot.

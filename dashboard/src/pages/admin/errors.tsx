@@ -32,7 +32,6 @@ export function ErrorsPage() {
   return (
     <>
       <PageHeader
-        title="Errors"
         action={
           <Select value={org} onChange={(e) => setOrg(e.target.value)} aria-label="Filter by org" className="w-44 sm:w-52">
             <option value="">All</option>
